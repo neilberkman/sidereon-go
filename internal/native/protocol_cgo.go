@@ -19,6 +19,57 @@ var errTokenTooLong = errors.New("sidereon: satellite token is too long")
 var errNilNativeHandle = errors.New("sidereon: native constructor returned a nil handle")
 
 const (
+	RTCMMessageMSMValue                   = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_MSM)
+	RTCMMessageStationCoordinatesValue    = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_STATION_COORDINATES)
+	RTCMMessageAntennaDescriptorValue     = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_ANTENNA_DESCRIPTOR)
+	RTCMMessageGPSEphemerisValue          = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GPS_EPHEMERIS)
+	RTCMMessageGLONASSEphemerisValue      = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GLONASS_EPHEMERIS)
+	RTCMMessageSSRValue                   = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_SSR)
+	RTCMMessageUnsupportedValue           = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_UNSUPPORTED)
+	RTCMMessageBeiDouEphemerisValue       = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_BEIDOU_EPHEMERIS)
+	RTCMMessageQZSSEphemerisValue         = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_QZSS_EPHEMERIS)
+	RTCMMessageGalileoFNavEphemerisValue  = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GALILEO_FNAV_EPHEMERIS)
+	RTCMMessageGalileoINavEphemerisValue  = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GALILEO_INAV_EPHEMERIS)
+	RTCMMSM4Value                         = uint32(C.SIDEREON_RTCM_MSM_KIND_MSM4)
+	RTCMMSM7Value                         = uint32(C.SIDEREON_RTCM_MSM_KIND_MSM7)
+	RTCMFrameTruncatedValue               = uint32(C.SIDEREON_RTCM_FRAME_SKIP_REASON_TRUNCATED)
+	RTCMFrameMalformedValue               = uint32(C.SIDEREON_RTCM_FRAME_SKIP_REASON_MALFORMED)
+	RTCMAntennaDescriptorFieldValue       = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_ANTENNA_DESCRIPTOR)
+	RTCMAntennaSerialNumberFieldValue     = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_ANTENNA_SERIAL_NUMBER)
+	RTCMReceiverTypeFieldValue            = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_RECEIVER_TYPE)
+	RTCMReceiverFirmwareVersionFieldValue = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_RECEIVER_FIRMWARE_VERSION)
+	RTCMReceiverSerialNumberFieldValue    = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_RECEIVER_SERIAL_NUMBER)
+	EphemerisSampleValidValue             = uint32(C.SIDEREON_EPHEMERIS_SAMPLE_STATUS_VALID)
+	EphemerisSampleGapValue               = uint32(C.SIDEREON_EPHEMERIS_SAMPLE_STATUS_GAP)
+	ObservableStateValidValue             = uint32(C.SIDEREON_OBSERVABLE_STATE_ELEMENT_STATUS_VALID)
+	ObservableStateGapValue               = uint32(C.SIDEREON_OBSERVABLE_STATE_ELEMENT_STATUS_GAP)
+	ObservableStateErrorValue             = uint32(C.SIDEREON_OBSERVABLE_STATE_ELEMENT_STATUS_ERROR)
+	EmissionMediaValidValue               = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_VALID)
+	EmissionMediaGapValue                 = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_GAP)
+	EmissionMediaBelowElevationValue      = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_BELOW_ELEVATION_CUTOFF)
+	EmissionMediaErrorValue               = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_ERROR)
+	SignalModulationBPSKValue             = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_BPSK)
+	SignalModulationBOCSineValue          = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_BOC_SINE)
+	SignalModulationBOCCosineValue        = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_BOC_COSINE)
+	SignalModulationMBOCValue             = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_MBOC611_OVER11)
+	SignalModulationTMBOCValue            = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_TMBOC614_OVER33)
+	SignalModulationCBOCPlusValue         = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_CBOC611_OVER11_PLUS)
+	SignalModulationCBOCMinusValue        = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_CBOC611_OVER11_MINUS)
+	DLLCoherentValue                      = uint32(C.SIDEREON_SIGNAL_ANALYSIS_DLL_PROCESSING_COHERENT)
+	DLLNonCoherentValue                   = uint32(C.SIDEREON_SIGNAL_ANALYSIS_DLL_PROCESSING_NON_COHERENT)
+	SBASPLNoErrorValue                    = uint32(C.SIDEREON_SBAS_PL_ERROR_NONE)
+	SBASPLInsufficientGeometryValue       = uint32(C.SIDEREON_SBAS_PL_ERROR_INSUFFICIENT_GEOMETRY)
+	SBASPLNumericalFailureValue           = uint32(C.SIDEREON_SBAS_PL_ERROR_NUMERICAL_FAILURE)
+	SBASPLInvalidErrorModelValue          = uint32(C.SIDEREON_SBAS_PL_ERROR_INVALID_ERROR_MODEL)
+	SBASSolveMixedValue                   = uint32(C.SIDEREON_SBAS_SOLVE_MODE_MIXED_AUGMENTATION)
+	SBASSolveSBASOnlyValue                = uint32(C.SIDEREON_SBAS_SOLVE_MODE_SBAS_ONLY)
+	SSRReferencePointAntennaValue         = uint32(C.SIDEREON_SSR_REFERENCE_POINT_ANTENNA_PHASE_CENTER)
+	SSRReferencePointCenterOfMassValue    = uint32(C.SIDEREON_SSR_REFERENCE_POINT_CENTER_OF_MASS)
+	SSRSourceRTCMValue                    = uint32(0)
+	SSRSourceGalileoHASValue              = uint32(1)
+	SSRMissingDeclineValue                = uint32(C.SIDEREON_SSR_MISSING_CORRECTION_ACTION_DECLINE)
+	SSRMissingFallbackValue               = uint32(C.SIDEREON_SSR_MISSING_CORRECTION_ACTION_FALL_BACK_TO_BROADCAST)
+
 	SBASWireFramed250Value = uint32(C.SIDEREON_SBAS_WIRE_FORM_FRAMED250)
 	SBASWireBody226Value   = uint32(C.SIDEREON_SBAS_WIRE_FORM_BODY226)
 
@@ -49,6 +100,20 @@ const (
 	RINEXClockInstantNanosValue      = uint32(C.SIDEREON_RINEX_CLOCK_INSTANT_REPRESENTATION_NANOS)
 )
 
+func validateSBASWireFormValue(value uint32) error {
+	if value != SBASWireFramed250Value && value != SBASWireBody226Value {
+		return errors.New("sidereon: invalid SBAS wire form")
+	}
+	return nil
+}
+
+func validateSBASMessageKindValue(value uint32) error {
+	if value > SBASMessageUnsupportedValue {
+		return invalidArgument("invalid SBAS message kind returned by native code")
+	}
+	return nil
+}
+
 func withInput(data []byte, fn func(*C.uint8_t, C.size_t) uint32) error {
 	return withInputStatus(data, fn, statusErrorLocked)
 }
@@ -60,6 +125,10 @@ func withInputTerrainDiagnostics(data []byte, fn func(*C.uint8_t, C.size_t) uint
 }
 
 func withInputStatus(data []byte, fn func(*C.uint8_t, C.size_t) uint32, statusError func(uint32) error) error {
+	length, sizeErr := checkedNativeSize(len(data))
+	if sizeErr != nil {
+		return sizeErr
+	}
 	if _, err := checkedNativeAllocationSize(len(data), 1); err != nil {
 		return err
 	}
@@ -74,7 +143,7 @@ func withInputStatus(data []byte, fn func(*C.uint8_t, C.size_t) uint32, statusEr
 			}
 			defer C.free(pointer)
 		}
-		err = statusError(fn((*C.uint8_t)(pointer), C.size_t(len(data))))
+		err = statusError(fn((*C.uint8_t)(pointer), length))
 	})
 	runtime.KeepAlive(data)
 	return err
@@ -325,6 +394,7 @@ func ParseRinexLeapSeconds(data []byte) (float64, bool, error) {
 }
 
 type RinexNavRecords struct {
+	_        noCopy
 	resource *resource
 	cleanup  runtime.Cleanup
 }
@@ -346,9 +416,16 @@ func ParseRinexNavRecords(data []byte) (*RinexNavRecords, error) {
 		return C.sidereon_parse_rinex_nav_records(input, length, &pointer)
 	})
 	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_rinex_nav_records_free(pointer) })
+		}
 		return nil, err
 	}
-	return newRinexNavRecords(pointer)
+	handle, err := newRinexNavRecords(pointer)
+	if err != nil && pointer != nil {
+		withCThread(func() { C.sidereon_rinex_nav_records_free(pointer) })
+	}
+	return handle, err
 }
 
 func (records *RinexNavRecords) Close() error {
@@ -436,6 +513,7 @@ func (records *RinexNavRecords) Record(index int) (NativeBroadcastRecord, error)
 }
 
 type RinexNavParse struct {
+	_        noCopy
 	resource *resource
 	cleanup  runtime.Cleanup
 }
@@ -457,9 +535,16 @@ func ParseRinexNavLenient(data []byte) (*RinexNavParse, error) {
 		return C.sidereon_parse_rinex_nav_lenient(input, length, &pointer)
 	})
 	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_nav_parse_free(pointer) })
+		}
 		return nil, err
 	}
-	return newRinexNavParse(pointer)
+	handle, err := newRinexNavParse(pointer)
+	if err != nil && pointer != nil {
+		withCThread(func() { C.sidereon_nav_parse_free(pointer) })
+	}
+	return handle, err
 }
 
 func (parse *RinexNavParse) Close() error {
@@ -574,8 +659,11 @@ func (parse *RinexNavParse) Skipped() ([]NativeSkippedNavBlock, error) {
 			}); err != nil {
 				return err
 			}
-			n, err := checkedNativeCount(uint64(required))
+			n, err := validateNativeQuery("RINEX NAV skipped diagnostic", uint64(written), uint64(required))
 			if err != nil {
+				return err
+			}
+			if _, err := checkedNativeAllocationSize(n, 1); err != nil {
 				return err
 			}
 			message := make([]C.uint8_t, n)
@@ -668,20 +756,33 @@ func EncodeRinexNav(records []NativeBroadcastRecord) ([]byte, error) {
 		}
 		values[index] = value
 	}
+	nativeMemory, err := checkedNativeMalloc(len(values), unsafe.Sizeof(C.SidereonBroadcastRecord{}))
+	if err != nil {
+		return nil, err
+	}
+	if nativeMemory != nil {
+		defer C.free(nativeMemory)
+	}
+	nativeValues := unsafe.Slice((*C.SidereonBroadcastRecord)(nativeMemory), len(values))
+	copy(nativeValues, values)
 	var out []byte
 	var result error
 	withCThread(func() {
 		var input *C.SidereonBroadcastRecord
 		if len(values) != 0 {
-			input = &values[0]
+			input = (*C.SidereonBroadcastRecord)(nativeMemory)
 		}
 		var written, required C.size_t
 		result = statusErrorLocked(C.sidereon_encode_rinex_nav(input, C.size_t(len(values)), nil, 0, &written, &required))
 		if result != nil {
 			return
 		}
-		n, err := checkedNativeCount(uint64(required))
+		n, err := validateNativeQuery("RINEX NAV encoding", uint64(written), uint64(required))
 		if err != nil {
+			result = err
+			return
+		}
+		if _, err := checkedNativeAllocationSize(n, 1); err != nil {
 			result = err
 			return
 		}
@@ -723,11 +824,13 @@ type NativeClockPoint struct {
 }
 
 type RinexClock struct {
+	_        noCopy
 	resource *resource
 	cleanup  runtime.Cleanup
 }
 
 type ClockSeries struct {
+	_        noCopy
 	resource *resource
 	cleanup  runtime.Cleanup
 }
@@ -763,9 +866,16 @@ func ParseRinexClock(data []byte, lossy bool) (*RinexClock, error) {
 		return C.sidereon_rinex_clock_parse(input, length, &pointer)
 	})
 	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_rinex_clock_free(pointer) })
+		}
 		return nil, err
 	}
-	return newRinexClock(pointer)
+	handle, err := newRinexClock(pointer)
+	if err != nil && pointer != nil {
+		withCThread(func() { C.sidereon_rinex_clock_free(pointer) })
+	}
+	return handle, err
 }
 
 func (clock *RinexClock) Close() error {
@@ -885,9 +995,16 @@ func (clock *RinexClock) Series(index int) (*ClockSeries, error) {
 	})
 	runtime.KeepAlive(clock)
 	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_rinex_clock_series_free(pointer) })
+		}
 		return nil, err
 	}
-	return newClockSeries(pointer)
+	handle, err := newClockSeries(pointer)
+	if err != nil && pointer != nil {
+		withCThread(func() { C.sidereon_rinex_clock_series_free(pointer) })
+	}
+	return handle, err
 }
 
 func (clock *RinexClock) SeriesFor(satelliteID string) (*ClockSeries, error) {
@@ -902,12 +1019,19 @@ func (clock *RinexClock) SeriesFor(satelliteID string) (*ClockSeries, error) {
 	})
 	runtime.KeepAlive(clock)
 	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_rinex_clock_series_free(pointer) })
+		}
 		return nil, err
 	}
 	if pointer == nil {
 		return nil, nil
 	}
-	return newClockSeries(pointer)
+	handle, err := newClockSeries(pointer)
+	if err != nil && pointer != nil {
+		withCThread(func() { C.sidereon_rinex_clock_series_free(pointer) })
+	}
+	return handle, err
 }
 
 func (clock *RinexClock) BiasAtGPSSeconds(satelliteID string, seconds float64) (float64, bool, error) {
@@ -937,8 +1061,11 @@ func (clock *RinexClock) Text() ([]byte, error) {
 		}); err != nil {
 			return err
 		}
-		n, err := checkedNativeCount(uint64(required))
+		n, err := validateNativeQuery("RINEX clock text", uint64(written), uint64(required))
 		if err != nil {
+			return err
+		}
+		if _, err := checkedNativeAllocationSize(n, 1); err != nil {
 			return err
 		}
 		values := make([]C.uint8_t, n)
@@ -1048,17 +1175,28 @@ func (series *ClockSeries) Samples() ([]NativeClockPoint, error) {
 }
 
 func DecodeSbasBlock(data []byte, form uint32) (*SbasBlock, error) {
+	if err := validateSBASWireFormValue(form); err != nil {
+		return nil, err
+	}
 	var pointer *C.SidereonSbasBlock
 	err := withInput(data, func(input *C.uint8_t, length C.size_t) uint32 {
 		return C.sidereon_sbas_block_decode(input, length, C.uint32_t(form), &pointer)
 	})
 	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_sbas_block_free(pointer) })
+		}
 		return nil, err
 	}
-	return newSbasBlock(pointer)
+	handle, err := newSbasBlock(pointer)
+	if err != nil && pointer != nil {
+		withCThread(func() { C.sidereon_sbas_block_free(pointer) })
+	}
+	return handle, err
 }
 
 type SbasBlock struct {
+	_        noCopy
 	resource *resource
 	cleanup  runtime.Cleanup
 }
@@ -1157,6 +1295,12 @@ func (block *SbasBlock) Info() (NativeSbasMessageInfo, error) {
 	})
 	runtime.KeepAlive(block)
 	if err != nil {
+		return NativeSbasMessageInfo{}, err
+	}
+	if err := validateSBASWireFormValue(uint32(value.form)); err != nil {
+		return NativeSbasMessageInfo{}, err
+	}
+	if err := validateSBASMessageKindValue(uint32(value.kind)); err != nil {
 		return NativeSbasMessageInfo{}, err
 	}
 	fastCount, err := checkedNativeCount(uint64(value.fast_count))
@@ -1415,8 +1559,11 @@ func (block *SbasBlock) RawData() ([]byte, error) {
 		}); err != nil {
 			return err
 		}
-		n, err := checkedNativeCount(uint64(required))
+		n, err := validateNativeQuery("SBAS raw data", uint64(written), uint64(required))
 		if err != nil {
+			return err
+		}
+		if _, err := checkedNativeAllocationSize(n, 1); err != nil {
 			return err
 		}
 		values := make([]C.uint8_t, n)
@@ -1455,8 +1602,11 @@ func (block *SbasBlock) Encode() ([]byte, error) {
 		}); err != nil {
 			return err
 		}
-		n, err := checkedNativeCount(uint64(required))
+		n, err := validateNativeQuery("SBAS encoding", uint64(written), uint64(required))
 		if err != nil {
+			return err
+		}
+		if _, err := checkedNativeAllocationSize(n, 1); err != nil {
 			return err
 		}
 		values := make([]C.uint8_t, n)
@@ -1490,6 +1640,7 @@ type NativeSbasLogBlock struct {
 	ByteCount   int
 }
 type SbasLogBlocks struct {
+	_        noCopy
 	resource *resource
 	cleanup  runtime.Cleanup
 }
@@ -1512,9 +1663,16 @@ func parseSbasLog(data []byte, rtklib bool) (*SbasLogBlocks, error) {
 		return C.sidereon_parse_sbas_ems_lines(input, length, &pointer)
 	})
 	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_sbas_log_blocks_free(pointer) })
+		}
 		return nil, err
 	}
-	return newSbasLogBlocks(pointer)
+	handle, err := newSbasLogBlocks(pointer)
+	if err != nil && pointer != nil {
+		withCThread(func() { C.sidereon_sbas_log_blocks_free(pointer) })
+	}
+	return handle, err
 }
 
 func ParseSbasEMSLines(data []byte) (*SbasLogBlocks, error) {
@@ -1569,6 +1727,9 @@ func (blocks *SbasLogBlocks) Items() ([]NativeSbasLogBlock, error) {
 			}); err != nil {
 				return err
 			}
+			if err := validateSBASWireFormValue(uint32(value.form)); err != nil {
+				return err
+			}
 			byteCount, err := checkedNativeCount(uint64(value.byte_count))
 			if err != nil {
 				return err
@@ -1595,8 +1756,11 @@ func (blocks *SbasLogBlocks) Bytes(index int) ([]byte, error) {
 		}); err != nil {
 			return err
 		}
-		n, err := checkedNativeCount(uint64(required))
+		n, err := validateNativeQuery("SBAS log bytes", uint64(written), uint64(required))
 		if err != nil {
+			return err
+		}
+		if _, err := checkedNativeAllocationSize(n, 1); err != nil {
 			return err
 		}
 		values := make([]C.uint8_t, n)
@@ -1632,8 +1796,12 @@ func SbasPRNToSatelliteID(prn uint16) (string, bool, error) {
 		if result != nil {
 			return
 		}
-		n, sizeErr := checkedNativeCount(uint64(required))
+		n, sizeErr := validateNativeQuery("SBAS PRN mapping", uint64(written), uint64(required))
 		if sizeErr != nil {
+			result = sizeErr
+			return
+		}
+		if _, sizeErr = checkedNativeAllocationSize(n, 1); sizeErr != nil {
 			result = sizeErr
 			return
 		}
@@ -1709,6 +1877,7 @@ type NativeSsrPhaseBiasRecord struct {
 type NativeSsrUraRecord struct{ SatelliteID, URAIndex uint8 }
 
 type SsrMessage struct {
+	_        noCopy
 	resource *resource
 	cleanup  runtime.Cleanup
 	body     []byte
@@ -1728,9 +1897,16 @@ func DecodeSsrMessage(data []byte) (*SsrMessage, error) {
 		return C.sidereon_ssr_message_decode(input, length, &pointer)
 	})
 	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_ssr_message_free(pointer) })
+		}
 		return nil, err
 	}
-	return newSsrMessage(pointer, data)
+	handle, err := newSsrMessage(pointer, data)
+	if err != nil && pointer != nil {
+		withCThread(func() { C.sidereon_ssr_message_free(pointer) })
+	}
+	return handle, err
 }
 func (message *SsrMessage) Close() error {
 	if message == nil {

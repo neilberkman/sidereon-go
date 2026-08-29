@@ -75,6 +75,27 @@ func freeNativeInput(pointer unsafe.Pointer) {
 	}
 }
 
+// withInputError copies Go input into temporary C-owned storage and runs an
+// error-returning native operation on the locked OS thread.
+func withInputError(data []byte, fn func(*C.uint8_t, C.size_t) error) error {
+	length, err := checkedNativeSize(len(data))
+	if err != nil {
+		return err
+	}
+	var operationErr error
+	withCThread(func() {
+		pointer, copyErr := copyNativeInput(data)
+		if copyErr != nil {
+			operationErr = copyErr
+			return
+		}
+		defer freeNativeInput(pointer)
+		operationErr = fn((*C.uint8_t)(pointer), length)
+	})
+	runtime.KeepAlive(data)
+	return operationErr
+}
+
 func callStatus(fn func() uint32) error {
 	var err error
 	withCThread(func() {
@@ -224,6 +245,55 @@ func copyNativeBytesWithTerrainDiagnostics(label string, call nativeBytesCall, c
 		result, err = copyNativeBytesLockedWithTerrainDiagnostics(label, call, captureDatum, captureStore)
 	})
 	return result, err
+}
+
+// withStringError copies a Go string into temporary C-owned storage and runs
+// an error-returning native operation on the locked OS thread.
+func withStringError(value string, fn func(*C.char) error) error {
+	if err := rejectEmbeddedNUL(value, "native string"); err != nil {
+		return err
+	}
+	if len(value) == int(^uint(0)>>1) {
+		return errors.New("sidereon: native string is too large")
+	}
+	if _, err := checkedNativeAllocationSize(len(value)+1, 1); err != nil {
+		return err
+	}
+	var err error
+	withCThread(func() {
+		pointer := C.CString(value)
+		if pointer == nil {
+			err = errors.New("sidereon: unable to allocate native string")
+			return
+		}
+		defer C.free(unsafe.Pointer(pointer))
+		err = fn(pointer)
+	})
+	runtime.KeepAlive(value)
+	return err
+}
+
+// withToken validates and copies a fixed-width satellite token for C.
+func withToken(value, name string, fn func(*C.char) uint32) error {
+	if err := rejectEmbeddedNUL(value, name); err != nil {
+		return err
+	}
+	if len(value) >= 16 {
+		return fmt.Errorf("sidereon: %s is too long", name)
+	}
+	return withString(value, fn)
+}
+
+// withTokenError validates and copies a fixed-width satellite token for a
+// callback that can report allocation or native errors directly.
+func withTokenError(value, name string, fn func(*C.char) error) error {
+	if err := rejectEmbeddedNUL(value, name); err != nil {
+		return err
+	}
+	if len(value) >= 16 {
+		return fmt.Errorf("sidereon: %s is too long", name)
+	}
+	return withStringError(value, fn)
 }
 
 type Version struct {

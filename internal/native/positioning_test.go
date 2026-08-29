@@ -28,6 +28,19 @@ func TestCheckedNativeAllocationSize(t *testing.T) {
 	}
 }
 
+func TestCheckedNativeProduct(t *testing.T) {
+	if product, err := checkedNativeProduct(4, 3, "test shape"); err != nil || product != 12 {
+		t.Fatalf("checkedNativeProduct(4, 3) = %d, %v; want 12, nil", product, err)
+	}
+	if _, err := checkedNativeProduct(-1, 3, "test shape"); err == nil {
+		t.Fatal("checkedNativeProduct accepted a negative count")
+	}
+	maxInt := int(^uint(0) >> 1)
+	if _, err := checkedNativeProduct(maxInt/2+1, 2, "test shape"); err == nil {
+		t.Fatal("checkedNativeProduct accepted an overflowing product")
+	}
+}
+
 func TestCheckedNativeCount(t *testing.T) {
 	if count, err := checkedNativeCount(7); err != nil || count != 7 {
 		t.Fatalf("checkedNativeCount(7) = %d, %v; want 7, nil", count, err)
@@ -144,5 +157,18 @@ func TestValidateTwoPassCounts(t *testing.T) {
 				t.Fatalf("validateTwoPassCounts() error = %v; want substring %q", err, test.wantErr)
 			}
 		})
+	}
+}
+
+func TestValidateNativeCopyShapes(t *testing.T) {
+	if _, err := validateNativeQuery("test query", 1, 2); err == nil {
+		t.Fatal("validateNativeQuery accepted a count mismatch")
+	}
+	tooLarge := uint64(^uint(0)>>1) + 1
+	if _, err := validateNativeQuery("test query", 0, tooLarge); err == nil {
+		t.Fatal("validateNativeQuery accepted an overflowing required count")
+	}
+	if _, err := validateNativeOutput("test copy", 2, 1, 2); err == nil {
+		t.Fatal("validateNativeOutput accepted a count mismatch")
 	}
 }

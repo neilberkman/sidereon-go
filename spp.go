@@ -135,3 +135,73 @@ func SolveSPP(sp3 *SP3, config SPPConfig) (SPPSolution, error) {
 	}
 	return out, nil
 }
+
+func nativeSPPConfig(config SPPConfig) native.SPPConfig {
+	out := native.SPPConfig{
+		TRxJ2000S:       config.TRxJ2000S,
+		TRxSecondOfDayS: config.TRxSecondOfDayS,
+		DayOfYear:       config.DayOfYear,
+		InitialGuess:    config.InitialGuess,
+		Ionosphere:      config.Ionosphere,
+		Troposphere:     config.Troposphere,
+		WithGeodetic:    config.WithGeodetic,
+	}
+	out.Observations = make([]native.SPPObservation, len(config.Observations))
+	for i, observation := range config.Observations {
+		out.Observations[i] = native.SPPObservation{
+			SatelliteID:  observation.SatelliteID,
+			PseudorangeM: observation.PseudorangeM,
+		}
+	}
+	return out
+}
+
+func fromNativeSPPSolution(result native.SPPSolution) SPPSolution {
+	out := SPPSolution{
+		PositionM:          result.PositionM,
+		ReceiverClockS:     result.ReceiverClockS,
+		UsedSatelliteCount: result.UsedSatelliteCount,
+		UsedSatelliteIDs:   append([]string(nil), result.UsedSatelliteIDs...),
+		ResidualsM:         append([]float64(nil), result.ResidualsM...),
+		Metadata: SPPMetadata{
+			Iterations:          result.Metadata.Iterations,
+			Converged:           result.Metadata.Converged,
+			Status:              result.Metadata.Status,
+			IonosphereApplied:   result.Metadata.IonosphereApplied,
+			TroposphereApplied:  result.Metadata.TroposphereApplied,
+			OuterIterations:     result.Metadata.OuterIterations,
+			HasFinalRobustScale: result.Metadata.HasFinalRobustScale,
+			FinalRobustScaleM:   result.Metadata.FinalRobustScaleM,
+			UsedCount:           result.Metadata.UsedCount,
+			SystemCount:         result.Metadata.SystemCount,
+			Redundancy:          result.Metadata.Redundancy,
+			RAIMCheckable:       result.Metadata.RAIMCheckable,
+			GeometryQuality: SPPGeometryQuality{
+				Tier:                result.Metadata.GeometryQuality.Tier,
+				Redundancy:          result.Metadata.GeometryQuality.Redundancy,
+				Rank:                result.Metadata.GeometryQuality.Rank,
+				ConditionNumber:     result.Metadata.GeometryQuality.ConditionNumber,
+				GDOP:                result.Metadata.GeometryQuality.GDOP,
+				RAIMCheckable:       result.Metadata.GeometryQuality.RAIMCheckable,
+				CovarianceValidated: result.Metadata.GeometryQuality.CovarianceValidated,
+			},
+		},
+	}
+	if result.DOP != nil {
+		out.DOP = &DOP{
+			GDOP: result.DOP.GDOP,
+			PDOP: result.DOP.PDOP,
+			HDOP: result.DOP.HDOP,
+			VDOP: result.DOP.VDOP,
+			TDOP: result.DOP.TDOP,
+		}
+	}
+	if result.Geodetic != nil {
+		out.Geodetic = &Geodetic{
+			LatitudeRad:  result.Geodetic.LatitudeRad,
+			LongitudeRad: result.Geodetic.LongitudeRad,
+			HeightM:      result.Geodetic.HeightM,
+		}
+	}
+	return out
+}

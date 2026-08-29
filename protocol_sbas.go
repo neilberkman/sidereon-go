@@ -124,6 +124,9 @@ type SBASBlock struct {
 }
 
 func DecodeSBASBlock(data []byte, form SBASWireForm) (*SBASBlock, error) {
+	if err := validateSBASWireForm(form); err != nil {
+		return nil, err
+	}
 	handle, err := native.DecodeSbasBlock(data, uint32(form))
 	if err != nil {
 		return nil, publicError(err)

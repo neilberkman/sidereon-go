@@ -82,6 +82,16 @@ func checkedNativeCount(value uint64) (int, error) {
 	return int(value), nil
 }
 
+func checkedNativeProduct(value, factor int, label string) (int, error) {
+	if value < 0 || factor < 0 {
+		return 0, fmt.Errorf("sidereon: native %s has a negative shape", label)
+	}
+	if factor != 0 && value > int(^uint(0)>>1)/factor {
+		return 0, fmt.Errorf("sidereon: native %s shape overflows int", label)
+	}
+	return value * factor, nil
+}
+
 func invalidArgument(detail string) error {
 	return &StatusError{
 		Code:   int(C.SIDEREON_STATUS_INVALID_ARGUMENT),
