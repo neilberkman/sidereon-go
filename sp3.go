@@ -45,6 +45,9 @@ func LoadSP3(data []byte) (*SP3, error) {
 	if err != nil {
 		return nil, publicError(err)
 	}
+	if handle == nil {
+		return nil, errNilNativeHandle
+	}
 	return &SP3{handle: handle}, nil
 }
 

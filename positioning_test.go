@@ -346,8 +346,8 @@ func TestTLEFixtureDeterministicPropagationAndMetadata(t *testing.T) {
 		if math.Float64bits(states[0].PositionKm[axis]) != wantPosition[axis] {
 			t.Fatalf("first position[%d] = %.17g, bits %#x", axis, states[0].PositionKm[axis], math.Float64bits(states[0].PositionKm[axis]))
 		}
-		if math.Float64bits(states[0].VelocityKmS[axis]) != wantVelocity[axis] {
-			t.Fatalf("first velocity[%d] = %.17g, bits %#x", axis, states[0].VelocityKmS[axis], math.Float64bits(states[0].VelocityKmS[axis]))
+		if math.Float64bits(states[0].VelocityKmPerS[axis]) != wantVelocity[axis] {
+			t.Fatalf("first velocity[%d] = %.17g, bits %#x", axis, states[0].VelocityKmPerS[axis], math.Float64bits(states[0].VelocityKmPerS[axis]))
 		}
 	}
 	if math.IsNaN(states[0].EpochJ2000S) || math.IsInf(states[0].EpochJ2000S, 0) || states[0].EpochJ2000S == 0 {

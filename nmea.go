@@ -39,6 +39,9 @@ func ParseNMEA(data []byte) (*NMEALog, error) {
 	if err != nil {
 		return nil, publicError(err)
 	}
+	if handle == nil {
+		return nil, errNilNativeHandle
+	}
 	return &NMEALog{handle: handle}, nil
 }
 

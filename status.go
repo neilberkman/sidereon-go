@@ -40,6 +40,8 @@ func (e *StatusError) Error() string {
 // ErrClosed is returned when an operation uses a handle after Close.
 var ErrClosed = errors.New("sidereon: handle is closed")
 
+var errNilNativeHandle = errors.New("sidereon: native constructor returned no handle")
+
 func publicError(err error) error {
 	if err == nil {
 		return nil
@@ -56,4 +58,14 @@ func publicError(err error) error {
 		}
 	}
 	return err
+}
+
+func joinPublicErrors(errs ...error) error {
+	translated := make([]error, 0, len(errs))
+	for _, err := range errs {
+		if err != nil {
+			translated = append(translated, publicError(err))
+		}
+	}
+	return errors.Join(translated...)
 }

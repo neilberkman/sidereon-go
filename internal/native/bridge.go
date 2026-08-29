@@ -79,24 +79,24 @@ func statusErrorLocked(status uint32) error {
 	required := C.sidereon_last_error_message(nil, 0)
 	var detail string
 	if required > 0 {
-		requiredInt, err := checkedNativeCount(uint64(required))
-		if err != nil {
-			return err
+		count, countErr := checkedNativeCount(uint64(required))
+		if countErr != nil {
+			return &StatusError{Code: int(status), Text: text, Detail: countErr.Error()}
 		}
-		if requiredInt == int(^uint(0)>>1) {
-			return errors.New("sidereon: native error detail is too large")
+		if count == int(^uint(0)>>1) {
+			return &StatusError{Code: int(status), Text: text, Detail: "sidereon: native error detail is too large"}
 		}
-		if _, err := checkedNativeAllocationSize(requiredInt+1, unsafe.Sizeof(byte(0))); err != nil {
-			return err
+		if _, allocationErr := checkedNativeAllocationSize(count+1, 1); allocationErr != nil {
+			return &StatusError{Code: int(status), Text: text, Detail: allocationErr.Error()}
 		}
-		buffer := make([]byte, requiredInt+1)
+		buffer := make([]byte, count+1)
 		written := C.sidereon_last_error_message(
 			(*C.char)(unsafe.Pointer(&buffer[0])), C.size_t(len(buffer)))
-		writtenInt, err := validateTwoPassCounts("error detail", requiredInt, requiredInt, uint64(written), uint64(required))
-		if err != nil {
-			return err
+		writtenCount, countErr := validateTwoPassCounts("error detail", count, count, uint64(written), uint64(required))
+		if countErr != nil {
+			return &StatusError{Code: int(status), Text: text, Detail: countErr.Error()}
 		}
-		detail = string(buffer[:writtenInt])
+		detail = string(buffer[:writtenCount])
 	}
 	return &StatusError{Code: int(status), Text: text, Detail: detail}
 }
@@ -187,28 +187,60 @@ func LibraryVersion() Version {
 }
 
 func SecondOfDay(hour, minute int, second float64) (float64, error) {
+	checkedHour, err := checkedInt32(hour, "hour")
+	if err != nil {
+		return 0, err
+	}
+	checkedMinute, err := checkedInt32(minute, "minute")
+	if err != nil {
+		return 0, err
+	}
 	var out C.double
-	err := callStatus(func() uint32 {
-		return C.sidereon_second_of_day(C.int32_t(hour), C.int32_t(minute), C.double(second), &out)
+	err = callStatus(func() uint32 {
+		return C.sidereon_second_of_day(C.int32_t(checkedHour), C.int32_t(checkedMinute), C.double(second), &out)
 	})
 	return float64(out), err
 }
 
 func DayOfYear(year, month, day, hour, minute int, second float64) (float64, error) {
+	checkedYear, err := checkedInt32(year, "year")
+	if err != nil {
+		return 0, err
+	}
+	checkedMonth, err := checkedInt32(month, "month")
+	if err != nil {
+		return 0, err
+	}
+	checkedDay, err := checkedInt32(day, "day")
+	if err != nil {
+		return 0, err
+	}
+	checkedHour, err := checkedInt32(hour, "hour")
+	if err != nil {
+		return 0, err
+	}
+	checkedMinute, err := checkedInt32(minute, "minute")
+	if err != nil {
+		return 0, err
+	}
 	var out C.double
-	err := callStatus(func() uint32 {
+	err = callStatus(func() uint32 {
 		return C.sidereon_day_of_year(
-			C.int32_t(year), C.int32_t(month), C.int32_t(day),
-			C.int32_t(hour), C.int32_t(minute), C.double(second), &out,
+			C.int32_t(checkedYear), C.int32_t(checkedMonth), C.int32_t(checkedDay),
+			C.int32_t(checkedHour), C.int32_t(checkedMinute), C.double(second), &out,
 		)
 	})
 	return float64(out), err
 }
 
 func DataDayOfYear(year int, month, day uint8) (uint16, error) {
+	checkedYear, err := checkedInt32(year, "year")
+	if err != nil {
+		return 0, err
+	}
 	var out C.uint16_t
-	err := callStatus(func() uint32 {
-		return C.sidereon_data_day_of_year(C.int32_t(year), C.uint8_t(month), C.uint8_t(day), &out)
+	err = callStatus(func() uint32 {
+		return C.sidereon_data_day_of_year(C.int32_t(checkedYear), C.uint8_t(month), C.uint8_t(day), &out)
 	})
 	return uint16(out), err
 }
@@ -240,6 +272,10 @@ func covarianceFromC(values *C.SidereonCovarianceMatrix6) [6][6]float64 {
 
 func CovarianceFromDiagonal(diagonal []float64) ([6][6]float64, error) {
 	var out C.SidereonCovarianceMatrix6
+	count, err := checkedNativeSize(len(diagonal))
+	if err != nil {
+		return [6][6]float64{}, err
+	}
 	cdiagonal := make([]C.double, len(diagonal))
 	for i, value := range diagonal {
 		cdiagonal[i] = C.double(value)
@@ -248,8 +284,8 @@ func CovarianceFromDiagonal(diagonal []float64) ([6][6]float64, error) {
 	if len(cdiagonal) != 0 {
 		pointer = &cdiagonal[0]
 	}
-	err := callStatus(func() uint32 {
-		return C.sidereon_covariance6_from_diagonal(pointer, C.size_t(len(cdiagonal)), &out)
+	err = callStatus(func() uint32 {
+		return C.sidereon_covariance6_from_diagonal(pointer, count, &out)
 	})
 	if err != nil {
 		return [6][6]float64{}, err
@@ -394,7 +430,13 @@ func ParseNMEA(data []byte) (*NMEALog, error) {
 		}
 	})
 	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_nmea_log_free(pointer) })
+		}
 		return nil, err
+	}
+	if pointer == nil {
+		return nil, errors.New("sidereon: native NMEA parse returned no handle")
 	}
 	return newNMEALog(pointer)
 }
@@ -459,21 +501,22 @@ func (l *NMEALog) Epochs() ([]NMEAEpoch, error) {
 		if err != nil {
 			return err
 		}
-		requiredInt, err := checkedNativeCount(uint64(required))
+		count, err := checkedNativeCount(uint64(required))
 		if err != nil {
 			return err
 		}
 		if _, err := writtenToInt(written, 0, "NMEA epoch first-call written count"); err != nil {
 			return err
 		}
-		if _, err := checkedNativeAllocationSize(requiredInt, unsafe.Sizeof(C.SidereonNmeaEpochSummary{})); err != nil {
+		if _, err := checkedNativeAllocationSize(count, unsafe.Sizeof(C.SidereonNmeaEpochSummary{})); err != nil {
 			return err
 		}
-		epochs = make([]C.SidereonNmeaEpochSummary, requiredInt)
+		epochs = make([]C.SidereonNmeaEpochSummary, count)
 		var output *C.SidereonNmeaEpochSummary
 		if len(epochs) != 0 {
 			output = &epochs[0]
 		}
+		written, required = 0, 0
 		err = callStatus(func() uint32 {
 			return C.sidereon_nmea_log_epochs(
 				(*C.SidereonNmeaLog)(pointer), output, C.size_t(len(epochs)), &written, &required,
@@ -482,11 +525,11 @@ func (l *NMEALog) Epochs() ([]NMEAEpoch, error) {
 		if err != nil {
 			return err
 		}
-		writtenInt, err := validateTwoPassCounts("NMEA epochs", len(epochs), requiredInt, uint64(written), uint64(required))
+		writtenCount, err := validateTwoPassCounts("NMEA epochs", len(epochs), count, uint64(written), uint64(required))
 		if err != nil {
 			return err
 		}
-		epochs = epochs[:writtenInt]
+		epochs = epochs[:writtenCount]
 		return nil
 	})
 	runtime.KeepAlive(l)

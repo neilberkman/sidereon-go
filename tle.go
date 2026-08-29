@@ -10,9 +10,9 @@ import (
 // in kilometers, velocity is in kilometers per second, and EpochJ2000S is the
 // corresponding UTC epoch in seconds since J2000 computed by C.
 type TEMEState struct {
-	EpochJ2000S float64
-	PositionKm  [3]float64
-	VelocityKmS [3]float64
+	EpochJ2000S    float64
+	PositionKm     [3]float64
+	VelocityKmPerS [3]float64
 }
 
 // TLEMetadata contains read-only parsed element fields copied from C.
@@ -43,22 +43,45 @@ type TLELines struct {
 }
 
 // TLE owns a parsed C TLE handle. It must not be copied after first use.
+// Read operations may run concurrently with one another and with Close.
+// Close waits for in-flight reads, clears the native state, and is idempotent;
+// operations attempted after Close return ErrClosed.
 type TLE struct {
 	_      noCopy
 	handle *native.TLE
 }
 
-// ParseTLE parses two TLE lines through the C ABI using its default ops mode.
+// OpsMode selects the C SGP4 operations mode.
+type OpsMode uint32
+
+const (
+	// OpsModeAFSPC selects the historical AFSPC SGP4 mode.
+	OpsModeAFSPC OpsMode = OpsMode(native.TLEOpsModeAFSPCValue)
+	// OpsModeImproved selects the improved SGP4 operations mode.
+	OpsModeImproved OpsMode = OpsMode(native.TLEOpsModeImprovedValue)
+)
+
+// ParseTLE parses two TLE lines through the C ABI using OpsModeAFSPC.
 func ParseTLE(line1, line2 string) (*TLE, error) {
-	handle, err := native.ParseTLE(line1, line2)
+	return ParseTLEWithOpsMode(line1, line2, OpsModeAFSPC)
+}
+
+// ParseTLEWithOpsMode parses two TLE lines using an explicitly selected SGP4
+// operations mode.
+func ParseTLEWithOpsMode(line1, line2 string, mode OpsMode) (*TLE, error) {
+	handle, err := native.LoadTLE(line1, line2, uint32(mode))
 	if err != nil {
 		return nil, publicError(err)
+	}
+	if handle == nil {
+		return nil, errNilNativeHandle
 	}
 	return &TLE{handle: handle}, nil
 }
 
-// Close releases the native TLE handle. It is idempotent and safe to call
-// concurrently with Metadata, Lines, or Propagate.
+// Close releases the native TLE handle. It waits for in-flight read operations,
+// clears the native state, is idempotent, and is safe to call concurrently with
+// read operations.
 func (t *TLE) Close() error {
 	if t == nil || t.handle == nil {
 		return nil
@@ -123,9 +146,9 @@ func (t *TLE) Propagate(times []time.Time) ([]TEMEState, error) {
 	out := make([]TEMEState, len(states))
 	for i, state := range states {
 		out[i] = TEMEState{
-			EpochJ2000S: state.EpochJ2000S,
-			PositionKm:  state.PositionKm,
-			VelocityKmS: state.VelocityKmS,
+			EpochJ2000S:    state.EpochJ2000S,
+			PositionKm:     state.PositionKm,
+			VelocityKmPerS: state.VelocityKmPerS,
 		}
 	}
 	return out, nil

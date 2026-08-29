@@ -20,6 +20,22 @@ func TestCheckedNativeAllocationSize(t *testing.T) {
 	if _, err := checkedNativeAllocationSize(1, 0); err == nil {
 		t.Fatal("checkedNativeAllocationSize accepted a zero element size")
 	}
+	if _, err := checkedNativeSize(-1); err == nil {
+		t.Fatal("checkedNativeSize accepted a negative count")
+	}
+	if count, err := checkedNativeSize(3); err != nil || uint64(count) != 3 {
+		t.Fatalf("checkedNativeSize(3) = %d, %v; want 3, nil", count, err)
+	}
+}
+
+func TestCheckedNativeCount(t *testing.T) {
+	if count, err := checkedNativeCount(7); err != nil || count != 7 {
+		t.Fatalf("checkedNativeCount(7) = %d, %v; want 7, nil", count, err)
+	}
+	tooLarge := uint64(^uint(0)>>1) + 1
+	if _, err := checkedNativeCount(tooLarge); err == nil {
+		t.Fatal("checkedNativeCount accepted a value larger than int")
+	}
 }
 
 func TestValidateTwoPassCounts(t *testing.T) {

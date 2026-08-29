@@ -45,6 +45,9 @@ func releaseSP3(pointer unsafe.Pointer) {
 }
 
 func LoadSP3(data []byte) (*SP3, error) {
+	if _, err := checkedNativeSize(len(data)); err != nil {
+		return nil, err
+	}
 	var pointer *C.SidereonSp3
 	var err error
 	withCThread(func() {
@@ -66,6 +69,9 @@ func LoadSP3(data []byte) (*SP3, error) {
 		}
 	})
 	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_sp3_free(pointer) })
+		}
 		return nil, err
 	}
 	if pointer == nil {
@@ -220,16 +226,20 @@ func (s *SP3) State(satelliteID string, epochIndex int) (SP3State, error) {
 	if err := rejectEmbeddedNUL(satelliteID, "SP3 satellite ID"); err != nil {
 		return SP3State{}, err
 	}
+	epoch, err := checkedNativeSize(epochIndex)
+	if err != nil {
+		return SP3State{}, err
+	}
 	cid := C.CBytes(append([]byte(satelliteID), 0))
 	if cid == nil {
 		return SP3State{}, errors.New("sidereon: unable to allocate native satellite id")
 	}
 	defer C.free(cid)
 	var state C.SidereonSp3State
-	err := s.handle.with(func(pointer unsafe.Pointer) error {
+	err = s.handle.with(func(pointer unsafe.Pointer) error {
 		return callStatus(func() uint32 {
 			return C.sidereon_sp3_state(
-				(*C.SidereonSp3)(pointer), (*C.char)(cid), C.size_t(epochIndex), &state,
+				(*C.SidereonSp3)(pointer), (*C.char)(cid), epoch, &state,
 			)
 		})
 	})

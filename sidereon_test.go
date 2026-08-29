@@ -45,6 +45,27 @@ func TestLibraryVersionAndCalendarValues(t *testing.T) {
 	}
 }
 
+func TestCivilYearOverflowIsRejectedBeforeNativeCall(t *testing.T) {
+	tooLarge := int(^uint(0) >> 1)
+	if _, err := CivilToJ2000Seconds(CivilDateTime{Year: tooLarge, Month: 1, Day: 1}); err == nil {
+		t.Fatal("CivilToJ2000Seconds accepted a year outside C int32")
+	} else {
+		var statusErr *StatusError
+		if errors.As(err, &statusErr) {
+			t.Fatalf("CivilToJ2000Seconds crossed the C boundary: %v", err)
+		}
+	}
+	if _, err := DayOfYear(tooLarge, 1, 1, 0, 0, 0); err == nil {
+		t.Fatal("DayOfYear accepted a year outside C int32")
+	}
+	if _, err := DataDayOfYear(tooLarge, 1, 1); err == nil {
+		t.Fatal("DataDayOfYear accepted a year outside C int32")
+	}
+	if _, err := LeapSeconds(tooLarge, 1, 1); err == nil {
+		t.Fatal("LeapSeconds accepted a year outside C int32")
+	}
+}
+
 func TestStatusErrorCarriesCDetail(t *testing.T) {
 	_, err := CovarianceFromDiagonal([]float64{1, 2, 3, 4, 5})
 	if err == nil {

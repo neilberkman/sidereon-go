@@ -81,6 +81,11 @@ func (s *SP3) Solve(config SPPConfig) (SPPSolution, error) {
 	var operationErr error
 	err := s.handle.with(func(pointer unsafe.Pointer) error {
 		withCThread(func() {
+			observationCount, err := checkedNativeSize(len(config.Observations))
+			if err != nil {
+				operationErr = err
+				return
+			}
 			var observationMemory unsafe.Pointer
 			if len(config.Observations) != 0 {
 				size, err := checkedNativeAllocationSize(
@@ -119,7 +124,7 @@ func (s *SP3) Solve(config SPPConfig) (SPPSolution, error) {
 			if len(cObservations) != 0 {
 				inputs.observations = &cObservations[0]
 			}
-			inputs.observation_count = C.size_t(len(cObservations))
+			inputs.observation_count = observationCount
 			inputs.t_rx_j2000_s = C.double(config.TRxJ2000S)
 			inputs.t_rx_second_of_day_s = C.double(config.TRxSecondOfDayS)
 			inputs.day_of_year = C.double(config.DayOfYear)

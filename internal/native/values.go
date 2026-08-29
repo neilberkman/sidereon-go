@@ -354,25 +354,51 @@ func EclipseStatus(satelliteKm, sunKm [3]float64, model *uint32) (int, error) {
 	return int(output), err
 }
 
-func cCivil(value CivilDateTime) (C.int32_t, C.int32_t, C.int32_t, C.int32_t, C.int32_t, C.double) {
-	return C.int32_t(value.Year), C.int32_t(value.Month), C.int32_t(value.Day),
-		C.int32_t(value.Hour), C.int32_t(value.Minute), C.double(value.Second)
+func cCivil(value CivilDateTime) (C.int32_t, C.int32_t, C.int32_t, C.int32_t, C.int32_t, C.double, error) {
+	year, err := checkedInt32(value.Year, "civil year")
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, err
+	}
+	month, err := checkedUint8(value.Month, "civil month")
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, err
+	}
+	day, err := checkedUint8(value.Day, "civil day")
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, err
+	}
+	hour, err := checkedUint8(value.Hour, "civil hour")
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, err
+	}
+	minute, err := checkedUint8(value.Minute, "civil minute")
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, err
+	}
+	return C.int32_t(year), C.int32_t(month), C.int32_t(day),
+		C.int32_t(hour), C.int32_t(minute), C.double(value.Second), nil
 }
 
 func CivilToJ2000(value CivilDateTime) (float64, error) {
-	year, month, day, hour, minute, second := cCivil(value)
+	year, month, day, hour, minute, second, err := cCivil(value)
+	if err != nil {
+		return 0, err
+	}
 	var output C.double
-	err := callStatus(func() uint32 {
+	err = callStatus(func() uint32 {
 		return C.sidereon_civil_to_j2000_seconds(year, month, day, hour, minute, second, &output)
 	})
 	return float64(output), err
 }
 
 func CivilToGPS(value CivilDateTime) (float64, bool, error) {
-	year, month, day, hour, minute, second := cCivil(value)
+	year, month, day, hour, minute, second, err := cCivil(value)
+	if err != nil {
+		return 0, false, err
+	}
 	var output C.double
 	var available C.bool
-	err := callStatus(func() uint32 {
+	err = callStatus(func() uint32 {
 		return C.sidereon_civil_to_gps_seconds(
 			C.int32_t(year), C.uint8_t(month), C.uint8_t(day), C.uint8_t(hour), C.uint8_t(minute),
 			second, &output, &available,
@@ -397,9 +423,12 @@ func J2000ToCivil(seconds int64) (CivilDateTime, error) {
 }
 
 func InstantFromUTC(value CivilDateTime) (JulianDate, float64, error) {
-	year, month, day, hour, minute, second := cCivil(value)
+	year, month, day, hour, minute, second, err := cCivil(value)
+	if err != nil {
+		return JulianDate{}, 0, err
+	}
 	var whole, fraction, j2000 C.double
-	err := callStatus(func() uint32 {
+	err = callStatus(func() uint32 {
 		return C.sidereon_instant_from_utc_civil(
 			year, month, day, hour, minute, second, &whole, &fraction, &j2000,
 		)
@@ -416,9 +445,21 @@ func SplitJulianToJ2000(date JulianDate) (float64, error) {
 }
 
 func LeapSeconds(year, month, day int) (float64, error) {
+	checkedYear, err := checkedInt32(year, "year")
+	if err != nil {
+		return 0, err
+	}
+	checkedMonth, err := checkedInt32(month, "month")
+	if err != nil {
+		return 0, err
+	}
+	checkedDay, err := checkedInt32(day, "day")
+	if err != nil {
+		return 0, err
+	}
 	var output C.double
-	err := callStatus(func() uint32 {
-		return C.sidereon_leap_seconds(C.int32_t(year), C.int32_t(month), C.int32_t(day), &output)
+	err = callStatus(func() uint32 {
+		return C.sidereon_leap_seconds(C.int32_t(checkedYear), C.int32_t(checkedMonth), C.int32_t(checkedDay), &output)
 	})
 	return float64(output), err
 }
@@ -440,9 +481,12 @@ func TAIUTCOffset(julianDate float64) (float64, error) {
 }
 
 func GNSSSecondsOfWeek(value CivilDateTime) (float64, error) {
-	year, month, day, hour, minute, second := cCivil(value)
+	year, month, day, hour, minute, second, err := cCivil(value)
+	if err != nil {
+		return 0, err
+	}
 	var output C.double
-	err := callStatus(func() uint32 {
+	err = callStatus(func() uint32 {
 		return C.sidereon_gnss_seconds_of_week_from_calendar(
 			C.int64_t(year), C.int64_t(month), C.int64_t(day), C.int64_t(hour), C.int64_t(minute), C.int64_t(second), &output,
 		)
@@ -459,9 +503,12 @@ func GNSSWeekAndSeconds(continuousSeconds float64) (GNSSWeekSeconds, error) {
 }
 
 func TimeScalesFromUTC(value CivilDateTime) (TimeScales, error) {
-	year, month, day, hour, minute, second := cCivil(value)
+	year, month, day, hour, minute, second, err := cCivil(value)
+	if err != nil {
+		return TimeScales{}, err
+	}
 	var output C.SidereonTimeScales
-	err := callStatus(func() uint32 {
+	err = callStatus(func() uint32 {
 		return C.sidereon_timescales_from_utc(year, month, day, hour, minute, second, &output)
 	})
 	if err != nil {

@@ -42,9 +42,9 @@ type TLELines struct {
 }
 
 type TEMEState struct {
-	EpochJ2000S float64
-	PositionKm  [3]float64
-	VelocityKmS [3]float64
+	EpochJ2000S    float64
+	PositionKm     [3]float64
+	VelocityKmPerS [3]float64
 }
 
 type TLE struct {
@@ -52,16 +52,24 @@ type TLE struct {
 	handle *positioningHandle
 }
 
+const (
+	TLEOpsModeAFSPCValue    = uint32(C.SIDEREON_TLE_OPS_MODE_AFSPC)
+	TLEOpsModeImprovedValue = uint32(C.SIDEREON_TLE_OPS_MODE_IMPROVED)
+)
+
 func releaseTLE(pointer unsafe.Pointer) {
 	C.sidereon_tle_free((*C.SidereonTle)(pointer))
 }
 
-func ParseTLE(line1, line2 string) (*TLE, error) {
+func LoadTLE(line1, line2 string, opsmode uint32) (*TLE, error) {
 	if err := rejectEmbeddedNUL(line1, "TLE line 1"); err != nil {
 		return nil, err
 	}
 	if err := rejectEmbeddedNUL(line2, "TLE line 2"); err != nil {
 		return nil, err
+	}
+	if opsmode != TLEOpsModeAFSPCValue && opsmode != TLEOpsModeImprovedValue {
+		return nil, invalidArgument("TLE operations mode is not defined by the C ABI")
 	}
 	var pointer *C.SidereonTle
 	var err error
@@ -79,7 +87,7 @@ func ParseTLE(line1, line2 string) (*TLE, error) {
 		}
 		defer C.free(cLine2)
 		err = statusErrorLocked(C.sidereon_tle_load(
-			(*C.char)(cLine1), (*C.char)(cLine2), C.uint32_t(0), &pointer,
+			(*C.char)(cLine1), (*C.char)(cLine2), C.uint32_t(opsmode), &pointer,
 		))
 		if err != nil && pointer != nil {
 			releaseTLE(unsafe.Pointer(pointer))
@@ -87,16 +95,23 @@ func ParseTLE(line1, line2 string) (*TLE, error) {
 		}
 	})
 	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_tle_free(pointer) })
+		}
 		return nil, err
 	}
 	if pointer == nil {
-		return nil, errors.New("sidereon: native TLE load returned no handle")
+		return nil, missingNativeHandle("TLE load")
 	}
 	return &TLE{handle: newPositioningHandle(unsafe.Pointer(pointer), releaseTLE)}, nil
 }
 
+func ParseTLE(line1, line2 string) (*TLE, error) {
+	return LoadTLE(line1, line2, TLEOpsModeAFSPCValue)
+}
+
 func (t *TLE) Close() error {
-	if t == nil {
+	if t == nil || t.handle == nil {
 		return nil
 	}
 	return t.handle.close()
@@ -162,13 +177,14 @@ func (t *TLE) Lines() (TLELines, error) {
 }
 
 func civilJ2000Locked(value time.Time) (float64, error) {
-	utc := value.UTC()
-	year, month, day := utc.Date()
-	second := float64(utc.Second()) + float64(utc.Nanosecond()/1000)/1e6
+	civil, err := checkedCivilTime(value)
+	if err != nil {
+		return 0, err
+	}
 	var output C.double
 	status := C.sidereon_civil_to_j2000_seconds(
-		C.int32_t(year), C.int32_t(month), C.int32_t(day),
-		C.int32_t(utc.Hour()), C.int32_t(utc.Minute()), C.double(second), &output,
+		C.int32_t(civil.year), C.int32_t(civil.month), C.int32_t(civil.day),
+		C.int32_t(civil.hour), C.int32_t(civil.minute), C.double(civil.second), &output,
 	)
 	if status != C.SIDEREON_STATUS_OK {
 		return 0, statusErrorLocked(uint32(status))
@@ -183,29 +199,28 @@ func (t *TLE) Propagate(times []time.Time) ([]TEMEState, error) {
 	if len(times) == 0 {
 		return []TEMEState{}, nil
 	}
+	epochValues, err := unixMicrosecondsSlice(times)
+	if err != nil {
+		return nil, err
+	}
+	for _, value := range times {
+		if _, err := checkedCivilTime(value); err != nil {
+			return nil, err
+		}
+	}
+	epochs := make([]C.int64_t, len(epochValues))
+	for i, value := range epochValues {
+		epochs[i] = C.int64_t(value)
+	}
 	result := make([]TEMEState, len(times))
 	var operationErr error
-	err := t.handle.with(func(pointer unsafe.Pointer) error {
+	err = t.handle.with(func(pointer unsafe.Pointer) error {
 		withCThread(func() {
-			size, err := checkedNativeAllocationSize(len(times), unsafe.Sizeof(C.int64_t(0)))
-			if err != nil {
-				operationErr = err
-				return
-			}
-			epochMemory := C.malloc(C.size_t(size))
-			if epochMemory == nil {
-				operationErr = errors.New("sidereon: unable to allocate native propagation epochs")
-				return
-			}
-			defer C.free(epochMemory)
-			epochs := unsafe.Slice((*C.int64_t)(epochMemory), len(times))
 			for i, value := range times {
-				utc := value.UTC()
-				result[i].EpochJ2000S, operationErr = civilJ2000Locked(utc)
+				result[i].EpochJ2000S, operationErr = civilJ2000Locked(value)
 				if operationErr != nil {
 					return
 				}
-				epochs[i] = C.int64_t(utc.UnixMicro())
 			}
 
 			var propagation *C.SidereonTlePropagation
@@ -220,7 +235,7 @@ func (t *TLE) Propagate(times []time.Time) ([]TEMEState, error) {
 				return
 			}
 			if propagation == nil {
-				operationErr = errors.New("sidereon: native TLE propagation returned no handle")
+				operationErr = missingNativeHandle("TLE propagation")
 				return
 			}
 			defer C.sidereon_tle_propagation_free(propagation)
@@ -267,7 +282,7 @@ func (t *TLE) Propagate(times []time.Time) ([]TEMEState, error) {
 			for i := range states {
 				for axis := 0; axis < 3; axis++ {
 					result[i].PositionKm[axis] = float64(states[i].position_km[axis])
-					result[i].VelocityKmS[axis] = float64(states[i].velocity_km_s[axis])
+					result[i].VelocityKmPerS[axis] = float64(states[i].velocity_km_s[axis])
 				}
 			}
 		})
@@ -275,6 +290,7 @@ func (t *TLE) Propagate(times []time.Time) ([]TEMEState, error) {
 	})
 	runtime.KeepAlive(t)
 	runtime.KeepAlive(times)
+	runtime.KeepAlive(epochs)
 	if err != nil {
 		return nil, err
 	}

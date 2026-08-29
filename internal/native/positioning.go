@@ -4,6 +4,7 @@ package native
 
 /*
 #include <stddef.h>
+#include <sidereon.h>
 */
 import "C"
 
@@ -68,6 +69,18 @@ func checkedNativeCount(value uint64) (int, error) {
 	return int(value), nil
 }
 
+func invalidArgument(detail string) error {
+	return &StatusError{
+		Code:   int(C.SIDEREON_STATUS_INVALID_ARGUMENT),
+		Text:   "invalid argument",
+		Detail: detail,
+	}
+}
+
+func missingNativeHandle(operation string) error {
+	return fmt.Errorf("sidereon: native %s returned no handle", operation)
+}
+
 // validateTwoPassCounts accepts a native copy only when both reported counts
 // fit the allocation and agree with the initial size query. A successful copy
 // with a query-sized buffer must not produce a partial or ambiguous result.
@@ -104,6 +117,24 @@ func validateNativeOutput(label string, capacity int, written, required uint64) 
 	return validateTwoPassCounts(label, capacity, capacity, written, required)
 }
 
+// validateNativeQuery checks the count pair returned by a NULL/zero-length
+// query. The query must write no elements, while required is the allocation
+// count for the subsequent copy.
+func validateNativeQuery(label string, written, required uint64) (int, error) {
+	writtenCount, err := checkedNativeCount(written)
+	if err != nil {
+		return 0, fmt.Errorf("sidereon: native %s written count: %w", label, err)
+	}
+	requiredCount, err := checkedNativeCount(required)
+	if err != nil {
+		return 0, fmt.Errorf("sidereon: native %s required count: %w", label, err)
+	}
+	if writtenCount != 0 {
+		return 0, fmt.Errorf("sidereon: native %s query wrote %d entries", label, writtenCount)
+	}
+	return requiredCount, nil
+}
+
 func checkedNativeAllocationSize(count int, elementSize uintptr) (uintptr, error) {
 	if count < 0 || elementSize == 0 {
 		return 0, errors.New("sidereon: invalid native allocation size")
@@ -120,6 +151,13 @@ func checkedNativeAllocationSize(count int, elementSize uintptr) (uintptr, error
 		return 0, errors.New("sidereon: native allocation size overflows")
 	}
 	return uintptr(uint64(count) * elementSize64), nil
+}
+
+func checkedNativeSize(count int) (C.size_t, error) {
+	if _, err := checkedNativeAllocationSize(count, 1); err != nil {
+		return 0, err
+	}
+	return C.size_t(count), nil
 }
 
 func rejectEmbeddedNUL(value, name string) error {
