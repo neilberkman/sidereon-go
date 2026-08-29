@@ -532,23 +532,27 @@ func rtkRinexStaticBaselineConfigFromC(value C.SidereonRtkRinexStaticBaselineCon
 	if err != nil {
 		return RtkRinexStaticBaselineConfig{}, err
 	}
-	if _, err := copyRtkPreprocessingFromC(value.preprocessing); err != nil {
+	preprocessing, err := copyRtkPreprocessingFromC(value.preprocessing)
+	if err != nil {
 		return RtkRinexStaticBaselineConfig{}, err
 	}
-	if _, err := rtkFloatOptionsFromC(value.float_options); err != nil {
+	floatOptions, err := rtkFloatOptionsFromC(value.float_options)
+	if err != nil {
 		return RtkRinexStaticBaselineConfig{}, err
 	}
-	if _, err := rtkFixedOptionsFromC(value.fixed_options); err != nil {
+	fixedOptions, err := rtkFixedOptionsFromC(value.fixed_options)
+	if err != nil {
 		return RtkRinexStaticBaselineConfig{}, err
 	}
-	if _, err := rtkResidualOptionsFromC(value.residual_options); err != nil {
+	residualOptions, err := rtkResidualOptionsFromC(value.residual_options)
+	if err != nil {
 		return RtkRinexStaticBaselineConfig{}, err
 	}
 	references, err := rtkReferenceEntriesFromC(value.reference_per_system, value.reference_per_system_count)
 	if err != nil {
 		return RtkRinexStaticBaselineConfig{}, err
 	}
-	result := RtkRinexStaticBaselineConfig{BaseM: [3]float64{float64(value.base_m[0]), float64(value.base_m[1]), float64(value.base_m[2])}, ArcOptions: arcOptions, ReferenceMode: uint32(value.reference_mode), ReferenceSatellite: cStringOrEmpty(value.reference_satellite), Model: RtkMeasurementModel{CodeSigmaM: float64(value.model.code_sigma_m), PhaseSigmaM: float64(value.model.phase_sigma_m), Sagnac: bool(value.model.sagnac), Stochastic: uint32(value.model.stochastic), ElevationWeighting: bool(value.model.elevation_weighting)}, BaselinePriorSigmaM: float64(value.baseline_prior_sigma_m), AmbiguityPriorSigmaM: float64(value.ambiguity_prior_sigma_m), InitialBaselineM: [3]float64{float64(value.initial_baseline_m[0]), float64(value.initial_baseline_m[1]), float64(value.initial_baseline_m[2])}, UpdateOptions: updateOptions, Preprocessing: RtkArcPreprocessing{HasCycleSlip: bool(value.preprocessing.has_cycle_slip), CycleSlip: uint32(value.preprocessing.cycle_slip), HasHatchWindowCap: bool(value.preprocessing.has_hatch_window_cap), HatchWindowCap: int(value.preprocessing.hatch_window_cap), HasElevationMaskDeg: bool(value.preprocessing.has_elevation_mask_deg), ElevationMaskDeg: float64(value.preprocessing.elevation_mask_deg)}, FloatOptions: RtkFloatOptions{PositionTolM: float64(value.float_options.position_tol_m), AmbiguityTolM: float64(value.float_options.ambiguity_tol_m), MaxIterations: int(value.float_options.max_iterations)}, FixedOptions: RtkFixedOptions{PositionTolM: float64(value.fixed_options.position_tol_m), AmbiguityTolM: float64(value.fixed_options.ambiguity_tol_m), MaxIterations: int(value.fixed_options.max_iterations), RatioThreshold: float64(value.fixed_options.ratio_threshold), PartialAmbiguityResolution: bool(value.fixed_options.partial_ambiguity_resolution), PartialMinAmbiguities: int(value.fixed_options.partial_min_ambiguities)}, ResidualOptions: RtkResidualValidationOptions{ThresholdSigmaEnabled: bool(value.residual_options.threshold_sigma_enabled), ThresholdSigma: float64(value.residual_options.threshold_sigma), MaxExclusions: int(value.residual_options.max_exclusions)}}
+	result := RtkRinexStaticBaselineConfig{BaseM: [3]float64{float64(value.base_m[0]), float64(value.base_m[1]), float64(value.base_m[2])}, ArcOptions: arcOptions, ReferenceMode: uint32(value.reference_mode), ReferenceSatellite: cStringOrEmpty(value.reference_satellite), Model: RtkMeasurementModel{CodeSigmaM: float64(value.model.code_sigma_m), PhaseSigmaM: float64(value.model.phase_sigma_m), Sagnac: bool(value.model.sagnac), Stochastic: uint32(value.model.stochastic), ElevationWeighting: bool(value.model.elevation_weighting)}, BaselinePriorSigmaM: float64(value.baseline_prior_sigma_m), AmbiguityPriorSigmaM: float64(value.ambiguity_prior_sigma_m), InitialBaselineM: [3]float64{float64(value.initial_baseline_m[0]), float64(value.initial_baseline_m[1]), float64(value.initial_baseline_m[2])}, UpdateOptions: updateOptions, Preprocessing: preprocessing, FloatOptions: floatOptions, FixedOptions: fixedOptions, ResidualOptions: residualOptions}
 	result.ReferencePerSystem = references
 	return result, nil
 }
@@ -565,20 +569,23 @@ func rtkRinexWideLaneFixedConfigFromC(value C.SidereonRtkRinexWideLaneFixedConfi
 	if err != nil {
 		return RtkRinexWideLaneFixedConfig{}, err
 	}
-	if _, err := rtkFloatOptionsFromC(value.float_options); err != nil {
+	floatOptions, err := rtkFloatOptionsFromC(value.float_options)
+	if err != nil {
 		return RtkRinexWideLaneFixedConfig{}, err
 	}
-	if _, err := rtkFixedOptionsFromC(value.fixed_options); err != nil {
+	fixedOptions, err := rtkFixedOptionsFromC(value.fixed_options)
+	if err != nil {
 		return RtkRinexWideLaneFixedConfig{}, err
 	}
-	if _, err := rtkResidualOptionsFromC(value.residual_options); err != nil {
+	residualOptions, err := rtkResidualOptionsFromC(value.residual_options)
+	if err != nil {
 		return RtkRinexWideLaneFixedConfig{}, err
 	}
 	references, err := rtkReferenceEntriesFromC(value.reference_per_system, value.reference_per_system_count)
 	if err != nil {
 		return RtkRinexWideLaneFixedConfig{}, err
 	}
-	result := RtkRinexWideLaneFixedConfig{BaseM: [3]float64{float64(value.base_m[0]), float64(value.base_m[1]), float64(value.base_m[2])}, ArcOptions: arcOptions, ReferenceMode: uint32(value.reference_mode), ReferenceSatellite: cStringOrEmpty(value.reference_satellite), Model: RtkMeasurementModel{CodeSigmaM: float64(value.model.code_sigma_m), PhaseSigmaM: float64(value.model.phase_sigma_m), Sagnac: bool(value.model.sagnac), Stochastic: uint32(value.model.stochastic), ElevationWeighting: bool(value.model.elevation_weighting)}, BaselinePriorSigmaM: float64(value.baseline_prior_sigma_m), AmbiguityPriorSigmaM: float64(value.ambiguity_prior_sigma_m), InitialBaselineM: [3]float64{float64(value.initial_baseline_m[0]), float64(value.initial_baseline_m[1]), float64(value.initial_baseline_m[2])}, UpdateOptions: updateOptions, FloatOptions: RtkFloatOptions{PositionTolM: float64(value.float_options.position_tol_m), AmbiguityTolM: float64(value.float_options.ambiguity_tol_m), MaxIterations: int(value.float_options.max_iterations)}, FixedOptions: RtkFixedOptions{PositionTolM: float64(value.fixed_options.position_tol_m), AmbiguityTolM: float64(value.fixed_options.ambiguity_tol_m), MaxIterations: int(value.fixed_options.max_iterations), RatioThreshold: float64(value.fixed_options.ratio_threshold), PartialAmbiguityResolution: bool(value.fixed_options.partial_ambiguity_resolution), PartialMinAmbiguities: int(value.fixed_options.partial_min_ambiguities)}, ResidualOptions: RtkResidualValidationOptions{ThresholdSigmaEnabled: bool(value.residual_options.threshold_sigma_enabled), ThresholdSigma: float64(value.residual_options.threshold_sigma), MaxExclusions: int(value.residual_options.max_exclusions)}, ApplyTroposphere: bool(value.apply_troposphere)}
+	result := RtkRinexWideLaneFixedConfig{BaseM: [3]float64{float64(value.base_m[0]), float64(value.base_m[1]), float64(value.base_m[2])}, ArcOptions: arcOptions, ReferenceMode: uint32(value.reference_mode), ReferenceSatellite: cStringOrEmpty(value.reference_satellite), Model: RtkMeasurementModel{CodeSigmaM: float64(value.model.code_sigma_m), PhaseSigmaM: float64(value.model.phase_sigma_m), Sagnac: bool(value.model.sagnac), Stochastic: uint32(value.model.stochastic), ElevationWeighting: bool(value.model.elevation_weighting)}, BaselinePriorSigmaM: float64(value.baseline_prior_sigma_m), AmbiguityPriorSigmaM: float64(value.ambiguity_prior_sigma_m), InitialBaselineM: [3]float64{float64(value.initial_baseline_m[0]), float64(value.initial_baseline_m[1]), float64(value.initial_baseline_m[2])}, UpdateOptions: updateOptions, FloatOptions: floatOptions, FixedOptions: fixedOptions, ResidualOptions: residualOptions, ApplyTroposphere: bool(value.apply_troposphere)}
 	result.ReferencePerSystem = references
 	return result, nil
 }
