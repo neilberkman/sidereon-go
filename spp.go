@@ -11,14 +11,19 @@ type SPPObservation struct {
 // SPPConfig is the legacy C SPP input surface. Domain validation and all
 // numerical behavior remain in the C library.
 type SPPConfig struct {
-	Observations    []SPPObservation
-	TRxJ2000S       float64
-	TRxSecondOfDayS float64
-	DayOfYear       float64
-	InitialGuess    [4]float64
-	Ionosphere      bool
-	Troposphere     bool
-	WithGeodetic    bool
+	Observations     []SPPObservation
+	TRxJ2000S        float64
+	TRxSecondOfDayS  float64
+	DayOfYear        float64
+	InitialGuess     [4]float64
+	Ionosphere       bool
+	Troposphere      bool
+	WithGeodetic     bool
+	KlobucharAlpha   [4]float64
+	KlobucharBeta    [4]float64
+	PressureHPA      float64
+	TemperatureK     float64
+	RelativeHumidity float64
 	// Validation optionally applies C's receiver plausibility gates before the
 	// detached solution is returned.
 	Validation *SolutionValidationOptions
@@ -101,13 +106,18 @@ func SolveSPP(sp3 *SP3, config SPPConfig) (SPPSolution, error) {
 		return SPPSolution{}, ErrClosed
 	}
 	nativeConfig := native.SPPConfig{
-		TRxJ2000S:       config.TRxJ2000S,
-		TRxSecondOfDayS: config.TRxSecondOfDayS,
-		DayOfYear:       config.DayOfYear,
-		InitialGuess:    config.InitialGuess,
-		Ionosphere:      config.Ionosphere,
-		Troposphere:     config.Troposphere,
-		WithGeodetic:    config.WithGeodetic,
+		TRxJ2000S:        config.TRxJ2000S,
+		TRxSecondOfDayS:  config.TRxSecondOfDayS,
+		DayOfYear:        config.DayOfYear,
+		InitialGuess:     config.InitialGuess,
+		Ionosphere:       config.Ionosphere,
+		Troposphere:      config.Troposphere,
+		WithGeodetic:     config.WithGeodetic,
+		KlobucharAlpha:   config.KlobucharAlpha,
+		KlobucharBeta:    config.KlobucharBeta,
+		PressureHPA:      config.PressureHPA,
+		TemperatureK:     config.TemperatureK,
+		RelativeHumidity: config.RelativeHumidity,
 	}
 	if config.Validation != nil {
 		value := native.NativeSolutionValidationOptions{HasMaxPDOP: config.Validation.HasMaxPDOP, MaxPDOP: config.Validation.MaxPDOP, MinPlausibleRadiusM: config.Validation.MinPlausibleRadiusM, MaxPlausibleRadiusM: config.Validation.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: config.Validation.MaxConvergedResidualRMSM}
@@ -129,13 +139,18 @@ func SolveSPP(sp3 *SP3, config SPPConfig) (SPPSolution, error) {
 
 func nativeSPPConfig(config SPPConfig) native.SPPConfig {
 	out := native.SPPConfig{
-		TRxJ2000S:       config.TRxJ2000S,
-		TRxSecondOfDayS: config.TRxSecondOfDayS,
-		DayOfYear:       config.DayOfYear,
-		InitialGuess:    config.InitialGuess,
-		Ionosphere:      config.Ionosphere,
-		Troposphere:     config.Troposphere,
-		WithGeodetic:    config.WithGeodetic,
+		TRxJ2000S:        config.TRxJ2000S,
+		TRxSecondOfDayS:  config.TRxSecondOfDayS,
+		DayOfYear:        config.DayOfYear,
+		InitialGuess:     config.InitialGuess,
+		Ionosphere:       config.Ionosphere,
+		Troposphere:      config.Troposphere,
+		WithGeodetic:     config.WithGeodetic,
+		KlobucharAlpha:   config.KlobucharAlpha,
+		KlobucharBeta:    config.KlobucharBeta,
+		PressureHPA:      config.PressureHPA,
+		TemperatureK:     config.TemperatureK,
+		RelativeHumidity: config.RelativeHumidity,
 	}
 	if config.Validation != nil {
 		value := native.NativeSolutionValidationOptions{HasMaxPDOP: config.Validation.HasMaxPDOP, MaxPDOP: config.Validation.MaxPDOP, MinPlausibleRadiusM: config.Validation.MinPlausibleRadiusM, MaxPlausibleRadiusM: config.Validation.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: config.Validation.MaxConvergedResidualRMSM}

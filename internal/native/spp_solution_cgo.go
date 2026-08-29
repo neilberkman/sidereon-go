@@ -82,6 +82,13 @@ func withSPPInputs(config SPPConfig, fn func(*C.SidereonSppInputs) error) error 
 		inputs.ionosphere = C.bool(config.Ionosphere)
 		inputs.troposphere = C.bool(config.Troposphere)
 		inputs.with_geodetic = C.bool(config.WithGeodetic)
+		for i := 0; i < 4; i++ {
+			inputs.klobuchar_alpha[i] = C.double(config.KlobucharAlpha[i])
+			inputs.klobuchar_beta[i] = C.double(config.KlobucharBeta[i])
+		}
+		inputs.pressure_hpa = C.double(config.PressureHPA)
+		inputs.temperature_k = C.double(config.TemperatureK)
+		inputs.relative_humidity = C.double(config.RelativeHumidity)
 		operationErr = fn(inputs)
 	})
 	runtime.KeepAlive(config.Observations)

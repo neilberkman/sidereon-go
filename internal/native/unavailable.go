@@ -25,6 +25,21 @@ type SelectionError struct {
 
 func (e *SelectionError) Error() string { return e.Text }
 
+type FallbackError struct {
+	Status uint32
+	Detail string
+}
+
+func (e *FallbackError) Error() string {
+	if e == nil {
+		return "sidereon: fallback solve failed"
+	}
+	if e.Detail == "" {
+		return "sidereon: fallback solve failed"
+	}
+	return e.Detail
+}
+
 func (e *StatusError) Error() string { return e.Text }
 
 func (e *StatusError) Unwrap() error {

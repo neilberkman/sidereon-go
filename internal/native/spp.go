@@ -21,15 +21,20 @@ type SPPObservation struct {
 }
 
 type SPPConfig struct {
-	Observations    []SPPObservation
-	TRxJ2000S       float64
-	TRxSecondOfDayS float64
-	DayOfYear       float64
-	InitialGuess    [4]float64
-	Ionosphere      bool
-	Troposphere     bool
-	WithGeodetic    bool
-	Validation      *NativeSolutionValidationOptions
+	Observations     []SPPObservation
+	TRxJ2000S        float64
+	TRxSecondOfDayS  float64
+	DayOfYear        float64
+	InitialGuess     [4]float64
+	Ionosphere       bool
+	Troposphere      bool
+	WithGeodetic     bool
+	KlobucharAlpha   [4]float64
+	KlobucharBeta    [4]float64
+	PressureHPA      float64
+	TemperatureK     float64
+	RelativeHumidity float64
+	Validation       *NativeSolutionValidationOptions
 }
 
 type SPPGeometryQuality struct {

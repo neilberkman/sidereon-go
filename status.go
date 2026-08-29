@@ -32,6 +32,59 @@ type StatusError struct {
 	TerrainStore *TerrainStoreError
 }
 
+// FallbackStatus is the distinct status namespace returned by the
+// precise/broadcast fallback solver.
+type FallbackStatus uint32
+
+const (
+	FallbackOK              FallbackStatus = 0
+	FallbackNullPointer     FallbackStatus = 1
+	FallbackInvalidArgument FallbackStatus = 2
+	FallbackInvalidToken    FallbackStatus = 3
+	FallbackPanic           FallbackStatus = 4
+	FallbackPreciseSolve    FallbackStatus = 5
+	FallbackBroadcastSolve  FallbackStatus = 6
+)
+
+func (s FallbackStatus) name() string {
+	switch s {
+	case FallbackOK:
+		return "ok"
+	case FallbackNullPointer:
+		return "null pointer"
+	case FallbackInvalidArgument:
+		return "invalid argument"
+	case FallbackInvalidToken:
+		return "invalid token"
+	case FallbackPanic:
+		return "panic"
+	case FallbackPreciseSolve:
+		return "precise solve"
+	case FallbackBroadcastSolve:
+		return "broadcast solve"
+	default:
+		return "unknown"
+	}
+}
+
+// FallbackError reports one failed fallback solve. Detail is the native
+// thread-local reason captured during the same call.
+type FallbackError struct {
+	Status FallbackStatus
+	Detail string
+}
+
+func (e *FallbackError) Error() string {
+	if e == nil {
+		return "sidereon fallback solve failed"
+	}
+	message := fmt.Sprintf("sidereon fallback solve failed: %s (status %d)", e.Status.name(), e.Status)
+	if e.Detail != "" {
+		message += ": " + e.Detail
+	}
+	return message
+}
+
 func (e *StatusError) Error() string {
 	if e.Detail == "" {
 		return e.Text
@@ -141,6 +194,10 @@ func publicError(err error) error {
 			}
 		}
 		return result
+	}
+	var fallbackErr *native.FallbackError
+	if errors.As(err, &fallbackErr) {
+		return &FallbackError{Status: FallbackStatus(fallbackErr.Status), Detail: fallbackErr.Detail}
 	}
 	return err
 }

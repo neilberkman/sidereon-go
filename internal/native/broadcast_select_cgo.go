@@ -840,6 +840,66 @@ func readVelocitySolutionLocked(solution *C.SidereonVelocitySolution) (NativeSpp
 	return result, nil
 }
 
+// readSPPDopplerResultLocked copies every optional result and releases the
+// temporary native children before returning. The caller must hold the parent
+// resource lock and the C thread lock for this complete sequence.
+func readSPPDopplerResultLocked(solution *C.SidereonSppDopplerSolution) (NativeSppDopplerResult, error) {
+	if solution == nil {
+		return NativeSppDopplerResult{}, errors.New("sidereon: native SPP Doppler solve returned no solution")
+	}
+	var result NativeSppDopplerResult
+	var hasVelocity C.bool
+	if err := statusErrorLocked(uint32(C.sidereon_spp_doppler_solution_has_velocity(solution, &hasVelocity))); err != nil {
+		return NativeSppDopplerResult{}, err
+	}
+	result.HasVelocity = bool(hasVelocity)
+	var errorKind C.enum_SidereonSppDopplerVelocityErrorKind
+	if err := statusErrorLocked(uint32(C.sidereon_spp_doppler_solution_velocity_error_kind(solution, &errorKind))); err != nil {
+		return NativeSppDopplerResult{}, err
+	}
+	if uint32(errorKind) > uint32(C.SIDEREON_SPP_DOPPLER_VELOCITY_ERROR_KIND_INVALID_RECEIVER_STATE) {
+		return NativeSppDopplerResult{}, invalidArgument("invalid Doppler velocity error kind returned by native code")
+	}
+	result.VelocityErrorKind = uint32(errorKind)
+	var receiver *C.SidereonSppSolution
+	if err := statusErrorLocked(uint32(C.sidereon_spp_doppler_solution_receiver(solution, &receiver))); err != nil {
+		if receiver != nil {
+			C.sidereon_spp_solution_free(receiver)
+		}
+		return NativeSppDopplerResult{}, err
+	}
+	if receiver == nil {
+		return NativeSppDopplerResult{}, errors.New("sidereon: native SPP Doppler solve returned no receiver solution")
+	}
+	defer C.sidereon_spp_solution_free(receiver)
+	var err error
+	result.Receiver, err = readSPPSolutionLocked(receiver)
+	if err != nil {
+		return NativeSppDopplerResult{}, err
+	}
+	var velocity *C.SidereonVelocitySolution
+	velocityStatus := C.sidereon_spp_doppler_solution_velocity(solution, &velocity)
+	if velocityStatus != C.SIDEREON_STATUS_OK {
+		if velocity != nil {
+			C.sidereon_velocity_solution_free(velocity)
+		}
+		if velocityStatus == C.SIDEREON_STATUS_SOLVE {
+			return result, nil
+		}
+		return NativeSppDopplerResult{}, statusErrorLocked(uint32(velocityStatus))
+	}
+	if velocity == nil {
+		return NativeSppDopplerResult{}, errors.New("sidereon: native SPP Doppler solve returned no velocity solution")
+	}
+	defer C.sidereon_velocity_solution_free(velocity)
+	value, readErr := readVelocitySolutionLocked(velocity)
+	if readErr != nil {
+		return NativeSppDopplerResult{}, readErr
+	}
+	result.Velocity = &value
+	return result, nil
+}
+
 func (b *BroadcastEphemeris) SolveBroadcastWithDopplerVelocity(config SPPConfig, dopplers []NativeSppDopplerObservation) (NativeSppDopplerResult, error) {
 	if b == nil || b.resource == nil {
 		return NativeSppDopplerResult{}, ErrClosed
@@ -903,55 +963,9 @@ func (b *BroadcastEphemeris) SolveBroadcastWithDopplerVelocity(config SPPConfig,
 				return errors.New("sidereon: native broadcast Doppler solve returned no solution")
 			}
 			defer C.sidereon_spp_doppler_solution_free(solution)
-			var hasVelocity C.bool
-			if err := statusErrorLocked(uint32(C.sidereon_spp_doppler_solution_has_velocity(solution, &hasVelocity))); err != nil {
-				return err
-			}
-			result.HasVelocity = bool(hasVelocity)
-			var errorKind uint32
-			if err := statusErrorLocked(uint32(C.sidereon_spp_doppler_solution_velocity_error_kind(solution, &errorKind))); err != nil {
-				return err
-			}
-			if uint32(errorKind) > uint32(C.SIDEREON_SPP_DOPPLER_VELOCITY_ERROR_KIND_INVALID_RECEIVER_STATE) {
-				return invalidArgument("invalid Doppler velocity error kind returned by native code")
-			}
-			result.VelocityErrorKind = uint32(errorKind)
-			var receiver *C.SidereonSppSolution
-			if err := statusErrorLocked(uint32(C.sidereon_spp_doppler_solution_receiver(solution, &receiver))); err != nil {
-				if receiver != nil {
-					C.sidereon_spp_solution_free(receiver)
-				}
-				return err
-			}
-			if receiver == nil {
-				return errors.New("sidereon: native broadcast Doppler solve returned no receiver solution")
-			}
-			defer C.sidereon_spp_solution_free(receiver)
-			result.Receiver, err = readSPPSolutionLocked(receiver)
-			if err != nil {
-				return err
-			}
-			var velocity *C.SidereonVelocitySolution
-			velocityStatus := C.sidereon_spp_doppler_solution_velocity(solution, &velocity)
-			if velocityStatus != C.SIDEREON_STATUS_OK {
-				if velocity != nil {
-					C.sidereon_velocity_solution_free(velocity)
-				}
-				if velocityStatus == C.SIDEREON_STATUS_SOLVE {
-					return nil
-				}
-				return statusErrorLocked(uint32(velocityStatus))
-			}
-			if velocity == nil {
-				return errors.New("sidereon: native broadcast Doppler solve returned no velocity solution")
-			}
-			defer C.sidereon_velocity_solution_free(velocity)
-			value, readErr := readVelocitySolutionLocked(velocity)
-			if readErr != nil {
-				return readErr
-			}
-			result.Velocity = &value
-			return nil
+			var readErr error
+			result, readErr = readSPPDopplerResultLocked(solution)
+			return readErr
 		})
 	})
 	runtime.KeepAlive(b)
