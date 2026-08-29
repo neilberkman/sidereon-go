@@ -24,7 +24,7 @@ jobs:
       TMPDIR: ${{ runner.temp }}
       CARGO_TARGET_DIR: ${{ github.workspace }}/.native-build/target
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v6.0.2
 
       - name: Verify release tag source pin
         if: github.event_name == 'push'
@@ -61,7 +61,7 @@ jobs:
           git diff --exit-code -- internal/native/lib/
 
       - name: Upload archives
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: sidereon-go-native-archives
           path: internal/native/lib/

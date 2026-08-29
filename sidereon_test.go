@@ -125,7 +125,11 @@ func TestNMEAQueryCopiesVariableOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer log.Close()
+	defer func() {
+		if err := log.Close(); err != nil {
+			t.Errorf("Close: %v", err)
+		}
+	}()
 
 	summary, err := log.Summary()
 	if err != nil {
