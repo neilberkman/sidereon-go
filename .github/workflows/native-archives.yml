@@ -1,0 +1,65 @@
+name: Native archives
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v1.3.0'
+
+permissions:
+  contents: read
+
+jobs:
+  archives:
+    runs-on: ubuntu-24.04
+    env:
+      # A Go release tag automatically asks the script for the matching C tag.
+      # Other runs leave this empty, so the script uses its one pinned commit.
+      SIDEREON_C_REF: ${{ github.event_name == 'push' && github.ref_name || '' }}
+      SIDEREON_RELEASE_VERSION: 1.3.0
+      SIDEREON_GLIBC_FLOOR: 2.17
+      CARGO_ZIGBUILD_VERSION: 0.23.3
+      CARGO_HOME: ${{ github.workspace }}/.cargo-home
+      GOPATH: ${{ github.workspace }}/.gopath
+      GOMODCACHE: ${{ github.workspace }}/.gopath/pkg/mod
+      GOCACHE: ${{ github.workspace }}/.gocache
+      TMPDIR: ${{ runner.temp }}
+      CARGO_TARGET_DIR: ${{ github.workspace }}/.native-build/target
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.94.0
+
+      - name: Install Zig 0.15.2
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          zig_root="$HOME/.local/share/mise/installs/zig/0.15.2"
+          archive="$RUNNER_TEMP/zig-0.15.2.tar.xz"
+          mkdir -p "$zig_root"
+          curl --fail --silent --show-error --location \
+            https://ziglang.org/download/0.15.2/zig-x86_64-linux-0.15.2.tar.xz \
+            --output "$archive"
+          tar -xJf "$archive" --strip-components=1 --directory "$zig_root"
+          test "$("$zig_root/bin/zig" version)" = 0.15.2
+
+      - name: Build and verify archives
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ./scripts/build-native-archives.sh
+
+      - name: Verify checked-in archive set
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ./scripts/test-native-archives.sh
+
+      - name: Upload archives
+        uses: actions/upload-artifact@v4
+        with:
+          name: sidereon-go-native-archives
+          path: internal/native/lib/
+          if-no-files-found: error
