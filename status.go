@@ -53,6 +53,13 @@ func (e *StatusError) Unwrap() error {
 // ErrClosed is returned when an operation uses a handle after Close.
 var ErrClosed = errors.New("sidereon: handle is closed")
 
+func nativeCountToInt(value uint64, field string) (int, error) {
+	if value > uint64(^uint(0)>>1) {
+		return 0, fmt.Errorf("sidereon: native %s %d does not fit in int", field, value)
+	}
+	return int(value), nil
+}
+
 var errNilNativeHandle = errors.New("sidereon: native constructor returned no handle")
 
 func (e *TerrainDatumError) Error() string {

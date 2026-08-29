@@ -15,16 +15,16 @@ import (
 )
 
 type NativeCalendarEpoch struct {
-	Year   int
-	Month  int
-	Day    int
-	Hour   int
-	Minute int
+	Year   int32
+	Month  int32
+	Day    int32
+	Hour   int32
+	Minute int32
 	Second float64
 }
 
 func calendarEpochFromC(value C.SidereonCalendarEpoch) NativeCalendarEpoch {
-	return NativeCalendarEpoch{Year: int(value.year), Month: int(value.month), Day: int(value.day), Hour: int(value.hour), Minute: int(value.minute), Second: float64(value.second)}
+	return NativeCalendarEpoch{Year: int32(value.year), Month: int32(value.month), Day: int32(value.day), Hour: int32(value.hour), Minute: int32(value.minute), Second: float64(value.second)}
 }
 
 type NativeRinexObsHeader struct {

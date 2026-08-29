@@ -132,8 +132,12 @@ func statusErrorLocked(status uint32) error {
 			return &StatusError{Code: int(status), Text: text, Detail: allocationErr.Error()}
 		}
 		buffer := make([]byte, count+1)
+		outputLength, err := cSize(len(buffer), "error detail output capacity")
+		if err != nil {
+			return &StatusError{Code: int(status), Text: text, Detail: err.Error()}
+		}
 		written := C.sidereon_last_error_message(
-			(*C.char)(unsafe.Pointer(&buffer[0])), C.size_t(len(buffer)))
+			(*C.char)(unsafe.Pointer(&buffer[0])), outputLength)
 		writtenCount, countErr := validateTwoPassCounts("error detail", count, count, uint64(written), uint64(required))
 		if countErr != nil {
 			return &StatusError{Code: int(status), Text: text, Detail: countErr.Error()}
@@ -218,12 +222,16 @@ func copyNativeBytesLockedWithStatus(label string, call nativeBytesCall, statusE
 		return nil, err
 	}
 	buffer := make([]byte, requiredInt)
+	outputLength, err := cSize(len(buffer), label+" output byte capacity")
+	if err != nil {
+		return nil, err
+	}
 	var output *C.uint8_t
 	if len(buffer) != 0 {
 		output = (*C.uint8_t)(unsafe.Pointer(&buffer[0]))
 	}
 	written, required = 0, 0
-	if err := statusError(uint32(call(output, C.size_t(len(buffer)), &written, &required))); err != nil {
+	if err := statusError(uint32(call(output, outputLength, &written, &required))); err != nil {
 		return nil, err
 	}
 	writtenInt, err := validateTwoPassCounts(label, len(buffer), requiredInt, uint64(written), uint64(required))
@@ -404,7 +412,7 @@ func covarianceFromC(values *C.SidereonCovarianceMatrix6) [6][6]float64 {
 
 func CovarianceFromDiagonal(diagonal []float64) ([6][6]float64, error) {
 	var out C.SidereonCovarianceMatrix6
-	count, err := checkedNativeSize(len(diagonal))
+	count, err := cSize(len(diagonal), "covariance diagonal length")
 	if err != nil {
 		return [6][6]float64{}, err
 	}
@@ -546,6 +554,10 @@ func newNMEALog(pointer *C.SidereonNmeaLog) (*NMEALog, error) {
 func ParseNMEA(data []byte) (*NMEALog, error) {
 	var pointer *C.SidereonNmeaLog
 	var err error
+	length, lengthErr := cSize(len(data), "NMEA input")
+	if lengthErr != nil {
+		return nil, lengthErr
+	}
 	withCThread(func() {
 		cdata, copyErr := copyNativeInput(data)
 		if copyErr != nil {
@@ -554,7 +566,7 @@ func ParseNMEA(data []byte) (*NMEALog, error) {
 		}
 		defer freeNativeInput(cdata)
 		err = statusErrorLocked(C.sidereon_nmea_parse(
-			(*C.uint8_t)(cdata), C.size_t(len(data)), &pointer,
+			(*C.uint8_t)(cdata), length, &pointer,
 		))
 		if err != nil && pointer != nil {
 			releaseNMEALog(unsafe.Pointer(pointer))
@@ -644,6 +656,10 @@ func (l *NMEALog) Epochs() ([]NMEAEpoch, error) {
 			return err
 		}
 		epochs = make([]C.SidereonNmeaEpochSummary, count)
+		outputLength, err := cSize(len(epochs), "NMEA epoch output capacity")
+		if err != nil {
+			return err
+		}
 		var output *C.SidereonNmeaEpochSummary
 		if len(epochs) != 0 {
 			output = &epochs[0]
@@ -651,7 +667,7 @@ func (l *NMEALog) Epochs() ([]NMEAEpoch, error) {
 		written, required = 0, 0
 		err = callStatus(func() uint32 {
 			return C.sidereon_nmea_log_epochs(
-				(*C.SidereonNmeaLog)(pointer), output, C.size_t(len(epochs)), &written, &required,
+				(*C.SidereonNmeaLog)(pointer), output, outputLength, &written, &required,
 			)
 		})
 		if err != nil {

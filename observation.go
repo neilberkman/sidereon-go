@@ -87,7 +87,7 @@ type ReceiverClockPhaseSample struct {
 }
 
 func civilFromNative(value native.NativeCalendarEpoch) CivilDateTime {
-	return CivilDateTime{Year: value.Year, Month: value.Month, Day: value.Day, Hour: value.Hour, Minute: value.Minute, Second: value.Second}
+	return CivilDateTime{Year: int(value.Year), Month: int(value.Month), Day: int(value.Day), Hour: int(value.Hour), Minute: int(value.Minute), Second: value.Second}
 }
 
 // RINEXObservation owns a parsed RINEX 3 observation product. Its read

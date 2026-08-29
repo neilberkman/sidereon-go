@@ -62,6 +62,36 @@ type SPPSolution struct {
 	Metadata           SPPMetadata
 }
 
+func publicSPPSolution(result native.SPPSolution) SPPSolution {
+	out := SPPSolution{
+		PositionM: result.PositionM, ReceiverClockS: result.ReceiverClockS,
+		UsedSatelliteCount: result.UsedSatelliteCount,
+		UsedSatelliteIDs:   append([]string(nil), result.UsedSatelliteIDs...),
+		ResidualsM:         append([]float64(nil), result.ResidualsM...),
+		Metadata: SPPMetadata{
+			Iterations: result.Metadata.Iterations, Converged: result.Metadata.Converged, Status: result.Metadata.Status,
+			IonosphereApplied: result.Metadata.IonosphereApplied, TroposphereApplied: result.Metadata.TroposphereApplied,
+			OuterIterations: result.Metadata.OuterIterations, HasFinalRobustScale: result.Metadata.HasFinalRobustScale,
+			FinalRobustScaleM: result.Metadata.FinalRobustScaleM, UsedCount: result.Metadata.UsedCount,
+			SystemCount: result.Metadata.SystemCount, Redundancy: result.Metadata.Redundancy,
+			RAIMCheckable: result.Metadata.RAIMCheckable,
+			GeometryQuality: SPPGeometryQuality{
+				Tier: result.Metadata.GeometryQuality.Tier, Redundancy: result.Metadata.GeometryQuality.Redundancy,
+				Rank: result.Metadata.GeometryQuality.Rank, ConditionNumber: result.Metadata.GeometryQuality.ConditionNumber,
+				GDOP: result.Metadata.GeometryQuality.GDOP, RAIMCheckable: result.Metadata.GeometryQuality.RAIMCheckable,
+				CovarianceValidated: result.Metadata.GeometryQuality.CovarianceValidated,
+			},
+		},
+	}
+	if result.DOP != nil {
+		out.DOP = &DOP{GDOP: result.DOP.GDOP, PDOP: result.DOP.PDOP, HDOP: result.DOP.HDOP, VDOP: result.DOP.VDOP, TDOP: result.DOP.TDOP}
+	}
+	if result.Geodetic != nil {
+		out.Geodetic = &Geodetic{LatitudeRad: result.Geodetic.LatitudeRad, LongitudeRad: result.Geodetic.LongitudeRad, HeightM: result.Geodetic.HeightM}
+	}
+	return out
+}
+
 // SolveSPP solves one single-point positioning epoch through the C ABI.
 func SolveSPP(sp3 *SP3, config SPPConfig) (SPPSolution, error) {
 	if sp3 == nil || sp3.handle == nil {
@@ -87,53 +117,7 @@ func SolveSPP(sp3 *SP3, config SPPConfig) (SPPSolution, error) {
 	if err != nil {
 		return SPPSolution{}, publicError(err)
 	}
-	out := SPPSolution{
-		PositionM:          result.PositionM,
-		ReceiverClockS:     result.ReceiverClockS,
-		UsedSatelliteCount: result.UsedSatelliteCount,
-		UsedSatelliteIDs:   append([]string(nil), result.UsedSatelliteIDs...),
-		ResidualsM:         append([]float64(nil), result.ResidualsM...),
-		Metadata: SPPMetadata{
-			Iterations:          result.Metadata.Iterations,
-			Converged:           result.Metadata.Converged,
-			Status:              result.Metadata.Status,
-			IonosphereApplied:   result.Metadata.IonosphereApplied,
-			TroposphereApplied:  result.Metadata.TroposphereApplied,
-			OuterIterations:     result.Metadata.OuterIterations,
-			HasFinalRobustScale: result.Metadata.HasFinalRobustScale,
-			FinalRobustScaleM:   result.Metadata.FinalRobustScaleM,
-			UsedCount:           result.Metadata.UsedCount,
-			SystemCount:         result.Metadata.SystemCount,
-			Redundancy:          result.Metadata.Redundancy,
-			RAIMCheckable:       result.Metadata.RAIMCheckable,
-			GeometryQuality: SPPGeometryQuality{
-				Tier:                result.Metadata.GeometryQuality.Tier,
-				Redundancy:          result.Metadata.GeometryQuality.Redundancy,
-				Rank:                result.Metadata.GeometryQuality.Rank,
-				ConditionNumber:     result.Metadata.GeometryQuality.ConditionNumber,
-				GDOP:                result.Metadata.GeometryQuality.GDOP,
-				RAIMCheckable:       result.Metadata.GeometryQuality.RAIMCheckable,
-				CovarianceValidated: result.Metadata.GeometryQuality.CovarianceValidated,
-			},
-		},
-	}
-	if result.DOP != nil {
-		out.DOP = &DOP{
-			GDOP: result.DOP.GDOP,
-			PDOP: result.DOP.PDOP,
-			HDOP: result.DOP.HDOP,
-			VDOP: result.DOP.VDOP,
-			TDOP: result.DOP.TDOP,
-		}
-	}
-	if result.Geodetic != nil {
-		out.Geodetic = &Geodetic{
-			LatitudeRad:  result.Geodetic.LatitudeRad,
-			LongitudeRad: result.Geodetic.LongitudeRad,
-			HeightM:      result.Geodetic.HeightM,
-		}
-	}
-	return out, nil
+	return publicSPPSolution(result), nil
 }
 
 func nativeSPPConfig(config SPPConfig) native.SPPConfig {
