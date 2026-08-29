@@ -4,64 +4,110 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 
 // ScenarioObservation is one copied synthetic observation row.
 type ScenarioObservation struct {
-	EpochIndex         int
-	SatelliteID        string
-	CodeObservable     string
-	PhaseObservable    string
-	DopplerObservable  string
-	CarrierHz          float64
-	PseudorangeM       float64
+	// EpochIndex identifies or counts this record.
+	EpochIndex int
+	// SatelliteID identifies or counts this record.
+	SatelliteID string
+	// CodeObservable is the code observable value for ScenarioObservation.
+	CodeObservable string
+	// PhaseObservable is the phase observable value for ScenarioObservation.
+	PhaseObservable string
+	// DopplerObservable is the doppler observable value for ScenarioObservation.
+	DopplerObservable string
+	// CarrierHz is the carrier hz in hertz.
+	CarrierHz float64
+	// PseudorangeM is the pseudorange m in metres.
+	PseudorangeM float64
+	// CarrierPhaseCycles is the carrier phase cycles in cycles.
 	CarrierPhaseCycles float64
-	DopplerHz          float64
+	// DopplerHz is the doppler hz in hertz.
+	DopplerHz float64
 }
 
 // ScenarioReceiverTruthRow is one copied receiver truth row.
 type ScenarioReceiverTruthRow struct {
-	TRxJ2000S       float64
-	PositionECEFM   [3]float64
+	// TRxJ2000S is the t rx j2000 s in seconds.
+	TRxJ2000S float64
+	// PositionECEFM is the position ecefm in metres.
+	PositionECEFM [3]float64
+	// VelocityECEFMPS is the velocity ecefmps in metres per second.
 	VelocityECEFMPS [3]float64
-	ClockM          float64
-	ClockRateMPS    float64
+	// ClockM is the clock m in metres.
+	ClockM float64
+	// ClockRateMPS is the clock rate mps in metres per second.
+	ClockRateMPS float64
 }
 
 // ScenarioSummary contains deterministic simulation counts and fingerprint.
 type ScenarioSummary struct {
-	SchemaVersion          uint32
-	Seed                   uint64
-	ReceiverTruthCount     int
-	ObservationCount       int
-	EpochOffsetCount       int
+	// SchemaVersion is the schema version value for ScenarioSummary.
+	SchemaVersion uint32
+	// Seed is the seed value for ScenarioSummary.
+	Seed uint64
+	// ReceiverTruthCount identifies or counts this record.
+	ReceiverTruthCount int
+	// ObservationCount identifies or counts this record.
+	ObservationCount int
+	// EpochOffsetCount identifies or counts this record.
+	EpochOffsetCount int
+	// DeterminismFingerprint is the determinism fingerprint value for ScenarioSummary.
 	DeterminismFingerprint uint64
-	JSONLength             int
+	// JSONLength is the jsonlength value for ScenarioSummary.
+	JSONLength int
 }
 
 // ScenarioTerm is one copied ground-truth error-budget row.
 type ScenarioTerm struct {
-	GeometricRangeM                       float64
-	SatelliteClockM                       float64
-	ReceiverClockM                        float64
-	SatelliteClockErrorM                  float64
-	IonosphereM                           float64
-	TroposphereM                          float64
-	ThermalNoiseM                         float64
-	MultipathM                            float64
-	QuantizationM                         float64
-	CarrierPhaseGeometricCycles           float64
-	CarrierPhaseReceiverClockCycles       float64
-	CarrierPhaseSatelliteClockCycles      float64
+	// GeometricRangeM is the geometric range m in metres.
+	GeometricRangeM float64
+	// SatelliteClockM is the satellite clock m in metres.
+	SatelliteClockM float64
+	// ReceiverClockM is the receiver clock m in metres.
+	ReceiverClockM float64
+	// SatelliteClockErrorM is the satellite clock error m in metres.
+	SatelliteClockErrorM float64
+	// IonosphereM is the ionosphere m in metres.
+	IonosphereM float64
+	// TroposphereM is the troposphere m in metres.
+	TroposphereM float64
+	// ThermalNoiseM is the thermal noise m in metres.
+	ThermalNoiseM float64
+	// MultipathM is the multipath m in metres.
+	MultipathM float64
+	// QuantizationM is the quantization m in metres.
+	QuantizationM float64
+	// CarrierPhaseGeometricCycles is the carrier phase geometric cycles in cycles.
+	CarrierPhaseGeometricCycles float64
+	// CarrierPhaseReceiverClockCycles is the carrier phase receiver clock cycles in cycles.
+	CarrierPhaseReceiverClockCycles float64
+	// CarrierPhaseSatelliteClockCycles is the carrier phase satellite clock cycles in cycles.
+	CarrierPhaseSatelliteClockCycles float64
+	// CarrierPhaseSatelliteClockErrorCycles is the carrier phase satellite clock error cycles in cycles.
 	CarrierPhaseSatelliteClockErrorCycles float64
-	CarrierPhaseIonosphereCycles          float64
-	CarrierPhaseTroposphereCycles         float64
-	CarrierPhaseThermalNoiseCycles        float64
-	CarrierPhaseBiasCycles                float64
-	CarrierPhaseQuantizationCycles        float64
-	DopplerSatelliteMotionHz              float64
-	DopplerReceiverMotionHz               float64
-	DopplerSatelliteClockHz               float64
-	DopplerReceiverClockHz                float64
-	DopplerSatelliteClockErrorHz          float64
-	DopplerThermalNoiseHz                 float64
-	DopplerQuantizationHz                 float64
+	// CarrierPhaseIonosphereCycles is the carrier phase ionosphere cycles in cycles.
+	CarrierPhaseIonosphereCycles float64
+	// CarrierPhaseTroposphereCycles is the carrier phase troposphere cycles in cycles.
+	CarrierPhaseTroposphereCycles float64
+	// CarrierPhaseThermalNoiseCycles is the carrier phase thermal noise cycles in cycles.
+	CarrierPhaseThermalNoiseCycles float64
+	// CarrierPhaseBiasCycles is the carrier phase bias cycles in cycles.
+	CarrierPhaseBiasCycles float64
+	// CarrierPhaseQuantizationCycles is the carrier phase quantization cycles in cycles.
+	CarrierPhaseQuantizationCycles float64
+	// DopplerSatelliteMotionHz is the doppler satellite motion hz in hertz.
+	DopplerSatelliteMotionHz float64
+	// DopplerReceiverMotionHz is the doppler receiver motion hz in hertz.
+	DopplerReceiverMotionHz float64
+	// DopplerSatelliteClockHz is the doppler satellite clock hz in hertz.
+	DopplerSatelliteClockHz float64
+	// DopplerReceiverClockHz is the doppler receiver clock hz in hertz.
+	DopplerReceiverClockHz float64
+	// DopplerSatelliteClockErrorHz is the doppler satellite clock error hz in hertz.
+	DopplerSatelliteClockErrorHz float64
+	// DopplerThermalNoiseHz is the doppler thermal noise hz in hertz.
+	DopplerThermalNoiseHz float64
+	// DopplerQuantizationHz is the doppler quantization hz in hertz.
+	DopplerQuantizationHz float64
 }
 
 // ScenarioSimulation owns a deterministic C-generated simulation and must

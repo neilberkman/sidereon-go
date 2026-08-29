@@ -5,53 +5,82 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 // ErrorEllipse2 is a confidence ellipse from a 2x2 covariance block. Axes
 // have the covariance's units and orientation is radians.
 type ErrorEllipse2 struct {
-	Confidence     float64
+	// Confidence is the confidence level.
+	Confidence float64
+	// ChiSquareScale is the chi-square multiplier used for the requested confidence.
 	ChiSquareScale float64
-	SemiMajor      float64
-	SemiMinor      float64
+	// SemiMajor is the ellipse semimajor axis in the covariance's distance units.
+	SemiMajor float64
+	// SemiMinor is the ellipse semiminor axis in the covariance's distance units.
+	SemiMinor float64
+	// OrientationRad is the orientation rad in radians.
 	OrientationRad float64
 }
 
 // ErrorEllipse is the one-sigma horizontal ellipse in metres.
 type ErrorEllipse struct {
-	SemiMajorM     float64
-	SemiMinorM     float64
+	// SemiMajorM is the semi major m in metres.
+	SemiMajorM float64
+	// SemiMinorM is the semi minor m in metres.
+	SemiMinorM float64
+	// OrientationRad is the orientation rad in radians.
 	OrientationRad float64
 }
 
 // PercentileRadius is a C-computed circle or sphere radius in metres.
 type PercentileRadius struct {
+	// Probability is the percentile probability represented by RadiusM.
 	Probability float64
-	RadiusM     float64
-	ApproxM     float64
+	// RadiusM is the radius m in metres.
+	RadiusM float64
+	// ApproxM is the approx m in metres.
+	ApproxM float64
+	// ApproxValid reports whether ApproxM is a valid approximation of RadiusM.
 	ApproxValid bool
 }
 
 // PositionErrorMetrics contains standard C-computed position-error measures.
 type PositionErrorMetrics struct {
+	// Ellipse is the one-sigma horizontal error ellipse in metres.
 	Ellipse ErrorEllipse
+	// SigmaEM is the sigma em in metres.
 	SigmaEM float64
+	// SigmaNM is the sigma nm in metres.
 	SigmaNM float64
+	// SigmaUM is the sigma um in metres.
 	SigmaUM float64
-	CEP     PercentileRadius
-	R95     PercentileRadius
-	R99     PercentileRadius
-	DRMS    float64
+	// CEP is the circular-error-probable radius and optional approximation in metres.
+	CEP PercentileRadius
+	// R95 is the 95th-percentile horizontal error radius in metres.
+	R95 PercentileRadius
+	// R99 is the 99th-percentile horizontal error radius in metres.
+	R99 PercentileRadius
+	// DRMS is the distance root-mean-square error in metres.
+	DRMS float64
+	// TwoDRMS is twice the distance root-mean-square error in metres.
 	TwoDRMS float64
-	VEP     float64
-	SEP     PercentileRadius
-	MRSE    float64
+	// VEP is the vertical-error-probable radius in metres.
+	VEP float64
+	// SEP is the spherical-error-probable radius and optional approximation in metres.
+	SEP PercentileRadius
+	// MRSE is the mean radial spherical error in metres.
+	MRSE float64
 }
 
 // ErrorMetricsErrorKind is the detailed metric-domain diagnostic written by C.
 type ErrorMetricsErrorKind uint32
 
 const (
-	ErrorMetricsNone                    ErrorMetricsErrorKind = 0
-	ErrorMetricsNonFinite               ErrorMetricsErrorKind = 1
+	// ErrorMetricsNone identifies the error metrics none case.
+	ErrorMetricsNone ErrorMetricsErrorKind = 0
+	// ErrorMetricsNonFinite identifies the error metrics non finite case.
+	ErrorMetricsNonFinite ErrorMetricsErrorKind = 1
+	// ErrorMetricsNotPositiveSemidefinite identifies the error metrics not positive semidefinite case.
 	ErrorMetricsNotPositiveSemidefinite ErrorMetricsErrorKind = 2
-	ErrorMetricsInvalidProbability      ErrorMetricsErrorKind = 3
-	ErrorMetricsRotation                ErrorMetricsErrorKind = 4
+	// ErrorMetricsInvalidProbability identifies the error metrics invalid probability case.
+	ErrorMetricsInvalidProbability ErrorMetricsErrorKind = 3
+	// ErrorMetricsRotation identifies the error metrics rotation case.
+	ErrorMetricsRotation ErrorMetricsErrorKind = 4
 )
 
 // ErrorEllipse2x2 computes a confidence ellipse from a row-major 2x2

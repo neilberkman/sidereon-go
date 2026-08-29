@@ -4,7 +4,9 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 
 // FrequencyChannel maps a GLONASS slot to its FDMA channel number.
 type FrequencyChannel struct {
-	Slot    uint8
+	// Slot is the slot value for FrequencyChannel.
+	Slot uint8
+	// Channel is the channel value for FrequencyChannel.
 	Channel int8
 }
 
@@ -12,20 +14,30 @@ type FrequencyChannel struct {
 // in metres, velocity in metres per second, acceleration in metres per second
 // squared, and ToeUTCJ2000S is UTC J2000 seconds.
 type GLONASSRecord struct {
-	SatelliteID        string
-	ToeUTCJ2000S       float64
-	PositionM          [3]float64
-	VelocityMPerS      [3]float64
+	// SatelliteID identifies or counts this record.
+	SatelliteID string
+	// ToeUTCJ2000S is the toe utcj2000 s in seconds.
+	ToeUTCJ2000S float64
+	// PositionM is the position m in metres.
+	PositionM [3]float64
+	// VelocityMPerS is the velocity m per s in metres per second.
+	VelocityMPerS [3]float64
+	// AccelerationMPerS2 is the acceleration m per s2 in metres per second squared.
 	AccelerationMPerS2 [3]float64
-	ClockBiasS         float64
-	GammaN             float64
-	SVHealth           float64
-	FrequencyChannel   int32
+	// ClockBiasS is the clock bias s value for GLONASSRecord.
+	ClockBiasS float64
+	// GammaN is the gamma n value for GLONASSRecord.
+	GammaN float64
+	// SVHealth is the svhealth value for GLONASSRecord.
+	SVHealth float64
+	// FrequencyChannel is the frequency channel value for GLONASSRecord.
+	FrequencyChannel int32
 }
 
 // SkippedGLONASSRecord preserves the raw token of an extended GLONASS slot
 // that the core satellite identifier cannot represent.
 type SkippedGLONASSRecord struct {
+	// SatelliteID identifies or counts this record.
 	SatelliteID string
 }
 

@@ -15,17 +15,23 @@ type Matrix3 [3][3]float64
 // GroundStation uses the units of the C frame and Doppler helpers: latitude
 // and longitude are degrees, and altitude is kilometres.
 type GroundStation struct {
-	LatitudeDeg  float64
+	// LatitudeDeg is the latitude deg in degrees.
+	LatitudeDeg float64
+	// LongitudeDeg is the longitude deg in degrees.
 	LongitudeDeg float64
-	AltitudeKm   float64
+	// AltitudeKm is the altitude km in kilometres.
+	AltitudeKm float64
 }
 
 // Topocentric contains azimuth in degrees clockwise from north, elevation in
 // degrees above the horizon, and slant range in kilometres.
 type Topocentric struct {
-	AzimuthDeg   float64
+	// AzimuthDeg is the azimuth deg in degrees.
+	AzimuthDeg float64
+	// ElevationDeg is the elevation deg in degrees.
 	ElevationDeg float64
-	RangeKm      float64
+	// RangeKm is the range km in kilometres.
+	RangeKm float64
 }
 
 // PolarMotionMatrix returns the C IERS polar-motion matrix for xp and yp in
@@ -118,12 +124,15 @@ func FrameGCRSToITRSWithPolarMotion(positionKm [3]float64, scales TimeScales, sk
 	return value, publicError(err)
 }
 
-// FrameGeodeticFromECEF is the PROJ-compatible degree/metre geodetic result.
+// FrameGeodeticFromECEF is the PROJ-compatible degree/metre geodetic record.
 // Longitude and latitude are degrees; altitude is metres.
 type FrameGeodeticFromECEF struct {
+	// LongitudeDeg is the longitude deg in degrees.
 	LongitudeDeg float64
-	LatitudeDeg  float64
-	AltitudeM    float64
+	// LatitudeDeg is the latitude deg in degrees.
+	LatitudeDeg float64
+	// AltitudeM is the altitude m in metres.
+	AltitudeM float64
 }
 
 // FrameGeodeticFromECEFProj converts ECEF metres to geodetic degrees/metres.
@@ -153,9 +162,12 @@ func FrameGmstRadians(scales TimeScales) (float64, error) {
 // FrameGeodeticFromITRS is the degree/kilometre geodetic result returned by
 // the ITRS conversion route.
 type FrameGeodeticFromITRS struct {
-	LatitudeDeg  float64
+	// LatitudeDeg is the latitude deg in degrees.
+	LatitudeDeg float64
+	// LongitudeDeg is the longitude deg in degrees.
 	LongitudeDeg float64
-	AltitudeKm   float64
+	// AltitudeKm is the altitude km in kilometres.
+	AltitudeKm float64
 }
 
 // FrameITRSToGCRSMatrixWithPolarMotion returns the C row-major ITRS-to-GCRS
@@ -196,7 +208,9 @@ func FrameMeanOfDateToITRSMatrixWithPolarMotion(scales TimeScales, xpArcsec, ypA
 // FrameTEMEToGCRSResult contains a copied position/velocity pair in
 // kilometres and kilometres per second.
 type FrameTEMEToGCRSResult struct {
-	PositionKm     [3]float64
+	// PositionKm is the position km in kilometres.
+	PositionKm [3]float64
+	// VelocityKmPerS is the velocity km per s in kilometres per second.
 	VelocityKmPerS [3]float64
 }
 
@@ -207,17 +221,22 @@ func FrameTEMEToGCRS(positionKm, velocityKmPerS [3]float64, scales TimeScales, s
 	return FrameTEMEToGCRSResult{PositionKm: value.PositionKm, VelocityKmPerS: value.VelocityKmPerS}, publicError(err)
 }
 
-// DopplerRangeRate is the C range-rate and dimensionless Doppler-ratio result.
+// DopplerRangeRate is the C range-rate and dimensionless Doppler-ratio record.
 type DopplerRangeRate struct {
+	// RangeRateKmS is the range rate km s value for DopplerRangeRate.
 	RangeRateKmS float64
+	// DopplerRatio is the doppler ratio value for DopplerRangeRate.
 	DopplerRatio float64
 }
 
 // DopplerShift is the C range-rate, carrier Doppler shift, and dimensionless
 // Doppler-ratio result.
 type DopplerShift struct {
+	// RangeRateKmS is the range rate km s value for DopplerShift.
 	RangeRateKmS float64
-	DopplerHz    float64
+	// DopplerHz is the doppler hz in hertz.
+	DopplerHz float64
+	// DopplerRatio is the doppler ratio value for DopplerShift.
 	DopplerRatio float64
 }
 

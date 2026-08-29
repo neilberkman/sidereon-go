@@ -78,10 +78,15 @@ func (s *PreciseEphemerisSamples) Sample(satellites []string, start, stop, step 
 // range request. Distances and positions are metres; epochs and clocks are
 // seconds. The satellite clock is optional via HasSatelliteClock.
 type RangePrediction struct {
-	GeometricRangeM       float64
-	HasSatelliteClock     bool
-	SatelliteClockS       float64
-	TransmitTimeJ2000S    float64
+	// GeometricRangeM is the geometric range m in metres.
+	GeometricRangeM float64
+	// HasSatelliteClock reports whether the has satellite clock field is present.
+	HasSatelliteClock bool
+	// SatelliteClockS is the satellite clock s in seconds.
+	SatelliteClockS float64
+	// TransmitTimeJ2000S is the transmit time j2000 s in seconds.
+	TransmitTimeJ2000S float64
+	// SatellitePositionECEF contains the fixed-size array for this record.
 	SatellitePositionECEF [3]float64
 }
 
@@ -346,8 +351,11 @@ func (s *SP3) EpochPrediction(index int) (SP3EpochPrediction, error) {
 
 // SP3Continuity contains native continuity-check counts.
 type SP3Continuity struct {
-	Defects          int
+	// Defects is the defects value for SP3Continuity.
+	Defects int
+	// ResidualsChecked is the residuals checked value for SP3Continuity.
 	ResidualsChecked int
+	// ResidualsSkipped is the residuals skipped value for SP3Continuity.
 	ResidualsSkipped int
 }
 
@@ -365,9 +373,12 @@ func (s *SP3) Continuity(orbitClass int, residualToleranceM float64) (SP3Continu
 
 // SP3ClockReferenceOffset contains one J2000 clock-datum offset estimate.
 type SP3ClockReferenceOffset struct {
+	// EpochJ2000S is the epoch j2000 s in seconds.
 	EpochJ2000S float64
-	OffsetS     float64
-	Satellites  int
+	// OffsetS is the offset s in seconds.
+	OffsetS float64
+	// Satellites is the satellites value for SP3ClockReferenceOffset.
+	Satellites int
 }
 
 // ClockReferenceOffsets estimates the other product's clock offset by epoch.
@@ -469,9 +480,13 @@ func (s *SP3) ArtifactBytes() ([]byte, PreciseInterpolantArtifactError, error) {
 
 // SP3EpochPrediction contains one epoch's observed/predicted metadata.
 type SP3EpochPrediction struct {
-	EpochJ2000S                  float64
-	Observed                     bool
+	// EpochJ2000S is the epoch j2000 s in seconds.
+	EpochJ2000S float64
+	// Observed is the observed value for SP3EpochPrediction.
+	Observed bool
+	// OrbitPredictedSatelliteCount identifies or counts this record.
 	OrbitPredictedSatelliteCount int
+	// ClockPredictedSatelliteCount identifies or counts this record.
 	ClockPredictedSatelliteCount int
 }
 
@@ -520,7 +535,10 @@ func SP3ContentStartConvention(center string, year int, month, day uint8, issue 
 }
 
 // StalenessPolicy contains the maximum allowed age in seconds.
-type StalenessPolicy struct{ MaxStalenessS float64 }
+type StalenessPolicy struct {
+	// MaxStalenessS is the maximum allowed age in seconds.
+	MaxStalenessS float64
+}
 
 // StalenessPolicyDays constructs a native staleness policy from days.
 func StalenessPolicyDays(days float64) StalenessPolicy {

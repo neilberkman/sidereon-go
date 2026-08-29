@@ -4,10 +4,14 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 
 // NISGate is the normalized-innovation-squared gate result from C.
 type NISGate struct {
-	NIS       float64
+	// NIS is the normalized innovation squared.
+	NIS float64
+	// Threshold is the configured threshold.
 	Threshold float64
-	InGate    bool
-	DOF       uint64
+	// InGate reports whether the innovation is inside the gate.
+	InGate bool
+	// DOF is the degrees of freedom.
+	DOF uint64
 }
 
 // NIS computes the scalar normalized innovation squared statistic.

@@ -5,58 +5,84 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 // RTKRINEXSignalPair selects one RINEX code and carrier observable for a GNSS
 // system in a single-frequency RTK arc.
 type RTKRINEXSignalPair struct {
-	System                          GNSSSystem
+	// System is the GNSS system identifier.
+	System GNSSSystem
+	// CodeObservable is the code observable value for RTKRINEXSignalPair; PhaseObservable is the phase observable value for RTKRINEXSignalPair.
 	CodeObservable, PhaseObservable string
 }
 
 // RTKRINEXDualSignalPair selects two RINEX code/carrier pairs for a GNSS
 // system in a dual-frequency RTK arc.
 type RTKRINEXDualSignalPair struct {
-	System                                                               GNSSSystem
+	// System is the GNSS system identifier.
+	System GNSSSystem
+	// Code1Observable is the code1 observable value for RTKRINEXDualSignalPair; Phase1Observable is the phase1 observable value for RTKRINEXDualSignalPair; Code2Observable is the code2 observable value for RTKRINEXDualSignalPair; Phase2Observable is the phase2 observable value for RTKRINEXDualSignalPair.
 	Code1Observable, Phase1Observable, Code2Observable, Phase2Observable string
 }
 
 // RTKRINEXArcOptions controls construction of a single-frequency RTK arc.
 type RTKRINEXArcOptions struct {
-	SignalPairs           []RTKRINEXSignalPair
-	HasMaxEpochs          bool
-	MaxEpochs             int
-	MinCommonSatellites   int
+	// SignalPairs contains a detached copy; nil means this field is absent.
+	SignalPairs []RTKRINEXSignalPair
+	// HasMaxEpochs reports whether the has max epochs field is present.
+	HasMaxEpochs bool
+	// MaxEpochs is the max epochs value for RTKRINEXArcOptions.
+	MaxEpochs int
+	// MinCommonSatellites is the min common satellites value for RTKRINEXArcOptions.
+	MinCommonSatellites int
+	// IncludePredictionTime is the include prediction time value for RTKRINEXArcOptions.
 	IncludePredictionTime bool
 }
 
 // RTKRINEXDualArcOptions controls construction of a dual-frequency RTK arc.
 type RTKRINEXDualArcOptions struct {
-	SignalPairs           []RTKRINEXDualSignalPair
-	HasMaxEpochs          bool
-	MaxEpochs             int
-	MinCommonSatellites   int
+	// SignalPairs contains a detached copy; nil means this field is absent.
+	SignalPairs []RTKRINEXDualSignalPair
+	// HasMaxEpochs reports whether the has max epochs field is present.
+	HasMaxEpochs bool
+	// MaxEpochs is the max epochs value for RTKRINEXDualArcOptions.
+	MaxEpochs int
+	// MinCommonSatellites is the min common satellites value for RTKRINEXDualArcOptions.
+	MinCommonSatellites int
+	// IncludePredictionTime is the include prediction time value for RTKRINEXDualArcOptions.
 	IncludePredictionTime bool
 }
 
 // RTKRINEXArcObservation is one copied single-frequency epoch observation.
 type RTKRINEXArcObservation struct {
+	// SatelliteID identifies or counts this record; AmbiguityID identifies or counts this record.
 	SatelliteID, AmbiguityID string
-	CodeM, PhaseM            float64
-	HasLLI                   bool
-	LLI                      int64
+	// CodeM is the code m in metres; PhaseM is the phase m in metres.
+	CodeM, PhaseM float64
+	// HasLLI reports whether the has lli field is present.
+	HasLLI bool
+	// LLI is the loss-of-lock indicator.
+	LLI int64
 }
 
 // RTKRINEXArcPosition is one copied satellite ECEF position.
 type RTKRINEXArcPosition struct {
+	// SatelliteID identifies or counts this record.
 	SatelliteID string
-	PositionM   [3]float64
+	// PositionM is the position m in metres.
+	PositionM [3]float64
 }
 
 // RTKRINEXArcEpochMetadata contains copied single-frequency epoch shape and
 // optional prediction fields.
 type RTKRINEXArcEpochMetadata struct {
-	BaseCount, RoverCount, SatellitePositionCount           int
+	// BaseCount identifies or counts this record; RoverCount identifies or counts this record; SatellitePositionCount identifies or counts this record.
+	BaseCount, RoverCount, SatellitePositionCount int
+	// BaseSatellitePositionCount identifies or counts this record; RoverSatellitePositionCount identifies or counts this record.
 	BaseSatellitePositionCount, RoverSatellitePositionCount int
-	HasVelocityMPS                                          bool
-	VelocityMPS                                             [3]float64
-	HasPredictionTime                                       bool
-	PredictionTimeS                                         float64
+	// HasVelocityMPS reports whether the has velocity mps field is present.
+	HasVelocityMPS bool
+	// VelocityMPS is the velocity mps in metres per second.
+	VelocityMPS [3]float64
+	// HasPredictionTime reports whether the has prediction time field is present.
+	HasPredictionTime bool
+	// PredictionTimeS is the prediction time s in seconds.
+	PredictionTimeS float64
 }
 
 // RTKRINEXMapValue is one copied ambiguity-keyed wavelength or offset. It is
@@ -66,28 +92,40 @@ type RTKRINEXMapValue = RTKFloatMapEntry
 // RTKRINEXDualFrequencyObservation contains one receiver's two-frequency
 // observation values.
 type RTKRINEXDualFrequencyObservation struct {
-	AmbiguityID                                  string
+	// AmbiguityID identifies or counts this record.
+	AmbiguityID string
+	// P1M is the p1 m in metres; P2M is the p2 m in metres; Phi1Cycles is the phi1 cycles in cycles; Phi2Cycles is the phi2 cycles in cycles; F1Hz is the f1 hz in hertz; F2Hz is the f2 hz in hertz.
 	P1M, P2M, Phi1Cycles, Phi2Cycles, F1Hz, F2Hz float64
-	HasLLI1, HasLLI2                             bool
-	LLI1, LLI2                                   int64
+	// HasLLI1 reports whether the has lli1 field is present; HasLLI2 reports whether the has lli2 field is present.
+	HasLLI1, HasLLI2 bool
+	// LLI1 is the lli1 value for RTKRINEXDualFrequencyObservation; LLI2 is the lli2 value for RTKRINEXDualFrequencyObservation.
+	LLI1, LLI2 int64
 }
 
 // RTKRINEXDualFrequencySatelliteObservation contains both receivers' values
 // for one satellite.
 type RTKRINEXDualFrequencySatelliteObservation struct {
+	// SatelliteID identifies or counts this record.
 	SatelliteID string
+	// Base is the base value for RTKRINEXDualFrequencySatelliteObservation; Rover is the rover value for RTKRINEXDualFrequencySatelliteObservation.
 	Base, Rover RTKRINEXDualFrequencyObservation
 }
 
 // RTKRINEXDualFrequencyArcEpochMetadata contains copied dual-frequency epoch
 // time, shape, and optional fields.
 type RTKRINEXDualFrequencyArcEpochMetadata struct {
+	// JDWhole is the Julian-date value; JDFraction is the Julian-date value; GapTimeS is the gap time s in seconds; PredictionTimeS is the prediction time s in seconds.
 	JDWhole, JDFraction, GapTimeS, PredictionTimeS float64
+	// HasGapTimeS reports whether the has gap time s field is present; HasVelocityMPS reports whether the has velocity mps field is present; HasPredictionTime reports whether the has prediction time field is present.
 	HasGapTimeS, HasVelocityMPS, HasPredictionTime bool
-	ObservationCount, SatellitePositionCount       int
-	BaseSatellitePositionCount                     int
-	RoverSatellitePositionCount                    int
-	VelocityMPS                                    [3]float64
+	// ObservationCount identifies or counts this record; SatellitePositionCount identifies or counts this record.
+	ObservationCount, SatellitePositionCount int
+	// BaseSatellitePositionCount identifies or counts this record.
+	BaseSatellitePositionCount int
+	// RoverSatellitePositionCount identifies or counts this record.
+	RoverSatellitePositionCount int
+	// VelocityMPS is the velocity mps in metres per second.
+	VelocityMPS [3]float64
 }
 
 // RTKArcObservation is the shared shape of a copied single-frequency RTK
@@ -235,6 +273,7 @@ func (a *RTKRINEXDualFrequencyArc) Close() error {
 	return publicError(a.handle.Close())
 }
 
+// EpochCount returns the number of epoch entries.
 func (a *RTKRINEXArc) EpochCount() (int, error) {
 	if a == nil || a.handle == nil {
 		return 0, ErrClosed
@@ -243,6 +282,7 @@ func (a *RTKRINEXArc) EpochCount() (int, error) {
 	return value, publicError(err)
 }
 
+// SkippedEpochCount returns the number of skipped epoch entries.
 func (a *RTKRINEXArc) SkippedEpochCount() (int, error) {
 	if a == nil || a.handle == nil {
 		return 0, ErrClosed
@@ -251,6 +291,7 @@ func (a *RTKRINEXArc) SkippedEpochCount() (int, error) {
 	return value, publicError(err)
 }
 
+// EpochBaseObservations returns detached base-station observations for one epoch.
 func (a *RTKRINEXArc) EpochBaseObservations(index int) ([]RTKRINEXArcObservation, error) {
 	if a == nil || a.handle == nil {
 		return nil, ErrClosed
@@ -262,6 +303,7 @@ func (a *RTKRINEXArc) EpochBaseObservations(index int) ([]RTKRINEXArcObservation
 	return publicRTKRINEXArcObservations(value), nil
 }
 
+// EpochRoverObservations returns detached rover observations for one epoch.
 func (a *RTKRINEXArc) EpochRoverObservations(index int) ([]RTKRINEXArcObservation, error) {
 	if a == nil || a.handle == nil {
 		return nil, ErrClosed
@@ -289,6 +331,7 @@ func publicRTKRINEXArcPositions(value []native.RtkRinexArcPosition) []RTKRINEXAr
 	return result
 }
 
+// EpochSatellitePositions returns detached satellite ECEF positions for one epoch.
 func (a *RTKRINEXArc) EpochSatellitePositions(index int) ([]RTKRINEXArcPosition, error) {
 	if a == nil || a.handle == nil {
 		return nil, ErrClosed
@@ -300,6 +343,7 @@ func (a *RTKRINEXArc) EpochSatellitePositions(index int) ([]RTKRINEXArcPosition,
 	return publicRTKRINEXArcPositions(value), nil
 }
 
+// EpochBaseSatellitePositions returns detached base-station satellite positions for one epoch.
 func (a *RTKRINEXArc) EpochBaseSatellitePositions(index int) ([]RTKRINEXArcPosition, error) {
 	if a == nil || a.handle == nil {
 		return nil, ErrClosed
@@ -311,6 +355,7 @@ func (a *RTKRINEXArc) EpochBaseSatellitePositions(index int) ([]RTKRINEXArcPosit
 	return publicRTKRINEXArcPositions(value), nil
 }
 
+// EpochRoverSatellitePositions returns detached rover satellite positions for one epoch.
 func (a *RTKRINEXArc) EpochRoverSatellitePositions(index int) ([]RTKRINEXArcPosition, error) {
 	if a == nil || a.handle == nil {
 		return nil, ErrClosed
@@ -322,6 +367,7 @@ func (a *RTKRINEXArc) EpochRoverSatellitePositions(index int) ([]RTKRINEXArcPosi
 	return publicRTKRINEXArcPositions(value), nil
 }
 
+// EpochMetadata returns timing, gap, and row-count metadata for one epoch.
 func (a *RTKRINEXArc) EpochMetadata(index int) (RTKRINEXArcEpochMetadata, error) {
 	if a == nil || a.handle == nil {
 		return RTKRINEXArcEpochMetadata{}, ErrClosed
@@ -341,6 +387,7 @@ func publicRTKRINEXMapValues(value []native.RtkRinexMapValue) []RTKRINEXMapValue
 	return result
 }
 
+// OffsetsM returns detached ambiguity offsets in metres.
 func (a *RTKRINEXArc) OffsetsM() ([]RTKRINEXMapValue, error) {
 	if a == nil || a.handle == nil {
 		return nil, ErrClosed
@@ -352,6 +399,7 @@ func (a *RTKRINEXArc) OffsetsM() ([]RTKRINEXMapValue, error) {
 	return publicRTKRINEXMapValues(value), nil
 }
 
+// WavelengthsM returns detached ambiguity wavelengths in metres.
 func (a *RTKRINEXArc) WavelengthsM() ([]RTKRINEXMapValue, error) {
 	if a == nil || a.handle == nil {
 		return nil, ErrClosed
@@ -363,6 +411,7 @@ func (a *RTKRINEXArc) WavelengthsM() ([]RTKRINEXMapValue, error) {
 	return publicRTKRINEXMapValues(value), nil
 }
 
+// EpochCount returns the number of epoch entries.
 func (a *RTKRINEXDualFrequencyArc) EpochCount() (int, error) {
 	if a == nil || a.handle == nil {
 		return 0, ErrClosed
@@ -371,6 +420,7 @@ func (a *RTKRINEXDualFrequencyArc) EpochCount() (int, error) {
 	return value, publicError(err)
 }
 
+// SkippedEpochCount returns the number of skipped epoch entries.
 func (a *RTKRINEXDualFrequencyArc) SkippedEpochCount() (int, error) {
 	if a == nil || a.handle == nil {
 		return 0, ErrClosed
@@ -379,6 +429,7 @@ func (a *RTKRINEXDualFrequencyArc) SkippedEpochCount() (int, error) {
 	return value, publicError(err)
 }
 
+// EpochMetadata returns timing, gap, and row-count metadata for one dual-frequency epoch.
 func (a *RTKRINEXDualFrequencyArc) EpochMetadata(index int) (RTKRINEXDualFrequencyArcEpochMetadata, error) {
 	if a == nil || a.handle == nil {
 		return RTKRINEXDualFrequencyArcEpochMetadata{}, ErrClosed
@@ -398,6 +449,7 @@ func publicRTKRINEXDualObservations(value []native.RtkRinexDualFrequencySatellit
 	return result
 }
 
+// EpochObservations returns detached base/rover observations for one dual-frequency epoch.
 func (a *RTKRINEXDualFrequencyArc) EpochObservations(index int) ([]RTKRINEXDualFrequencySatelliteObservation, error) {
 	if a == nil || a.handle == nil {
 		return nil, ErrClosed
@@ -409,6 +461,7 @@ func (a *RTKRINEXDualFrequencyArc) EpochObservations(index int) ([]RTKRINEXDualF
 	return publicRTKRINEXDualObservations(value), nil
 }
 
+// EpochSatellitePositions returns detached satellite positions for one dual-frequency epoch.
 func (a *RTKRINEXDualFrequencyArc) EpochSatellitePositions(index int) ([]RTKRINEXArcPosition, error) {
 	if a == nil || a.handle == nil {
 		return nil, ErrClosed
@@ -420,6 +473,7 @@ func (a *RTKRINEXDualFrequencyArc) EpochSatellitePositions(index int) ([]RTKRINE
 	return publicRTKRINEXArcPositions(value), nil
 }
 
+// EpochBaseSatellitePositions returns detached base-station satellite positions for one dual-frequency epoch.
 func (a *RTKRINEXDualFrequencyArc) EpochBaseSatellitePositions(index int) ([]RTKRINEXArcPosition, error) {
 	if a == nil || a.handle == nil {
 		return nil, ErrClosed
@@ -431,6 +485,7 @@ func (a *RTKRINEXDualFrequencyArc) EpochBaseSatellitePositions(index int) ([]RTK
 	return publicRTKRINEXArcPositions(value), nil
 }
 
+// EpochRoverSatellitePositions returns detached rover satellite positions for one dual-frequency epoch.
 func (a *RTKRINEXDualFrequencyArc) EpochRoverSatellitePositions(index int) ([]RTKRINEXArcPosition, error) {
 	if a == nil || a.handle == nil {
 		return nil, ErrClosed
@@ -442,6 +497,7 @@ func (a *RTKRINEXDualFrequencyArc) EpochRoverSatellitePositions(index int) ([]RT
 	return publicRTKRINEXArcPositions(value), nil
 }
 
+// EpochSortKey returns the canonical sort key for one epoch.
 func (a *RTKRINEXDualFrequencyArc) EpochSortKey(index int) (string, error) {
 	if a == nil || a.handle == nil {
 		return "", ErrClosed

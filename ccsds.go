@@ -5,17 +5,23 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 // OptionalNumber preserves the C CDM distinction between an absent numeric
 // field and a present zero. Value is NaN when Present is false.
 type OptionalNumber struct {
-	Value   float64
+	// Value is the value stored in this record.
+	Value float64
+	// Present reports whether the present field is present.
 	Present bool
 }
 
 // CDMNumbers contains the optional top-level CDM numeric scalars. Distances
 // are meters, speed is meters/second, and probabilities are dimensionless.
 type CDMNumbers struct {
-	MissDistanceM        OptionalNumber
-	RelativeSpeedMPerS   OptionalNumber
+	// MissDistanceM is the miss distance m in metres.
+	MissDistanceM OptionalNumber
+	// RelativeSpeedMPerS is the relative speed m per s in metres per second.
+	RelativeSpeedMPerS OptionalNumber
+	// CollisionProbability is the collision probability.
 	CollisionProbability OptionalNumber
-	HardBodyRadiusM      OptionalNumber
+	// HardBodyRadiusM is the hard body radius m in metres.
+	HardBodyRadiusM OptionalNumber
 }
 
 // CDMObject is the copied state and selected metadata for one CDM object.
@@ -24,58 +30,98 @@ type CDMNumbers struct {
 // covariance is the 15-value lower triangle in the C header's order and is in
 // m^2/s and m^2/s^2 as specified by the CDM.
 type CDMObject struct {
-	PositionKm              [3]float64
-	VelocityKmPerS          [3]float64
-	CovarianceRTN           [6]float64
-	VelocityCovarianceRTN   [15]float64
-	HasVelocityCovariance   bool
-	ObjectDesignator        string
-	CatalogName             string
-	ObjectName              string
+	// PositionKm is the position km in kilometres.
+	PositionKm [3]float64
+	// VelocityKmPerS is the velocity km per s in kilometres per second.
+	VelocityKmPerS [3]float64
+	// CovarianceRTN contains the fixed-size array for this record.
+	CovarianceRTN [6]float64
+	// VelocityCovarianceRTN contains the fixed-size array for this record.
+	VelocityCovarianceRTN [15]float64
+	// HasVelocityCovariance reports whether the has velocity covariance field is present.
+	HasVelocityCovariance bool
+	// ObjectDesignator is the object designator value for CDMObject.
+	ObjectDesignator string
+	// CatalogName is the catalog name value for CDMObject.
+	CatalogName string
+	// ObjectName is the object name value for CDMObject.
+	ObjectName string
+	// InternationalDesignator is the international designator value for CDMObject.
 	InternationalDesignator string
-	ObjectType              string
-	RefFrame                string
+	// ObjectType is the object type value for CDMObject.
+	ObjectType string
+	// RefFrame identifies the reference frame used by this CDM object.
+	RefFrame string
 }
 
 // CDMStringField selects one of the C top-level CDM string readers.
 type CDMStringField uint32
 
 const (
-	CDMCreationDate               CDMStringField = CDMStringField(native.CDMStringFieldCreationDateValue)
-	CDMOriginator                 CDMStringField = CDMStringField(native.CDMStringFieldOriginatorValue)
-	CDMMessageID                  CDMStringField = CDMStringField(native.CDMStringFieldMessageIDValue)
-	CDMTCA                        CDMStringField = CDMStringField(native.CDMStringFieldTCAValue)
+	// CDMCreationDate identifies the cdm creation date case.
+	CDMCreationDate CDMStringField = CDMStringField(native.CDMStringFieldCreationDateValue)
+	// CDMOriginator identifies the cdm originator case.
+	CDMOriginator CDMStringField = CDMStringField(native.CDMStringFieldOriginatorValue)
+	// CDMMessageID identifies the cdm message id case.
+	CDMMessageID CDMStringField = CDMStringField(native.CDMStringFieldMessageIDValue)
+	// CDMTCA identifies the cdmtca case.
+	CDMTCA CDMStringField = CDMStringField(native.CDMStringFieldTCAValue)
+	// CDMCollisionProbabilityMethod identifies the cdm collision probability method case.
 	CDMCollisionProbabilityMethod CDMStringField = CDMStringField(native.CDMStringFieldCollisionProbabilityMethodValue)
-	CDMObject1Designator          CDMStringField = CDMStringField(native.CDMStringFieldObject1DesignatorValue)
-	CDMObject1Name                CDMStringField = CDMStringField(native.CDMStringFieldObject1NameValue)
-	CDMObject2Designator          CDMStringField = CDMStringField(native.CDMStringFieldObject2DesignatorValue)
-	CDMObject2Name                CDMStringField = CDMStringField(native.CDMStringFieldObject2NameValue)
+	// CDMObject1Designator identifies the cdm object1 designator case.
+	CDMObject1Designator CDMStringField = CDMStringField(native.CDMStringFieldObject1DesignatorValue)
+	// CDMObject1Name identifies the cdm object1 name case.
+	CDMObject1Name CDMStringField = CDMStringField(native.CDMStringFieldObject1NameValue)
+	// CDMObject2Designator identifies the cdm object2 designator case.
+	CDMObject2Designator CDMStringField = CDMStringField(native.CDMStringFieldObject2DesignatorValue)
+	// CDMObject2Name identifies the cdm object2 name case.
+	CDMObject2Name CDMStringField = CDMStringField(native.CDMStringFieldObject2NameValue)
 )
 
 // CDMObjectStringField selects a per-object metadata string.
 type CDMObjectStringField uint32
 
 const (
-	CDMObjectDesignator        CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldObjectDesignatorValue)
-	CDMCatalogName             CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldCatalogNameValue)
-	CDMObjectName              CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldObjectNameValue)
+	// CDMObjectDesignator identifies the cdm object designator case.
+	CDMObjectDesignator CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldObjectDesignatorValue)
+	// CDMCatalogName identifies the cdm catalog name case.
+	CDMCatalogName CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldCatalogNameValue)
+	// CDMObjectName identifies the cdm object name case.
+	CDMObjectName CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldObjectNameValue)
+	// CDMInternationalDesignator identifies the cdm international designator case.
 	CDMInternationalDesignator CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldInternationalDesignatorValue)
-	CDMObjectType              CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldObjectTypeValue)
+	// CDMObjectType identifies the cdm object type case.
+	CDMObjectType CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldObjectTypeValue)
+	// CDMOperatorContactPosition identifies the cdm operator contact position case.
 	CDMOperatorContactPosition CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldOperatorContactPositionValue)
-	CDMOperatorOrganization    CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldOperatorOrganizationValue)
-	CDMOperatorPhone           CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldOperatorPhoneValue)
-	CDMOperatorEmail           CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldOperatorEmailValue)
-	CDMEphemerisName           CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldEphemerisNameValue)
-	CDMCovarianceMethod        CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldCovarianceMethodValue)
-	CDMManeuverable            CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldManeuverableValue)
-	CDMOrbitCenter             CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldOrbitCenterValue)
-	CDMRefFrame                CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldRefFrameValue)
-	CDMGravityModel            CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldGravityModelValue)
-	CDMAtmosphericModel        CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldAtmosphericModelValue)
-	CDMNBodyPerturbations      CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldNBodyPerturbationsValue)
-	CDMSolarRadiationPressure  CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldSolarRadPressureValue)
-	CDMEarthTides              CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldEarthTidesValue)
-	CDMIntrackThrust           CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldIntrackThrustValue)
+	// CDMOperatorOrganization identifies the cdm operator organization case.
+	CDMOperatorOrganization CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldOperatorOrganizationValue)
+	// CDMOperatorPhone identifies the cdm operator phone case.
+	CDMOperatorPhone CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldOperatorPhoneValue)
+	// CDMOperatorEmail identifies the cdm operator email case.
+	CDMOperatorEmail CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldOperatorEmailValue)
+	// CDMEphemerisName identifies the cdm ephemeris name case.
+	CDMEphemerisName CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldEphemerisNameValue)
+	// CDMCovarianceMethod identifies the cdm covariance method case.
+	CDMCovarianceMethod CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldCovarianceMethodValue)
+	// CDMManeuverable identifies the cdm maneuverable case.
+	CDMManeuverable CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldManeuverableValue)
+	// CDMOrbitCenter identifies the cdm orbit center case.
+	CDMOrbitCenter CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldOrbitCenterValue)
+	// CDMRefFrame identifies the cdm ref frame case.
+	CDMRefFrame CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldRefFrameValue)
+	// CDMGravityModel identifies the cdm gravity model case.
+	CDMGravityModel CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldGravityModelValue)
+	// CDMAtmosphericModel identifies the cdm atmospheric model case.
+	CDMAtmosphericModel CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldAtmosphericModelValue)
+	// CDMNBodyPerturbations identifies the cdmn body perturbations case.
+	CDMNBodyPerturbations CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldNBodyPerturbationsValue)
+	// CDMSolarRadiationPressure identifies the cdm solar radiation pressure case.
+	CDMSolarRadiationPressure CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldSolarRadPressureValue)
+	// CDMEarthTides identifies the cdm earth tides case.
+	CDMEarthTides CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldEarthTidesValue)
+	// CDMIntrackThrust identifies the cdm intrack thrust case.
+	CDMIntrackThrust CDMObjectStringField = CDMObjectStringField(native.CDMObjectStringFieldIntrackThrustValue)
 )
 
 // CDM owns a parsed CCSDS Conjunction Data Message. Its C handle is

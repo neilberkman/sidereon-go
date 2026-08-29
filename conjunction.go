@@ -6,40 +6,58 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 // relative position and miss distance are km; relative velocity and speed are
 // km/s.
 type EncounterFrame struct {
-	XHat                   [3]float64
-	YHat                   [3]float64
-	ZHat                   [3]float64
-	RelativePositionKm     [3]float64
+	// XHat is the dimensionless encounter-frame x unit vector.
+	XHat [3]float64
+	// YHat is the dimensionless encounter-frame y unit vector.
+	YHat [3]float64
+	// ZHat is the dimensionless encounter-frame z unit vector.
+	ZHat [3]float64
+	// RelativePositionKm is the relative position km in kilometres.
+	RelativePositionKm [3]float64
+	// RelativeVelocityKmPerS is the relative velocity km per s in kilometres per second.
 	RelativeVelocityKmPerS [3]float64
-	MissKm                 float64
-	RelativeSpeedKmPerS    float64
+	// MissKm is the miss km in kilometres.
+	MissKm float64
+	// RelativeSpeedKmPerS is the relative speed km per s in kilometres per second.
+	RelativeSpeedKmPerS float64
 }
 
 // ConjunctionState contains an ECI position/velocity and a 3x3 position
 // covariance. Position is km, velocity is km/s, and covariance is km^2.
 type ConjunctionState struct {
-	PositionKm     [3]float64
+	// PositionKm is the position km in kilometres.
+	PositionKm [3]float64
+	// VelocityKmPerS is the velocity km per s in kilometres per second.
 	VelocityKmPerS [3]float64
-	CovarianceKm2  [3][3]float64
+	// CovarianceKm2 is the position covariance matrix in square kilometres.
+	CovarianceKm2 [3][3]float64
 }
 
 // CollisionPC contains collision probability and encounter-plane diagnostics.
 // Miss distance and sigmas are km; relative speed is km/s; PC is a probability.
 type CollisionPC struct {
-	PC                  float64
-	MissKm              float64
+	// PC is the collision probability computed for this encounter.
+	PC float64
+	// MissKm is the miss km in kilometres.
+	MissKm float64
+	// RelativeSpeedKmPerS is the relative speed km per s in kilometres per second.
 	RelativeSpeedKmPerS float64
-	SigmaXKm            float64
-	SigmaZKm            float64
+	// SigmaXKm is the sigma x km in kilometres.
+	SigmaXKm float64
+	// SigmaZKm is the sigma z km in kilometres.
+	SigmaZKm float64
 }
 
 // PCMethod selects the C collision-probability model.
 type PCMethod uint32
 
 const (
+	// PCMethodFosterEqualArea identifies the pc method foster equal area case.
 	PCMethodFosterEqualArea PCMethod = PCMethod(native.PCMethodFosterEqualAreaValue)
+	// PCMethodFosterNumerical identifies the pc method foster numerical case.
 	PCMethodFosterNumerical PCMethod = PCMethod(native.PCMethodFosterNumericalValue)
-	PCMethodAlfano2005      PCMethod = PCMethod(native.PCMethodAlfano2005Value)
+	// PCMethodAlfano2005 identifies the pc method alfano2005 case.
+	PCMethodAlfano2005 PCMethod = PCMethod(native.PCMethodAlfano2005Value)
 )
 
 // PropagationForceModel selects the C force model used to transport TCA
@@ -47,10 +65,15 @@ const (
 type PropagationForceModel uint32
 
 const (
-	PropagationForceModelTwoBody     PropagationForceModel = PropagationForceModel(native.PropagationForceModelTwoBodyValue)
-	PropagationForceModelTwoBodyJ2   PropagationForceModel = PropagationForceModel(native.PropagationForceModelTwoBodyJ2Value)
-	PropagationForceModelComposite   PropagationForceModel = PropagationForceModel(native.PropagationForceModelCompositeValue)
+	// PropagationForceModelTwoBody identifies the propagation force model two body case.
+	PropagationForceModelTwoBody PropagationForceModel = PropagationForceModel(native.PropagationForceModelTwoBodyValue)
+	// PropagationForceModelTwoBodyJ2 identifies the propagation force model two body j2 case.
+	PropagationForceModelTwoBodyJ2 PropagationForceModel = PropagationForceModel(native.PropagationForceModelTwoBodyJ2Value)
+	// PropagationForceModelComposite identifies the propagation force model composite case.
+	PropagationForceModelComposite PropagationForceModel = PropagationForceModel(native.PropagationForceModelCompositeValue)
+	// PropagationForceModelEarthPhaseA identifies the propagation force model earth phase a case.
 	PropagationForceModelEarthPhaseA PropagationForceModel = PropagationForceModel(native.PropagationForceModelEarthPhaseAValue)
+	// PropagationForceModelEarthPhaseB identifies the propagation force model earth phase b case.
 	PropagationForceModelEarthPhaseB PropagationForceModel = PropagationForceModel(native.PropagationForceModelEarthPhaseBValue)
 )
 
@@ -58,8 +81,10 @@ const (
 type PropagationIntegrator uint32
 
 const (
+	// PropagationIntegratorDP54 identifies the propagation integrator dp54 case.
 	PropagationIntegratorDP54 PropagationIntegrator = PropagationIntegrator(native.PropagationIntegratorDP54Value)
-	PropagationIntegratorRK4  PropagationIntegrator = PropagationIntegrator(native.PropagationIntegratorRK4Value)
+	// PropagationIntegratorRK4 identifies the propagation integrator rk4 case.
+	PropagationIntegratorRK4 PropagationIntegrator = PropagationIntegrator(native.PropagationIntegratorRK4Value)
 )
 
 func nativeConjunctionState(value ConjunctionState) native.ConjunctionState {
@@ -98,7 +123,9 @@ func CollisionProbability(object1, object2 ConjunctionState, hardBodyRadiusKm fl
 // TCAFinderOptions controls the C coarse bracketing and time refinement.
 // Both fields are seconds.
 type TCAFinderOptions struct {
-	CoarseStepSeconds    float64
+	// CoarseStepSeconds is the coarse step seconds in seconds.
+	CoarseStepSeconds float64
+	// TimeToleranceSeconds is the time tolerance seconds in seconds.
 	TimeToleranceSeconds float64
 }
 
@@ -113,12 +140,18 @@ func DefaultTCAFinderOptions() (TCAFinderOptions, error) {
 // window start. Relative position is primary minus secondary in the C TEME
 // convention; geometry uses km and km/s.
 type TCACandidate struct {
-	TCATimeJDWhole             float64
-	TCATimeJDFraction          float64
+	// TCATimeJDWhole is the whole-number part of the candidate's Julian date.
+	TCATimeJDWhole float64
+	// TCATimeJDFraction is the fractional part of the candidate's Julian date.
+	TCATimeJDFraction float64
+	// TCASecondsSinceWindowStart is the candidate time from the search-window start, in seconds.
 	TCASecondsSinceWindowStart float64
-	MissDistanceKm             float64
-	RelativePositionKm         [3]float64
-	RelativeVelocityKmPerS     [3]float64
+	// MissDistanceKm is the miss distance km in kilometres.
+	MissDistanceKm float64
+	// RelativePositionKm is the relative position km in kilometres.
+	RelativePositionKm [3]float64
+	// RelativeVelocityKmPerS is the relative velocity km per s in kilometres per second.
+	RelativeVelocityKmPerS [3]float64
 }
 
 // TCA is the absolute split Julian date represented by a candidate.
@@ -129,7 +162,9 @@ func (c TCACandidate) TCA() JulianDate {
 // TCAConjunction pairs a refined candidate with C collision-probability
 // diagnostics.
 type TCAConjunction struct {
-	Candidate            TCACandidate
+	// Candidate is the candidate record.
+	Candidate TCACandidate
+	// CollisionProbability is the collision probability.
 	CollisionProbability CollisionPC
 }
 
@@ -163,10 +198,15 @@ func FindTCACandidates(primaryLine1, primaryLine2, secondaryLine1, secondaryLine
 // TCAPCOptions supplies the C TCA collision-probability inputs. When
 // UseDefaultCovariance is true, the two covariance matrices are ignored.
 type TCAPCOptions struct {
-	HardBodyRadiusKm       float64
-	Method                 PCMethod
-	UseDefaultCovariance   bool
-	PrimaryCovarianceKm2   [3][3]float64
+	// HardBodyRadiusKm is the hard body radius km in kilometres.
+	HardBodyRadiusKm float64
+	// Method is the selected method.
+	Method PCMethod
+	// UseDefaultCovariance selects C's default covariance when true.
+	UseDefaultCovariance bool
+	// PrimaryCovarianceKm2 is the primary position covariance in square kilometres.
+	PrimaryCovarianceKm2 [3][3]float64
+	// SecondaryCovarianceKm2 is the secondary position covariance in square kilometres.
 	SecondaryCovarianceKm2 [3][3]float64
 }
 
@@ -176,41 +216,61 @@ type TCAPCOptions struct {
 // tolerances are dimensionless, integration steps are seconds, and MaxSteps
 // is a count. When MuKm3PerS2Enabled is false, C uses its Earth default.
 type TCAPropagatedCovariancePCOptions struct {
-	HardBodyRadiusKm     float64
-	Method               PCMethod
-	PrimaryCovariance0   [6][6]float64
+	// HardBodyRadiusKm is the hard body radius km in kilometres.
+	HardBodyRadiusKm float64
+	// Method is the selected method.
+	Method PCMethod
+	// PrimaryCovariance0 is the primary six-state covariance in the header's units.
+	PrimaryCovariance0 [6][6]float64
+	// SecondaryCovariance0 is the secondary six-state covariance in the header's units.
 	SecondaryCovariance0 [6][6]float64
-	ForceModel           PropagationForceModel
-	Integrator           PropagationIntegrator
-	AbsTol               float64
-	RelTol               float64
-	InitialStepSeconds   float64
-	MinStepSeconds       float64
-	MaxStepSeconds       float64
-	MaxSteps             uint32
-	MuKm3PerS2Enabled    bool
-	MuKm3PerS2           float64
+	// ForceModel is the propagation force model.
+	ForceModel PropagationForceModel
+	// Integrator is the propagation integrator.
+	Integrator PropagationIntegrator
+	// AbsTol is the absolute solver tolerance.
+	AbsTol float64
+	// RelTol is the relative solver tolerance.
+	RelTol float64
+	// InitialStepSeconds is the initial step seconds in seconds.
+	InitialStepSeconds float64
+	// MinStepSeconds is the min step seconds in seconds.
+	MinStepSeconds float64
+	// MaxStepSeconds is the max step seconds in seconds.
+	MaxStepSeconds float64
+	// MaxSteps is the maximum solver step count.
+	MaxSteps uint32
+	// MuKm3PerS2Enabled selects the caller-supplied gravitational parameter when true.
+	MuKm3PerS2Enabled bool
+	// MuKm3PerS2 is the mu km3 per s2 in cubic kilometres per second squared.
+	MuKm3PerS2 float64
 }
 
 // TCATLEPair is one caller-owned TLE pair in a serial screening catalog. C
 // copies the lines during each screening call; the Go strings are not retained.
 type TCATLEPair struct {
+	// Line1 is the primary object's first TLE line.
 	Line1 string
+	// Line2 is the primary object's second TLE line.
 	Line2 string
 }
 
 // TCAScreeningHit identifies a threshold TCA candidate by its original
 // secondary catalog index. Results retain C's screening order.
 type TCAScreeningHit struct {
+	// SecondaryIndex identifies or counts this record.
 	SecondaryIndex int
-	Candidate      TCACandidate
+	// Candidate is the candidate record.
+	Candidate TCACandidate
 }
 
 // TCAScreeningConjunctionHit identifies a threshold TCA conjunction by its
 // original secondary catalog index. Results retain C's screening order.
 type TCAScreeningConjunctionHit struct {
+	// SecondaryIndex identifies or counts this record.
 	SecondaryIndex int
-	Conjunction    TCAConjunction
+	// Conjunction is the conjunction record.
+	Conjunction TCAConjunction
 }
 
 // TCACollisionProbability computes Pc for a candidate already refined by C.

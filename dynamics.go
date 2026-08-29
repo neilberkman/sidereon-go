@@ -5,36 +5,57 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 // SolarRadiationPressure contains the coefficient and area-to-mass ratio used
 // by the C solar-radiation-pressure model.
 type SolarRadiationPressure struct {
-	CR                float64
+	// CR is the coefficient of reflectivity.
+	CR float64
+	// AreaToMassM2PerKg is the area to mass m2 per kg in square metres per kilogram.
 	AreaToMassM2PerKg float64
 }
 
 // ForceModelComponents selects additive perturbations for composite
 // propagation. Degree and order values are the native model's limits.
 type ForceModelComponents struct {
-	HasTwoBody                 bool
-	TwoBodyMuKm3PerS2Enabled   bool
-	TwoBodyMuKm3PerS2          float64
-	HasZonal                   bool
-	ZonalMaxDegree             uint32
-	HasSphericalHarmonic       bool
+	// HasTwoBody reports whether the has two body field is present.
+	HasTwoBody bool
+	// TwoBodyMuKm3PerS2Enabled is the two body mu km3 per s2 enabled value for ForceModelComponents.
+	TwoBodyMuKm3PerS2Enabled bool
+	// TwoBodyMuKm3PerS2 is the two body mu km3 per s2 in cubic kilometres per second squared.
+	TwoBodyMuKm3PerS2 float64
+	// HasZonal reports whether the has zonal field is present.
+	HasZonal bool
+	// ZonalMaxDegree is the zonal max degree value for ForceModelComponents.
+	ZonalMaxDegree uint32
+	// HasSphericalHarmonic reports whether the has spherical harmonic field is present.
+	HasSphericalHarmonic bool
+	// SphericalHarmonicMaxDegree is the spherical harmonic max degree value for ForceModelComponents.
 	SphericalHarmonicMaxDegree uint32
-	SphericalHarmonicMaxOrder  uint32
-	HasSolidEarthTide          bool
-	HasSolidEarthPoleTide      bool
-	HasThirdBody               bool
-	ThirdBodySun               bool
-	ThirdBodyMoon              bool
-	HasSolarRadiationPressure  bool
-	SolarRadiationPressure     SolarRadiationPressure
-	HasRelativity              bool
+	// SphericalHarmonicMaxOrder is the spherical harmonic max order value for ForceModelComponents.
+	SphericalHarmonicMaxOrder uint32
+	// HasSolidEarthTide reports whether the has solid earth tide field is present.
+	HasSolidEarthTide bool
+	// HasSolidEarthPoleTide reports whether the has solid earth pole tide field is present.
+	HasSolidEarthPoleTide bool
+	// HasThirdBody reports whether the has third body field is present.
+	HasThirdBody bool
+	// ThirdBodySun reports the status of this record.
+	ThirdBodySun bool
+	// ThirdBodyMoon reports the status of this record.
+	ThirdBodyMoon bool
+	// HasSolarRadiationPressure reports whether the has solar radiation pressure field is present.
+	HasSolarRadiationPressure bool
+	// SolarRadiationPressure is the solar radiation pressure value for ForceModelComponents.
+	SolarRadiationPressure SolarRadiationPressure
+	// HasRelativity reports whether the has relativity field is present.
+	HasRelativity bool
 }
 
 // DragParameters contains validated atmospheric-drag parameters. The
 // ballistic factor is C_D*A/m in m²/kg and cutoff altitude is km.
 type DragParameters struct {
-	BCFactorM2PerKg  float64
-	Weather          SpaceWeather
+	// BCFactorM2PerKg is the bc factor m2 per kg in square metres per kilogram.
+	BCFactorM2PerKg float64
+	// Weather is the space-weather table.
+	Weather SpaceWeather
+	// CutoffAltitudeKm is the cutoff altitude km in kilometres.
 	CutoffAltitudeKm float64
 }
 
@@ -109,28 +130,47 @@ func ForceJ2Acceleration(positionKm, velocityKmPerS [3]float64) ([3]float64, err
 
 // DecayConfig controls the C drag-perturbed reentry estimate.
 type DecayConfig struct {
-	ForceModel         PropagationForceModel
-	Integrator         PropagationIntegrator
-	AbsTol             float64
-	RelTol             float64
-	InitialStepS       float64
-	MinStepS           float64
-	MaxStepS           float64
-	MaxSteps           uint32
-	MuKm3PerS2Enabled  bool
-	MuKm3PerS2         float64
-	Drag               DragParameters
-	ReentryAltitudeKm  float64
-	ScanStepS          float64
+	// ForceModel is the propagation force model.
+	ForceModel PropagationForceModel
+	// Integrator is the propagation integrator.
+	Integrator PropagationIntegrator
+	// AbsTol is the absolute solver tolerance.
+	AbsTol float64
+	// RelTol is the relative solver tolerance.
+	RelTol float64
+	// InitialStepS is the initial step s value for DecayConfig.
+	InitialStepS float64
+	// MinStepS is the min step s value for DecayConfig.
+	MinStepS float64
+	// MaxStepS is the max step s value for DecayConfig.
+	MaxStepS float64
+	// MaxSteps is the maximum solver step count.
+	MaxSteps uint32
+	// MuKm3PerS2Enabled is the mu km3 per s2 enabled value for DecayConfig.
+	MuKm3PerS2Enabled bool
+	// MuKm3PerS2 is the mu km3 per s2 in cubic kilometres per second squared.
+	MuKm3PerS2 float64
+	// Drag is the drag model.
+	Drag DragParameters
+	// ReentryAltitudeKm is the reentry altitude km in kilometres.
+	ReentryAltitudeKm float64
+	// ScanStepS is the scan step s value for DecayConfig.
+	ScanStepS float64
+	// CrossingToleranceS is the crossing tolerance s in seconds.
 	CrossingToleranceS float64
-	MaxDurationS       float64
-	MaxScanSamples     uint32
+	// MaxDurationS is the max duration s in seconds.
+	MaxDurationS float64
+	// MaxScanSamples is the max scan samples value for DecayConfig.
+	MaxScanSamples uint32
 }
 
 // DecayEstimate contains the C-computed reentry duration and state.
 type DecayEstimate struct {
-	TimeToDecayS      float64
-	ReentryState      CartesianState
+	// TimeToDecayS is the time to decay s value for DecayEstimate.
+	TimeToDecayS float64
+	// ReentryState is the re-entry state classification.
+	ReentryState CartesianState
+	// ReentryAltitudeKm is the reentry altitude km in kilometres.
 	ReentryAltitudeKm float64
 }
 

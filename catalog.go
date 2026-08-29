@@ -13,12 +13,17 @@ import (
 type ProductFamily uint32
 
 const (
-	ProductFamilySP3             ProductFamily = ProductFamily(native.ProductFamilySP3)
-	ProductFamilyIONEX           ProductFamily = ProductFamily(native.ProductFamilyIONEX)
-	ProductFamilyRINEXClock      ProductFamily = ProductFamily(native.ProductFamilyRINEXClock)
+	// ProductFamilySP3 identifies the product family sp3 case.
+	ProductFamilySP3 ProductFamily = ProductFamily(native.ProductFamilySP3)
+	// ProductFamilyIONEX identifies the product family ionex case.
+	ProductFamilyIONEX ProductFamily = ProductFamily(native.ProductFamilyIONEX)
+	// ProductFamilyRINEXClock identifies the product family rinex clock case.
+	ProductFamilyRINEXClock ProductFamily = ProductFamily(native.ProductFamilyRINEXClock)
+	// ProductFamilyRINEXNavigation identifies the product family rinex navigation case.
 	ProductFamilyRINEXNavigation ProductFamily = ProductFamily(native.ProductFamilyRINEXNavigation)
 )
 
+// String formats the value for presentation.
 func (f ProductFamily) String() string {
 	switch f {
 	case ProductFamilySP3:
@@ -40,12 +45,17 @@ func (f ProductFamily) String() string {
 type DistributionSource uint32
 
 const (
-	DistributionSourceDirect    DistributionSource = DistributionSource(native.DistributionSourceDirect)
+	// DistributionSourceDirect identifies the distribution source direct case.
+	DistributionSourceDirect DistributionSource = DistributionSource(native.DistributionSourceDirect)
+	// DistributionSourceNASACDDIS identifies the distribution source nasacddis case.
 	DistributionSourceNASACDDIS DistributionSource = DistributionSource(native.DistributionSourceNASACDDIS)
+	// DistributionSourceLocalFile identifies the distribution source local file case.
 	DistributionSourceLocalFile DistributionSource = DistributionSource(native.DistributionSourceLocalFile)
-	DistributionSourceInMemory  DistributionSource = DistributionSource(native.DistributionSourceInMemory)
+	// DistributionSourceInMemory identifies the distribution source in memory case.
+	DistributionSourceInMemory DistributionSource = DistributionSource(native.DistributionSourceInMemory)
 )
 
+// String formats the value for presentation.
 func (s DistributionSource) String() string {
 	switch s {
 	case DistributionSourceDirect:
@@ -65,11 +75,15 @@ func (s DistributionSource) String() string {
 type ArchiveCompression uint32
 
 const (
-	ArchiveCompressionNone         ArchiveCompression = ArchiveCompression(native.ArchiveCompressionNone)
-	ArchiveCompressionGZIP         ArchiveCompression = ArchiveCompression(native.ArchiveCompressionGZIP)
+	// ArchiveCompressionNone identifies the archive compression none case.
+	ArchiveCompressionNone ArchiveCompression = ArchiveCompression(native.ArchiveCompressionNone)
+	// ArchiveCompressionGZIP identifies the archive compression gzip case.
+	ArchiveCompressionGZIP ArchiveCompression = ArchiveCompression(native.ArchiveCompressionGZIP)
+	// ArchiveCompressionUnixCompress identifies the archive compression unix compress case.
 	ArchiveCompressionUnixCompress ArchiveCompression = ArchiveCompression(native.ArchiveCompressionUnixCompress)
 )
 
+// String formats the value for presentation.
 func (c ArchiveCompression) String() string {
 	switch c {
 	case ArchiveCompressionNone:
@@ -87,14 +101,21 @@ func (c ArchiveCompression) String() string {
 type SolutionClass uint32
 
 const (
-	SolutionClassFinal        SolutionClass = SolutionClass(native.SolutionClassFinal)
-	SolutionClassRapid        SolutionClass = SolutionClass(native.SolutionClassRapid)
-	SolutionClassUltraRapid   SolutionClass = SolutionClass(native.SolutionClassUltraRapid)
-	SolutionClassPredicted    SolutionClass = SolutionClass(native.SolutionClassPredicted)
-	SolutionClassBroadcast    SolutionClass = SolutionClass(native.SolutionClassBroadcast)
+	// SolutionClassFinal identifies the solution class final case.
+	SolutionClassFinal SolutionClass = SolutionClass(native.SolutionClassFinal)
+	// SolutionClassRapid identifies the solution class rapid case.
+	SolutionClassRapid SolutionClass = SolutionClass(native.SolutionClassRapid)
+	// SolutionClassUltraRapid identifies the solution class ultra rapid case.
+	SolutionClassUltraRapid SolutionClass = SolutionClass(native.SolutionClassUltraRapid)
+	// SolutionClassPredicted identifies the solution class predicted case.
+	SolutionClassPredicted SolutionClass = SolutionClass(native.SolutionClassPredicted)
+	// SolutionClassBroadcast identifies the solution class broadcast case.
+	SolutionClassBroadcast SolutionClass = SolutionClass(native.SolutionClassBroadcast)
+	// SolutionClassNearRealTime identifies the solution class near real time case.
 	SolutionClassNearRealTime SolutionClass = SolutionClass(native.SolutionClassNearRealTime)
 )
 
+// String formats the value for presentation.
 func (s SolutionClass) String() string {
 	switch s {
 	case SolutionClassFinal:
@@ -119,30 +140,43 @@ func (s SolutionClass) String() string {
 type ProductPublisher uint32
 
 const (
-	ProductPublisherIGS  ProductPublisher = ProductPublisher(native.ProductPublisherIGS)
+	// ProductPublisherIGS identifies the product publisher igs case.
+	ProductPublisherIGS ProductPublisher = ProductPublisher(native.ProductPublisherIGS)
+	// ProductPublisherCODE identifies the product publisher code case.
 	ProductPublisherCODE ProductPublisher = ProductPublisher(native.ProductPublisherCODE)
-	ProductPublisherESA  ProductPublisher = ProductPublisher(native.ProductPublisherESA)
-	ProductPublisherGFZ  ProductPublisher = ProductPublisher(native.ProductPublisherGFZ)
-	ProductPublisherWHU  ProductPublisher = ProductPublisher(native.ProductPublisherWHU)
+	// ProductPublisherESA identifies the product publisher esa case.
+	ProductPublisherESA ProductPublisher = ProductPublisher(native.ProductPublisherESA)
+	// ProductPublisherGFZ identifies the product publisher gfz case.
+	ProductPublisherGFZ ProductPublisher = ProductPublisher(native.ProductPublisherGFZ)
+	// ProductPublisherWHU identifies the product publisher whu case.
+	ProductPublisherWHU ProductPublisher = ProductPublisher(native.ProductPublisherWHU)
 )
 
 // ProductCampaign identifies the filename campaign.
 type ProductCampaign uint32
 
 const (
-	ProductCampaignOperational         ProductCampaign = ProductCampaign(native.ProductCampaignOperational)
-	ProductCampaignMultiGNSS           ProductCampaign = ProductCampaign(native.ProductCampaignMultiGNSS)
+	// ProductCampaignOperational identifies the product campaign operational case.
+	ProductCampaignOperational ProductCampaign = ProductCampaign(native.ProductCampaignOperational)
+	// ProductCampaignMultiGNSS identifies the product campaign multi gnss case.
+	ProductCampaignMultiGNSS ProductCampaign = ProductCampaign(native.ProductCampaignMultiGNSS)
+	// ProductCampaignMultiGNSSExperiment identifies the product campaign multi gnss experiment case.
 	ProductCampaignMultiGNSSExperiment ProductCampaign = ProductCampaign(native.ProductCampaignMultiGNSSExperiment)
-	ProductCampaignBroadcast           ProductCampaign = ProductCampaign(native.ProductCampaignBroadcast)
+	// ProductCampaignBroadcast identifies the product campaign broadcast case.
+	ProductCampaignBroadcast ProductCampaign = ProductCampaign(native.ProductCampaignBroadcast)
 )
 
 // ProductFormat identifies the standard serialization format.
 type ProductFormat uint32
 
 const (
-	ProductFormatSP3             ProductFormat = ProductFormat(native.ProductFormatSP3)
-	ProductFormatIONEX           ProductFormat = ProductFormat(native.ProductFormatIONEX)
-	ProductFormatRINEXClock      ProductFormat = ProductFormat(native.ProductFormatRINEXClock)
+	// ProductFormatSP3 identifies the product format sp3 case.
+	ProductFormatSP3 ProductFormat = ProductFormat(native.ProductFormatSP3)
+	// ProductFormatIONEX identifies the product format ionex case.
+	ProductFormatIONEX ProductFormat = ProductFormat(native.ProductFormatIONEX)
+	// ProductFormatRINEXClock identifies the product format rinex clock case.
+	ProductFormatRINEXClock ProductFormat = ProductFormat(native.ProductFormatRINEXClock)
+	// ProductFormatRINEXNavigation identifies the product format rinex navigation case.
 	ProductFormatRINEXNavigation ProductFormat = ProductFormat(native.ProductFormatRINEXNavigation)
 )
 
@@ -150,11 +184,16 @@ const (
 // calendar date; Sample and Issue are empty when the catalog should select its
 // default or the product line has no issue.
 type CatalogRequest struct {
+	// Center is the product centre.
 	Center string
+	// Family is the product family.
 	Family ProductFamily
-	Date   time.Time
+	// Date is the timestamp for this record.
+	Date time.Time
+	// Sample is the sample value or index.
 	Sample string
-	Issue  string
+	// Issue is the issue code.
+	Issue string
 }
 
 func (r CatalogRequest) dateParts() (int, uint8, uint8) {
@@ -170,66 +209,103 @@ func (r CatalogRequest) nativeParts() (string, native.ProductFamily, int, uint8,
 // ProductIdentity is the exact identity returned by the C catalog. Its Date
 // is midnight UTC and OfficialFilename excludes transport compression.
 type ProductIdentity struct {
-	Family                   ProductFamily
-	AnalysisCenter           string
-	Publisher                ProductPublisher
-	SolutionClass            SolutionClass
-	Campaign                 ProductCampaign
-	FilenameVersion          uint8
-	Date                     time.Time
-	HasIssue                 bool
-	Issue                    string
-	Span                     string
-	Sample                   string
-	OfficialFilename         string
-	Format                   ProductFormat
-	HasFormatVersion         bool
-	FormatVersion            string
+	// Family is the product family.
+	Family ProductFamily
+	// AnalysisCenter identifies the analysis centre that produced the product.
+	AnalysisCenter string
+	// Publisher identifies the organization that publishes or combines the product.
+	Publisher ProductPublisher
+	// SolutionClass identifies whether the product is final, rapid, predicted, or another C-defined class.
+	SolutionClass SolutionClass
+	// Campaign identifies the filename campaign associated with the product.
+	Campaign ProductCampaign
+	// FilenameVersion is the numeric filename-version discriminator.
+	FilenameVersion uint8
+	// Date is the timestamp for this record.
+	Date time.Time
+	// HasIssue reports whether the has issue field is present.
+	HasIssue bool
+	// Issue is the issue code.
+	Issue string
+	// Span is the product's coverage span token from the catalog filename.
+	Span string
+	// Sample is the sample value or index.
+	Sample string
+	// OfficialFilename is the canonical product filename without transport compression.
+	OfficialFilename string
+	// Format is the product format.
+	Format ProductFormat
+	// HasFormatVersion reports whether the has format version field is present.
+	HasFormatVersion bool
+	// FormatVersion is the optional version token of the product serialization format.
+	FormatVersion string
+	// HasPredictionHorizonDays reports whether the has prediction horizon days field is present.
 	HasPredictionHorizonDays bool
-	PredictionHorizonDays    uint8
+	// PredictionHorizonDays is the prediction horizon days in days.
+	PredictionHorizonDays uint8
 }
 
 // DistributionLocation is the C-approved URL and archive metadata for an
 // exact identity.
 type DistributionLocation struct {
-	Source          DistributionSource
-	OriginalURL     string
+	// Source is the source classification.
+	Source DistributionSource
+	// OriginalURL is the source URL from which the product was obtained.
+	OriginalURL string
+	// ArchiveFilename is the archive member or downloaded filename when one exists.
 	ArchiveFilename string
-	Compression     ArchiveCompression
+	// Compression is the archive compression.
+	Compression ArchiveCompression
 }
 
 // PublishedProduct is the C-selected newest product in a parsed listing.
 // ObservedAt preserves the archive's modification text; nil means the listing
 // did not provide one.
 type PublishedProduct struct {
-	Date       time.Time
-	Issue      string
-	Filename   string
+	// Date is the timestamp for this record.
+	Date time.Time
+	// Issue is the issue code.
+	Issue string
+	// Filename is the published product filename.
+	Filename string
+	// ObservedAt contains a detached copy; nil means this field is absent.
 	ObservedAt *string
 }
 
 // PredictedIONEXCandidate is an ordered C-catalog candidate for one map date.
 type PredictedIONEXCandidate struct {
-	Center   string
-	Date     time.Time
-	Sample   string
-	Issue    string
+	// Center is the product centre.
+	Center string
+	// Date is the timestamp for this record.
+	Date time.Time
+	// Sample is the sample value or index.
+	Sample string
+	// Issue is the issue code.
+	Issue string
+	// Filename is the filename value for PredictedIONEXCandidate.
 	Filename string
-	URL      string
+	// URL is the candidate product URL.
+	URL string
 }
 
 // CoverageInterval is a half-open UTC interval returned by the C schedule.
 type CoverageInterval struct {
-	From  time.Time
+	// From is the timestamp for this record.
+	From time.Time
+	// Until is the timestamp for this record.
 	Until time.Time
 }
 
 // NominalIssue describes the next nominal catalog issue and its C-supplied
 // observed/predicted coverage intervals.
 type NominalIssue struct {
-	Identity  ProductIdentity
-	DueAt     time.Time
-	Observed  *CoverageInterval
+	// Identity is the identity value for NominalIssue.
+	Identity ProductIdentity
+	// DueAt is the timestamp for this record.
+	DueAt time.Time
+	// Observed contains a detached copy; nil means this field is absent.
+	Observed *CoverageInterval
+	// Predicted contains a detached copy; nil means this field is absent.
 	Predicted *CoverageInterval
 }
 

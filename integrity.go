@@ -6,53 +6,107 @@ import (
 	"github.com/neilberkman/sidereon-go/internal/native"
 )
 
+// ARAIMSatelliteModel contains per-satellite ARAIM integrity model parameters.
 type ARAIMSatelliteModel struct {
-	SigmaURAM, SigmaUREM                        float64
+	// SigmaURAM and SigmaUREM are the nominal URA and URE standard deviations in metres.
+	SigmaURAM, SigmaUREM float64
+	// HasEffectiveIntegrity and HasEffectiveAccuracy indicate whether the corresponding effective bounds are supplied.
 	HasEffectiveIntegrity, HasEffectiveAccuracy bool
-	EffectiveIntegrityM, EffectiveAccuracyM     float64
-	NominalBiasM, SatelliteFaultProbability     float64
+	// EffectiveIntegrityM and EffectiveAccuracyM are optional effective integrity and accuracy bounds in metres.
+	EffectiveIntegrityM, EffectiveAccuracyM float64
+	// NominalBiasM is the nominal range bias in metres; SatelliteFaultProbability is the probability of a satellite fault.
+	NominalBiasM, SatelliteFaultProbability float64
 }
+
+// ARAIMRow contains one ARAIM observation row, including line-of-sight and integrity terms.
 type ARAIMRow struct {
-	SatelliteID  string
-	LineOfSight  LineOfSight
-	System       uint32
+	// SatelliteID identifies the satellite represented by this observation row.
+	SatelliteID string
+	// LineOfSight is the receiver-to-satellite line-of-sight unit vector in ECEF.
+	LineOfSight LineOfSight
+	// System identifies the GNSS constellation for the observation.
+	System uint32
+	// ElevationRad is the elevation rad in radians.
 	ElevationRad float64
 }
+
+// ARAIMGeometry contains the ARAIM geometry and covariance diagnostics.
 type ARAIMGeometry struct {
-	Rows         []ARAIMRow
-	Receiver     Geodetic
+	// Rows contains a detached copy; nil means this field is absent.
+	Rows []ARAIMRow
+	// Receiver is the receiver record.
+	Receiver Geodetic
+	// ClockSystems contains a detached copy; nil means this field is absent.
 	ClockSystems []uint32
 }
+
+// ARAIMConstellationISM contains constellation-specific integrity support data.
 type ARAIMConstellationISM struct {
-	System                        uint32
+	// System is the GNSS system identifier.
+	System uint32
+	// ConstellationFaultProbability is the probability of a constellation fault.
 	ConstellationFaultProbability float64
-	DefaultSatellite              ARAIMSatelliteModel
+	// DefaultSatellite contains the constellation's default satellite integrity parameters.
+	DefaultSatellite ARAIMSatelliteModel
 }
+
+// ARAIMSatelliteISM contains satellite-specific integrity support data.
 type ARAIMSatelliteISM struct {
+	// SatelliteID identifies or counts this record.
 	SatelliteID string
-	Model       ARAIMSatelliteModel
+	// Model is the selected model.
+	Model ARAIMSatelliteModel
 }
+
+// ARAIMISM contains the complete ARAIM integrity support message.
 type ARAIMISM struct {
+	// Constellations contains a detached copy; nil means this field is absent.
 	Constellations []ARAIMConstellationISM
-	Satellites     []ARAIMSatelliteISM
+	// Satellites contains a detached copy; nil means this field is absent.
+	Satellites []ARAIMSatelliteISM
 }
+
+// ARAIMAllocation contains allocated protection levels and integrity probabilities.
 type ARAIMAllocation struct {
+	// PHMITotal, PHMIVertical, and PHMIHorizontal are total, vertical, and horizontal
+	// HMI probabilities; PFAVertical and PFAHorizontal are false-alarm probabilities;
+	// PThresholdUnmonitored and PEMT are the unmonitored and missed-event probabilities.
 	PHMITotal, PHMIVertical, PHMIHorizontal, PFAVertical, PFAHorizontal, PThresholdUnmonitored, PEMT float64
-	MaxFaultOrder                                                                                    int
+	// MaxFaultOrder is the maximum simultaneous fault order used by the allocation.
+	MaxFaultOrder int
 }
+
+// ARAIMFaultMode records one modeled ARAIM fault mode and its prior.
 type ARAIMFaultMode struct {
-	ExcludedCount                            int
-	HasExcludedConstellation                 bool
-	ExcludedConstellation                    uint32
-	Prior                                    float64
+	// ExcludedCount is the number of satellites excluded by this fault mode.
+	ExcludedCount int
+	// HasExcludedConstellation reports whether the has excluded constellation field is present.
+	HasExcludedConstellation bool
+	// ExcludedConstellation identifies the optionally excluded GNSS constellation.
+	ExcludedConstellation uint32
+	// Prior is the prior probability assigned to this fault mode.
+	Prior float64
+	// SigmaIntegrityENU, BiasENU, and ThresholdENU are three-component ENU
+	// integrity standard-deviation, bias, and threshold vectors in metres.
 	SigmaIntegrityENU, BiasENU, ThresholdENU [3]float64
-	Monitorable                              bool
+	// Monitorable reports whether this record is monitorable.
+	Monitorable bool
 }
+
+// ARAIMSummary contains aggregate ARAIM protection levels and availability.
 type ARAIMSummary struct {
+	// HPLM and VPLM are horizontal and vertical protection levels in metres;
+	// SigmaAccuracyHorizontalM and SigmaAccuracyVerticalM are accuracy sigmas in
+	// metres; EMTM is the error bound in metres; PUnmonitored is a probability.
 	HPLM, VPLM, SigmaAccuracyHorizontalM, SigmaAccuracyVerticalM, EMTM, PUnmonitored float64
-	Available, Availability                                                          bool
-	FaultModeCount                                                                   int
+	// Available reports whether protection-level output is available; Availability
+	// is the resulting availability probability or fraction.
+	Available, Availability bool
+	// FaultModeCount identifies or counts this record.
+	FaultModeCount int
 }
+
+// ARAIMResult contains the ARAIM solver output and diagnostics.
 type ARAIMResult struct {
 	_      noCopy
 	handle *native.ARAIMResult
@@ -82,6 +136,8 @@ func nativeARAIMISM(v ARAIMISM) native.NativeARAIMISM {
 func nativeARAIMAllocation(v ARAIMAllocation) native.NativeARAIMAllocation {
 	return native.NativeARAIMAllocation{PHMITotal: v.PHMITotal, PHMIVert: v.PHMIVertical, PHMIHor: v.PHMIHorizontal, PFAVert: v.PFAVertical, PFAHor: v.PFAHorizontal, PThresholdUnmonitored: v.PThresholdUnmonitored, PEMT: v.PEMT, MaxFaultOrder: uint64(v.MaxFaultOrder)}
 }
+
+// ARAIMAllocationLPV200 returns the LPV-200 ARAIM allocation parameters.
 func ARAIMAllocationLPV200() (ARAIMAllocation, error) {
 	v, e := native.ARAIMAllocationLPV200()
 	if e != nil {
@@ -93,6 +149,8 @@ func ARAIMAllocationLPV200() (ARAIMAllocation, error) {
 	}
 	return ARAIMAllocation{v.PHMITotal, v.PHMIVert, v.PHMIHor, v.PFAVert, v.PFAHor, v.PThresholdUnmonitored, v.PEMT, maxFaultOrder}, nil
 }
+
+// RunARAIM returns the ARAIM integrity data.
 func RunARAIM(geometry ARAIMGeometry, ism ARAIMISM, allocation ARAIMAllocation) (*ARAIMResult, error) {
 	if allocation.MaxFaultOrder < 0 {
 		return nil, errors.New("sidereon: ARAIM max fault order must not be negative")
@@ -103,12 +161,16 @@ func RunARAIM(geometry ARAIMGeometry, ism ARAIMISM, allocation ARAIMAllocation) 
 	}
 	return &ARAIMResult{handle: h}, nil
 }
+
+// Close releases the native ARAIMResult resource and is safe to call repeatedly.
 func (r *ARAIMResult) Close() error {
 	if r == nil || r.handle == nil {
 		return nil
 	}
 	return publicError(r.handle.Close())
 }
+
+// Summary returns ARAIM protection-level, integrity, and availability diagnostics.
 func (r *ARAIMResult) Summary() (ARAIMSummary, error) {
 	if r == nil || r.handle == nil {
 		return ARAIMSummary{}, ErrClosed
@@ -123,6 +185,8 @@ func (r *ARAIMResult) Summary() (ARAIMSummary, error) {
 	}
 	return ARAIMSummary{v.HPLM, v.VPLM, v.SigmaAccHM, v.SigmaAccVM, v.EMTM, v.PUnmonitored, v.Available, v.Availability, faultModeCount}, nil
 }
+
+// FaultModes returns the configured ARAIM fault-mode records.
 func (r *ARAIMResult) FaultModes() ([]ARAIMFaultMode, error) {
 	if r == nil || r.handle == nil {
 		return nil, ErrClosed
@@ -141,6 +205,8 @@ func (r *ARAIMResult) FaultModes() ([]ARAIMFaultMode, error) {
 	}
 	return out, nil
 }
+
+// ExcludedSatellites returns the satellite identifiers excluded by the ARAIM run.
 func (r *ARAIMResult) ExcludedSatellites(mode int) ([]string, error) {
 	if r == nil || r.handle == nil {
 		return nil, ErrClosed
@@ -152,52 +218,91 @@ func (r *ARAIMResult) ExcludedSatellites(mode int) ([]string, error) {
 // ReliabilityOptions contains dimensionless false-alarm/missed-detection
 // probabilities and the optional noncentrality override.
 type ReliabilityOptions struct {
-	Alpha, Beta                    float64
-	HasLambda0Override             bool
+	// Alpha is the alpha value for ReliabilityOptions; Beta is the beta value for ReliabilityOptions.
+	Alpha, Beta float64
+	// HasLambda0Override reports whether the has lambda0 override field is present.
+	HasLambda0Override bool
+	// Lambda0Override is the lambda0 override value for ReliabilityOptions; MinRedundancy is the min redundancy value for ReliabilityOptions.
 	Lambda0Override, MinRedundancy float64
 }
+
+// ReliabilityRow contains one reliability-test row and its residual statistics.
 type ReliabilityRow struct {
+	// SatelliteID identifies or counts this record.
 	SatelliteID string
-	DesignRow   []float64
-	SigmaM      float64
+	// DesignRow contains a detached copy; nil means this field is absent.
+	DesignRow []float64
+	// SigmaM is the sigma m in metres.
+	SigmaM float64
 }
+
+// ReliabilityObservation contains one observation reliability and minimum-detectable-bias result.
 type ReliabilityObservation struct {
-	SatelliteID    string
-	Redundancy     float64
-	HasMDB         bool
-	MDBM           float64
+	// SatelliteID identifies or counts this record.
+	SatelliteID string
+	// Redundancy is the redundancy value.
+	Redundancy float64
+	// HasMDB reports whether the has mdb field is present.
+	HasMDB bool
+	// MDBM is the mdbm in metres.
+	MDBM float64
+	// HasExternalENU reports whether the has external enu field is present.
 	HasExternalENU bool
-	ExternalENUM   [3]float64
+	// ExternalENUM is the external enum in metres.
+	ExternalENUM [3]float64
+	// HasBiasToNoise reports whether the has bias to noise field is present.
 	HasBiasToNoise bool
-	BiasToNoise    float64
-	Uncheckable    bool
+	// BiasToNoise is the bias to noise value for ReliabilityObservation.
+	BiasToNoise float64
+	// Uncheckable reports whether this record is uncheckable.
+	Uncheckable bool
 }
+
+// ReliabilitySummary contains aggregate reliability counts and test statistics.
 type ReliabilitySummary struct {
+	// ObservationCount identifies or counts this record; ParameterCount identifies or counts this record; DOF is the degrees of freedom.
 	ObservationCount, ParameterCount, DOF int
-	SumRedundancy, Lambda0                float64
-	HasMaxMDB                             bool
-	MaxMDBSatelliteID                     string
-	MaxMDBM                               float64
-	MinRedundancySatelliteID              string
-	MinRedundancy                         float64
-	UncheckableCount                      int
+	// SumRedundancy is the summed redundancy; Lambda0 is the lambda0 value for ReliabilitySummary.
+	SumRedundancy, Lambda0 float64
+	// HasMaxMDB reports whether the has max mdb field is present.
+	HasMaxMDB bool
+	// MaxMDBSatelliteID identifies or counts this record.
+	MaxMDBSatelliteID string
+	// MaxMDBM is the max mdbm in metres.
+	MaxMDBM float64
+	// MinRedundancySatelliteID identifies or counts this record.
+	MinRedundancySatelliteID string
+	// MinRedundancy is the minimum redundancy.
+	MinRedundancy float64
+	// UncheckableCount identifies or counts this record.
+	UncheckableCount int
 }
+
+// ReliabilityReport contains the complete reliability report and detached observation rows.
 type ReliabilityReport struct {
 	_      noCopy
 	handle *native.ReliabilityReport
 }
 
+// DefaultReliabilityOptions returns the default reliability options configuration.
 func DefaultReliabilityOptions() (ReliabilityOptions, error) {
 	v, e := native.ReliabilityOptionsDefault()
 	return ReliabilityOptions{v.Alpha, v.Beta, v.HasLambda0, v.Lambda0, v.MinRedundancy}, publicError(e)
 }
 
-type WTestNoncentrality struct{ Delta0, Lambda0 float64 }
+// WTestNoncentrality contains the W-test noncentrality parameters.
+type WTestNoncentrality struct {
+	// Delta0 and Lambda0 are the noncentrality parameters of the W-test.
+	Delta0, Lambda0 float64
+}
 
+// WTestNoncentralityFor returns the W-test noncentrality parameters.
 func WTestNoncentralityFor(alpha, beta float64) (WTestNoncentrality, error) {
 	v, e := native.WTestNoncentrality(alpha, beta)
 	return WTestNoncentrality{v.Delta0, v.Lambda0}, publicError(e)
 }
+
+// ReliabilityFromDesign returns a reliability report from the supplied design.
 func ReliabilityFromDesign(rows []ReliabilityRow, options ReliabilityOptions) (*ReliabilityReport, error) {
 	r := make([]native.NativeReliabilityRow, len(rows))
 	for i, x := range rows {
@@ -209,6 +314,8 @@ func ReliabilityFromDesign(rows []ReliabilityRow, options ReliabilityOptions) (*
 	}
 	return &ReliabilityReport{handle: h}, nil
 }
+
+// ReliabilityFromARAIM returns a reliability report from the supplied ARAIM result.
 func ReliabilityFromARAIM(geometry ARAIMGeometry, ism ARAIMISM, options ReliabilityOptions) (*ReliabilityReport, error) {
 	h, e := native.ReliabilityARAIM(nativeARAIMGeometry(geometry), nativeARAIMISM(ism), native.NativeReliabilityOptions{Alpha: options.Alpha, Beta: options.Beta, HasLambda0: options.HasLambda0Override, Lambda0: options.Lambda0Override, MinRedundancy: options.MinRedundancy})
 	if e != nil {
@@ -216,12 +323,16 @@ func ReliabilityFromARAIM(geometry ARAIMGeometry, ism ARAIMISM, options Reliabil
 	}
 	return &ReliabilityReport{handle: h}, nil
 }
+
+// Close releases the native ReliabilityReport resource and is safe to call repeatedly.
 func (r *ReliabilityReport) Close() error {
 	if r == nil || r.handle == nil {
 		return nil
 	}
 	return publicError(r.handle.Close())
 }
+
+// Summary returns reliability counts and aggregate test statistics.
 func (r *ReliabilityReport) Summary() (ReliabilitySummary, error) {
 	if r == nil || r.handle == nil {
 		return ReliabilitySummary{}, ErrClosed
@@ -248,6 +359,8 @@ func (r *ReliabilityReport) Summary() (ReliabilitySummary, error) {
 	}
 	return ReliabilitySummary{nobs, nparams, dof, v.SumRedundancy, v.Lambda0, v.HasMaxMDB, v.MaxMDBID, v.MaxMDB, v.MinRedundancyID, v.MinRedundancy, uncheckable}, nil
 }
+
+// Observations returns per-observation reliability diagnostics.
 func (r *ReliabilityReport) Observations() ([]ReliabilityObservation, error) {
 	if r == nil || r.handle == nil {
 		return nil, ErrClosed
@@ -266,40 +379,71 @@ func (r *ReliabilityReport) Observations() ([]ReliabilityObservation, error) {
 // RangeFDEOptions contains dimensionless PFA and integer exclusion/redundancy
 // limits for the C range-domain FDE solve.
 type RangeFDEOptions struct {
-	PFA                          float64
+	// PFA is the probability of false alarm.
+	PFA float64
+	// MaxExclusions is the max exclusions value for RangeFDEOptions; MinRedundancy is the min redundancy value for RangeFDEOptions.
 	MaxExclusions, MinRedundancy int
 }
+
+// RangeFDERow contains one range fault-detection and exclusion row.
 type RangeFDERow struct {
-	ID        string
+	// ID identifies or counts this record.
+	ID string
+	// ResidualM is the residual m in metres.
 	ResidualM float64
+	// DesignRow contains a detached copy; nil means this field is absent.
 	DesignRow []float64
-	Weight    float64
+	// Weight is the observation weight.
+	Weight float64
 }
+
+// RangeFDEGlobalTest contains the global range FDE test statistic and threshold.
 type RangeFDEGlobalTest struct {
-	WeightedSumSquares      float64
-	DOF                     int64
-	HasThreshold            bool
-	Threshold               float64
+	// WeightedSumSquares is the weighted residual sum of squares.
+	WeightedSumSquares float64
+	// DOF is the degrees of freedom.
+	DOF int64
+	// HasThreshold reports whether the has threshold field is present.
+	HasThreshold bool
+	// Threshold is the configured threshold.
+	Threshold float64
+	// Testable reports whether the record can be tested; FaultDetected reports whether a fault was detected.
 	Testable, FaultDetected bool
 }
+
+// RangeFDEDiagnostic contains one range FDE diagnostic and residual.
 type RangeFDEDiagnostic struct {
-	ID                                   string
-	Excluded                             bool
+	// ID identifies or counts this record.
+	ID string
+	// Excluded reports whether this record was excluded.
+	Excluded bool
+	// PostFitResidualM is the post fit residual m in metres; NormalizedResidual is the dimensionless normalized residual.
 	PostFitResidualM, NormalizedResidual float64
 }
+
+// RangeFDEOutput contains range FDE corrections and covariance output.
 type RangeFDEOutput struct {
-	StateDimension         int
+	// StateDimension is the state dimension.
+	StateDimension int
+	// Correction contains a detached copy; nil means this field is absent; Covariance contains a detached copy; nil means this field is absent.
 	Correction, Covariance []float64
-	Global                 RangeFDEGlobalTest
-	Iterations             int
-	Excluded               []string
-	Diagnostics            []RangeFDEDiagnostic
+	// Global reports whether this is a global test.
+	Global RangeFDEGlobalTest
+	// Iterations is the native solver iteration count.
+	Iterations int
+	// Excluded reports whether this record was excluded.
+	Excluded []string
+	// Diagnostics contains a detached copy; nil means this field is absent.
+	Diagnostics []RangeFDEDiagnostic
 }
+
+// RangeFDEResult contains the complete range FDE result and diagnostics.
 type RangeFDEResult struct {
 	_      noCopy
 	handle *native.RangeFDEResult
 }
 
+// DefaultRangeFDEOptions returns the default Range FDE options configuration.
 func DefaultRangeFDEOptions() (RangeFDEOptions, error) {
 	v, e := native.RangeFDEOptionsDefault()
 	if e != nil {
@@ -315,6 +459,8 @@ func DefaultRangeFDEOptions() (RangeFDEOptions, error) {
 	}
 	return RangeFDEOptions{v.PFA, maxExclusions, minRedundancy}, nil
 }
+
+// RunRangeFDE returns the range fault-detection and exclusion data.
 func RunRangeFDE(rows []RangeFDERow, options RangeFDEOptions) (*RangeFDEResult, error) {
 	if options.MaxExclusions < 0 || options.MinRedundancy < 0 {
 		return nil, errors.New("sidereon: range FDE limits must not be negative")
@@ -329,12 +475,16 @@ func RunRangeFDE(rows []RangeFDERow, options RangeFDEOptions) (*RangeFDEResult, 
 	}
 	return &RangeFDEResult{handle: h}, nil
 }
+
+// Close releases the native RangeFDEResult resource and is safe to call repeatedly.
 func (r *RangeFDEResult) Close() error {
 	if r == nil || r.handle == nil {
 		return nil
 	}
 	return publicError(r.handle.Close())
 }
+
+// Output returns the range-FDE corrections and covariance output.
 func (r *RangeFDEResult) Output() (RangeFDEOutput, error) {
 	if r == nil || r.handle == nil {
 		return RangeFDEOutput{}, ErrClosed

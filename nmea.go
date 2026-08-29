@@ -4,61 +4,101 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 
 // NMEASummary contains aggregate counts copied from a parsed NMEA log.
 type NMEASummary struct {
+	// SentenceCount identifies or counts this record.
 	SentenceCount uint64
-	EpochCount    uint64
-	SkipCount     uint64
-	WarningCount  uint64
+	// EpochCount identifies or counts this record.
+	EpochCount uint64
+	// SkipCount identifies or counts this record.
+	SkipCount uint64
+	// WarningCount identifies or counts this record.
+	WarningCount uint64
 }
 
 // NMEAEpoch is one copied epoch summary from a parsed NMEA log.
 type NMEAEpoch struct {
-	HasCalendarEpoch   bool
-	CalendarEpoch      CalendarEpoch
-	HasPosition        bool
-	LatitudeRad        float64
-	LongitudeRad       float64
-	HeightM            float64
-	HasInstantJ2000S   bool
-	InstantJ2000S      float64
-	HasPDOP            bool
-	PDOP               float64
-	HasHDOP            bool
-	HDOP               float64
-	HasVDOP            bool
-	VDOP               float64
-	SentenceCount      uint64
+	// HasCalendarEpoch reports whether the has calendar epoch field is present.
+	HasCalendarEpoch bool
+	// CalendarEpoch is the calendar epoch.
+	CalendarEpoch CalendarEpoch
+	// HasPosition reports whether the has position field is present.
+	HasPosition bool
+	// LatitudeRad is the latitude rad in radians.
+	LatitudeRad float64
+	// LongitudeRad is the longitude rad in radians.
+	LongitudeRad float64
+	// HeightM is the height m in metres.
+	HeightM float64
+	// HasInstantJ2000S reports whether the has instant j2000 s field is present.
+	HasInstantJ2000S bool
+	// InstantJ2000S is the instant j2000 s in seconds.
+	InstantJ2000S float64
+	// HasPDOP reports whether the has pdop field is present.
+	HasPDOP bool
+	// PDOP is the dimensionless position dilution of precision when HasPDOP is true.
+	PDOP float64
+	// HasHDOP reports whether the has hdop field is present.
+	HasHDOP bool
+	// HDOP is the dimensionless horizontal dilution of precision when HasHDOP is true.
+	HDOP float64
+	// HasVDOP reports whether the has vdop field is present.
+	HasVDOP bool
+	// VDOP is the dimensionless vertical dilution of precision when HasVDOP is true.
+	VDOP float64
+	// SentenceCount identifies or counts this record.
+	SentenceCount uint64
+	// UsedSatelliteCount identifies or counts this record.
 	UsedSatelliteCount uint64
-	SatellitesInView   uint64
-	SkipCount          uint64
-	WarningCount       uint64
-	HasGGA             bool
-	HasRMC             bool
-	HasGLL             bool
-	GSACount           uint64
-	GSVGroupCount      uint64
+	// SatellitesInView is the number of satellites reported in view.
+	SatellitesInView uint64
+	// SkipCount identifies or counts this record.
+	SkipCount uint64
+	// WarningCount identifies or counts this record.
+	WarningCount uint64
+	// HasGGA reports whether the has gga field is present.
+	HasGGA bool
+	// HasRMC reports whether the has rmc field is present.
+	HasRMC bool
+	// HasGLL reports whether the has gll field is present.
+	HasGLL bool
+	// GSACount identifies or counts this record.
+	GSACount uint64
+	// GSVGroupCount identifies or counts this record.
+	GSVGroupCount uint64
 }
 
 // NMEAChunkSummary contains the output counts from one incremental Push or
 // Finish call. RetainedLength is the number of partial-line bytes held for a
 // later chunk.
 type NMEAChunkSummary struct {
-	SentenceCount       uint64
+	// SentenceCount identifies or counts this record.
+	SentenceCount uint64
+	// CompletedEpochCount identifies or counts this record.
 	CompletedEpochCount uint64
-	SkipCount           uint64
-	WarningCount        uint64
-	RetainedLength      uint64
+	// SkipCount identifies or counts this record.
+	SkipCount uint64
+	// WarningCount identifies or counts this record.
+	WarningCount uint64
+	// RetainedLength is the number of bytes held from an incomplete trailing line.
+	RetainedLength uint64
 }
 
 // NMEAGGAOptions contains validated fields for one NMEA 0183 GGA sentence.
 // Position is WGS84 geodetic radians/metres and UTCSecondsOfDay is rounded
 // down to centisecond precision by the engine.
 type NMEAGGAOptions struct {
-	Talker             string
-	UTCSecondsOfDay    float64
-	Position           Geodetic
-	Quality            uint32
-	SatellitesUsed     uint8
-	HDOP               float64
+	// Talker is the NMEA talker identifier.
+	Talker string
+	// UTCSecondsOfDay is the utc seconds of day in seconds since midnight.
+	UTCSecondsOfDay float64
+	// Position is the position value in the containing frame.
+	Position Geodetic
+	// Quality is the NMEA GGA fix-quality code.
+	Quality uint32
+	// SatellitesUsed is the number of satellites used in the GGA solution.
+	SatellitesUsed uint8
+	// HDOP is the dimensionless horizontal dilution of precision in the GGA sentence.
+	HDOP float64
+	// CoordinateDecimals is the number of decimal places emitted for coordinates.
 	CoordinateDecimals uint8
 }
 

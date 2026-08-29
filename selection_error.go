@@ -6,11 +6,15 @@ import "fmt"
 // SidereonSelectionStatus value, which has a namespace distinct from
 // StatusCode; Detail is the native thread-local diagnostic when available.
 type SelectionError struct {
+	// Status is the native status code.
 	Status SelectionStatus
-	Text   string
+	// Text is the text value for SelectionError.
+	Text string
+	// Detail is the detail value for SelectionError.
 	Detail string
 }
 
+// Error returns the error detail string.
 func (e *SelectionError) Error() string {
 	if e == nil {
 		return "sidereon: selection error"

@@ -17,19 +17,28 @@ const (
 type SourceLoss uint32
 
 const (
+	// SourceLossLinear identifies the source loss linear case.
 	SourceLossLinear SourceLoss = SourceLoss(native.SourceLossLinearValue)
+	// SourceLossSoftL1 identifies the source loss soft l1 case.
 	SourceLossSoftL1 SourceLoss = SourceLoss(native.SourceLossSoftL1Value)
-	SourceLossHuber  SourceLoss = SourceLoss(native.SourceLossHuberValue)
+	// SourceLossHuber identifies the source loss huber case.
+	SourceLossHuber SourceLoss = SourceLoss(native.SourceLossHuberValue)
+	// SourceLossCauchy identifies the source loss cauchy case.
 	SourceLossCauchy SourceLoss = SourceLoss(native.SourceLossCauchyValue)
+	// SourceLossArctan identifies the source loss arctan case.
 	SourceLossArctan SourceLoss = SourceLoss(native.SourceLossArctanValue)
 )
 
 // SourceSensor describes one Cartesian source-localization sensor.
 type SourceSensor struct {
-	Dimension           int
-	PositionM           [3]float64
+	// Dimension is the state dimension.
+	Dimension int
+	// PositionM is the position m in metres.
+	PositionM [3]float64
+	// HasPropagationSpeed reports whether the has propagation speed field is present.
 	HasPropagationSpeed bool
-	PropagationSpeedMS  float64
+	// PropagationSpeedMS is the propagation speed ms value for SourceSensor.
+	PropagationSpeedMS float64
 }
 
 func nativeSourceSensors(values []SourceSensor) []native.NativeSourceSensor {
@@ -42,11 +51,16 @@ func nativeSourceSensors(values []SourceSensor) []native.NativeSourceSensor {
 
 // SourceInitialGuess is a detached C-computed source-localization seed.
 type SourceInitialGuess struct {
-	Dimension     int
-	PositionM     [3]float64
+	// Dimension is the state dimension.
+	Dimension int
+	// PositionM is the position m in metres.
+	PositionM [3]float64
+	// HasOriginTime reports whether the has origin time field is present.
 	HasOriginTime bool
-	OriginTimeS   float64
-	ResidualRMSS  float64
+	// OriginTimeS is the origin time s in seconds.
+	OriginTimeS float64
+	// ResidualRMSS is the residual rmss in seconds per second.
+	ResidualRMSS float64
 }
 
 func sourceInitialGuess(value native.NativeSourceInitialGuess) SourceInitialGuess {
@@ -55,16 +69,26 @@ func sourceInitialGuess(value native.NativeSourceInitialGuess) SourceInitialGues
 
 // SourceLocateOptions controls the native nonlinear source-localization solve.
 type SourceLocateOptions struct {
-	Mode                  SourceSolveMode
-	ReferenceSensor       int
+	// Mode is the selected mode.
+	Mode SourceSolveMode
+	// ReferenceSensor is the reference sensor value for SourceLocateOptions.
+	ReferenceSensor int
+	// TimingSigmaS is the timing sigma s in seconds; FScaleS is the f scale s in seconds.
 	TimingSigmaS, FScaleS float64
-	Loss                  SourceLoss
-	HasFTOL, HasXTOL      bool
-	FTOL, XTOL            float64
-	HasGTOL               bool
-	GTOL                  float64
-	HasMaxNFEV            bool
-	MaxNFEV               int
+	// Loss is the loss value for SourceLocateOptions.
+	Loss SourceLoss
+	// HasFTOL reports whether the has ftol field is present; HasXTOL reports whether the has xtol field is present.
+	HasFTOL, HasXTOL bool
+	// FTOL is the ftol value for SourceLocateOptions; XTOL is the xtol value for SourceLocateOptions.
+	FTOL, XTOL float64
+	// HasGTOL reports whether the has gtol field is present.
+	HasGTOL bool
+	// GTOL is the gtol value for SourceLocateOptions.
+	GTOL float64
+	// HasMaxNFEV reports whether the has max nfev field is present.
+	HasMaxNFEV bool
+	// MaxNFEV is the max nfev value for SourceLocateOptions.
+	MaxNFEV int
 }
 
 func nativeSourceLocateOptions(value SourceLocateOptions) native.NativeSourceLocateOptions {
@@ -101,51 +125,80 @@ func ClosedFormInitialGuess(sensors []SourceSensor, arrivalsS []float64, speedMS
 
 // SourceCovariance is a detached source-state covariance returned by C.
 type SourceCovariance struct {
-	Dimension, StateDimension  int
-	State                      [16]float64
-	PositionM2                 [9]float64
-	HasOriginTimeS2            bool
+	// Dimension is the state dimension; StateDimension is the state dimension.
+	Dimension, StateDimension int
+	// State contains the fixed-size array for this record.
+	State [16]float64
+	// PositionM2 is the position m2 in square metres.
+	PositionM2 [9]float64
+	// HasOriginTimeS2 reports whether the has origin time s2 field is present.
+	HasOriginTimeS2 bool
+	// OriginTimeS2 is the origin time s2 in seconds squared; TimingSigmaS is the timing sigma s in seconds.
 	OriginTimeS2, TimingSigmaS float64
 }
 
 // SourceCRLBResult contains timing DOP and the corresponding native covariance.
 type SourceCRLBResult struct {
-	DOP        DOP
+	// DOP is the dop value for SourceCRLBResult.
+	DOP DOP
+	// Covariance is the covariance value for SourceCRLBResult.
 	Covariance SourceCovariance
 }
 
 // SourceSensorInfluence is a detached leave-one-out sensor diagnostic.
 type SourceSensorInfluence struct {
-	SensorIndex            int
-	ResidualS              float64
+	// SensorIndex identifies or counts this record.
+	SensorIndex int
+	// ResidualS is the residual s value for SourceSensorInfluence.
+	ResidualS float64
+	// HasLeaveOneOutResidual reports whether the has leave one out residual field is present.
 	HasLeaveOneOutResidual bool
-	LeaveOneOutResidualS   float64
-	HasPositionDelta       bool
-	PositionDeltaM         float64
-	HasOriginTimeDelta     bool
-	OriginTimeDeltaS       float64
-	LossWeight, Score      float64
+	// LeaveOneOutResidualS is the leave one out residual s value for SourceSensorInfluence.
+	LeaveOneOutResidualS float64
+	// HasPositionDelta reports whether the has position delta field is present.
+	HasPositionDelta bool
+	// PositionDeltaM is the position delta m in metres.
+	PositionDeltaM float64
+	// HasOriginTimeDelta reports whether the has origin time delta field is present.
+	HasOriginTimeDelta bool
+	// OriginTimeDeltaS is the origin time delta s value for SourceSensorInfluence.
+	OriginTimeDeltaS float64
+	// LossWeight is the loss weight value for SourceSensorInfluence; Score is the score value for SourceSensorInfluence.
+	LossWeight, Score float64
 }
 
 // SourceResidual is one detached source-solve residual row.
 type SourceResidual struct {
+	// SensorIndex identifies or counts this record; ReferenceSensorIndex identifies or counts this record.
 	SensorIndex, ReferenceSensorIndex int
-	HasReferenceSensor                bool
-	ResidualS                         float64
+	// HasReferenceSensor reports whether the has reference sensor field is present.
+	HasReferenceSensor bool
+	// ResidualS is the residual s value for SourceResidual.
+	ResidualS float64
 }
 
 // SourceSolutionSummary contains detached native solve diagnostics.
 type SourceSolutionSummary struct {
+	// Dimension is the state dimension; ResidualCount identifies or counts this record; InfluenceCount identifies or counts this record.
 	Dimension, ResidualCount, InfluenceCount int
-	PositionM                                [3]float64
-	HasOriginTime                            bool
-	OriginTimeS                              float64
-	HasCovariance                            bool
-	GeometryQuality                          GeometryQuality
-	InitialGuess                             SourceInitialGuess
-	Status                                   int32
-	NFEV, NJEV                               int
-	Cost, Optimality                         float64
+	// PositionM is the position m in metres.
+	PositionM [3]float64
+	// HasOriginTime reports whether the has origin time field is present.
+	HasOriginTime bool
+	// OriginTimeS is the origin time s in seconds.
+	OriginTimeS float64
+	// HasCovariance reports whether the has covariance field is present.
+	HasCovariance bool
+	// GeometryQuality is the geometry-quality diagnostics.
+	GeometryQuality GeometryQuality
+	// InitialGuess is the initial state guess.
+	InitialGuess SourceInitialGuess
+	// Status is the native status code.
+	Status int32
+	// NFEV is the nfev value for SourceSolutionSummary; NJEV is the njev value for SourceSolutionSummary.
+	NFEV, NJEV int
+	// Cost is the cost value for SourceSolutionSummary; Optimality is the optimality value for SourceSolutionSummary.
+	Cost, Optimality float64
 }
 
 func sourceCovariance(value native.NativeSourceCovariance) SourceCovariance {
@@ -274,7 +327,9 @@ func SourceDOP(sensors []SourceSensor, sourcePositionM []float64, speedMS float6
 type BroadcastReasonKind uint32
 
 const (
-	BroadcastReasonPreciseUnavailable      BroadcastReasonKind = BroadcastReasonKind(native.BroadcastReasonPreciseUnavailableValue)
+	// BroadcastReasonPreciseUnavailable identifies the broadcast reason precise unavailable case.
+	BroadcastReasonPreciseUnavailable BroadcastReasonKind = BroadcastReasonKind(native.BroadcastReasonPreciseUnavailableValue)
+	// BroadcastReasonPreciseDegradedUnusable identifies the broadcast reason precise degraded unusable case.
 	BroadcastReasonPreciseDegradedUnusable BroadcastReasonKind = BroadcastReasonKind(native.BroadcastReasonPreciseDegradedUnusableValue)
 )
 
@@ -282,7 +337,9 @@ const (
 type FixSourceKind uint32
 
 const (
-	FixSourcePrecise   FixSourceKind = FixSourceKind(native.FixSourcePreciseValue)
+	// FixSourcePrecise identifies the fix source precise case.
+	FixSourcePrecise FixSourceKind = FixSourceKind(native.FixSourcePreciseValue)
+	// FixSourceBroadcast identifies the fix source broadcast case.
 	FixSourceBroadcast FixSourceKind = FixSourceKind(native.FixSourceBroadcastValue)
 )
 
@@ -290,32 +347,49 @@ const (
 type DegradationKind uint32
 
 const (
-	DegradationExact        DegradationKind = DegradationKind(native.DegradationExactValue)
+	// DegradationExact identifies the degradation exact case.
+	DegradationExact DegradationKind = DegradationKind(native.DegradationExactValue)
+	// DegradationNearestPrior identifies the degradation nearest prior case.
 	DegradationNearestPrior DegradationKind = DegradationKind(native.DegradationNearestPriorValue)
+	// DegradationDiurnalShift identifies the degradation diurnal shift case.
 	DegradationDiurnalShift DegradationKind = DegradationKind(native.DegradationDiurnalShiftValue)
 )
 
-// SelectionStatus is the native precise-product selection result.
+// SelectionStatus is the native precise-product selection record.
 type SelectionStatus uint32
 
 const (
-	SelectionOK                 SelectionStatus = 0
-	SelectionNullPointer        SelectionStatus = 1
-	SelectionInvalidArgument    SelectionStatus = 2
-	SelectionInvalidToken       SelectionStatus = 3
-	SelectionPanic              SelectionStatus = 4
-	SelectionEmptyProductSet    SelectionStatus = 5
-	SelectionInvalidRange       SelectionStatus = 6
-	SelectionNoPriorProduct     SelectionStatus = 7
+	// SelectionOK identifies the selection ok case.
+	SelectionOK SelectionStatus = 0
+	// SelectionNullPointer identifies the selection null pointer case.
+	SelectionNullPointer SelectionStatus = 1
+	// SelectionInvalidArgument identifies the selection invalid argument case.
+	SelectionInvalidArgument SelectionStatus = 2
+	// SelectionInvalidToken identifies the selection invalid token case.
+	SelectionInvalidToken SelectionStatus = 3
+	// SelectionPanic identifies the selection panic case.
+	SelectionPanic SelectionStatus = 4
+	// SelectionEmptyProductSet identifies the selection empty product set case.
+	SelectionEmptyProductSet SelectionStatus = 5
+	// SelectionInvalidRange identifies the selection invalid range case.
+	SelectionInvalidRange SelectionStatus = 6
+	// SelectionNoPriorProduct identifies the selection no prior product case.
+	SelectionNoPriorProduct SelectionStatus = 7
+	// SelectionBeyondStalenessCap identifies the selection beyond staleness cap case.
 	SelectionBeyondStalenessCap SelectionStatus = 8
-	SelectionInvalidProduct     SelectionStatus = 9
-	SelectionInvalidPolicy      SelectionStatus = 10
-	SelectionOverflow           SelectionStatus = 11
+	// SelectionInvalidProduct identifies the selection invalid product case.
+	SelectionInvalidProduct SelectionStatus = 9
+	// SelectionInvalidPolicy identifies the selection invalid policy case.
+	SelectionInvalidPolicy SelectionStatus = 10
+	// SelectionOverflow identifies the selection overflow case.
+	SelectionOverflow SelectionStatus = 11
 )
 
 // StalenessMetadata is detached fallback provenance.
 type StalenessMetadata struct {
-	Kind                                                               DegradationKind
+	// Kind is the event or record kind.
+	Kind DegradationKind
+	// RequestedEpochJ2000S is the requested epoch j2000 s in seconds; SourceEpochJ2000S is the source epoch j2000 s in seconds; StalenessS is the staleness s in seconds; StalenessDays is the staleness days in days.
 	RequestedEpochJ2000S, SourceEpochJ2000S, StalenessS, StalenessDays float64
 }
 
@@ -418,7 +492,9 @@ func PseudorangeVariance(elevationDeg float64, options PseudorangeVarianceOption
 
 // SolutionValidationOptions configures native receiver plausibility gates.
 type SolutionValidationOptions struct {
-	HasMaxPDOP                                                                  bool
+	// HasMaxPDOP reports whether the has max pdop field is present.
+	HasMaxPDOP bool
+	// MaxPDOP is the max pdop value for SolutionValidationOptions; MinPlausibleRadiusM is the min plausible radius m value for SolutionValidationOptions; MaxPlausibleRadiusM is the max plausible radius m value for SolutionValidationOptions; MaxConvergedResidualRMSM is the max converged residual rmsm value for SolutionValidationOptions.
 	MaxPDOP, MinPlausibleRadiusM, MaxPlausibleRadiusM, MaxConvergedResidualRMSM float64
 }
 

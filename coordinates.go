@@ -9,31 +9,45 @@ import (
 // Geodetic is a WGS84 position. Latitude and longitude are radians; height is
 // ellipsoidal height in metres.
 type Geodetic struct {
-	LatitudeRad  float64
+	// LatitudeRad is the latitude rad in radians.
+	LatitudeRad float64
+	// LongitudeRad is the longitude rad in radians.
 	LongitudeRad float64
-	HeightM      float64
+	// HeightM is the height m in metres.
+	HeightM float64
 }
 
 // ECEF is an ITRF/WGS84 Earth-fixed position in metres.
 type ECEF struct {
+	// X is the x value for ECEF.
 	X float64
+	// Y is the y value for ECEF.
 	Y float64
+	// Z is the z value for ECEF.
 	Z float64
 }
 
 // LineOfSight is an ECEF unit vector from a receiver towards a satellite.
 type LineOfSight struct {
+	// EX is the ex value for LineOfSight.
 	EX float64
+	// EY is the ey value for LineOfSight.
 	EY float64
+	// EZ is the ez value for LineOfSight.
 	EZ float64
 }
 
 // DOP contains geometric dilution-of-precision scalars.
 type DOP struct {
+	// GDOP is the gdop value for DOP.
 	GDOP float64
+	// PDOP is the pdop value for DOP.
 	PDOP float64
+	// HDOP is the hdop value for DOP.
 	HDOP float64
+	// VDOP is the vdop value for DOP.
 	VDOP float64
+	// TDOP is the tdop value for DOP.
 	TDOP float64
 }
 

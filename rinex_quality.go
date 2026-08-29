@@ -18,27 +18,43 @@ const (
 
 // RINEXLintSummary contains copied finding counts and CRINEX provenance.
 type RINEXLintSummary struct {
-	FindingCount      int
-	FatalCount        int
-	ErrorCount        int
-	WarningCount      int
-	InfoCount         int
-	IsClean           bool
+	// FindingCount identifies or counts this record.
+	FindingCount int
+	// FatalCount identifies or counts this record.
+	FatalCount int
+	// ErrorCount identifies or counts this record.
+	ErrorCount int
+	// WarningCount identifies or counts this record.
+	WarningCount int
+	// InfoCount identifies or counts this record.
+	InfoCount int
+	// IsClean is the is clean value for RINEXLintSummary.
+	IsClean bool
+	// DecodedFromCRINEX is the decoded from crinex value for RINEXLintSummary.
 	DecodedFromCRINEX bool
 }
 
 // RINEXLintFinding is one copied lint finding. Optional fields are guarded by
 // their Has* values; EpochIndex is an epoch ordinal, not a time in seconds.
 type RINEXLintFinding struct {
-	Code          string
-	Severity      RINEXLintSeverity
-	Repairable    bool
+	// Code is the observable code.
+	Code string
+	// Severity is the severity value for RINEXLintFinding.
+	Severity RINEXLintSeverity
+	// Repairable reports whether the finding can be repaired.
+	Repairable bool
+	// HasEpochIndex reports whether the has epoch index field is present.
 	HasEpochIndex bool
-	EpochIndex    int
-	HasSatellite  bool
-	Satellite     string
-	HasField      bool
-	Field         string
+	// EpochIndex identifies or counts this record.
+	EpochIndex int
+	// HasSatellite reports whether the has satellite field is present.
+	HasSatellite bool
+	// Satellite is the satellite value for RINEXLintFinding.
+	Satellite string
+	// HasField reports whether the has field field is present.
+	HasField bool
+	// Field is the field value for RINEXLintFinding.
+	Field string
 }
 
 // RINEXLintReport owns a C-backed lint result.
@@ -101,16 +117,26 @@ func (r *RINEXLintReport) Findings() ([]RINEXLintFinding, error) {
 // RINEXRepairOptions controls native RINEX repair transforms. File-stamp
 // strings are optional and remain owned by the caller.
 type RINEXRepairOptions struct {
-	HasFileStamp         bool
-	Program              string
-	RunBy                string
-	Date                 string
-	SetInterval          bool
-	SetTimeOfLastObs     bool
+	// HasFileStamp reports whether the has file stamp field is present.
+	HasFileStamp bool
+	// Program is the program value for RINEXRepairOptions.
+	Program string
+	// RunBy is the run by value for RINEXRepairOptions.
+	RunBy string
+	// Date is the date value for RINEXRepairOptions.
+	Date string
+	// SetInterval is the set interval value for RINEXRepairOptions.
+	SetInterval bool
+	// SetTimeOfLastObs is the set time of last obs value for RINEXRepairOptions.
+	SetTimeOfLastObs bool
+	// SetObservationCounts is the set observation counts value for RINEXRepairOptions.
 	SetObservationCounts bool
-	DropEmptyRecords     bool
-	SortRecords          bool
-	DropUnsupported      bool
+	// DropEmptyRecords is the drop empty records value for RINEXRepairOptions.
+	DropEmptyRecords bool
+	// SortRecords is the sort records value for RINEXRepairOptions.
+	SortRecords bool
+	// DropUnsupported is the drop unsupported value for RINEXRepairOptions.
+	DropUnsupported bool
 }
 
 // NewRINEXRepairOptions returns the C ABI defaults.
@@ -121,7 +147,9 @@ func NewRINEXRepairOptions() (RINEXRepairOptions, error) {
 
 // RINEXRepairAction describes one copied repair operation.
 type RINEXRepairAction struct {
-	ID      string
+	// ID identifies or counts this record.
+	ID string
+	// Message is the message value for RINEXRepairAction.
 	Message string
 }
 

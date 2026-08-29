@@ -34,362 +34,556 @@ const (
 
 // PPPAutoInitOptions controls SPP-seeded PPP initialization.
 type PPPAutoInitOptions struct {
-	HasInitialGuess      bool
+	// HasInitialGuess reports whether the has initial guess field is present.
+	HasInitialGuess bool
+	// InitialGuessPosition contains the fixed-size array for this record.
 	InitialGuessPosition [3]float64
-	InitialGuessClockM   float64
-	SPPInitialGuess      [4]float64
-	SPPTroposphere       bool
-	SPPPressureHPA       float64
-	SPPTemperatureK      float64
-	SPPRelativeHumidity  float64
+	// InitialGuessClockM is the initial guess clock m in metres.
+	InitialGuessClockM float64
+	// SPPInitialGuess contains the fixed-size array for this record.
+	SPPInitialGuess [4]float64
+	// SPPTroposphere is the spptroposphere value for PPPAutoInitOptions.
+	SPPTroposphere bool
+	// SPPPressureHPA is the spp pressure hpa in hectopascals.
+	SPPPressureHPA float64
+	// SPPTemperatureK is the spp temperature k in kelvin.
+	SPPTemperatureK float64
+	// SPPRelativeHumidity is the spp relative humidity value for PPPAutoInitOptions.
+	SPPRelativeHumidity float64
 }
 
 // PPPObservation is one ionosphere-free code/phase measurement. Distances are
 // metres and frequencies are hertz.
 type PPPObservation struct {
-	SatelliteID  string
-	AmbiguityID  string
-	CodeM        float64
-	PhaseM       float64
+	// SatelliteID identifies or counts this record.
+	SatelliteID string
+	// AmbiguityID identifies or counts this record.
+	AmbiguityID string
+	// CodeM is the code m in metres.
+	CodeM float64
+	// PhaseM is the phase m in metres.
+	PhaseM float64
+	// Frequency1Hz is the frequency1 hz in hertz.
 	Frequency1Hz float64
+	// Frequency2Hz is the frequency2 hz in hertz.
 	Frequency2Hz float64
 }
 
 // PPPEpoch is one static PPP epoch and its observation rows.
 type PPPEpoch struct {
-	Civil        CivilDateTime
-	JDWhole      float64
-	JDFraction   float64
-	TRxJ2000S    float64
+	// Civil is the civil-time observable.
+	Civil CivilDateTime
+	// JDWhole is the associated Julian-date value.
+	JDWhole float64
+	// JDFraction is the associated Julian-date value.
+	JDFraction float64
+	// TRxJ2000S is the t rx j2000 s in seconds.
+	TRxJ2000S float64
+	// Observations contains a detached copy; nil means this field is absent.
 	Observations []PPPObservation
 }
 
 // PPPFloatMapEntry is one ambiguity identifier/value pair.
 type PPPFloatMapEntry struct {
-	ID    string
+	// ID identifies or counts this record.
+	ID string
+	// Value is the value stored in this record.
 	Value float64
 }
 
 // PPPFloatState is the initial static-arc PPP state. Clock values are metres
 // and must contain one entry per epoch.
 type PPPFloatState struct {
-	PositionM          [3]float64
-	ClocksM            []float64
-	AmbiguitiesM       []PPPFloatMapEntry
-	ZTDm               float64
+	// PositionM is the position m in metres.
+	PositionM [3]float64
+	// ClocksM is the clocks m in metres.
+	ClocksM []float64
+	// AmbiguitiesM is the ambiguities m in metres.
+	AmbiguitiesM []PPPFloatMapEntry
+	// ZTDm is the zenith tropospheric delay in metres.
+	ZTDm float64
+	// TropoGradientNorth is the north tropospheric gradient.
 	TropoGradientNorth float64
-	TropoGradientEast  float64
+	// TropoGradientEast is the east tropospheric gradient.
+	TropoGradientEast float64
 }
 
 // PPPMeasurementWeights contains inverse measurement sigmas.
 type PPPMeasurementWeights struct {
-	Code               float64
-	Phase              float64
+	// Code is the observable code.
+	Code float64
+	// Phase is the phase observable.
+	Phase float64
+	// ElevationWeighting is the elevation weighting value for PPPMeasurementWeights.
 	ElevationWeighting bool
 }
 
 // PPPVmfSiteSample is one VMF1 site coefficient sample.
 type PPPVmfSiteSample struct {
+	// MJD is the mjd in modified Julian days.
 	MJD float64
-	AH  float64
-	AW  float64
+	// AH is the ah value for PPPVmfSiteSample.
+	AH float64
+	// AW is the aw value for PPPVmfSiteSample.
+	AW float64
 }
 
 // PPPTroposphereOptions controls PPP troposphere corrections and states.
 type PPPTroposphereOptions struct {
-	Enabled               bool
-	EstimateZTD           bool
+	// Enabled reports whether the option is enabled.
+	Enabled bool
+	// EstimateZTD is the estimate ztd value for PPPTroposphereOptions.
+	EstimateZTD bool
+	// EstimateTropoGradient is the estimate tropo gradient value for PPPTroposphereOptions.
 	EstimateTropoGradient bool
-	PressureHPA           float64
-	TemperatureK          float64
-	RelativeHumidity      float64
-	Mapping               PPPTropoMapping
-	VMFSamples            []PPPVmfSiteSample
+	// PressureHPA is the pressure hpa in hectopascals.
+	PressureHPA float64
+	// TemperatureK is the temperature k in kelvin.
+	TemperatureK float64
+	// RelativeHumidity is the relative humidity fraction.
+	RelativeHumidity float64
+	// Mapping is the mapping value for PPPTroposphereOptions.
+	Mapping PPPTropoMapping
+	// VMFSamples contains a detached copy; nil means this field is absent.
+	VMFSamples []PPPVmfSiteSample
 }
 
 // PPPReceiverAntennaNoaziPCVSample is one receiver antenna no-azimuth PCV
 // sample in metres.
 type PPPReceiverAntennaNoaziPCVSample struct {
+	// ZenithDeg is the zenith deg in degrees.
 	ZenithDeg float64
-	ValueM    float64
+	// ValueM is the value m in metres.
+	ValueM float64
 }
 
 // PPPReceiverAntennaAzimuthPCVSample is one receiver antenna azimuth PCV
 // sample in metres.
 type PPPReceiverAntennaAzimuthPCVSample struct {
+	// AzimuthDeg is the azimuth deg in degrees.
 	AzimuthDeg float64
-	ZenithDeg  float64
-	ValueM     float64
+	// ZenithDeg is the zenith deg in degrees.
+	ZenithDeg float64
+	// ValueM is the value m in metres.
+	ValueM float64
 }
 
 // PPPReceiverAntennaCalibration is one receiver antenna frequency calibration.
 type PPPReceiverAntennaCalibration struct {
-	PCONEUM     [3]float64
-	NoaziPCVM   []PPPReceiverAntennaNoaziPCVSample
+	// PCONEUM is the pconeum in metres.
+	PCONEUM [3]float64
+	// NoaziPCVM is the noazi pcvm in metres.
+	NoaziPCVM []PPPReceiverAntennaNoaziPCVSample
+	// AzimuthPCVM is the azimuth pcvm in metres.
 	AzimuthPCVM []PPPReceiverAntennaAzimuthPCVSample
 }
 
 // PPPReceiverAntennaOptions describes the two-frequency receiver antenna
 // correction.
 type PPPReceiverAntennaOptions struct {
+	// Frequency1Label is the frequency1 label value for PPPReceiverAntennaOptions.
 	Frequency1Label string
-	Frequency1Hz    float64
-	Frequency1      PPPReceiverAntennaCalibration
+	// Frequency1Hz is the frequency1 hz in hertz.
+	Frequency1Hz float64
+	// Frequency1 is the first carrier frequency.
+	Frequency1 PPPReceiverAntennaCalibration
+	// Frequency2Label is the frequency2 label value for PPPReceiverAntennaOptions.
 	Frequency2Label string
-	Frequency2Hz    float64
-	Frequency2      PPPReceiverAntennaCalibration
+	// Frequency2Hz is the frequency2 hz in hertz.
+	Frequency2Hz float64
+	// Frequency2 is the second carrier frequency.
+	Frequency2 PPPReceiverAntennaCalibration
 }
 
 // PPPSatelliteClockRecord is one precise satellite clock sample in seconds.
 type PPPSatelliteClockRecord struct {
+	// SatelliteID identifies or counts this record.
 	SatelliteID string
-	GPSSeconds  float64
-	ClockS      float64
+	// GPSSeconds is the gps seconds in seconds.
+	GPSSeconds float64
+	// ClockS is the clock s in seconds.
+	ClockS float64
 }
 
 // PPPRangeCorrections controls directly representable range corrections.
 type PPPRangeCorrections struct {
-	ReceiverAntenna       *PPPReceiverAntennaOptions
-	SatClockRelativity    bool
+	// ReceiverAntenna contains a detached copy; nil means this field is absent.
+	ReceiverAntenna *PPPReceiverAntennaOptions
+	// SatClockRelativity is the sat clock relativity value for PPPRangeCorrections.
+	SatClockRelativity bool
+	// SatelliteClockRecords contains a detached copy; nil means this field is absent.
 	SatelliteClockRecords []PPPSatelliteClockRecord
-	SolidEarthTide        bool
-	PhaseWindup           bool
-	SatelliteAntenna      bool
+	// SolidEarthTide is the solid earth tide value for PPPRangeCorrections.
+	SolidEarthTide bool
+	// PhaseWindup is the phase windup value for PPPRangeCorrections.
+	PhaseWindup bool
+	// SatelliteAntenna is the satellite antenna value for PPPRangeCorrections.
+	SatelliteAntenna bool
 }
 
 // PPPFloatOptions contains float-solve iteration and convergence controls.
 type PPPFloatOptions struct {
-	MaxIterations       int
-	PositionToleranceM  float64
-	ClockToleranceM     float64
+	// MaxIterations is the max iterations value for PPPFloatOptions.
+	MaxIterations int
+	// PositionToleranceM is the position tolerance m in metres.
+	PositionToleranceM float64
+	// ClockToleranceM is the clock tolerance m in metres.
+	ClockToleranceM float64
+	// AmbiguityToleranceM is the ambiguity tolerance m in metres.
 	AmbiguityToleranceM float64
-	ZTDToleranceM       float64
+	// ZTDToleranceM is the ztd tolerance m in metres.
+	ZTDToleranceM float64
 }
 
 // PPPFloatConfig is the complete static PPP float input bundle.
 type PPPFloatConfig struct {
-	Epochs             []PPPEpoch
-	InitialState       PPPFloatState
-	Weights            PPPMeasurementWeights
-	Troposphere        PPPTroposphereOptions
-	Corrections        PPPRangeCorrections
-	Options            PPPFloatOptions
+	// Epochs contains a detached copy; nil means this field is absent.
+	Epochs []PPPEpoch
+	// InitialState is the initial state value for PPPFloatConfig.
+	InitialState PPPFloatState
+	// Weights is the observation weights.
+	Weights PPPMeasurementWeights
+	// Troposphere is the troposphere model.
+	Troposphere PPPTroposphereOptions
+	// Corrections is the applied corrections.
+	Corrections PPPRangeCorrections
+	// Options is the processing options for this record.
+	Options PPPFloatOptions
+	// HasElevationCutoff reports whether the has elevation cutoff field is present.
 	HasElevationCutoff bool
+	// ElevationCutoffDeg is the elevation cutoff deg in degrees.
 	ElevationCutoffDeg float64
-	ResidualScreen     bool
+	// ResidualScreen is the residual screen value for PPPFloatConfig.
+	ResidualScreen bool
 }
 
 // PPPFixedAmbiguityOptions controls integer ambiguity fixing.
 type PPPFixedAmbiguityOptions struct {
-	WavelengthsM   []PPPFloatMapEntry
-	OffsetsM       []PPPFloatMapEntry
+	// WavelengthsM is the wavelengths m in metres.
+	WavelengthsM []PPPFloatMapEntry
+	// OffsetsM is the offsets m in metres.
+	OffsetsM []PPPFloatMapEntry
+	// RatioThreshold is the ratio threshold value for PPPFixedAmbiguityOptions.
 	RatioThreshold float64
 }
 
 // PPPFixedConfig is the complete static PPP fixed input bundle.
 type PPPFixedConfig struct {
-	Epochs             []PPPEpoch
-	Weights            PPPMeasurementWeights
-	Troposphere        PPPTroposphereOptions
-	Corrections        PPPRangeCorrections
-	Options            PPPFloatOptions
+	// Epochs contains a detached copy; nil means this field is absent.
+	Epochs []PPPEpoch
+	// Weights is the observation weights.
+	Weights PPPMeasurementWeights
+	// Troposphere is the troposphere model.
+	Troposphere PPPTroposphereOptions
+	// Corrections is the applied corrections.
+	Corrections PPPRangeCorrections
+	// Options is the processing options for this record.
+	Options PPPFloatOptions
+	// HasElevationCutoff reports whether the has elevation cutoff field is present.
 	HasElevationCutoff bool
+	// ElevationCutoffDeg is the elevation cutoff deg in degrees.
 	ElevationCutoffDeg float64
-	Ambiguity          PPPFixedAmbiguityOptions
+	// Ambiguity is the ambiguity value for PPPFixedConfig.
+	Ambiguity PPPFixedAmbiguityOptions
 }
 
 // PPPPoleTideOptions contains IERS polar motion in arcseconds.
 type PPPPoleTideOptions struct {
+	// XPArcsec is the xp arcsec in arcseconds.
 	XPArcsec float64
+	// YPArcsec is the yp arcsec in arcseconds.
 	YPArcsec float64
 }
 
 // PPPObservationCorrection is one correction-precompute satellite row.
 type PPPObservationCorrection struct {
-	SatelliteID       string
-	Frequency1Hz      float64
-	Frequency2Hz      float64
+	// SatelliteID identifies or counts this record.
+	SatelliteID string
+	// Frequency1Hz is the frequency1 hz in hertz.
+	Frequency1Hz float64
+	// Frequency2Hz is the frequency2 hz in hertz.
+	Frequency2Hz float64
+	// HasGLONASSChannel reports whether the has glonass channel field is present.
 	HasGLONASSChannel bool
-	GLONASSChannel    int8
+	// GLONASSChannel is the glonasschannel value for PPPObservationCorrection.
+	GLONASSChannel int8
 }
 
 // PPPCorrectionEpoch is one correction-precompute epoch.
 type PPPCorrectionEpoch struct {
-	Epoch        CivilDateTime
-	TRxJ2000S    float64
+	// Epoch is the epoch value for PPPCorrectionEpoch.
+	Epoch CivilDateTime
+	// TRxJ2000S is the t rx j2000 s in seconds.
+	TRxJ2000S float64
+	// Observations contains a detached copy; nil means this field is absent.
 	Observations []PPPObservationCorrection
 }
 
 // PPPCodeBiasSystemPair selects default observables for a GNSS system.
 type PPPCodeBiasSystemPair struct {
+	// System is the GNSS system identifier.
 	System GNSSSystem
-	Obs1   string
-	Obs2   string
+	// Obs1 is the obs1 value for PPPCodeBiasSystemPair.
+	Obs1 string
+	// Obs2 is the obs2 value for PPPCodeBiasSystemPair.
+	Obs2 string
 }
 
 // PPPCodeBiasSatellitePair overrides observables for one satellite.
 type PPPCodeBiasSatellitePair struct {
+	// SatelliteID identifies or counts this record.
 	SatelliteID string
-	Obs1        string
-	Obs2        string
+	// Obs1 is the obs1 value for PPPCodeBiasSatellitePair.
+	Obs1 string
+	// Obs2 is the obs2 value for PPPCodeBiasSatellitePair.
+	Obs2 string
 }
 
 // PPPSatelliteAntennaFrequency contains one satellite antenna calibration.
 type PPPSatelliteAntennaFrequency struct {
-	Label    string
-	PCOM     [3]float64
+	// Label is the label value for PPPSatelliteAntennaFrequency.
+	Label string
+	// PCOM is the pcom in metres.
+	PCOM [3]float64
+	// NoaziPCV contains a detached copy; nil means this field is absent.
 	NoaziPCV []PPPNoaziPCVSample
 }
 
 // PPPNoaziPCVSample is one satellite antenna PCV pair.
 type PPPNoaziPCVSample struct {
+	// A is the a value for PPPNoaziPCVSample.
 	A float64
+	// B is the b value for PPPNoaziPCVSample.
 	B float64
 }
 
 // PPPSatelliteAntenna contains one satellite antenna validity block.
 type PPPSatelliteAntenna struct {
-	SatelliteID   string
-	HasValidFrom  bool
-	ValidFrom     CivilDateTime
+	// SatelliteID identifies or counts this record.
+	SatelliteID string
+	// HasValidFrom reports whether the has valid from field is present.
+	HasValidFrom bool
+	// ValidFrom is the valid from value for PPPSatelliteAntenna.
+	ValidFrom CivilDateTime
+	// HasValidUntil reports whether the has valid until field is present.
 	HasValidUntil bool
-	ValidUntil    CivilDateTime
-	Frequencies   []PPPSatelliteAntennaFrequency
+	// ValidUntil is the valid until value for PPPSatelliteAntenna.
+	ValidUntil CivilDateTime
+	// Frequencies contains a detached copy; nil means this field is absent.
+	Frequencies []PPPSatelliteAntennaFrequency
 }
 
 // PPPSatelliteAntennaOptions selects satellite antenna calibrations.
 type PPPSatelliteAntennaOptions struct {
+	// Frequency1Label is the frequency1 label value for PPPSatelliteAntennaOptions.
 	Frequency1Label string
-	Frequency1Hz    float64
+	// Frequency1Hz is the frequency1 hz in hertz.
+	Frequency1Hz float64
+	// Frequency2Label is the frequency2 label value for PPPSatelliteAntennaOptions.
 	Frequency2Label string
-	Frequency2Hz    float64
-	Antennas        []PPPSatelliteAntenna
+	// Frequency2Hz is the frequency2 hz in hertz.
+	Frequency2Hz float64
+	// Antennas contains a detached copy; nil means this field is absent.
+	Antennas []PPPSatelliteAntenna
 }
 
 // PPPCorrectionsOptions controls PPP correction-table construction.
 type PPPCorrectionsOptions struct {
-	SolidEarthTide            bool
-	PoleTide                  *PPPPoleTideOptions
-	OceanLoading              *OceanLoadingBLQ
-	PhaseWindup               bool
-	SatelliteAntenna          *PPPSatelliteAntennaOptions
-	CodeBias                  *BiasSet
-	CodeBiasSystemPairs       []PPPCodeBiasSystemPair
-	CodeBiasSatellitePairs    []PPPCodeBiasSatellitePair
-	CodeBiasClockReference    []PPPCodeBiasSystemPair
+	// SolidEarthTide is the solid earth tide value for PPPCorrectionsOptions.
+	SolidEarthTide bool
+	// PoleTide contains a detached copy; nil means this field is absent.
+	PoleTide *PPPPoleTideOptions
+	// OceanLoading contains a detached copy; nil means this field is absent.
+	OceanLoading *OceanLoadingBLQ
+	// PhaseWindup is the phase windup value for PPPCorrectionsOptions.
+	PhaseWindup bool
+	// SatelliteAntenna contains a detached copy; nil means this field is absent.
+	SatelliteAntenna *PPPSatelliteAntennaOptions
+	// CodeBias contains a detached copy; nil means this field is absent.
+	CodeBias *BiasSet
+	// CodeBiasSystemPairs contains a detached copy; nil means this field is absent.
+	CodeBiasSystemPairs []PPPCodeBiasSystemPair
+	// CodeBiasSatellitePairs contains a detached copy; nil means this field is absent.
+	CodeBiasSatellitePairs []PPPCodeBiasSatellitePair
+	// CodeBiasClockReference contains a detached copy; nil means this field is absent.
+	CodeBiasClockReference []PPPCodeBiasSystemPair
+	// HasCodeBiasClockReference reports whether the has code bias clock reference field is present.
 	HasCodeBiasClockReference bool
 }
 
 // PPPSatScalarCorrection is one copied per-satellite scalar correction in
 // metres.
 type PPPSatScalarCorrection struct {
+	// SatelliteID identifies or counts this record.
 	SatelliteID string
-	EpochIndex  int
-	ValueM      float64
+	// EpochIndex identifies or counts this record.
+	EpochIndex int
+	// ValueM is the value m in metres.
+	ValueM float64
 }
 
 // PPPSatVectorCorrection is one copied per-satellite vector correction in
 // metres.
 type PPPSatVectorCorrection struct {
+	// SatelliteID identifies or counts this record.
 	SatelliteID string
-	EpochIndex  int
-	ValueM      [3]float64
+	// EpochIndex identifies or counts this record.
+	EpochIndex int
+	// ValueM is the value m in metres.
+	ValueM [3]float64
 }
 
 // PPPEpochVectorCorrection is one copied epoch vector correction in metres.
 type PPPEpochVectorCorrection struct {
+	// EpochIndex identifies or counts this record.
 	EpochIndex int
-	ValueM     [3]float64
+	// ValueM is the value m in metres.
+	ValueM [3]float64
 }
 
 // PPPFloatAmbiguity is one copied float ambiguity estimate in metres.
 type PPPFloatAmbiguity struct {
-	ID     string
+	// ID identifies or counts this record.
+	ID string
+	// ValueM is the value m in metres.
 	ValueM float64
 }
 
 // PPPFixedAmbiguity is one copied fixed ambiguity estimate.
 type PPPFixedAmbiguity struct {
-	ID     string
+	// ID identifies or counts this record.
+	ID string
+	// Cycles is the cycles value for PPPFixedAmbiguity.
 	Cycles int64
+	// ValueM is the value m in metres.
 	ValueM float64
 }
 
 // PPPPositionCovariance contains ECEF and ENU covariance matrices in square
 // metres.
 type PPPPositionCovariance struct {
+	// ECEFM2 is the ecefm2 in square metres.
 	ECEFM2 [3][3]float64
-	ENUM2  [3][3]float64
+	// ENUM2 is the enum2 in square metres.
+	ENUM2 [3][3]float64
 }
 
 // PPPPositionCovariances contains the three native PPP covariance products.
 type PPPPositionCovariances struct {
-	Posterior      PPPPositionCovariance
-	Formal         PPPPositionCovariance
-	Temporal       PPPPositionCovariance
+	// Posterior is the posterior value for PPPPositionCovariances.
+	Posterior PPPPositionCovariance
+	// Formal is the formal value for PPPPositionCovariances.
+	Formal PPPPositionCovariance
+	// Temporal is the temporal value for PPPPositionCovariances.
+	Temporal PPPPositionCovariance
+	// PosteriorScale is the posterior scale value for PPPPositionCovariances.
 	PosteriorScale float64
-	TemporalScale  float64
+	// TemporalScale is the temporal scale value for PPPPositionCovariances.
+	TemporalScale float64
 }
 
 // PPPTemporalCorrelation contains residual autocorrelation diagnostics.
 type PPPTemporalCorrelation struct {
-	HasLag1            bool
-	Lag1               float64
-	HasDecorrelation   bool
+	// HasLag1 reports whether the has lag1 field is present.
+	HasLag1 bool
+	// Lag1 is the lag1 value for PPPTemporalCorrelation.
+	Lag1 float64
+	// HasDecorrelation reports whether the has decorrelation field is present.
+	HasDecorrelation bool
+	// DecorrelationTimeS is the decorrelation time s in seconds.
 	DecorrelationTimeS float64
-	NominalSamples     int
-	EffectiveSamples   float64
-	VarianceInflation  float64
-	ArcsUsed           int
+	// NominalSamples is the nominal samples value for PPPTemporalCorrelation.
+	NominalSamples int
+	// EffectiveSamples is the effective samples value for PPPTemporalCorrelation.
+	EffectiveSamples float64
+	// VarianceInflation is the variance inflation value for PPPTemporalCorrelation.
+	VarianceInflation float64
+	// ArcsUsed is the arcs used value for PPPTemporalCorrelation.
+	ArcsUsed int
 }
 
 // PPPTropoGradient contains copied north/east gradient estimates and
 // covariance products.
 type PPPTropoGradient struct {
-	HasGradient         bool
-	NorthM              float64
-	EastM               float64
-	HasCovariance       bool
-	CovarianceM2        [2][2]float64
+	// HasGradient reports whether the has gradient field is present.
+	HasGradient bool
+	// NorthM is the north m in metres.
+	NorthM float64
+	// EastM is the east m in metres.
+	EastM float64
+	// HasCovariance reports whether the has covariance field is present.
+	HasCovariance bool
+	// CovarianceM2 is the covariance m2 in square metres.
+	CovarianceM2 [2][2]float64
+	// HasFormalCovariance reports whether the has formal covariance field is present.
 	HasFormalCovariance bool
-	FormalCovarianceM2  [2][2]float64
+	// FormalCovarianceM2 is the formal covariance m2 in square metres.
+	FormalCovarianceM2 [2][2]float64
 }
 
 // PPPFloatMetadata contains copied float-solver summary values.
 type PPPFloatMetadata struct {
-	Iterations     int
-	Converged      bool
-	Status         PPPSolveStatus
+	// Iterations is the native solver iteration count.
+	Iterations int
+	// Converged reports whether the solution converged.
+	Converged bool
+	// Status is the native status code.
+	Status PPPSolveStatus
+	// HasZTDResidual reports whether the has ztd residual field is present.
 	HasZTDResidual bool
-	ZTDResidualM   float64
-	CodeRMSM       float64
-	PhaseRMSM      float64
-	WeightedRMSM   float64
+	// ZTDResidualM is the ztd residual m in metres.
+	ZTDResidualM float64
+	// CodeRMSM is the code rmsm in metres.
+	CodeRMSM float64
+	// PhaseRMSM is the phase rmsm in metres.
+	PhaseRMSM float64
+	// WeightedRMSM is the weighted rmsm in metres.
+	WeightedRMSM float64
+	// AmbiguityCount identifies or counts this record.
 	AmbiguityCount int
-	ResidualCount  int
-	UsedSatCount   int
+	// ResidualCount identifies or counts this record.
+	ResidualCount int
+	// UsedSatCount identifies or counts this record.
+	UsedSatCount int
 }
 
 // PPPFixedMetadata contains copied fixed-solver and integer-search summary
 // values.
 type PPPFixedMetadata struct {
-	Iterations             int
-	Converged              bool
-	Status                 PPPSolveStatus
-	HasZTDResidual         bool
-	ZTDResidualM           float64
-	CodeRMSM               float64
-	PhaseRMSM              float64
-	WeightedRMSM           float64
-	FixedAmbiguityCount    int
-	ResidualCount          int
-	UsedSatCount           int
-	IntegerStatus          PPPIntegerStatus
-	IntegerRatio           float64
-	IntegerBestScore       float64
-	HasIntegerSecondBest   bool
+	// Iterations is the native solver iteration count.
+	Iterations int
+	// Converged reports whether the solution converged.
+	Converged bool
+	// Status is the native status code.
+	Status PPPSolveStatus
+	// HasZTDResidual reports whether the has ztd residual field is present.
+	HasZTDResidual bool
+	// ZTDResidualM is the ztd residual m in metres.
+	ZTDResidualM float64
+	// CodeRMSM is the code rmsm in metres.
+	CodeRMSM float64
+	// PhaseRMSM is the phase rmsm in metres.
+	PhaseRMSM float64
+	// WeightedRMSM is the weighted rmsm in metres.
+	WeightedRMSM float64
+	// FixedAmbiguityCount identifies or counts this record.
+	FixedAmbiguityCount int
+	// ResidualCount identifies or counts this record.
+	ResidualCount int
+	// UsedSatCount identifies or counts this record.
+	UsedSatCount int
+	// IntegerStatus is the integer-solution status.
+	IntegerStatus PPPIntegerStatus
+	// IntegerRatio is the integer ambiguity ratio.
+	IntegerRatio float64
+	// IntegerBestScore is the integer best score value for PPPFixedMetadata.
+	IntegerBestScore float64
+	// HasIntegerSecondBest reports whether the has integer second best field is present.
+	HasIntegerSecondBest bool
+	// IntegerSecondBestScore is the integer second best score value for PPPFixedMetadata.
 	IntegerSecondBestScore float64
-	IntegerCandidates      int
+	// IntegerCandidates is the integer candidate count.
+	IntegerCandidates int
 }
 
 // PPPFloatSolution owns a native static PPP float-solution handle.

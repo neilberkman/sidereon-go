@@ -4,13 +4,17 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 
 // DGNSSObservation is one code-only pseudorange observation in meters.
 type DGNSSObservation struct {
-	SatelliteID  string
+	// SatelliteID identifies or counts this record.
+	SatelliteID string
+	// PseudorangeM is the pseudorange m in metres.
 	PseudorangeM float64
 }
 
 // DGNSSAppliedObservation is one observation after applying a base correction.
 type DGNSSAppliedObservation struct {
-	SatelliteID  string
+	// SatelliteID identifies or counts this record.
+	SatelliteID string
+	// PseudorangeM is the pseudorange m in metres.
 	PseudorangeM float64
 }
 

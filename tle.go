@@ -10,35 +10,57 @@ import (
 // in kilometers, velocity is in kilometers per second, and EpochJ2000S is the
 // corresponding UTC epoch in seconds since J2000 computed by C.
 type TEMEState struct {
-	EpochJ2000S    float64
-	PositionKm     [3]float64
+	// EpochJ2000S is the epoch j2000 s in seconds.
+	EpochJ2000S float64
+	// PositionKm is the position km in kilometres.
+	PositionKm [3]float64
+	// VelocityKmPerS is the velocity km per s in kilometres per second.
 	VelocityKmPerS [3]float64
 }
 
 // TLEMetadata contains read-only parsed element fields copied from C.
 type TLEMetadata struct {
-	CatalogNumber           string
-	Classification          string
+	// CatalogNumber identifies or counts this record.
+	CatalogNumber string
+	// Classification is the classification value for TLEMetadata.
+	Classification string
+	// InternationalDesignator is the international designator value for TLEMetadata.
 	InternationalDesignator string
-	EpochYear               int
-	EpochDayOfYear          float64
-	InclinationDeg          float64
-	RAANDeg                 float64
-	Eccentricity            float64
-	ArgumentOfPerigeeDeg    float64
-	MeanAnomalyDeg          float64
-	MeanMotionRevPerDay     float64
-	MeanMotionDot           float64
-	MeanMotionDoubleDot     float64
-	BStar                   float64
-	EphemerisType           int
-	ElementSetNumber        int
-	RevolutionNumber        int
+	// EpochYear is the epoch year value for TLEMetadata.
+	EpochYear int
+	// EpochDayOfYear is the epoch day of year value for TLEMetadata.
+	EpochDayOfYear float64
+	// InclinationDeg is the inclination deg in degrees.
+	InclinationDeg float64
+	// RAANDeg is the raan deg in degrees.
+	RAANDeg float64
+	// Eccentricity is the eccentricity value for TLEMetadata.
+	Eccentricity float64
+	// ArgumentOfPerigeeDeg is the argument of perigee deg in degrees.
+	ArgumentOfPerigeeDeg float64
+	// MeanAnomalyDeg is the mean anomaly deg in degrees.
+	MeanAnomalyDeg float64
+	// MeanMotionRevPerDay is the mean motion rev per day in revolutions per day.
+	MeanMotionRevPerDay float64
+	// MeanMotionDot is the mean motion dot value for TLEMetadata.
+	MeanMotionDot float64
+	// MeanMotionDoubleDot is the mean motion double dot value for TLEMetadata.
+	MeanMotionDoubleDot float64
+	// BStar is the bstar value for TLEMetadata.
+	BStar float64
+	// EphemerisType is the ephemeris type value for TLEMetadata.
+	EphemerisType int
+	// ElementSetNumber identifies or counts this record.
+	ElementSetNumber int
+	// RevolutionNumber identifies or counts this record.
+	RevolutionNumber int
 }
 
 // TLELines contains C's re-encoded TLE lines.
 type TLELines struct {
+	// Line1 is the line1 value for TLELines.
 	Line1 string
+	// Line2 is the line2 value for TLELines.
 	Line2 string
 }
 

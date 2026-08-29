@@ -6,7 +6,9 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 // CarrierHz is in hertz; LightTime and Sagnac enable the corresponding
 // Earth-fixed propagation corrections.
 type ObservablesOptions struct {
-	CarrierHz         float64
+	// CarrierHz is the carrier hz in hertz.
+	CarrierHz float64
+	// LightTime reports whether light-time correction is enabled; Sagnac reports whether Sagnac correction is enabled.
 	LightTime, Sagnac bool
 }
 
@@ -20,10 +22,15 @@ func NewObservablesOptions() (ObservablesOptions, error) {
 // is in radians, pressure in hPa, temperature in kelvin, humidity as a ratio,
 // and carrier frequency in hertz.
 type EmissionMediaOptions struct {
-	CarrierHz                                   float64
-	MinElevationEnabled                         bool
-	MinElevationRad                             float64
-	TroposphereEnabled                          bool
+	// CarrierHz is the carrier hz in hertz.
+	CarrierHz float64
+	// MinElevationEnabled is the min elevation enabled value for EmissionMediaOptions.
+	MinElevationEnabled bool
+	// MinElevationRad is the min elevation rad in radians.
+	MinElevationRad float64
+	// TroposphereEnabled is the troposphere enabled value for EmissionMediaOptions.
+	TroposphereEnabled bool
+	// PressureHPA is the pressure hpa in hectopascals; TemperatureK is the temperature k in kelvin; RelativeHumidity is the relative humidity fraction.
 	PressureHPA, TemperatureK, RelativeHumidity float64
 }
 
@@ -37,26 +44,40 @@ func NewEmissionMediaOptions() (EmissionMediaOptions, error) {
 type EmissionMediaStatus uint32
 
 const (
-	EmissionMediaValid                EmissionMediaStatus = EmissionMediaStatus(native.EmissionMediaValidValue)
-	EmissionMediaGap                  EmissionMediaStatus = EmissionMediaStatus(native.EmissionMediaGapValue)
+	// EmissionMediaValid identifies the emission media valid case.
+	EmissionMediaValid EmissionMediaStatus = EmissionMediaStatus(native.EmissionMediaValidValue)
+	// EmissionMediaGap identifies the emission media gap case.
+	EmissionMediaGap EmissionMediaStatus = EmissionMediaStatus(native.EmissionMediaGapValue)
+	// EmissionMediaBelowElevationCutoff identifies the emission media below elevation cutoff case.
 	EmissionMediaBelowElevationCutoff EmissionMediaStatus = EmissionMediaStatus(native.EmissionMediaBelowElevationValue)
-	EmissionMediaError                EmissionMediaStatus = EmissionMediaStatus(native.EmissionMediaErrorValue)
+	// EmissionMediaError identifies the emission media error case.
+	EmissionMediaError EmissionMediaStatus = EmissionMediaStatus(native.EmissionMediaErrorValue)
 )
 
 // EmissionMediaRow contains one satellite/epoch result. Positions are ECEF
 // metres and times are J2000 seconds; Has fields distinguish absent values
 // from present zero values.
 type EmissionMediaRow struct {
-	PositionECEFM           [3]float64
-	HasPosition             bool
-	ClockS                  float64
-	HasClock                bool
-	IonosphereSlantDelayM   float64
+	// PositionECEFM is the position ecefm in metres.
+	PositionECEFM [3]float64
+	// HasPosition reports whether the has position field is present.
+	HasPosition bool
+	// ClockS is the clock s in seconds.
+	ClockS float64
+	// HasClock reports whether the has clock field is present.
+	HasClock bool
+	// IonosphereSlantDelayM is the ionosphere slant delay m in metres.
+	IonosphereSlantDelayM float64
+	// HasIonosphereSlantDelay reports whether the has ionosphere slant delay field is present.
 	HasIonosphereSlantDelay bool
-	TroposphereDelayM       float64
-	HasTroposphereDelay     bool
-	Status                  EmissionMediaStatus
-	ResultStatus            StatusCode
+	// TroposphereDelayM is the troposphere delay m in metres.
+	TroposphereDelayM float64
+	// HasTroposphereDelay reports whether the has troposphere delay field is present.
+	HasTroposphereDelay bool
+	// Status is the native status code.
+	Status EmissionMediaStatus
+	// ResultStatus is the native result status.
+	ResultStatus StatusCode
 }
 
 // MissingObservablePositionECEF returns the native missing-position sentinel.
@@ -117,65 +138,97 @@ func (s *SP3) EmissionMediaBatch(satellites []string, epochs []float64, receiver
 type EphemerisSampleStatus uint32
 
 const (
+	// EphemerisSampleValid identifies the ephemeris sample valid case.
 	EphemerisSampleValid EphemerisSampleStatus = EphemerisSampleStatus(native.EphemerisSampleValidValue)
-	EphemerisSampleGap   EphemerisSampleStatus = EphemerisSampleStatus(native.EphemerisSampleGapValue)
+	// EphemerisSampleGap identifies the ephemeris sample gap case.
+	EphemerisSampleGap EphemerisSampleStatus = EphemerisSampleStatus(native.EphemerisSampleGapValue)
 )
 
 // EphemerisSampleRow contains a sampled satellite state at a J2000 epoch.
 // Position is ECEF metres; ClockS is seconds and is optional via HasClock.
 type EphemerisSampleRow struct {
-	SatelliteID   string
-	EpochJ2000S   float64
-	Status        EphemerisSampleStatus
+	// SatelliteID identifies or counts this record.
+	SatelliteID string
+	// EpochJ2000S is the epoch j2000 s in seconds.
+	EpochJ2000S float64
+	// Status is the native status code.
+	Status EphemerisSampleStatus
+	// PositionECEFM is the position ecefm in metres.
 	PositionECEFM [3]float64
-	HasPosition   bool
-	ClockS        float64
-	HasClock      bool
+	// HasPosition reports whether the has position field is present.
+	HasPosition bool
+	// ClockS is the clock s in seconds.
+	ClockS float64
+	// HasClock reports whether the has clock field is present.
+	HasClock bool
 }
 
 // ObservableStateElementStatus identifies one native observable-state result.
 type ObservableStateElementStatus uint32
 
 const (
+	// ObservableStateValid identifies the observable state valid case.
 	ObservableStateValid ObservableStateElementStatus = ObservableStateElementStatus(native.ObservableStateValidValue)
-	ObservableStateGap   ObservableStateElementStatus = ObservableStateElementStatus(native.ObservableStateGapValue)
+	// ObservableStateGap identifies the observable state gap case.
+	ObservableStateGap ObservableStateElementStatus = ObservableStateElementStatus(native.ObservableStateGapValue)
+	// ObservableStateError identifies the observable state error case.
 	ObservableStateError ObservableStateElementStatus = ObservableStateElementStatus(native.ObservableStateErrorValue)
 )
 
 // ObservableStateRow contains a copied ECEF position in metres and an
 // optional satellite clock in seconds for one requested state.
 type ObservableStateRow struct {
+	// PositionECEFM is the position ecefm in metres.
 	PositionECEFM [3]float64
-	ClockS        float64
-	HasClock      bool
+	// ClockS is the clock s in seconds.
+	ClockS float64
+	// HasClock reports whether the has clock field is present.
+	HasClock bool
+	// ElementStatus is the element status value for ObservableStateRow.
 	ElementStatus ObservableStateElementStatus
-	ResultStatus  StatusCode
+	// ResultStatus is the native result status.
+	ResultStatus StatusCode
 }
 
 // PredictedObservables contains geometric and signal observables. Distances
 // are metres, rates metres per second, Doppler hertz, angles degrees, and
 // epochs J2000 seconds; satellite clock presence is reported by HasSatelliteClock.
 type PredictedObservables struct {
-	GeometricRangeM        float64
-	RangeRateMPerS         float64
-	DopplerHz              float64
-	HasSatelliteClock      bool
-	SatelliteClockS        float64
-	ElevationDeg           float64
-	AzimuthDeg             float64
-	TransmitOffsetUS       int64
-	TransmitTimeJ2000S     float64
-	LOSUnit                [3]float64
+	// GeometricRangeM is the geometric range m in metres.
+	GeometricRangeM float64
+	// RangeRateMPerS is the range rate m per s in metres per second.
+	RangeRateMPerS float64
+	// DopplerHz is the doppler hz in hertz.
+	DopplerHz float64
+	// HasSatelliteClock reports whether the has satellite clock field is present.
+	HasSatelliteClock bool
+	// SatelliteClockS is the satellite clock s in seconds.
+	SatelliteClockS float64
+	// ElevationDeg is the elevation deg in degrees.
+	ElevationDeg float64
+	// AzimuthDeg is the azimuth deg in degrees.
+	AzimuthDeg float64
+	// TransmitOffsetUS is the transmit offset us value for PredictedObservables.
+	TransmitOffsetUS int64
+	// TransmitTimeJ2000S is the transmit time j2000 s in seconds.
+	TransmitTimeJ2000S float64
+	// LOSUnit contains the fixed-size array for this record.
+	LOSUnit [3]float64
+	// SatellitePositionECEFM is the satellite position ecefm in metres.
 	SatellitePositionECEFM [3]float64
+	// SatelliteVelocityMPerS is the satellite velocity m per s in metres per second.
 	SatelliteVelocityMPerS [3]float64
 }
 
 // PredictRequest describes one satellite prediction at a receiver ECEF
 // position in metres and a receive epoch in J2000 seconds.
 type PredictRequest struct {
-	SatelliteID  string
+	// SatelliteID identifies or counts this record.
+	SatelliteID string
+	// ReceiverECEF is the receiver ecef value for PredictRequest.
 	ReceiverECEF ECEF
-	TRxJ2000S    float64
+	// TRxJ2000S is the t rx j2000 s in seconds.
+	TRxJ2000S float64
 }
 
 func fromNativeSample(value native.NativeEphemerisSampleRow) EphemerisSampleRow {

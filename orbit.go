@@ -17,19 +17,26 @@ const EarthMuKm3PerS2 = 398600.4418
 // conversion routes return zero for this field because they do not receive an
 // epoch.
 type CartesianState struct {
+	// EpochTDBSeconds is the absolute TDB epoch in seconds.
 	EpochTDBSeconds float64
-	PositionKm      [3]float64
-	VelocityKmPerS  [3]float64
+	// PositionKm is the ECI position in kilometres.
+	PositionKm [3]float64
+	// VelocityKmPerS is the ECI velocity in kilometres per second.
+	VelocityKmPerS [3]float64
 }
 
 // OrbitType is the C geometric classification for classical elements.
 type OrbitType uint32
 
 const (
-	OrbitEllipticalInclined   OrbitType = OrbitType(native.OrbitTypeEllipticalInclinedValue)
+	// OrbitEllipticalInclined identifies the orbit elliptical inclined case.
+	OrbitEllipticalInclined OrbitType = OrbitType(native.OrbitTypeEllipticalInclinedValue)
+	// OrbitEllipticalEquatorial identifies the orbit elliptical equatorial case.
 	OrbitEllipticalEquatorial OrbitType = OrbitType(native.OrbitTypeEllipticalEquatorialValue)
-	OrbitCircularInclined     OrbitType = OrbitType(native.OrbitTypeCircularInclinedValue)
-	OrbitCircularEquatorial   OrbitType = OrbitType(native.OrbitTypeCircularEquatorialValue)
+	// OrbitCircularInclined identifies the orbit circular inclined case.
+	OrbitCircularInclined OrbitType = OrbitType(native.OrbitTypeCircularInclinedValue)
+	// OrbitCircularEquatorial identifies the orbit circular equatorial case.
+	OrbitCircularEquatorial OrbitType = OrbitType(native.OrbitTypeCircularEquatorialValue)
 )
 
 // ClassicalElements are Keplerian elements. p and a are km, eccentricity is
@@ -37,16 +44,27 @@ const (
 // undefined auxiliary angles are NaN; use OrbitType to select the defined
 // replacement angle.
 type ClassicalElements struct {
-	P         float64
-	A         float64
-	Ecc       float64
-	Incl      float64
-	RAAN      float64
-	ArgP      float64
-	Nu        float64
-	ArgLat    float64
-	TrueLon   float64
-	LonPer    float64
+	// P is the semilatus rectum in kilometres.
+	P float64
+	// A is the semimajor axis in kilometres.
+	A float64
+	// Ecc is the dimensionless eccentricity.
+	Ecc float64
+	// Incl is the inclination in radians.
+	Incl float64
+	// RAAN is the right ascension of the ascending node in radians.
+	RAAN float64
+	// ArgP is the argument of periapsis in radians.
+	ArgP float64
+	// Nu is the true anomaly in radians.
+	Nu float64
+	// ArgLat is the argument of latitude in radians.
+	ArgLat float64
+	// TrueLon is the true longitude in radians.
+	TrueLon float64
+	// LonPer is the longitude of periapsis in radians.
+	LonPer float64
+	// OrbitType is the geometric orbit classification.
 	OrbitType OrbitType
 }
 
@@ -54,19 +72,28 @@ type ClassicalElements struct {
 type RetrogradeFactor uint32
 
 const (
-	RetrogradeFactorPrograde   RetrogradeFactor = RetrogradeFactor(native.RetrogradeFactorProgradeValue)
+	// RetrogradeFactorPrograde identifies the retrograde factor prograde case.
+	RetrogradeFactorPrograde RetrogradeFactor = RetrogradeFactor(native.RetrogradeFactorProgradeValue)
+	// RetrogradeFactorRetrograde identifies the retrograde factor retrograde case.
 	RetrogradeFactorRetrograde RetrogradeFactor = RetrogradeFactor(native.RetrogradeFactorRetrogradeValue)
 )
 
 // EquinoctialElements are nonsingular orbital elements: a is km, h/k/p/q are
 // dimensionless, lambda is radians, and Retrograde selects the pole chart.
 type EquinoctialElements struct {
-	A          float64
-	H          float64
-	K          float64
-	P          float64
-	Q          float64
-	Lambda     float64
+	// A is the semimajor axis in kilometres.
+	A float64
+	// H is a dimensionless equinoctial component.
+	H float64
+	// K is a dimensionless equinoctial component.
+	K float64
+	// P is a dimensionless equinoctial component.
+	P float64
+	// Q is a dimensionless equinoctial component.
+	Q float64
+	// Lambda is the mean longitude in radians.
+	Lambda float64
+	// Retrograde is the selected equinoctial pole chart.
 	Retrograde RetrogradeFactor
 }
 
@@ -74,19 +101,28 @@ type EquinoctialElements struct {
 // f/g/h/k are dimensionless, l is radians, and Retrograde selects the pole
 // chart.
 type ModifiedEquinoctialElements struct {
-	P          float64
-	F          float64
-	G          float64
-	H          float64
-	K          float64
-	L          float64
+	// P is the semilatus rectum in kilometres.
+	P float64
+	// F is a dimensionless modified-equinoctial component.
+	F float64
+	// G is a dimensionless modified-equinoctial component.
+	G float64
+	// H is a dimensionless modified-equinoctial component.
+	H float64
+	// K is a dimensionless modified-equinoctial component.
+	K float64
+	// L is the true longitude in radians.
+	L float64
+	// Retrograde is the selected modified-equinoctial pole chart.
 	Retrograde RetrogradeFactor
 }
 
 // KeplerSolution contains the solved eccentric anomaly in radians and the
 // C solver's accepted iteration count.
 type KeplerSolution struct {
+	// AnomalyRad is the anomaly rad in radians.
 	AnomalyRad float64
+	// Iterations is the native solver iteration count.
 	Iterations int
 }
 
@@ -250,15 +286,19 @@ func PropagateKepler(elements ClassicalElements, mu, dt float64) (ClassicalEleme
 type LambertDirection uint32
 
 const (
+	// LambertShortWay identifies the lambert short way case.
 	LambertShortWay LambertDirection = 0
-	LambertLongWay  LambertDirection = 1
+	// LambertLongWay identifies the lambert long way case.
+	LambertLongWay LambertDirection = 1
 )
 
 // LambertEnergy selects the low-energy or high-energy Lambert branch.
 type LambertEnergy uint32
 
 const (
-	LambertLowEnergy  LambertEnergy = 0
+	// LambertLowEnergy identifies the lambert low energy case.
+	LambertLowEnergy LambertEnergy = 0
+	// LambertHighEnergy identifies the lambert high energy case.
 	LambertHighEnergy LambertEnergy = 1
 )
 
@@ -331,9 +371,13 @@ func RelativeMeanMotionFromState(chief CartesianState) (float64, error) {
 type RelativeFrame uint32
 
 const (
-	RelativeFrameRSW  RelativeFrame = RelativeFrame(native.RelativeFrameRSWValue)
-	RelativeFrameRTN  RelativeFrame = RelativeFrame(native.RelativeFrameRTNValue)
-	RelativeFrameRIC  RelativeFrame = RelativeFrame(native.RelativeFrameRICValue)
+	// RelativeFrameRSW identifies the relative frame rsw case.
+	RelativeFrameRSW RelativeFrame = RelativeFrame(native.RelativeFrameRSWValue)
+	// RelativeFrameRTN identifies the relative frame rtn case.
+	RelativeFrameRTN RelativeFrame = RelativeFrame(native.RelativeFrameRTNValue)
+	// RelativeFrameRIC identifies the relative frame ric case.
+	RelativeFrameRIC RelativeFrame = RelativeFrame(native.RelativeFrameRICValue)
+	// RelativeFrameLVLH identifies the relative frame lvlh case.
 	RelativeFrameLVLH RelativeFrame = RelativeFrame(native.RelativeFrameLVLHValue)
 )
 

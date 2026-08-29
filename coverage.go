@@ -9,10 +9,14 @@ import (
 // CoverageLookAngle is one satellite/station cell from a coverage grid. OK
 // is false when C could not compute a look angle for that pair.
 type CoverageLookAngle struct {
-	OK           bool
-	AzimuthDeg   float64
+	// OK is the ok in kelvin.
+	OK bool
+	// AzimuthDeg is the azimuth deg in degrees.
+	AzimuthDeg float64
+	// ElevationDeg is the elevation deg in degrees.
 	ElevationDeg float64
-	RangeKm      float64
+	// RangeKm is the range km in kilometres.
+	RangeKm float64
 }
 
 // CoverageGrid owns a C-computed one-epoch coverage grid. It must not be

@@ -9,9 +9,12 @@ import (
 
 // AntennaPCO is a north/east/up phase-center offset in metres.
 type AntennaPCO struct {
+	// NorthM is the north m in metres.
 	NorthM float64
-	EastM  float64
-	UpM    float64
+	// EastM is the east m in metres.
+	EastM float64
+	// UpM is the up m in metres.
+	UpM float64
 }
 
 // Antenna owns one parsed ANTEX antenna block. Read calls may run
@@ -119,9 +122,12 @@ func (a *Antenna) PCV(frequency string, zenithDeg float64, azimuthDeg *float64) 
 
 // SpaceWeather contains the three native solar/geomagnetic indices.
 type SpaceWeather struct {
-	F107  float64
+	// F107 is the 10.7 cm solar radio flux.
+	F107 float64
+	// F107A is the adjusted 10.7 cm solar radio flux.
 	F107A float64
-	Ap    float64
+	// Ap is the planetary geomagnetic index.
+	Ap float64
 }
 
 // SpaceWeatherObservationClass identifies the provenance of a table record.
@@ -130,9 +136,13 @@ type SpaceWeather struct {
 type SpaceWeatherObservationClass uint32
 
 const (
-	SpaceWeatherObservationObserved         SpaceWeatherObservationClass = SpaceWeatherObservationClass(native.SpaceWeatherObservationObservedValue)
-	SpaceWeatherObservationInterpolated     SpaceWeatherObservationClass = SpaceWeatherObservationClass(native.SpaceWeatherObservationInterpolatedValue)
-	SpaceWeatherObservationDailyPredicted   SpaceWeatherObservationClass = SpaceWeatherObservationClass(native.SpaceWeatherObservationDailyPredictedValue)
+	// SpaceWeatherObservationObserved identifies the space weather observation observed case.
+	SpaceWeatherObservationObserved SpaceWeatherObservationClass = SpaceWeatherObservationClass(native.SpaceWeatherObservationObservedValue)
+	// SpaceWeatherObservationInterpolated identifies the space weather observation interpolated case.
+	SpaceWeatherObservationInterpolated SpaceWeatherObservationClass = SpaceWeatherObservationClass(native.SpaceWeatherObservationInterpolatedValue)
+	// SpaceWeatherObservationDailyPredicted identifies the space weather observation daily predicted case.
+	SpaceWeatherObservationDailyPredicted SpaceWeatherObservationClass = SpaceWeatherObservationClass(native.SpaceWeatherObservationDailyPredictedValue)
+	// SpaceWeatherObservationMonthlyPredicted identifies the space weather observation monthly predicted case.
 	SpaceWeatherObservationMonthlyPredicted SpaceWeatherObservationClass = SpaceWeatherObservationClass(native.SpaceWeatherObservationMonthlyPredictedValue)
 )
 
@@ -144,76 +154,129 @@ func DefaultSpaceWeather() (SpaceWeather, error) {
 
 // SpaceWeatherCoverage describes observed and predicted coverage boundaries.
 type SpaceWeatherCoverage struct {
-	FirstJ2000S                 float64
-	HasLastObservedJ2000S       bool
-	LastObservedJ2000S          float64
+	// FirstJ2000S is the first j2000 s in seconds.
+	FirstJ2000S float64
+	// HasLastObservedJ2000S reports whether the has last observed j2000 s field is present.
+	HasLastObservedJ2000S bool
+	// LastObservedJ2000S is the last observed j2000 s in seconds.
+	LastObservedJ2000S float64
+	// HasLastDailyPredictedJ2000S reports whether the has last daily predicted j2000 s field is present.
 	HasLastDailyPredictedJ2000S bool
-	LastDailyPredictedJ2000S    float64
-	EndJ2000S                   float64
+	// LastDailyPredictedJ2000S is the last daily predicted j2000 s in seconds.
+	LastDailyPredictedJ2000S float64
+	// EndJ2000S is the end j2000 s in seconds.
+	EndJ2000S float64
 }
 
 // SpaceWeatherDay preserves one complete parsed daily or monthly record,
 // including explicit presence for every optional field.
 type SpaceWeatherDay struct {
-	Year               int
-	Month              uint8
-	Day                uint8
-	Class              SpaceWeatherObservationClass
-	HasBSRN            bool
-	BSRN               uint16
-	HasND              bool
-	ND                 uint8
-	HasKp              [8]bool
-	Kp10               [8]uint16
-	HasKpSum10         bool
-	KpSum10            uint16
-	HasAp              [8]bool
-	Ap8                [8]uint16
-	HasApAvg           bool
-	ApAvg              uint16
-	HasCP10            bool
-	CP10               uint8
-	HasC9              bool
-	C9                 uint8
-	HasISN             bool
-	ISN                uint16
-	HasFluxQualifier   bool
-	FluxQualifier      uint8
-	HasF107Obs         bool
-	F107Obs            float64
-	HasF107Adj         bool
-	F107Adj            float64
+	// Year is the calendar year.
+	Year int
+	// Month is the calendar month.
+	Month uint8
+	// Day is the calendar day.
+	Day uint8
+	// Class is the product or solution class.
+	Class SpaceWeatherObservationClass
+	// HasBSRN reports whether the has bsrn field is present.
+	HasBSRN bool
+	// BSRN is the Bartels solar rotation number.
+	BSRN uint16
+	// HasND reports whether the has nd field is present.
+	HasND bool
+	// ND is the geomagnetic storm-day count.
+	ND uint8
+	// HasKp reports whether the has kp field is present.
+	HasKp [8]bool
+	// Kp10 contains the fixed-size array for this record.
+	Kp10 [8]uint16
+	// HasKpSum10 reports whether the has kp sum10 field is present.
+	HasKpSum10 bool
+	// KpSum10 is the 10-index geomagnetic sum.
+	KpSum10 uint16
+	// HasAp reports whether the has ap field is present.
+	HasAp [8]bool
+	// Ap8 contains the fixed-size array for this record.
+	Ap8 [8]uint16
+	// HasApAvg reports whether the has ap avg field is present.
+	HasApAvg bool
+	// ApAvg is the average planetary geomagnetic index.
+	ApAvg uint16
+	// HasCP10 reports whether the has cp10 field is present.
+	HasCP10 bool
+	// CP10 is the ten-centimetre solar flux.
+	CP10 uint8
+	// HasC9 reports whether the has c9 field is present.
+	HasC9 bool
+	// C9 is the nine-centimetre solar flux.
+	C9 uint8
+	// HasISN reports whether the has isn field is present.
+	HasISN bool
+	// ISN is the international sunspot number.
+	ISN uint16
+	// HasFluxQualifier reports whether the has flux qualifier field is present.
+	HasFluxQualifier bool
+	// FluxQualifier is the solar-flux qualifier.
+	FluxQualifier uint8
+	// HasF107Obs reports whether the has f107 obs field is present.
+	HasF107Obs bool
+	// F107Obs is the f107 obs value for SpaceWeatherDay.
+	F107Obs float64
+	// HasF107Adj reports whether the has f107 adj field is present.
+	HasF107Adj bool
+	// F107Adj is the f107 adj value for SpaceWeatherDay.
+	F107Adj float64
+	// HasF107ObsCenter81 reports whether the has f107 obs center81 field is present.
 	HasF107ObsCenter81 bool
-	F107ObsCenter81    float64
-	HasF107ObsLast81   bool
-	F107ObsLast81      float64
+	// F107ObsCenter81 is the f107 obs center81 value for SpaceWeatherDay.
+	F107ObsCenter81 float64
+	// HasF107ObsLast81 reports whether the has f107 obs last81 field is present.
+	HasF107ObsLast81 bool
+	// F107ObsLast81 is the f107 obs last81 value for SpaceWeatherDay.
+	F107ObsLast81 float64
+	// HasF107AdjCenter81 reports whether the has f107 adj center81 field is present.
 	HasF107AdjCenter81 bool
-	F107AdjCenter81    float64
-	HasF107AdjLast81   bool
-	F107AdjLast81      float64
+	// F107AdjCenter81 is the f107 adj center81 value for SpaceWeatherDay.
+	F107AdjCenter81 float64
+	// HasF107AdjLast81 reports whether the has f107 adj last81 field is present.
+	HasF107AdjLast81 bool
+	// F107AdjLast81 is the f107 adj last81 value for SpaceWeatherDay.
+	F107AdjLast81 float64
 }
 
 // SpaceWeatherSample is one policy-selected space-weather sample.
 type SpaceWeatherSample struct {
-	Weather     SpaceWeather
-	Class       SpaceWeatherObservationClass
+	// Weather is the space-weather table.
+	Weather SpaceWeather
+	// Class is the product or solution class.
+	Class SpaceWeatherObservationClass
+	// ApDefaulted is the ap defaulted value for SpaceWeatherSample.
 	ApDefaulted bool
 }
 
 // SpaceWeatherPolicy controls whether interpolated and predicted records are
 // acceptable to a sample query.
 type SpaceWeatherPolicy struct {
-	AllowInterpolated     bool
-	AllowDailyPredicted   bool
+	// AllowInterpolated is the allow interpolated value for SpaceWeatherPolicy.
+	AllowInterpolated bool
+	// AllowDailyPredicted is the allow daily predicted value for SpaceWeatherPolicy.
+	AllowDailyPredicted bool
+	// AllowMonthlyPredicted is the allow monthly predicted value for SpaceWeatherPolicy.
 	AllowMonthlyPredicted bool
-	RequireGeomagnetic    bool
+	// RequireGeomagnetic is the require geomagnetic value for SpaceWeatherPolicy.
+	RequireGeomagnetic bool
 }
 
 // SpaceWeatherTableSummary contains parser record and diagnostic counts.
 type SpaceWeatherTableSummary struct {
-	DayCount     int
+	// DayCount identifies or counts this record.
+	DayCount int
+	// MonthlyCount identifies or counts this record.
 	MonthlyCount int
-	SkipCount    int
+	// SkipCount identifies or counts this record.
+	SkipCount int
+	// WarningCount identifies or counts this record.
 	WarningCount int
 }
 
@@ -370,28 +433,39 @@ func (t *SpaceWeatherTable) ToTXT() ([]byte, error) {
 type GeofenceErrorKind uint32
 
 const (
-	GeofenceErrorNone           GeofenceErrorKind = GeofenceErrorKind(native.GeofenceErrorNoneValue)
+	// GeofenceErrorNone identifies the geofence error none case.
+	GeofenceErrorNone GeofenceErrorKind = GeofenceErrorKind(native.GeofenceErrorNoneValue)
+	// GeofenceErrorTooFewVertices identifies the geofence error too few vertices case.
 	GeofenceErrorTooFewVertices GeofenceErrorKind = GeofenceErrorKind(native.GeofenceErrorTooFewVerticesValue)
-	GeofenceErrorInvalidInput   GeofenceErrorKind = GeofenceErrorKind(native.GeofenceErrorInvalidInputValue)
-	GeofenceErrorGeodesic       GeofenceErrorKind = GeofenceErrorKind(native.GeofenceErrorGeodesicValue)
-	GeofenceErrorDOP            GeofenceErrorKind = GeofenceErrorKind(native.GeofenceErrorDOPValue)
-	GeofenceErrorMetrics        GeofenceErrorKind = GeofenceErrorKind(native.GeofenceErrorMetricsValue)
+	// GeofenceErrorInvalidInput identifies the geofence error invalid input case.
+	GeofenceErrorInvalidInput GeofenceErrorKind = GeofenceErrorKind(native.GeofenceErrorInvalidInputValue)
+	// GeofenceErrorGeodesic identifies the geofence error geodesic case.
+	GeofenceErrorGeodesic GeofenceErrorKind = GeofenceErrorKind(native.GeofenceErrorGeodesicValue)
+	// GeofenceErrorDOP identifies the geofence error dop case.
+	GeofenceErrorDOP GeofenceErrorKind = GeofenceErrorKind(native.GeofenceErrorDOPValue)
+	// GeofenceErrorMetrics identifies the geofence error metrics case.
+	GeofenceErrorMetrics GeofenceErrorKind = GeofenceErrorKind(native.GeofenceErrorMetricsValue)
 )
 
 // GeofenceUncertaintyKind identifies an uncertainty representation.
 type GeofenceUncertaintyKind uint32
 
 const (
-	GeofenceENUCovarianceM2  GeofenceUncertaintyKind = GeofenceUncertaintyKind(native.GeofenceENUCovarianceM2Value)
+	// GeofenceENUCovarianceM2 identifies the geofence enu covariance m2 case.
+	GeofenceENUCovarianceM2 GeofenceUncertaintyKind = GeofenceUncertaintyKind(native.GeofenceENUCovarianceM2Value)
+	// GeofenceECEFCovarianceM2 identifies the geofence ecef covariance m2 case.
 	GeofenceECEFCovarianceM2 GeofenceUncertaintyKind = GeofenceUncertaintyKind(native.GeofenceECEFCovarianceM2Value)
-	GeofenceCEPRadiusM       GeofenceUncertaintyKind = GeofenceUncertaintyKind(native.GeofenceCEPRadiusMValue)
+	// GeofenceCEPRadiusM identifies the geofence cep radius m case.
+	GeofenceCEPRadiusM GeofenceUncertaintyKind = GeofenceUncertaintyKind(native.GeofenceCEPRadiusMValue)
 )
 
 // GeofenceProbabilityMethod selects native probability integration.
 type GeofenceProbabilityMethod uint32
 
 const (
-	GeofenceBoundaryNormal   GeofenceProbabilityMethod = GeofenceProbabilityMethod(native.GeofenceBoundaryNormalValue)
+	// GeofenceBoundaryNormal identifies the geofence boundary normal case.
+	GeofenceBoundaryNormal GeofenceProbabilityMethod = GeofenceProbabilityMethod(native.GeofenceBoundaryNormalValue)
+	// GeofencePlanarQuadrature identifies the geofence planar quadrature case.
 	GeofencePlanarQuadrature GeofenceProbabilityMethod = GeofenceProbabilityMethod(native.GeofencePlanarQuadratureValue)
 )
 
@@ -399,38 +473,51 @@ const (
 type GeofenceCrossingKind uint32
 
 const (
+	// GeofenceEntered identifies the geofence entered case.
 	GeofenceEntered GeofenceCrossingKind = GeofenceCrossingKind(native.GeofenceEnteredValue)
-	GeofenceLeft    GeofenceCrossingKind = GeofenceCrossingKind(native.GeofenceLeftValue)
+	// GeofenceLeft identifies the geofence left case.
+	GeofenceLeft GeofenceCrossingKind = GeofenceCrossingKind(native.GeofenceLeftValue)
 )
 
 // GeofenceUncertainty describes covariance or CEP-radius uncertainty.
 type GeofenceUncertainty struct {
-	Kind         GeofenceUncertaintyKind
+	// Kind is the event or record kind.
+	Kind GeofenceUncertaintyKind
+	// CovarianceM2 is the covariance m2 in square metres.
 	CovarianceM2 Matrix3
-	RadiusM      float64
+	// RadiusM is the radius m in metres.
+	RadiusM float64
 }
 
 // GeofenceProbabilityOptions controls probability integration.
 type GeofenceProbabilityOptions struct {
+	// Method is the selected method.
 	Method GeofenceProbabilityMethod
 }
 
 // GeofencePositionEstimate is one probabilistic trajectory sample.
 type GeofencePositionEstimate struct {
-	Position    Geodetic
+	// Position is the position value in the containing frame.
+	Position Geodetic
+	// Uncertainty is the uncertainty value for GeofencePositionEstimate.
 	Uncertainty GeofenceUncertainty
 }
 
 // GeofenceHysteresis contains entered and left confidence thresholds.
 type GeofenceHysteresis struct {
+	// EnterConfidence is the enter confidence value for GeofenceHysteresis.
 	EnterConfidence float64
+	// LeaveConfidence is the leave confidence value for GeofenceHysteresis.
 	LeaveConfidence float64
 }
 
 // GeofenceCrossingEvent is one copied native crossing event.
 type GeofenceCrossingEvent struct {
-	SampleIndex       int
-	Kind              GeofenceCrossingKind
+	// SampleIndex identifies or counts this record.
+	SampleIndex int
+	// Kind is the event or record kind.
+	Kind GeofenceCrossingKind
+	// InsideProbability is the inside probability value for GeofenceCrossingEvent.
 	InsideProbability float64
 }
 
@@ -601,10 +688,14 @@ func (f *Geofence) crossingProbability(samples []GeofencePositionEstimate, hyste
 type ObservabilityTier uint32
 
 const (
-	ObservabilityRankDeficient  ObservabilityTier = ObservabilityTier(native.ObservabilityRankDeficientValue)
+	// ObservabilityRankDeficient identifies the observability rank deficient case.
+	ObservabilityRankDeficient ObservabilityTier = ObservabilityTier(native.ObservabilityRankDeficientValue)
+	// ObservabilityZeroRedundancy identifies the observability zero redundancy case.
 	ObservabilityZeroRedundancy ObservabilityTier = ObservabilityTier(native.ObservabilityZeroRedundancyValue)
-	ObservabilityWeak           ObservabilityTier = ObservabilityTier(native.ObservabilityWeakValue)
-	ObservabilityNominal        ObservabilityTier = ObservabilityTier(native.ObservabilityNominalValue)
+	// ObservabilityWeak identifies the observability weak case.
+	ObservabilityWeak ObservabilityTier = ObservabilityTier(native.ObservabilityWeakValue)
+	// ObservabilityNominal identifies the observability nominal case.
+	ObservabilityNominal ObservabilityTier = ObservabilityTier(native.ObservabilityNominalValue)
 )
 
 // ObservabilityTierLabel returns the native stable lowercase tier label.

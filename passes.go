@@ -9,26 +9,37 @@ import (
 // PassStation is a WGS84 station for TLE pass and look-angle operations.
 // Latitude and longitude are degrees and altitude is meters.
 type PassStation struct {
-	LatitudeDeg  float64
+	// LatitudeDeg is the latitude deg in degrees.
+	LatitudeDeg float64
+	// LongitudeDeg is the longitude deg in degrees.
 	LongitudeDeg float64
-	AltitudeM    float64
+	// AltitudeM is the altitude m in metres.
+	AltitudeM float64
 }
 
 // SatellitePass is a C-found visibility event. Event times are UTC with
 // microsecond precision; maximum elevation is degrees and duration is seconds.
 type SatellitePass struct {
-	AOS             time.Time
-	LOS             time.Time
-	Culmination     time.Time
+	// AOS is the timestamp for this record.
+	AOS time.Time
+	// LOS is the timestamp for this record.
+	LOS time.Time
+	// Culmination is the timestamp for this record.
+	Culmination time.Time
+	// MaxElevationDeg is the max elevation deg in degrees.
 	MaxElevationDeg float64
-	DurationS       float64
+	// DurationS is the duration s in seconds.
+	DurationS float64
 }
 
 // PassFinderOptions controls C pass finding. The elevation mask is degrees;
 // step and time tolerance are seconds.
 type PassFinderOptions struct {
-	ElevationMaskDeg     float64
-	StepSeconds          float64
+	// ElevationMaskDeg is the elevation mask deg in degrees.
+	ElevationMaskDeg float64
+	// StepSeconds is the step seconds in seconds.
+	StepSeconds float64
+	// TimeToleranceSeconds is the time tolerance seconds in seconds.
 	TimeToleranceSeconds float64
 }
 

@@ -4,31 +4,48 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 
 type noCopy struct{}
 
-func (*noCopy) Lock()   {}
+// Lock acquires the synchronization lock protecting the SP3 selection resource.
+func (*noCopy) Lock() {}
+
+// Unlock releases the synchronization lock protecting the SP3 selection resource.
 func (*noCopy) Unlock() {}
 
 // SP3State is one copied satellite state from an SP3 epoch. Positions are in
 // ECEF meters, velocities are in ECEF meters per second, and clock values are
 // seconds or seconds per second as indicated by their field names.
 type SP3State struct {
-	PositionM      [3]float64
-	HasClock       bool
-	ClockS         float64
-	HasVelocity    bool
-	VelocityMPerS  [3]float64
-	HasClockRate   bool
+	// PositionM is the position m in metres.
+	PositionM [3]float64
+	// HasClock reports whether the has clock field is present.
+	HasClock bool
+	// ClockS is the clock s in seconds.
+	ClockS float64
+	// HasVelocity reports whether the has velocity field is present.
+	HasVelocity bool
+	// VelocityMPerS is the velocity m per s in metres per second.
+	VelocityMPerS [3]float64
+	// HasClockRate reports whether the has clock rate field is present.
+	HasClockRate bool
+	// ClockRateSPerS is the clock rate s per s in seconds per second.
 	ClockRateSPerS float64
-	ClockEvent     bool
+	// ClockEvent is the clock event value for SP3State.
+	ClockEvent bool
+	// ClockPredicted is the clock predicted value for SP3State.
 	ClockPredicted bool
-	Maneuver       bool
+	// Maneuver is the maneuver value for SP3State.
+	Maneuver bool
+	// OrbitPredicted is the orbit predicted value for SP3State.
 	OrbitPredicted bool
 }
 
 // SP3PredictionSummary contains the product-wide observed/predicted boundary.
 type SP3PredictionSummary struct {
-	EpochCount             int
+	// EpochCount identifies or counts this record.
+	EpochCount int
+	// ObservedThroughPresent reports whether the observed through present field is present.
 	ObservedThroughPresent bool
-	ObservedThroughJ2000S  float64
+	// ObservedThroughJ2000S is the observed through j2000 s in seconds.
+	ObservedThroughJ2000S float64
 }
 
 // SP3 owns a parsed C SP3 handle. It must not be copied after first use. Read
