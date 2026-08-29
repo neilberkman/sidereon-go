@@ -9,11 +9,10 @@ root:
 ./scripts/check-release.sh vX.Y.Z
 ```
 
-The archive change may provide the shared C source ref in the one-line file
-`internal/native/lib/sidereon-c.ref`. The check consumes that file when it is
-present. A checkout without that file uses the documented current-reference
-fallback inside the check script. Keep the file to one non-empty line and do
-not add a second source-ref setting.
+The shared C source ref is the one-line file
+`internal/native/lib/sidereon-c.ref`. Both the archive builder and release
+check consume that file. Keep it to one non-empty line and do not add a second
+source-ref setting.
 
 The current preparation uses a commit ref because the public `v1.3.0` tag does
 not exist. The check verifies the committed C header against that commit and

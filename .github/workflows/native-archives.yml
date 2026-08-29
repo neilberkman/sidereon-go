@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - 'v1.3.0'
+      - 'v*'
 
 permissions:
   contents: read
@@ -14,9 +14,6 @@ jobs:
   archives:
     runs-on: ubuntu-24.04
     env:
-      # A Go release tag automatically asks the script for the matching C tag.
-      # Other runs leave this empty, so the script uses its one pinned commit.
-      SIDEREON_C_REF: ${{ github.event_name == 'push' && github.ref_name || '' }}
       SIDEREON_RELEASE_VERSION: 1.3.0
       SIDEREON_GLIBC_FLOOR: 2.17
       CARGO_ZIGBUILD_VERSION: 0.23.3
@@ -27,7 +24,12 @@ jobs:
       TMPDIR: ${{ runner.temp }}
       CARGO_TARGET_DIR: ${{ github.workspace }}/.native-build/target
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
+
+      - name: Verify release tag source pin
+        if: github.event_name == 'push'
+        shell: bash
+        run: test "$(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' internal/native/lib/sidereon-c.ref)" = "$GITHUB_REF_NAME"
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.94.0
@@ -56,9 +58,10 @@ jobs:
         run: |
           set -Eeuo pipefail
           ./scripts/test-native-archives.sh
+          git diff --exit-code -- internal/native/lib/
 
       - name: Upload archives
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: sidereon-go-native-archives
           path: internal/native/lib/

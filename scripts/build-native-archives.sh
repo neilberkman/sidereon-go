@@ -3,8 +3,8 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 
 # Build the seven public sidereon-c static libraries consumed by sidereon-go.
-# The only source selector is SIDEREON_C_REF. It is the current C commit today
-# and can be changed to v1.3.0 when that public tag exists.
+# The only source selector is internal/native/lib/sidereon-c.ref. It contains
+# the current C commit today and changes to v1.3.0 when that public tag exists.
 #
 # Target matrix:
 #   darwin/arm64       aarch64-apple-darwin
@@ -23,10 +23,15 @@ ROOT_DIR=$(cd "$SCRIPT_DIR/.." && pwd -P)
 LIB_DIR="$ROOT_DIR/internal/native/lib"
 BUILD_ROOT="${NATIVE_BUILD_ROOT:-$ROOT_DIR/.native-build}"
 TARGET_DIR="${CARGO_TARGET_DIR:-$BUILD_ROOT/target}"
+C_REF_FILE="$LIB_DIR/sidereon-c.ref"
 
-# This is the sole default source reference. A release run supplies
-# SIDEREON_C_REF=v1.3.0; no other pipeline setting changes.
-SIDEREON_C_REF="${SIDEREON_C_REF:-b38ecf8caf796a02f209dbb4cbebdaa4a042204c}"
+[[ -f "$C_REF_FILE" ]] || { echo "native archive error: missing $C_REF_FILE" >&2; exit 1; }
+SIDEREON_C_REF=$(awk '
+  /^[[:space:]]*(#|$)/ { next }
+  { value=$0; count++ }
+  END { if (count != 1) exit 1; print value }
+' "$C_REF_FILE") || { echo "native archive error: $C_REF_FILE must contain exactly one source ref" >&2; exit 1; }
+SIDEREON_C_REF=$(printf '%s' "$SIDEREON_C_REF" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
 SIDEREON_C_REPOSITORY="${SIDEREON_C_REPOSITORY:-https://github.com/neilberkman/sidereon-c.git}"
 SIDEREON_C_SOURCE="${SIDEREON_C_SOURCE:-}"
 RELEASE_VERSION="${SIDEREON_RELEASE_VERSION:-1.3.0}"
@@ -49,6 +54,7 @@ export TMPDIR="${TMPDIR:-/tmp}"
 export CARGO_TARGET_DIR="$TARGET_DIR"
 export ZIG_LOCAL_CACHE_DIR="$BUILD_ROOT/zig-local-cache"
 export ZIG_GLOBAL_CACHE_DIR="$BUILD_ROOT/zig-global-cache"
+export CARGO_ZIGBUILD_CACHE_DIR="$BUILD_ROOT/cargo-zigbuild-cache"
 export RUSTC
 
 MODE="build"
@@ -251,6 +257,7 @@ verify_version_rules() {
   [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "invalid header_version in manifest: $version"
   [[ "$release" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "invalid release_target in manifest: $release"
   [[ "$(manifest_meta source_header_sha256)" =~ ^[0-9a-f]{64}$ ]] || die "invalid source header SHA-256"
+  [[ "$ref" == "$SIDEREON_C_REF" ]] || die "manifest source_ref $ref disagrees with $C_REF_FILE"
   if [[ "$ref" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
     [[ "$version" == "${BASH_REMATCH[1]}" ]] || die "tag $ref requires matching header macros; found $version"
     note "release tag $ref has matching header version $version"
@@ -264,6 +271,10 @@ verify_only() {
   [[ -f "$LIB_DIR/manifest.sha256" ]] || die "missing $LIB_DIR/manifest.sha256"
   local manifest=$LIB_DIR/manifest.sha256
   verify_version_rules "$manifest"
+  local vendored_header="$ROOT_DIR/internal/native/include/sidereon.h"
+  [[ -f "$vendored_header" && ! -L "$vendored_header" ]] || die "missing or non-regular vendored header: $vendored_header"
+  [[ "$(sha256 "$vendored_header")" == "$(manifest_meta source_header_sha256)" ]] || die "vendored header digest differs from manifest"
+  [[ "$(header_version "$vendored_header")" == "$(manifest_meta header_version)" ]] || die "vendored header version differs from manifest"
   [[ "$(manifest_meta glibc_floor)" == "$GLIBC_FLOOR" ]] || die "glibc floor mismatch"
   verify_manifest_rows "$manifest"
   note "target completeness, archive format, hashes, and version/ref rules passed"
@@ -310,7 +321,7 @@ build_all() {
   [[ -x "$ZIG" ]] || die "Zig 0.15.2 not found at $ZIG"
   [[ "$($ZIG version)" == "0.15.2" ]] || die "unexpected Zig version at $ZIG"
 
-  mkdir -p "$BUILD_ROOT" "$TARGET_DIR" "$LIB_DIR" "$GOPATH" "$GOMODCACHE" "$GOCACHE" "$ZIG_LOCAL_CACHE_DIR" "$ZIG_GLOBAL_CACHE_DIR"
+  mkdir -p "$BUILD_ROOT" "$TARGET_DIR" "$LIB_DIR" "$GOPATH" "$GOMODCACHE" "$GOCACHE" "$ZIG_LOCAL_CACHE_DIR" "$ZIG_GLOBAL_CACHE_DIR" "$CARGO_ZIGBUILD_CACHE_DIR"
   SOURCE_TEMP_PARENT=""
   checkout_source
   trap 'if [[ -n "${SOURCE_TEMP_PARENT:-}" ]]; then rm -rf "$SOURCE_TEMP_PARENT"; fi' EXIT

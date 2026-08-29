@@ -6,11 +6,11 @@ package native
 #cgo CFLAGS: -I${SRCDIR}/include
 #cgo darwin,arm64,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_darwin_arm64
 #cgo darwin,amd64,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_darwin_amd64
-#cgo linux,amd64,sidereon_linux_glibc,!sidereon_linux_musl,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_linux_amd64_glibc
-#cgo linux,arm64,sidereon_linux_glibc,!sidereon_linux_musl,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_linux_arm64_glibc
-#cgo linux,amd64,sidereon_linux_musl,!sidereon_linux_glibc,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_linux_amd64_musl
-#cgo linux,arm64,sidereon_linux_musl,!sidereon_linux_glibc,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_linux_arm64_musl
-#cgo windows,amd64,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_windows_amd64_gnu
+#cgo linux,amd64,sidereon_linux_glibc,!sidereon_linux_musl,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_linux_amd64_glibc -lgcc_eh -lutil -lrt -lpthread -lm -ldl
+#cgo linux,arm64,sidereon_linux_glibc,!sidereon_linux_musl,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_linux_arm64_glibc -lgcc_eh -lutil -lrt -lpthread -lm -ldl
+#cgo linux,amd64,sidereon_linux_musl,!sidereon_linux_glibc,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_linux_amd64_musl -lgcc_eh -lutil -lrt -lpthread -lm -ldl
+#cgo linux,arm64,sidereon_linux_musl,!sidereon_linux_glibc,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_linux_arm64_musl -lgcc_eh -lutil -lrt -lpthread -lm -ldl
+#cgo windows,amd64,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_windows_amd64_gnu -lgcc_eh -lws2_32 -luserenv -lbcrypt -lntdll
 #include <sidereon.h>
 */
 import "C"

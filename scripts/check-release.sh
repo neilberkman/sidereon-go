@@ -1,21 +1,17 @@
 #!/bin/sh
 # Verify the version and source identity used by a release candidate.
 #
-# The archive change may add internal/native/lib/sidereon-c.ref. It must contain
-# one non-empty C source ref, either vX.Y.Z or a 40-character commit ID. When
-# that file is absent, this script uses exactly one fallback: the current C
-# authority's commit ID below. The fallback is for local pre-release checking;
-# it is not a release version.
+# internal/native/lib/sidereon-c.ref is the single C source pin. It contains
+# one non-empty ref, either vX.Y.Z or a 40-character commit ID.
 
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 TARGET_VERSION=1.3.0
-FALLBACK_C_REF=b38ecf8caf796a02f209dbb4cbebdaa4a042204c
-FALLBACK_HEADER_SHA256=6e79405bbce65d91958fe591279ad4c73f79f86573c64176f7c3dd0d9c29420d
 HEADER_REL=internal/native/include/sidereon.h
 C_HEADER_REL=bindings/c/include/sidereon.h
 C_REF_FILE=$ROOT/internal/native/lib/sidereon-c.ref
+ARCHIVE_MANIFEST=$ROOT/internal/native/lib/manifest.sha256
 ALLOW_PRERELEASE=0
 REQUESTED_REF=
 
@@ -43,19 +39,19 @@ while [ "$#" -gt 0 ]; do
 	shift
 done
 
-if [ -f "$C_REF_FILE" ]; then
-	C_REF=$(sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$C_REF_FILE" | awk 'NR == 1 { value=$0 } NR > 1 { count++ } END { if (count) exit 1; print value }') || {
-		echo "check-release: $C_REF_FILE must contain exactly one non-empty line" >&2
-		exit 2
-	}
-	C_REF=$(printf '%s' "$C_REF" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
-	if [ -z "$C_REF" ]; then
-		echo "check-release: $C_REF_FILE is empty" >&2
-		exit 2
-	fi
-else
-	C_REF=$FALLBACK_C_REF
-fi
+[ -f "$C_REF_FILE" ] || {
+	echo "check-release: missing single source pin $C_REF_FILE" >&2
+	exit 2
+}
+C_REF=$(sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$C_REF_FILE" | awk 'NR == 1 { value=$0 } NR > 1 { count++ } END { if (count) exit 1; print value }') || {
+	echo "check-release: $C_REF_FILE must contain exactly one non-empty line" >&2
+	exit 2
+}
+C_REF=$(printf '%s' "$C_REF" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+[ -n "$C_REF" ] || {
+	echo "check-release: $C_REF_FILE is empty" >&2
+	exit 2
+}
 
 if [ -n "$REQUESTED_REF" ]; then
 	RELEASE_REF=$REQUESTED_REF
@@ -114,7 +110,7 @@ if [ "$HEADER_VERSION" != "$MAJOR.$MINOR.$PATCH" ]; then
 fi
 
 if [ "$HEADER_VERSION" != "$EXPECTED_VERSION" ]; then
-	if [ "$RELEASE_MODE" -eq 0 ] && [ "$C_REF" = "$FALLBACK_C_REF" ] && [ "$HEADER_VERSION" = "1.2.0" ]; then
+	if [ "$RELEASE_MODE" -eq 0 ] && [ "$HEADER_VERSION" = "1.2.0" ]; then
 		echo "check-release: pre-release header is $HEADER_VERSION; target is $TARGET_VERSION"
 	else
 		echo "check-release: header version $HEADER_VERSION does not agree with source ref version $EXPECTED_VERSION" >&2
@@ -145,8 +141,10 @@ if [ -n "$C_REPO" ] && git -C "$C_REPO" rev-parse --git-dir >/dev/null 2>&1; the
 		exit 1
 	fi
 	echo "check-release: vendored header matches C ref $C_REF"
-elif [ "$C_REF" = "$FALLBACK_C_REF" ] && [ "$(checksum "$HEADER")" = "$FALLBACK_HEADER_SHA256" ]; then
-	echo "check-release: vendored header matches the recorded current C authority digest"
+elif [ -f "$ARCHIVE_MANIFEST" ] &&
+	[ "$(awk -F= '$1 == "# source_ref" { print $2; exit }' "$ARCHIVE_MANIFEST")" = "$C_REF" ] &&
+	[ "$(awk -F= '$1 == "# source_header_sha256" { print $2; exit }' "$ARCHIVE_MANIFEST")" = "$(checksum "$HEADER")" ]; then
+	echo "check-release: vendored header matches the verified archive manifest for C ref $C_REF"
 else
 	echo "check-release: cannot verify exact C source/header identity; set SIDEREON_C_REPO or provide the pinned sibling checkout" >&2
 	exit 1
