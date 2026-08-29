@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CGO_ENABLED: "1"
+
+jobs:
+  ordinary:
+    name: ordinary (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-13, macos-14, ubuntu-24.04]
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-go@v5.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: gofmt
+        shell: bash
+        run: test -z "$(gofmt -l .)"
+      - name: go vet
+        run: go vet ./...
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6.5.2
+        with:
+          version: v1.61.0
+      - name: race tests
+        run: go test ./... -race
+      - name: deterministic fixture smokes
+        run: ./scripts/smoke-fixtures.sh
+      - name: release and version agreement
+        run: ./scripts/check-release.sh --allow-prerelease
+
+  packed-consumer:
+    name: packed consumer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-go@v5.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: packed-module consumer solve
+        run: ./scripts/test-packed-module.sh
+
+  windows-compile-test:
+    name: Windows GNU compile and test
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-go@v5.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: verify GNU C compiler
+        run: command -v gcc
+      - name: compile and test
+        run: go test ./...

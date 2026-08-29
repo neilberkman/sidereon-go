@@ -1,0 +1,3 @@
+# Preserve the public IERS notice exactly as distributed; its two comment
+# lines intentionally end with a space.
+LICENSES/IERS-Conventions-Software-License.txt whitespace=-trailing-space
