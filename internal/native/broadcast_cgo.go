@@ -171,23 +171,6 @@ func ParseBroadcastEphemeris(data []byte) (*BroadcastEphemeris, error) {
 	return handle, err
 }
 
-func LoadBroadcastEphemeris(path string) (*BroadcastEphemeris, error) {
-	var pointer *C.SidereonBroadcastEphemeris
-	err := withStringError(path, func(value *C.char) error {
-		return statusErrorLocked(C.sidereon_broadcast_ephemeris_load_nav(value, &pointer))
-	})
-	if err != nil {
-		if pointer != nil {
-			withCThread(func() { C.sidereon_broadcast_ephemeris_free(pointer) })
-		}
-		return nil, err
-	}
-	handle, err := newBroadcastEphemeris(pointer)
-	if err != nil && pointer != nil {
-		withCThread(func() { C.sidereon_broadcast_ephemeris_free(pointer) })
-	}
-	return handle, err
-}
 func (b *BroadcastEphemeris) Close() error {
 	if b == nil {
 		return nil

@@ -1,6 +1,10 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import (
+	"os"
+
+	"github.com/neilberkman/sidereon-go/internal/native"
+)
 
 // BroadcastEphemeris owns a C-backed RINEX navigation source. The byte parser
 // and all ephemeris selection/correction behavior remain in the native engine.
@@ -153,14 +157,14 @@ func ParseBroadcastEphemeris(data []byte) (*BroadcastEphemeris, error) {
 	return &BroadcastEphemeris{handle: h}, nil
 }
 
-// LoadBroadcastEphemeris delegates path loading and parsing to the native C
-// ABI, preserving its UTF-8, filesystem, and status-error semantics.
+// LoadBroadcastEphemeris reads a navigation file with Go and passes only its
+// bytes to the native parser.
 func LoadBroadcastEphemeris(path string) (*BroadcastEphemeris, error) {
-	h, e := native.LoadBroadcastEphemeris(path)
-	if e != nil {
-		return nil, publicError(e)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
 	}
-	return &BroadcastEphemeris{handle: h}, nil
+	return ParseBroadcastEphemeris(data)
 }
 
 // Close releases the broadcast handle; repeated calls are safe.

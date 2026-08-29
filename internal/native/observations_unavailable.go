@@ -65,7 +65,6 @@ type NativeRinexObsCarrierPhase struct {
 type RinexObs struct{}
 
 func ParseRinexObs([]byte) (*RinexObs, error) { return nil, protocolUnavailable() }
-func LoadRinexObs(string) (*RinexObs, error)  { return nil, protocolUnavailable() }
 func (*RinexObs) Close() error                { return nil }
 func (*RinexObs) Version() (float64, error)   { return 0, protocolUnavailable() }
 func (*RinexObs) Header() (NativeRinexObsHeader, error) {
@@ -436,7 +435,6 @@ type BroadcastEphemeris struct{}
 
 func ParseBroadcast([]byte) (*BroadcastEphemeris, error) { return nil, protocolUnavailable() }
 
-func LoadBroadcastEphemeris(string) (*BroadcastEphemeris, error) { return nil, protocolUnavailable() }
 func (*BroadcastEphemeris) Close() error                         { return nil }
 
 type NativeObservablesOptions struct {

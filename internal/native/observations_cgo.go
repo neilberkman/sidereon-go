@@ -133,24 +133,6 @@ func ParseRinexObs(data []byte) (*RinexObs, error) {
 	return handle, err
 }
 
-func LoadRinexObs(path string) (*RinexObs, error) {
-	var pointer *C.SidereonRinexObs
-	err := withStringError(path, func(value *C.char) error {
-		return statusErrorLocked(C.sidereon_rinex_obs_load(value, &pointer))
-	})
-	if err != nil {
-		if pointer != nil {
-			withCThread(func() { C.sidereon_rinex_obs_free(pointer) })
-		}
-		return nil, err
-	}
-	handle, err := newRinexObs(pointer)
-	if err != nil && pointer != nil {
-		withCThread(func() { C.sidereon_rinex_obs_free(pointer) })
-	}
-	return handle, err
-}
-
 func (obs *RinexObs) Close() error {
 	if obs == nil {
 		return nil

@@ -1,6 +1,10 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import (
+	"os"
+
+	"github.com/neilberkman/sidereon-go/internal/native"
+)
 
 // RINEXObservationKind is the C observation classification.
 type RINEXObservationKind uint32
@@ -108,14 +112,14 @@ func ParseRINEXObservation(data []byte) (*RINEXObservation, error) {
 	return &RINEXObservation{handle: h}, nil
 }
 
-// LoadRINEXObservation delegates path loading and parsing to the native C ABI,
-// preserving its UTF-8, filesystem, and status-error semantics.
+// LoadRINEXObservation reads a RINEX observation file with Go and passes only
+// its bytes to the native parser.
 func LoadRINEXObservation(path string) (*RINEXObservation, error) {
-	h, err := native.LoadRinexObs(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, publicError(err)
+		return nil, err
 	}
-	return &RINEXObservation{handle: h}, nil
+	return ParseRINEXObservation(data)
 }
 
 // Close releases the observation handle; repeated calls are safe.
