@@ -315,12 +315,23 @@ func orbitStatsFromC(value C.SidereonOrbitResidualStats) (OrbitResidualStats, er
 	return OrbitResidualStats{RadialRMSM: float64(value.radial_rms_m), AlongRMSM: float64(value.along_rms_m), CrossRMSM: float64(value.cross_rms_m), RMS3DM: float64(value.rms_3d_m), N: n, LowSampleCount: bool(value.low_sample_count)}, nil
 }
 func geometryFromC(value C.SidereonGeometryQuality) (GeometryQuality, error) {
+	if err := validateObservabilityTier(uint32(value.tier)); err != nil {
+		return GeometryQuality{}, err
+	}
 	rank, err := checkedNativeCount(uint64(value.rank))
 	if err != nil {
 		return GeometryQuality{}, err
 	}
 	return GeometryQuality{Tier: uint32(value.tier), Redundancy: int32(value.redundancy), Rank: rank, ConditionNumber: float64(value.condition_number), GDOP: float64(value.gdop), RAIMCheckable: bool(value.raim_checkable), CovarianceValidated: bool(value.covariance_validated)}, nil
 }
+
+func validateObservabilityTier(value uint32) error {
+	if value > uint32(C.SIDEREON_OBSERVABILITY_TIER_NOMINAL) {
+		return invalidArgument("native observability tier is not defined")
+	}
+	return nil
+}
+
 func solutionFromC(value C.SidereonOrbitFitSolution) (OrbitFitSolution, error) {
 	covariance := OrbitFitCovariance{Kind: uint32(value.covariance.kind)}
 	for i := range covariance.Matrix {

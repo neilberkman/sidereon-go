@@ -805,17 +805,30 @@ func cTLECatalog(primaryLine1, primaryLine2 string, secondaries []TCATLEPair) (*
 }
 
 func cStrings(lines []string, label string) ([]*C.char, func(), error) {
-	pointers := make([]*C.char, len(lines))
 	for _, line := range lines {
 		if err := rejectEmbeddedNUL(line, label); err != nil {
 			return nil, func() {}, err
 		}
 	}
+	if _, err := checkedNativeAllocationSize(len(lines), unsafe.Sizeof(uintptr(0))); err != nil {
+		return nil, func() {}, err
+	}
+	var memory unsafe.Pointer
+	if len(lines) > 0 {
+		memory = C.malloc(C.size_t(len(lines)) * C.size_t(unsafe.Sizeof(uintptr(0))))
+		if memory == nil {
+			return nil, func() {}, invalidArgument("unable to allocate native string pointer array")
+		}
+	}
+	pointers := unsafe.Slice((**C.char)(memory), len(lines))
 	for i, line := range lines {
 		pointers[i] = C.CString(line)
 		if pointers[i] == nil {
 			for j := 0; j < i; j++ {
 				C.free(unsafe.Pointer(pointers[j]))
+			}
+			if memory != nil {
+				C.free(memory)
 			}
 			return nil, func() {}, invalidArgument("unable to allocate native string")
 		}
@@ -823,6 +836,9 @@ func cStrings(lines []string, label string) ([]*C.char, func(), error) {
 	return pointers, func() {
 		for _, pointer := range pointers {
 			C.free(unsafe.Pointer(pointer))
+		}
+		if memory != nil {
+			C.free(memory)
 		}
 	}, nil
 }

@@ -35,43 +35,10 @@ type NativeSp3Continuity struct {
 	ResidualsSkipped int
 }
 
-// withPositioningHandlePair acquires two handle read locks in address order.
-// Keeping the helper here makes any future same-kind pair operation use the
-// same deadlock-free ordering as SP3 clock operations.
+// withPositioningHandlePair uses the shared canonical multi-handle lock while
+// retaining the focused callback shape used by SP3 clock operations.
 func withPositioningHandlePair(left, right *positioningHandle, fn func(unsafe.Pointer, unsafe.Pointer) error) error {
-	if left == nil || right == nil {
-		return ErrClosed
-	}
-	if left == right {
-		left.mu.RLock()
-		defer left.mu.RUnlock()
-		if left.resource == nil {
-			return ErrClosed
-		}
-		return left.resource.with(func(pointer unsafe.Pointer) error {
-			return fn(pointer, pointer)
-		})
-	}
-	swapped := uintptr(unsafe.Pointer(left)) > uintptr(unsafe.Pointer(right))
-	first, second := left, right
-	if swapped {
-		first, second = second, first
-	}
-	first.mu.RLock()
-	defer first.mu.RUnlock()
-	second.mu.RLock()
-	defer second.mu.RUnlock()
-	if first.resource == nil || second.resource == nil {
-		return ErrClosed
-	}
-	return first.resource.with(func(firstPointer unsafe.Pointer) error {
-		return second.resource.with(func(secondPointer unsafe.Pointer) error {
-			if swapped {
-				return fn(secondPointer, firstPointer)
-			}
-			return fn(firstPointer, secondPointer)
-		})
-	})
+	return withPositioningPair(left, right, fn)
 }
 
 func checkedSp3OrbitClass(value int) (C.int32_t, error) {

@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"unsafe"
@@ -72,6 +73,72 @@ func (h *positioningHandle) close() error {
 	h.cleanup.Stop()
 	resource.close()
 	return nil
+}
+
+type positioningReadLock struct {
+	h *positioningHandle
+	r *resource
+}
+
+// withPositioningHandles acquires a set of positioning handles in one
+// canonical address order. Duplicate handles are locked once, while the
+// callback receives pointers in the caller's original order.
+func withPositioningHandles(handles []*positioningHandle, fn func([]unsafe.Pointer) error) error {
+	unique := make([]*positioningHandle, 0, len(handles))
+	seen := make(map[*positioningHandle]struct{}, len(handles))
+	for _, handle := range handles {
+		if handle == nil {
+			return ErrClosed
+		}
+		if _, ok := seen[handle]; ok {
+			continue
+		}
+		seen[handle] = struct{}{}
+		unique = append(unique, handle)
+	}
+	sort.Slice(unique, func(i, j int) bool {
+		return uintptr(unsafe.Pointer(unique[i])) < uintptr(unsafe.Pointer(unique[j]))
+	})
+	locked := make([]positioningReadLock, 0, len(unique))
+	unlock := func() {
+		for i := len(locked) - 1; i >= 0; i-- {
+			locked[i].r.mu.RUnlock()
+			locked[i].h.mu.RUnlock()
+		}
+	}
+	for _, handle := range unique {
+		handle.mu.RLock()
+		resource := handle.resource
+		if resource == nil {
+			handle.mu.RUnlock()
+			unlock()
+			return ErrClosed
+		}
+		resource.mu.RLock()
+		if resource.ptr == nil {
+			resource.mu.RUnlock()
+			handle.mu.RUnlock()
+			unlock()
+			return ErrClosed
+		}
+		locked = append(locked, positioningReadLock{h: handle, r: resource})
+	}
+	byHandle := make(map[*positioningHandle]unsafe.Pointer, len(unique))
+	for _, item := range locked {
+		byHandle[item.h] = item.r.ptr
+	}
+	pointers := make([]unsafe.Pointer, len(handles))
+	for i, handle := range handles {
+		pointers[i] = byHandle[handle]
+	}
+	defer unlock()
+	return fn(pointers)
+}
+
+func withPositioningPair(first, second *positioningHandle, fn func(unsafe.Pointer, unsafe.Pointer) error) error {
+	return withPositioningHandles([]*positioningHandle{first, second}, func(pointers []unsafe.Pointer) error {
+		return fn(pointers[0], pointers[1])
+	})
 }
 
 func checkedNativeCount(value uint64) (int, error) {
