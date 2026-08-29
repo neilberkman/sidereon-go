@@ -36,6 +36,7 @@ type SP3PredictionSummary struct {
 }
 
 type SP3 struct {
+	_      noCopy
 	handle *positioningHandle
 }
 
@@ -59,6 +60,10 @@ func LoadSP3(data []byte) (*SP3, error) {
 		err = statusErrorLocked(C.sidereon_sp3_load(
 			(*C.uint8_t)(cdata), C.size_t(len(data)), &pointer,
 		))
+		if err != nil && pointer != nil {
+			releaseSP3(unsafe.Pointer(pointer))
+			pointer = nil
+		}
 	})
 	if err != nil {
 		return nil, err
@@ -111,6 +116,12 @@ func (s *SP3) Epochs() ([]float64, error) {
 		if err != nil {
 			return err
 		}
+		if _, err := writtenToInt(written, 0, "SP3 epoch first-call written count"); err != nil {
+			return err
+		}
+		if _, err := checkedNativeAllocationSize(count, unsafe.Sizeof(C.double(0))); err != nil {
+			return err
+		}
 		values = make([]C.double, count)
 		var output *C.double
 		if len(values) != 0 {
@@ -159,6 +170,12 @@ func (s *SP3) Satellites() ([]string, error) {
 		}
 		count, err := checkedNativeCount(uint64(required))
 		if err != nil {
+			return err
+		}
+		if _, err := writtenToInt(written, 0, "SP3 satellite first-call written count"); err != nil {
+			return err
+		}
+		if _, err := checkedNativeAllocationSize(count, unsafe.Sizeof(C.SidereonSatelliteToken{})); err != nil {
 			return err
 		}
 		tokens = make([]C.SidereonSatelliteToken, count)

@@ -491,35 +491,9 @@ func TimeScaleOffsetAt(from, to uint32, utcJulianDate float64) (float64, error) 
 }
 
 func copyLabel(call func(*C.uint8_t, C.size_t, *C.size_t, *C.size_t) uint32) ([]byte, error) {
-	var written, required C.size_t
-	err := callStatus(func() uint32 { return call(nil, 0, &written, &required) })
-	if err != nil {
-		return nil, err
-	}
-	requiredCount, err := checkedNativeCount(uint64(required))
-	if err != nil {
-		return nil, err
-	}
-	buffer := make([]C.uint8_t, requiredCount)
-	var pointer *C.uint8_t
-	if len(buffer) != 0 {
-		pointer = &buffer[0]
-	}
-	err = callStatus(func() uint32 {
-		return call(pointer, C.size_t(len(buffer)), &written, &required)
+	return copyNativeBytes("native label", func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+		return C.enum_SidereonStatus(call(out, length, written, required))
 	})
-	if err != nil {
-		return nil, err
-	}
-	writtenCount, err := validateTwoPassCounts("label", len(buffer), requiredCount, uint64(written), uint64(required))
-	if err != nil {
-		return nil, err
-	}
-	out := make([]byte, writtenCount)
-	for index := range out {
-		out[index] = byte(buffer[index])
-	}
-	return out, nil
 }
 
 func CarrierBandLabel(band uint32) ([]byte, error) {

@@ -191,6 +191,14 @@ func (s *SP3) Solve(config SPPConfig) (SPPSolution, error) {
 				operationErr = err
 				return
 			}
+			if _, err := writtenToInt(written, 0, "SPP used satellite ID first-call written count"); err != nil {
+				operationErr = err
+				return
+			}
+			if _, err := checkedNativeAllocationSize(idCount, unsafe.Sizeof(C.SidereonSatelliteToken{})); err != nil {
+				operationErr = err
+				return
+			}
 			ids := make([]C.SidereonSatelliteToken, idCount)
 			var idOutput *C.SidereonSatelliteToken
 			if len(ids) != 0 {
@@ -225,6 +233,14 @@ func (s *SP3) Solve(config SPPConfig) (SPPSolution, error) {
 			}
 			residualCount, err := checkedNativeCount(uint64(required))
 			if err != nil {
+				operationErr = err
+				return
+			}
+			if _, err := writtenToInt(written, 0, "SPP residual first-call written count"); err != nil {
+				operationErr = err
+				return
+			}
+			if _, err := checkedNativeAllocationSize(residualCount, unsafe.Sizeof(C.double(0))); err != nil {
 				operationErr = err
 				return
 			}

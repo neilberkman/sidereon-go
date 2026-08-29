@@ -48,6 +48,7 @@ type TEMEState struct {
 }
 
 type TLE struct {
+	_      noCopy
 	handle *positioningHandle
 }
 
@@ -80,6 +81,10 @@ func ParseTLE(line1, line2 string) (*TLE, error) {
 		err = statusErrorLocked(C.sidereon_tle_load(
 			(*C.char)(cLine1), (*C.char)(cLine2), C.uint32_t(0), &pointer,
 		))
+		if err != nil && pointer != nil {
+			releaseTLE(unsafe.Pointer(pointer))
+			pointer = nil
+		}
 	})
 	if err != nil {
 		return nil, err
@@ -235,6 +240,10 @@ func (t *TLE) Propagate(times []time.Time) ([]TEMEState, error) {
 				operationErr = errors.New("sidereon: native propagation returned an unexpected epoch count")
 				return
 			}
+			if _, err := checkedNativeAllocationSize(stateCount, unsafe.Sizeof(C.SidereonTemeState{})); err != nil {
+				operationErr = err
+				return
+			}
 			states := make([]C.SidereonTemeState, stateCount)
 			var output *C.SidereonTemeState
 			if len(states) != 0 {
@@ -248,18 +257,11 @@ func (t *TLE) Propagate(times []time.Time) ([]TEMEState, error) {
 				operationErr = statusErrorLocked(uint32(status))
 				return
 			}
-			writtenCount, err := checkedNativeCount(uint64(written))
+			_, err = validateTwoPassCounts(
+				"TLE propagation states", len(states), stateCount, uint64(written), uint64(required),
+			)
 			if err != nil {
 				operationErr = err
-				return
-			}
-			requiredCount, err := checkedNativeCount(uint64(required))
-			if err != nil {
-				operationErr = err
-				return
-			}
-			if writtenCount != len(states) || requiredCount != len(states) {
-				operationErr = errors.New("sidereon: native propagation returned an unexpected state count")
 				return
 			}
 			for i := range states {

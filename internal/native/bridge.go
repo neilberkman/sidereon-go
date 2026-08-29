@@ -45,6 +45,23 @@ func withCThread(fn func()) {
 	fn()
 }
 
+func copyNativeInput(data []byte) (unsafe.Pointer, error) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+	pointer := C.CBytes(data)
+	if pointer == nil {
+		return nil, errors.New("sidereon: unable to allocate native input buffer")
+	}
+	return pointer, nil
+}
+
+func freeNativeInput(pointer unsafe.Pointer) {
+	if pointer != nil {
+		C.free(pointer)
+	}
+}
+
 func callStatus(fn func() uint32) error {
 	var err error
 	withCThread(func() {
@@ -69,6 +86,9 @@ func statusErrorLocked(status uint32) error {
 		if requiredInt == int(^uint(0)>>1) {
 			return errors.New("sidereon: native error detail is too large")
 		}
+		if _, err := checkedNativeAllocationSize(requiredInt+1, unsafe.Sizeof(byte(0))); err != nil {
+			return err
+		}
 		buffer := make([]byte, requiredInt+1)
 		written := C.sidereon_last_error_message(
 			(*C.char)(unsafe.Pointer(&buffer[0])), C.size_t(len(buffer)))
@@ -79,6 +99,69 @@ func statusErrorLocked(status uint32) error {
 		detail = string(buffer[:writtenInt])
 	}
 	return &StatusError{Code: int(status), Text: text, Detail: detail}
+}
+
+func sizeTToInt(value C.size_t, field string) (int, error) {
+	maxInt := uint64(^uint(0) >> 1)
+	if uint64(value) > maxInt {
+		return 0, fmt.Errorf("sidereon: native %s %d does not fit in int", field, uint64(value))
+	}
+	return int(value), nil
+}
+
+func writtenToInt(value C.size_t, capacity int, field string) (int, error) {
+	converted, err := sizeTToInt(value, field)
+	if err != nil {
+		return 0, err
+	}
+	if converted > capacity {
+		return 0, fmt.Errorf("sidereon: native %s %d exceeds allocated capacity %d", field, converted, capacity)
+	}
+	return converted, nil
+}
+
+type nativeBytesCall func(*C.uint8_t, C.size_t, *C.size_t, *C.size_t) C.enum_SidereonStatus
+
+// copyNativeBytesLocked performs the complete variable-length output contract
+// on the caller's locked C thread. The second call must reproduce the queried
+// required count and fill exactly that many bytes; accepting a partial copy
+// would make a native result ambiguous.
+func copyNativeBytesLocked(label string, call nativeBytesCall) ([]byte, error) {
+	var written, required C.size_t
+	if err := statusErrorLocked(uint32(call(nil, 0, &written, &required))); err != nil {
+		return nil, err
+	}
+	requiredInt, err := sizeTToInt(required, label+" required byte count")
+	if err != nil {
+		return nil, err
+	}
+	if _, err := writtenToInt(written, 0, label+" first-call written byte count"); err != nil {
+		return nil, err
+	}
+	if _, err := checkedNativeAllocationSize(requiredInt, unsafe.Sizeof(byte(0))); err != nil {
+		return nil, err
+	}
+	buffer := make([]byte, requiredInt)
+	var output *C.uint8_t
+	if len(buffer) != 0 {
+		output = (*C.uint8_t)(unsafe.Pointer(&buffer[0]))
+	}
+	written, required = 0, 0
+	if err := statusErrorLocked(uint32(call(output, C.size_t(len(buffer)), &written, &required))); err != nil {
+		return nil, err
+	}
+	writtenInt, err := validateTwoPassCounts(label, len(buffer), requiredInt, uint64(written), uint64(required))
+	if err != nil {
+		return nil, err
+	}
+	return append([]byte(nil), buffer[:writtenInt]...), nil
+}
+
+func copyNativeBytes(label string, call nativeBytesCall) (result []byte, err error) {
+	withCThread(func() {
+		result, err = copyNativeBytesLocked(label, call)
+	})
+	return result, err
 }
 
 type Version struct {
@@ -296,18 +379,19 @@ func ParseNMEA(data []byte) (*NMEALog, error) {
 	var pointer *C.SidereonNmeaLog
 	var err error
 	withCThread(func() {
-		var cdata unsafe.Pointer
-		if len(data) != 0 {
-			cdata = C.CBytes(data)
-			if cdata == nil {
-				err = errors.New("sidereon: unable to allocate native input buffer")
-				return
-			}
-			defer C.free(cdata)
+		cdata, copyErr := copyNativeInput(data)
+		if copyErr != nil {
+			err = copyErr
+			return
 		}
+		defer freeNativeInput(cdata)
 		err = statusErrorLocked(C.sidereon_nmea_parse(
 			(*C.uint8_t)(cdata), C.size_t(len(data)), &pointer,
 		))
+		if err != nil && pointer != nil {
+			releaseNMEALog(unsafe.Pointer(pointer))
+			pointer = nil
+		}
 	})
 	if err != nil {
 		return nil, err
@@ -377,6 +461,12 @@ func (l *NMEALog) Epochs() ([]NMEAEpoch, error) {
 		}
 		requiredInt, err := checkedNativeCount(uint64(required))
 		if err != nil {
+			return err
+		}
+		if _, err := writtenToInt(written, 0, "NMEA epoch first-call written count"); err != nil {
+			return err
+		}
+		if _, err := checkedNativeAllocationSize(requiredInt, unsafe.Sizeof(C.SidereonNmeaEpochSummary{})); err != nil {
 			return err
 		}
 		epochs = make([]C.SidereonNmeaEpochSummary, requiredInt)

@@ -74,6 +74,14 @@ func TestValidateTwoPassCounts(t *testing.T) {
 			wantErr:  "exceeds allocated capacity",
 		},
 		{
+			name:     "written count exceeds capacity",
+			capacity: 3,
+			expected: 3,
+			written:  4,
+			required: 3,
+			wantErr:  "wrote 4 entries into capacity 3",
+		},
+		{
 			name:     "required count changed",
 			capacity: 3,
 			expected: 3,
