@@ -8,18 +8,6 @@ work; the C library owns byte parsing and numerical evaluation.
 The package name is `sidereon` and the module path is
 `github.com/neilberkman/sidereon-go`.
 
-## Pre-release status
-
-This repository is being prepared for the lockstep `1.3.0` release. The public
-`v1.3.0` tag does not exist yet, so the Go module is not available from the
-module proxy under that version. The current pinned C reference still reports
-`1.2.0` in its header; that is the expected local pre-release state and is not
-renamed to `1.3.0` here.
-
-Do not tag, publish, or request `@v1.3.0` until the C reference has a public
-`v1.3.0` tag with matching `1.3.0` header macros. Until then, a checkout can be
-tested with a local replacement or a Git branch/commit reference.
-
 ## Install
 
 The binding requires cgo and a C compiler on the host. On macOS, install the

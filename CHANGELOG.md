@@ -2,7 +2,7 @@
 
 All notable changes to this module are documented here.
 
-## Unreleased — 1.3.0
+## 1.3.0 - 2026-08-29
 
 - Prepare the cgo binding for the lockstep Sidereon 1.3.0 release.
 - Document supported targets, libc-specific archive selection, system-library

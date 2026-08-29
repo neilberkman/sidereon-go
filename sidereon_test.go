@@ -20,14 +20,14 @@ func TestVendoredHeaderMatchesPinnedPublicHeader(t *testing.T) {
 		t.Fatal(err)
 	}
 	digest := sha256.Sum256(got)
-	if value := hex.EncodeToString(digest[:]); value != "6e79405bbce65d91958fe591279ad4c73f79f86573c64176f7c3dd0d9c29420d" {
+	if value := hex.EncodeToString(digest[:]); value != "49ee6f6abde6959eb9fae3c8d4570a318dcd83abc22a9fbf6257c35a46599a89" {
 		t.Fatalf("vendored header digest = %s, want pinned digest", value)
 	}
 }
 
 func TestLibraryVersionAndCalendarValues(t *testing.T) {
 	version := LibraryVersion()
-	if version.Major != 1 || version.Minor != 2 || version.Patch != 0 || version.String != "1.2.0" {
+	if version.Major != 1 || version.Minor != 3 || version.Patch != 0 || version.String != "1.3.0" {
 		t.Fatalf("unexpected library version: %+v", version)
 	}
 
