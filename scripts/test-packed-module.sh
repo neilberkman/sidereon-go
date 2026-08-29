@@ -42,15 +42,18 @@ cat > "$CONSUMER/main.go" <<'EOF'
 package main
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"os"
 
 	"github.com/neilberkman/sidereon-go"
 )
 
 // This is the only implementation-dependent part of the packed consumer.
-// It deliberately performs a numerical SPP solve over in-memory SP3 bytes.
-func runSolve() error {
+// It performs a numerical SPP solve over in-memory bytes from the archived
+// module fixture.
+func runSolve() (err error) {
 	sp3Bytes, err := os.ReadFile("trimmed.sp3")
 	if err != nil {
 		return err
@@ -59,17 +62,34 @@ func runSolve() error {
 	if err != nil {
 		return err
 	}
-	defer sp3.Close()
+	defer func() {
+		if closeErr := sp3.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close SP3: %w", closeErr))
+		}
+	}()
 
+	observations := []struct {
+		id   string
+		bits uint64
+	}{
+		{"G08", 0x4176b8c6fd82e861},
+		{"G10", 0x4175aa4fa1a0c21f},
+		{"G16", 0x417387abd6052c3b},
+		{"G18", 0x4174c288f3bd1166},
+		{"G20", 0x417443947bd00bd6},
+		{"G21", 0x4173d8405cd09f84},
+		{"G26", 0x417425d51967e798},
+		{"G27", 0x41745a4b78a81707},
+	}
+	input := make([]sidereon.SPPObservation, len(observations))
+	for i, observation := range observations {
+		input[i] = sidereon.SPPObservation{
+			SatelliteID:  observation.id,
+			PseudorangeM: math.Float64frombits(observation.bits),
+		}
+	}
 	solution, err := sidereon.SolveSPP(sp3, sidereon.SPPConfig{
-		Observations: []sidereon.SPPObservation{
-			{SatelliteID: "G08", PseudorangeM: 23825519.8},
-			{SatelliteID: "G10", PseudorangeM: 22717690.1},
-			{SatelliteID: "G16", PseudorangeM: 20478653.4},
-			{SatelliteID: "G18", PseudorangeM: 21768335.2},
-			{SatelliteID: "G20", PseudorangeM: 21248327.7},
-			{SatelliteID: "G21", PseudorangeM: 20808709.8},
-		},
+		Observations:    input,
 		TRxJ2000S:       646272000.0,
 		TRxSecondOfDayS: 43200.0,
 		DayOfYear:       176.5,
@@ -80,6 +100,18 @@ func runSolve() error {
 	})
 	if err != nil {
 		return err
+	}
+	wantPosition := [3]uint64{0x41511b07ff83c7f1, 0x4120cd6b5ee8cafe, 0x41511e62229db724}
+	for axis, bits := range wantPosition {
+		if math.Float64bits(solution.PositionM[axis]) != bits {
+			return fmt.Errorf("position[%d] = %.17g, want frozen C value", axis, solution.PositionM[axis])
+		}
+	}
+	if math.Float64bits(solution.ReceiverClockS) != 0x3f1a3b88360a8d78 {
+		return fmt.Errorf("receiver clock = %.17g, want frozen C value", solution.ReceiverClockS)
+	}
+	if solution.UsedSatelliteCount != len(observations) {
+		return fmt.Errorf("used satellite count = %d, want %d", solution.UsedSatelliteCount, len(observations))
 	}
 	fmt.Printf("numerical solve: %v\n", solution)
 	return nil
@@ -92,37 +124,7 @@ func main() {
 }
 EOF
 
-# The public C example's one-epoch slice is enough for this SPP smoke. The
-# parser receives exactly the bytes that a Go-owned file or HTTP reader would
-# provide.
-cat > "$CONSUMER/trimmed.sp3" <<'EOF'
-#cP2020  6 24 12  0  0.00000000      19 TEST IGb14 FIT TEST
-## 2111 267300.00000000   900.00000000 59024 0.0000000000000
-+    6   G08G10G16G18G20G21  0  0  0  0  0  0  0  0  0  0
-+          0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
-+          0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
-+          0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
-+          0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
-++         4  4  4  4  4  4  0  0  0  0  0  0  0  0  0  0
-++         0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
-++         0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
-++         0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
-++         0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
-%c M  cc GPS ccc cccc cccc cccc ccccc ccccc ccccc
-%c cc cc ccc ccc cccc cccc cccc cccc ccccc ccccc ccccc
-%f  0.0000000  0.000000000  0.00000000000  0.000000000000000
-%f  0.0000000  0.000000000  0.00000000000  0.000000000000000
-%i    0    0    0    0      0      0      0      0         0
-%i    0    0    0    0      0      0      0      0         0
-/* C static-library consumer smoke
-*  2020  6 24 12  0  0.00000000
-PG08   7438.042916 -20762.704119  14621.192800    -38.647002
-PG10  23919.560682  11717.183156   1816.071269   -380.567404
-PG16  18784.088401  -3819.088286  18359.430195   -174.389524
-PG18   6670.210753  13729.937789  21723.310519    228.892428
-PG20  17932.623680  14929.762015  12814.016152    527.447354
-PG21  16999.913180   4708.560403  20550.418405     15.546299
-EOF
+cp "$PACKED/testdata/trimmed.sp3" "$CONSUMER/trimmed.sp3"
 
 GOTOOLCHAIN=local GOPROXY=off CGO_ENABLED=1 GOFLAGS="$PACKED_GOFLAGS" \
 	go -C "$CONSUMER" run .

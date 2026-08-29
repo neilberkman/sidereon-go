@@ -176,7 +176,9 @@ func TestNMEADoubleAndConcurrentClose(t *testing.T) {
 		group.Add(1)
 		go func() {
 			defer group.Done()
-			_ = log.Close()
+			if closeErr := log.Close(); closeErr != nil {
+				t.Errorf("concurrent NMEA.Close: %v", closeErr)
+			}
 		}()
 	}
 	for i := 0; i < 8; i++ {
@@ -190,5 +192,7 @@ func TestNMEADoubleAndConcurrentClose(t *testing.T) {
 		}()
 	}
 	group.Wait()
-	_ = log.Close()
+	if err := log.Close(); err != nil {
+		t.Errorf("final NMEA.Close: %v", err)
+	}
 }
