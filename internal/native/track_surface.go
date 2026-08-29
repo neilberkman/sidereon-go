@@ -337,7 +337,7 @@ func (f *TrackFilter) PredictRecorded(dt float64, history *TrackRTSHistoryBuilde
 	var out C.SidereonTrackPrediction
 	var opErr error
 	err := f.handle.write(func(pointer unsafe.Pointer) error {
-		return history.handle.read(func(hp unsafe.Pointer) error {
+		return history.handle.write(func(hp unsafe.Pointer) error {
 			withCThread(func() {
 				opErr = statusErrorLocked(uint32(C.sidereon_track_filter_predict_recorded((*C.SidereonTrackFilter)(pointer), C.double(dt), (*C.SidereonTrackRtsHistoryBuilder)(hp), &out)))
 			})

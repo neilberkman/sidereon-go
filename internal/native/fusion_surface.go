@@ -678,7 +678,7 @@ func (f *FusionFilter) tightUpdate(epoch NativeFusionTightEpoch, source unsafe.P
 			if history == nil || history.handle == nil {
 				return ErrClosed
 			}
-			return history.handle.read(func(hp unsafe.Pointer) error {
+			return history.handle.write(func(hp unsafe.Pointer) error {
 				withCThread(func() { cErr = statusErrorLocked(uint32(call(fp, hp))) })
 				return cErr
 			})
