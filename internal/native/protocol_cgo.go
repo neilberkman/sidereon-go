@@ -50,6 +50,19 @@ const (
 )
 
 func withInput(data []byte, fn func(*C.uint8_t, C.size_t) uint32) error {
+	return withInputStatus(data, fn, statusErrorLocked)
+}
+
+func withInputTerrainDiagnostics(data []byte, fn func(*C.uint8_t, C.size_t) uint32, captureDatum, captureStore bool) error {
+	return withInputStatus(data, fn, func(status uint32) error {
+		return statusErrorLockedWithTerrainDiagnostics(status, captureDatum, captureStore)
+	})
+}
+
+func withInputStatus(data []byte, fn func(*C.uint8_t, C.size_t) uint32, statusError func(uint32) error) error {
+	if _, err := checkedNativeAllocationSize(len(data), 1); err != nil {
+		return err
+	}
 	var err error
 	withCThread(func() {
 		var pointer unsafe.Pointer
@@ -61,14 +74,30 @@ func withInput(data []byte, fn func(*C.uint8_t, C.size_t) uint32) error {
 			}
 			defer C.free(pointer)
 		}
-		err = statusErrorLocked(fn((*C.uint8_t)(pointer), C.size_t(len(data))))
+		err = statusError(fn((*C.uint8_t)(pointer), C.size_t(len(data))))
 	})
 	runtime.KeepAlive(data)
 	return err
 }
 
 func withString(value string, fn func(*C.char) uint32) error {
+	return withStringStatus(value, fn, statusErrorLocked)
+}
+
+func withStringTerrainDiagnostics(value string, fn func(*C.char) uint32, captureDatum, captureStore bool) error {
+	return withStringStatus(value, fn, func(status uint32) error {
+		return statusErrorLockedWithTerrainDiagnostics(status, captureDatum, captureStore)
+	})
+}
+
+func withStringStatus(value string, fn func(*C.char) uint32, statusError func(uint32) error) error {
 	if err := rejectEmbeddedNUL(value, "native string"); err != nil {
+		return err
+	}
+	if len(value) == int(^uint(0)>>1) {
+		return errors.New("sidereon: native string is too large")
+	}
+	if _, err := checkedNativeAllocationSize(len(value)+1, 1); err != nil {
 		return err
 	}
 	var err error
@@ -79,7 +108,7 @@ func withString(value string, fn func(*C.char) uint32) error {
 			return
 		}
 		defer C.free(unsafe.Pointer(pointer))
-		err = statusErrorLocked(fn(pointer))
+		err = statusError(fn(pointer))
 	})
 	runtime.KeepAlive(value)
 	return err

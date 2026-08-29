@@ -45,6 +45,19 @@ func (h *positioningHandle) with(fn func(unsafe.Pointer) error) error {
 	return h.resource.with(fn)
 }
 
+// withExclusive serializes calls that may mutate a native cache with Close.
+func (h *positioningHandle) withExclusive(fn func(unsafe.Pointer) error) error {
+	if h == nil {
+		return ErrClosed
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.resource == nil {
+		return ErrClosed
+	}
+	return h.resource.with(fn)
+}
+
 func (h *positioningHandle) close() error {
 	if h == nil {
 		return nil

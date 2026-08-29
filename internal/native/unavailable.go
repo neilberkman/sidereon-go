@@ -10,12 +10,25 @@ import "errors"
 var ErrClosed = errors.New("sidereon: handle is closed")
 
 type StatusError struct {
-	Code   int
-	Text   string
-	Detail string
+	Code         int
+	Text         string
+	Detail       string
+	TerrainDatum *TerrainDatumError
+	TerrainStore *TerrainStoreError
 }
 
 func (e *StatusError) Error() string { return e.Text }
+
+func (e *StatusError) Unwrap() error {
+	var details []error
+	if e.TerrainDatum != nil {
+		details = append(details, e.TerrainDatum)
+	}
+	if e.TerrainStore != nil {
+		details = append(details, e.TerrainStore)
+	}
+	return errors.Join(details...)
+}
 
 type Version struct {
 	Major  uint32

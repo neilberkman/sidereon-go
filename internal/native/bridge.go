@@ -25,9 +25,11 @@ import (
 
 // StatusError is the internal form translated to the public package error.
 type StatusError struct {
-	Code   int
-	Text   string
-	Detail string
+	Code         int
+	Text         string
+	Detail       string
+	TerrainDatum *TerrainDatumError
+	TerrainStore *TerrainStoreError
 }
 
 func (e *StatusError) Error() string {
@@ -35,6 +37,17 @@ func (e *StatusError) Error() string {
 		return fmt.Sprintf("%s (%d)", e.Text, e.Code)
 	}
 	return fmt.Sprintf("%s (%d): %s", e.Text, e.Code, e.Detail)
+}
+
+func (e *StatusError) Unwrap() error {
+	var details []error
+	if e.TerrainDatum != nil {
+		details = append(details, e.TerrainDatum)
+	}
+	if e.TerrainStore != nil {
+		details = append(details, e.TerrainStore)
+	}
+	return errors.Join(details...)
 }
 
 var ErrClosed = errors.New("sidereon: handle is closed")
@@ -70,6 +83,14 @@ func callStatus(fn func() uint32) error {
 	return err
 }
 
+func callStatusWithTerrainDiagnostics(fn func() uint32, captureDatum, captureStore bool) error {
+	var err error
+	withCThread(func() {
+		err = statusErrorLockedWithTerrainDiagnostics(fn(), captureDatum, captureStore)
+	})
+	return err
+}
+
 func statusErrorLocked(status uint32) error {
 	if status == C.SIDEREON_STATUS_OK {
 		return nil
@@ -101,6 +122,30 @@ func statusErrorLocked(status uint32) error {
 	return &StatusError{Code: int(status), Text: text, Detail: detail}
 }
 
+func statusErrorLockedWithTerrainDiagnostics(status uint32, captureDatum, captureStore bool) error {
+	err := statusErrorLocked(status)
+	if err == nil || (!captureDatum && !captureStore) {
+		return err
+	}
+	statusErr, ok := err.(*StatusError)
+	if !ok {
+		return err
+	}
+	if captureDatum {
+		value, diagnosticErr := lastTerrainDatumErrorLocked()
+		if diagnosticErr == nil && value.Kind != TerrainDatumErrorNoneValue {
+			statusErr.TerrainDatum = &value
+		}
+	}
+	if captureStore {
+		value, diagnosticErr := lastTerrainStoreErrorLocked()
+		if diagnosticErr == nil && value.Kind != TerrainStoreErrorNoneValue {
+			statusErr.TerrainStore = &value
+		}
+	}
+	return statusErr
+}
+
 func sizeTToInt(value C.size_t, field string) (int, error) {
 	maxInt := uint64(^uint(0) >> 1)
 	if uint64(value) > maxInt {
@@ -127,8 +172,18 @@ type nativeBytesCall func(*C.uint8_t, C.size_t, *C.size_t, *C.size_t) C.enum_Sid
 // required count and fill exactly that many bytes; accepting a partial copy
 // would make a native result ambiguous.
 func copyNativeBytesLocked(label string, call nativeBytesCall) ([]byte, error) {
+	return copyNativeBytesLockedWithStatus(label, call, statusErrorLocked)
+}
+
+func copyNativeBytesLockedWithTerrainDiagnostics(label string, call nativeBytesCall, captureDatum, captureStore bool) ([]byte, error) {
+	return copyNativeBytesLockedWithStatus(label, call, func(status uint32) error {
+		return statusErrorLockedWithTerrainDiagnostics(status, captureDatum, captureStore)
+	})
+}
+
+func copyNativeBytesLockedWithStatus(label string, call nativeBytesCall, statusError func(uint32) error) ([]byte, error) {
 	var written, required C.size_t
-	if err := statusErrorLocked(uint32(call(nil, 0, &written, &required))); err != nil {
+	if err := statusError(uint32(call(nil, 0, &written, &required))); err != nil {
 		return nil, err
 	}
 	requiredInt, err := sizeTToInt(required, label+" required byte count")
@@ -147,7 +202,7 @@ func copyNativeBytesLocked(label string, call nativeBytesCall) ([]byte, error) {
 		output = (*C.uint8_t)(unsafe.Pointer(&buffer[0]))
 	}
 	written, required = 0, 0
-	if err := statusErrorLocked(uint32(call(output, C.size_t(len(buffer)), &written, &required))); err != nil {
+	if err := statusError(uint32(call(output, C.size_t(len(buffer)), &written, &required))); err != nil {
 		return nil, err
 	}
 	writtenInt, err := validateTwoPassCounts(label, len(buffer), requiredInt, uint64(written), uint64(required))
@@ -160,6 +215,13 @@ func copyNativeBytesLocked(label string, call nativeBytesCall) ([]byte, error) {
 func copyNativeBytes(label string, call nativeBytesCall) (result []byte, err error) {
 	withCThread(func() {
 		result, err = copyNativeBytesLocked(label, call)
+	})
+	return result, err
+}
+
+func copyNativeBytesWithTerrainDiagnostics(label string, call nativeBytesCall, captureDatum, captureStore bool) (result []byte, err error) {
+	withCThread(func() {
+		result, err = copyNativeBytesLockedWithTerrainDiagnostics(label, call, captureDatum, captureStore)
 	})
 	return result, err
 }

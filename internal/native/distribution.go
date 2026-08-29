@@ -125,6 +125,12 @@ func cString(value string) (*C.char, error) {
 	if containsNUL(value) {
 		return nil, errors.New("sidereon: string contains NUL")
 	}
+	if len(value) == int(^uint(0)>>1) {
+		return nil, errors.New("sidereon: string is too large")
+	}
+	if _, err := checkedNativeAllocationSize(len(value)+1, 1); err != nil {
+		return nil, err
+	}
 	result := C.CString(value)
 	if result == nil {
 		return nil, errors.New("sidereon: unable to allocate native string")
