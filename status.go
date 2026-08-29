@@ -101,6 +101,14 @@ func publicError(err error) error {
 	if errors.Is(err, native.ErrClosed) {
 		return ErrClosed
 	}
+	var selectionErr *native.SelectionError
+	if errors.As(err, &selectionErr) {
+		return &SelectionError{
+			Status: SelectionStatus(selectionErr.Status),
+			Text:   selectionErr.Text,
+			Detail: selectionErr.Detail,
+		}
+	}
 	var statusErr *native.StatusError
 	if errors.As(err, &statusErr) {
 		result := &StatusError{

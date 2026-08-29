@@ -62,7 +62,7 @@ func withSPPInputs(config SPPConfig, fn func(*C.SidereonSppInputs) error) error 
 			observations[i].pseudorange_m = C.double(observation.PseudorangeM)
 		}
 
-		inputMemory := C.malloc(C.size_t(unsafe.Sizeof(C.SidereonSppInputs{})))
+		inputMemory := C.calloc(1, C.size_t(unsafe.Sizeof(C.SidereonSppInputs{})))
 		if inputMemory == nil {
 			operationErr = errors.New("sidereon: unable to allocate native SPP inputs")
 			return

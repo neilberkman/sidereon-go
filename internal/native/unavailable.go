@@ -17,6 +17,14 @@ type StatusError struct {
 	TerrainStore *TerrainStoreError
 }
 
+type SelectionError struct {
+	Status uint32
+	Text   string
+	Detail string
+}
+
+func (e *SelectionError) Error() string { return e.Text }
+
 func (e *StatusError) Error() string { return e.Text }
 
 func (e *StatusError) Unwrap() error {
