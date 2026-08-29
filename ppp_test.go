@@ -71,6 +71,18 @@ func pppFixture(t *testing.T) (*SP3, PPPFloatConfig, PPPFixedConfig, PPPAutoInit
 
 func TestPPPDeterministicSP3Fixture(t *testing.T) {
 	sp3, floatConfig, fixedConfig, auto := pppFixture(t)
+	directSolution, err := SolvePPPFloat(sp3, floatConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := directSolution.Close(); err != nil {
+			t.Errorf("direct solution Close() = %v", err)
+		}
+	})
+	if metadata, err := directSolution.Metadata(); err != nil || !metadata.Converged {
+		t.Fatalf("direct float metadata = %+v, err=%v", metadata, err)
+	}
 	zeroStateConfig := floatConfig
 	zeroStateConfig.InitialState = PPPFloatState{}
 	zeroStateSolution, err := SolvePPPAutoInitFloat(sp3, zeroStateConfig, auto)
@@ -244,6 +256,67 @@ func TestPPPInvalidShapesAndText(t *testing.T) {
 	}
 	if _, err := BuildPPPCorrections(sp3, nil, [3]float64{}, PPPCorrectionsOptions{CodeBiasSystemPairs: []PPPCodeBiasSystemPair{{System: GNSSSystem(99)}}}); err == nil {
 		t.Fatal("invalid PPP code-bias GNSS system accepted")
+	}
+}
+
+func TestPPPLongAmbiguityIDCompatibility(t *testing.T) {
+	sp3, config, fixedConfig, _ := pppFixture(t)
+	const longID = "G08:LONG-ARC-IDENTIFIER"
+	longConfig := config
+	longConfig.Epochs = append([]PPPEpoch(nil), config.Epochs...)
+	longConfig.Epochs[0].Observations = append([]PPPObservation(nil), config.Epochs[0].Observations...)
+	longConfig.Epochs[0].Observations[0].AmbiguityID = longID
+	longConfig.InitialState.AmbiguitiesM = append([]PPPFloatMapEntry(nil), config.InitialState.AmbiguitiesM...)
+	longConfig.InitialState.AmbiguitiesM[0].ID = longID
+	solution, err := SolvePPPFloat(sp3, longConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := solution.Close(); err != nil {
+			t.Errorf("solution.Close() = %v", err)
+		}
+	})
+	ids, err := solution.UsedIDs()
+	if err != nil || len(ids) != 6 || ids[0] != longID {
+		t.Fatalf("UsedIDs() = %#v, err=%v", ids, err)
+	}
+	if _, err := solution.UsedSatelliteIDs(); err == nil {
+		t.Fatal("UsedSatelliteIDs accepted an ambiguity ID longer than the token ABI")
+	} else {
+		var statusErr *StatusError
+		if !errors.As(err, &statusErr) || statusErr.Code != StatusInvalidArgument {
+			t.Fatalf("UsedSatelliteIDs() error = %v, want InvalidArgument", err)
+		}
+	}
+	longFixedConfig := fixedConfig
+	longFixedConfig.Epochs = append([]PPPEpoch(nil), fixedConfig.Epochs...)
+	longFixedConfig.Epochs[0].Observations = append([]PPPObservation(nil), fixedConfig.Epochs[0].Observations...)
+	longFixedConfig.Epochs[0].Observations[0].AmbiguityID = longID
+	longFixedConfig.Ambiguity.WavelengthsM = append([]PPPFloatMapEntry(nil), fixedConfig.Ambiguity.WavelengthsM...)
+	longFixedConfig.Ambiguity.WavelengthsM[0].ID = longID
+	longFixedConfig.Ambiguity.OffsetsM = append([]PPPFloatMapEntry(nil), fixedConfig.Ambiguity.OffsetsM...)
+	longFixedConfig.Ambiguity.OffsetsM[0].ID = longID
+	fixedSolution, err := SolvePPPFixed(sp3, solution, longFixedConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := fixedSolution.Close(); err != nil {
+			t.Errorf("fixed solution.Close() = %v", err)
+		}
+	})
+	fixedIDs, err := fixedSolution.UsedIDs()
+	if err != nil || len(fixedIDs) != 6 || fixedIDs[0] != longID {
+		t.Fatalf("fixed UsedIDs() = %#v, err=%v", fixedIDs, err)
+	}
+	if _, err := fixedSolution.UsedSatelliteIDs(); err == nil {
+		t.Fatal("fixed UsedSatelliteIDs accepted an ambiguity ID longer than the token ABI")
+	} else {
+		var statusErr *StatusError
+		if !errors.As(err, &statusErr) || statusErr.Code != StatusInvalidArgument {
+			t.Fatalf("fixed UsedSatelliteIDs() error = %v, want InvalidArgument", err)
+		}
 	}
 }
 
