@@ -933,20 +933,25 @@ func (b *BroadcastEphemeris) SolveBroadcastWithDopplerVelocity(config SPPConfig,
 			}
 			var velocity *C.SidereonVelocitySolution
 			velocityStatus := C.sidereon_spp_doppler_solution_velocity(solution, &velocity)
-			if velocityStatus == C.SIDEREON_STATUS_OK {
-				if velocity == nil {
-					return errors.New("sidereon: native broadcast Doppler solve returned no velocity solution")
+			if velocityStatus != C.SIDEREON_STATUS_OK {
+				if velocity != nil {
+					C.sidereon_velocity_solution_free(velocity)
 				}
-				defer C.sidereon_velocity_solution_free(velocity)
-				value, readErr := readVelocitySolutionLocked(velocity)
-				if readErr != nil {
-					return readErr
+				if velocityStatus == C.SIDEREON_STATUS_SOLVE {
+					return nil
 				}
-				result.Velocity = &value
-			} else if velocityStatus != C.SIDEREON_STATUS_SOLVE {
 				return statusErrorLocked(uint32(velocityStatus))
 			}
-			return err
+			if velocity == nil {
+				return errors.New("sidereon: native broadcast Doppler solve returned no velocity solution")
+			}
+			defer C.sidereon_velocity_solution_free(velocity)
+			value, readErr := readVelocitySolutionLocked(velocity)
+			if readErr != nil {
+				return readErr
+			}
+			result.Velocity = &value
+			return nil
 		})
 	})
 	runtime.KeepAlive(b)

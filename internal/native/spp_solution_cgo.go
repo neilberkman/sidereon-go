@@ -234,6 +234,7 @@ func readSPPSolutionLocked(solution *C.SidereonSppSolution) (SPPSolution, error)
 	if len(ids) > 0 {
 		idOutput = &ids[0]
 	}
+	written, required = 0, 0
 	if err := statusErrorLocked(C.sidereon_spp_solution_used_sat_ids(solution, idOutput, idLength, &written, &required)); err != nil {
 		return SPPSolution{}, err
 	}
@@ -266,6 +267,7 @@ func readSPPSolutionLocked(solution *C.SidereonSppSolution) (SPPSolution, error)
 	if len(residuals) > 0 {
 		residualOutput = &residuals[0]
 	}
+	written, required = 0, 0
 	if err := statusErrorLocked(C.sidereon_spp_solution_residuals(solution, residualOutput, residualLength, &written, &required)); err != nil {
 		return SPPSolution{}, err
 	}
@@ -281,6 +283,12 @@ func readSPPSolutionLocked(solution *C.SidereonSppSolution) (SPPSolution, error)
 	var metadata C.SidereonSppMetadata
 	if err := statusErrorLocked(C.sidereon_spp_solution_metadata(solution, &metadata)); err != nil {
 		return SPPSolution{}, err
+	}
+	if uint32(metadata.status) > uint32(C.SIDEREON_SPP_SOLVE_STATUS_MAX_EVALUATIONS) {
+		return SPPSolution{}, invalidArgument("invalid SPP solve status returned by native code")
+	}
+	if uint32(metadata.geometry_quality.tier) > uint32(C.SIDEREON_OBSERVABILITY_TIER_NOMINAL) {
+		return SPPSolution{}, invalidArgument("invalid SPP observability tier returned by native code")
 	}
 	iterations, err := checkedNativeCount(uint64(metadata.iterations))
 	if err != nil {
