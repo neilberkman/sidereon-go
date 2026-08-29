@@ -5,6 +5,7 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 // CivilDateTime is a UTC-like proleptic-Gregorian calendar instant. Second
 // may contain a fractional part.
 type CivilDateTime struct {
+	// Year, Month, Day, Hour, and Minute are Gregorian calendar fields.
 	Year   int
 	Month  int
 	Day    int
@@ -15,6 +16,7 @@ type CivilDateTime struct {
 
 // JulianDate is the split Julian date used by the C time-scale APIs.
 type JulianDate struct {
+	// Whole and Fraction are the split Julian date components.
 	Whole    float64
 	Fraction float64
 }
@@ -22,6 +24,7 @@ type JulianDate struct {
 // TimeScales contains the split Julian-date values returned by the C frame
 // helpers.
 type TimeScales struct {
+	// JDWhole is the shared Julian-date whole part; fractions are dimensionless days.
 	JDWhole     float64
 	UT1Fraction float64
 	TTFraction  float64
@@ -34,6 +37,7 @@ type TimeScales struct {
 // GNSSWeekSeconds is the result of splitting continuous seconds into a GNSS
 // week and seconds within that week.
 type GNSSWeekSeconds struct {
+	// Week is the continuous GNSS week; SecondsOfWeek is seconds within that week.
 	Week          float64
 	SecondsOfWeek float64
 }
@@ -42,17 +46,28 @@ type GNSSWeekSeconds struct {
 type TimeScale uint32
 
 const (
-	UTC      TimeScale = TimeScale(native.TimeScaleUTC)
-	TAI      TimeScale = TimeScale(native.TimeScaleTAI)
-	TT       TimeScale = TimeScale(native.TimeScaleTT)
-	TDB      TimeScale = TimeScale(native.TimeScaleTDB)
-	GPST     TimeScale = TimeScale(native.TimeScaleGPST)
-	GST      TimeScale = TimeScale(native.TimeScaleGST)
-	BDT      TimeScale = TimeScale(native.TimeScaleBDT)
+	// UTC is coordinated universal time.
+	UTC TimeScale = TimeScale(native.TimeScaleUTC)
+	// TAI is international atomic time.
+	TAI TimeScale = TimeScale(native.TimeScaleTAI)
+	// TT is terrestrial time.
+	TT TimeScale = TimeScale(native.TimeScaleTT)
+	// TDB is barycentric dynamical time.
+	TDB TimeScale = TimeScale(native.TimeScaleTDB)
+	// GPST is GPS system time.
+	GPST TimeScale = TimeScale(native.TimeScaleGPST)
+	// GST is Galileo system time.
+	GST TimeScale = TimeScale(native.TimeScaleGST)
+	// BDT is BeiDou system time.
+	BDT TimeScale = TimeScale(native.TimeScaleBDT)
+	// GLONASST is GLONASS system time.
 	GLONASST TimeScale = TimeScale(native.TimeScaleGLONASST)
-	QZSST    TimeScale = TimeScale(native.TimeScaleQZSST)
-	TCG      TimeScale = TimeScale(native.TimeScaleTCG)
-	TCB      TimeScale = TimeScale(native.TimeScaleTCB)
+	// QZSST is QZSS system time.
+	QZSST TimeScale = TimeScale(native.TimeScaleQZSST)
+	// TCG is geocentric coordinate time.
+	TCG TimeScale = TimeScale(native.TimeScaleTCG)
+	// TCB is barycentric coordinate time.
+	TCB TimeScale = TimeScale(native.TimeScaleTCB)
 )
 
 // CivilToJ2000Seconds returns continuous UTC-like seconds past J2000.
@@ -159,3 +174,6 @@ func TimeScaleOffsetAt(from, to TimeScale, utcJulianDate float64) (float64, erro
 	value, err := native.TimeScaleOffsetAt(uint32(from), uint32(to), utcJulianDate)
 	return value, publicError(err)
 }
+
+// Second is the fractional civil second.
+// JDUT1, JDTT, and JDTDB are complete Julian dates in the named scales.

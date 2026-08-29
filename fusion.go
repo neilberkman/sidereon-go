@@ -6,67 +6,98 @@ import (
 	"github.com/neilberkman/sidereon-go/internal/native"
 )
 
+// FusionFilterKind selects the native nonlinear filter.
 type FusionFilterKind uint32
 
 const (
+	// FusionEKF selects the extended Kalman filter.
 	FusionEKF FusionFilterKind = FusionFilterKind(native.FusionFilterEKFValue)
+	// FusionUKF selects the unscented Kalman filter.
 	FusionUKF FusionFilterKind = FusionFilterKind(native.FusionFilterUKFValue)
 )
 
+// FusionErrorStateLayout selects the error-state dimension.
 type FusionErrorStateLayout uint32
 
 const (
-	FusionFifteenState   FusionErrorStateLayout = FusionErrorStateLayout(native.FusionLayoutFifteenValue)
+	// FusionFifteenState selects the 15-state layout.
+	FusionFifteenState FusionErrorStateLayout = FusionErrorStateLayout(native.FusionLayoutFifteenValue)
+	// FusionTwentyOneState selects the 21-state layout.
 	FusionTwentyOneState FusionErrorStateLayout = FusionErrorStateLayout(native.FusionLayoutTwentyOneValue)
 )
 
+// FusionIMUGrade selects a native IMU performance grade.
 type FusionIMUGrade uint32
 
 const (
-	FusionIMUMEMS       FusionIMUGrade = FusionIMUGrade(native.FusionImuGradeMEMSValue)
-	FusionIMUTactical   FusionIMUGrade = FusionIMUGrade(native.FusionImuGradeTacticalValue)
+	// FusionIMUMEMS selects a MEMS-grade IMU.
+	FusionIMUMEMS FusionIMUGrade = FusionIMUGrade(native.FusionImuGradeMEMSValue)
+	// FusionIMUTactical selects a tactical-grade IMU.
+	FusionIMUTactical FusionIMUGrade = FusionIMUGrade(native.FusionImuGradeTacticalValue)
+	// FusionIMUNavigation selects a navigation-grade IMU.
 	FusionIMUNavigation FusionIMUGrade = FusionIMUGrade(native.FusionImuGradeNavigationValue)
 )
 
+// FusionIMUSampleKind selects rate or increment IMU measurements.
 type FusionIMUSampleKind uint32
 
 const (
-	FusionIMURate      FusionIMUSampleKind = FusionIMUSampleKind(native.FusionSampleRateValue)
+	// FusionIMURate supplies instantaneous rates and specific force.
+	FusionIMURate FusionIMUSampleKind = FusionIMUSampleKind(native.FusionSampleRateValue)
+	// FusionIMUIncrement supplies integrated delta measurements.
 	FusionIMUIncrement FusionIMUSampleKind = FusionIMUSampleKind(native.FusionSampleIncrementValue)
 )
 
+// FusionGNSSFixStatus identifies the GNSS ambiguity-fix state.
 type FusionGNSSFixStatus uint32
 
 const (
+	// FusionFixSingle identifies a single-point fix.
 	FusionFixSingle FusionGNSSFixStatus = FusionGNSSFixStatus(native.FusionFixSingleValue)
-	FusionFixFloat  FusionGNSSFixStatus = FusionGNSSFixStatus(native.FusionFixFloatValue)
-	FusionFixFixed  FusionGNSSFixStatus = FusionGNSSFixStatus(native.FusionFixFixedValue)
+	// FusionFixFloat identifies a float ambiguity fix.
+	FusionFixFloat FusionGNSSFixStatus = FusionGNSSFixStatus(native.FusionFixFloatValue)
+	// FusionFixFixed identifies an integer-fixed ambiguity fix.
+	FusionFixFixed FusionGNSSFixStatus = FusionGNSSFixStatus(native.FusionFixFixedValue)
 )
 
+// FusionIMUSpec contains IMU noise and instability values in native units.
 type FusionIMUSpec struct {
+	// All noise fields use their unit-bearing names; scale fields are optional ppm values.
 	AccelVRWMPerSqrtS, GyroARRadPerSqrtS, AccelBiasInstabilityMPerS2, GyroBiasInstabilityRadPerS, AccelBiasTauS, GyroBiasTauS float64
 	HasAccelScaleInstability, HasGyroScaleInstability                                                                         bool
 	AccelScaleInstabilityPPM, GyroScaleInstabilityPPM                                                                         float64
 }
+
+// FusionFilterConfig configures a fusion filter and time-sync buffers.
 type FusionFilterConfig struct {
+	// FilterKind selects EKF or UKF processing.
 	FilterKind                                      FusionFilterKind
 	Layout                                          FusionErrorStateLayout
 	IMUSpec                                         FusionIMUSpec
 	TimeSyncIMUCapacity, TimeSyncCheckpointCapacity int
 }
+
+// FusionNavState is an ECEF navigation state with metres and seconds units.
 type FusionNavState struct {
+	// EpochJ2000S is seconds since J2000; vectors use ECEF metres and metres per second.
 	EpochJ2000S                                                         float64
 	PositionECEFM, VelocityECEFMPerS                                    [3]float64
 	AttitudeBodyToECEF                                                  [9]float64
 	AccelBiasMPerS2, GyroBiasRadPerS, AccelScaleFactor, GyroScaleFactor [3]float64
 }
+
+// FusionIMUSample is one rate or increment IMU sample at J2000 seconds.
 type FusionIMUSample struct {
+	// EpochJ2000S is seconds since J2000; vector fields use body-frame units in their names.
 	EpochJ2000S                                                                float64
 	Kind                                                                       FusionIMUSampleKind
 	SpecificForceMPerS2, AngularRateRadPerS, DeltaVelocityMPerS, DeltaThetaRad [3]float64
 	DTS                                                                        float64
 }
+
+// FusionState contains a detached fusion state and covariance metadata.
 type FusionState struct {
+	// EpochJ2000S is seconds since J2000; state vectors use ECEF metres and metres per second.
 	EpochJ2000S                                                         float64
 	PositionECEFM, VelocityECEFMPerS                                    [3]float64
 	AttitudeBodyToECEF                                                  [9]float64
@@ -76,12 +107,18 @@ type FusionState struct {
 	TightClockBiasM, TightClockDriftMPerS                               float64
 	TightClockCovariance                                                [4]float64
 }
+
+// FusionTimeSyncStatus reports native IMU/checkpoint buffer occupancy.
 type FusionTimeSyncStatus struct {
+	// Capacity and length fields are native buffer counts; endpoint epochs are J2000 seconds.
 	IMUCapacity, IMULength, CheckpointCapacity, CheckpointLength         int
 	HasOldestIMU, HasNewestIMU, HasOldestCheckpoint, HasNewestCheckpoint bool
 	OldestIMU, NewestIMU, OldestCheckpoint, NewestCheckpoint             float64
 }
+
+// FusionLooseMeasurement is one detached GNSS position/velocity update.
 type FusionLooseMeasurement struct {
+	// EpochJ2000S is seconds since J2000; positions, velocities, and covariance use ECEF metre units.
 	EpochJ2000S                      float64
 	PositionECEFM, VelocityECEFMPerS [3]float64
 	HasVelocity                      bool
@@ -90,12 +127,18 @@ type FusionLooseMeasurement struct {
 	SolutionValid                    bool
 	FixStatus                        FusionGNSSFixStatus
 }
+
+// FusionUpdate reports native update application and residual row counts.
 type FusionUpdate struct {
+	// Rows, AcceptedRows, and RejectedRows are native measurement counts.
 	Applied                          bool
 	NIS                              float64
 	Rows, AcceptedRows, RejectedRows int
 }
+
+// FusionTimeSyncUpdate reports a possibly replayed time-synchronized update.
 type FusionTimeSyncUpdate struct {
+	// ReplayedIMUSegments is a count; checkpoint and current epochs are J2000 seconds.
 	Update                                            FusionUpdate
 	LateMeasurement                                   bool
 	ReplayedIMUSegments                               int
@@ -107,18 +150,29 @@ type FusionTimeSyncUpdate struct {
 type FusionTightUpdateMode uint32
 
 const (
-	FusionTightDirect   FusionTightUpdateMode = 0
+	// FusionTightDirect applies a direct tight update.
+	FusionTightDirect FusionTightUpdateMode = 0
+	// FusionTightRecorded applies a recorded-history update.
 	FusionTightRecorded FusionTightUpdateMode = 1
+	// FusionTightTimeSync applies a time-synchronizing update.
 	FusionTightTimeSync FusionTightUpdateMode = 2
 )
 
+// FusionTightRangeRate contains a satellite range-rate measurement in m/s.
 type FusionTightRangeRate struct {
+	// All fields are metre-per-second measurements or uncertainties.
 	MeasuredMPerS, SigmaMPerS, SatelliteClockDriftMPerS float64
 }
+
+// FusionTightCarrierPhase contains carrier phase range and ambiguity in metres.
 type FusionTightCarrierPhase struct {
+	// All fields are metre-valued ranges, uncertainties, or ambiguities.
 	PhaseRangeM, SigmaM, FloatAmbiguityM float64
 }
+
+// FusionTightObservation contains one satellite's optional tight observables.
 type FusionTightObservation struct {
+	// SatelliteID identifies the row; HasRangeRate and HasCarrierPhase guard their payloads.
 	SatelliteID          string
 	PseudorangeM, SigmaM float64
 	HasRangeRate         bool
@@ -128,28 +182,41 @@ type FusionTightObservation struct {
 	IonosphereDelayM     float64
 	TroposphereDelayM    float64
 }
+
+// FusionTightEpoch groups tight observations at one J2000 epoch.
 type FusionTightEpoch struct {
+	// EpochJ2000S is seconds since J2000; Observations are copied at the native call.
 	EpochJ2000S  float64
 	Observations []FusionTightObservation
 }
+
+// FusionRTSEpoch describes one recorded Rauch-Tung-Striebel history epoch.
 type FusionRTSEpoch struct {
+	// Dimensions are native counts and HasTransitionFromPrevious controls transition availability.
 	EpochJ2000S                             float64
 	CovarianceDimension, AugmentedDimension int
 	HasTransitionFromPrevious               bool
 }
+
+// FusionFilter owns a native fusion filter and must not be copied.
 type FusionFilter struct {
 	_      noCopy
 	handle *native.FusionFilter
 }
+
+// FusionRTSHistoryBuilder owns a native mutable RTS history.
 type FusionRTSHistoryBuilder struct {
 	_      noCopy
 	handle *native.FusionRTSHistoryBuilder
 }
+
+// FusionRTSHistory owns a finished native RTS history.
 type FusionRTSHistory struct {
 	_      noCopy
 	handle *native.FusionRTSHistory
 }
 
+// DefaultFusionFilterConfig returns native fusion configuration defaults.
 func DefaultFusionFilterConfig() (FusionFilterConfig, error) {
 	v, e := native.FusionConfigDefault()
 	imuCapacity, conversionErr := nativeCountToInt(v.TimeSyncIMUCapacity, "fusion IMU capacity")
@@ -168,6 +235,8 @@ func nativeFusionConfig(v FusionFilterConfig) native.NativeFusionConfig {
 func nativeFusionNav(v FusionNavState) native.NativeFusionNavState {
 	return native.NativeFusionNavState{Epoch: v.EpochJ2000S, Position: v.PositionECEFM, Velocity: v.VelocityECEFMPerS, Attitude: v.AttitudeBodyToECEF, AccelBias: v.AccelBiasMPerS2, GyroBias: v.GyroBiasRadPerS, AccelScale: v.AccelScaleFactor, GyroScale: v.GyroScaleFactor}
 }
+
+// NewFusionFilter constructs a native filter from an initial ECEF state.
 func NewFusionFilter(initial FusionNavState, covarianceDiagonal []float64, config FusionFilterConfig) (*FusionFilter, error) {
 	if config.TimeSyncIMUCapacity < 0 || config.TimeSyncCheckpointCapacity < 0 {
 		return nil, errors.New("sidereon: fusion capacities must not be negative")
@@ -193,10 +262,13 @@ func fusionCovarianceDimension(layout FusionErrorStateLayout) (int, bool) {
 	}
 }
 
+// FusionLayoutDimension returns the native dimension for an error-state layout.
 func FusionLayoutDimension(layout FusionErrorStateLayout) (int, error) {
 	v, e := native.FusionLayoutDimension(uint32(layout))
 	return v, publicError(e)
 }
+
+// FusionIMUPreset returns native IMU noise values for a grade.
 func FusionIMUPreset(grade FusionIMUGrade) (FusionIMUSpec, error) {
 	v, e := native.FusionIMUPreset(uint32(grade))
 	return FusionIMUSpec{v.AccelVRW, v.GyroARW, v.AccelBiasInstability, v.GyroBiasInstability, v.AccelBiasTau, v.GyroBiasTau, v.HasAccelScale, v.HasGyroScale, v.AccelScalePPM, v.GyroScalePPM}, publicError(e)
@@ -208,6 +280,8 @@ func FusionLabels(kind FusionFilterKind, layout FusionErrorStateLayout, fix Fusi
 	filterLabel, layoutLabel, fixLabel, err = native.FusionLabels(uint32(kind), uint32(layout), uint32(fix))
 	return filterLabel, layoutLabel, fixLabel, publicError(err)
 }
+
+// Close releases the fusion filter and is idempotent.
 func (f *FusionFilter) Close() error {
 	if f == nil || f.handle == nil {
 		return nil
@@ -247,6 +321,8 @@ func checkedFusionTimeSyncUpdate(v native.NativeFusionTimeSyncUpdate) (FusionTim
 	}
 	return FusionTimeSyncUpdate{update, v.Late, replayed, v.RestoredEpoch, v.CurrentEpoch}, nil
 }
+
+// State returns a detached current fusion state.
 func (f *FusionFilter) State() (FusionState, error) {
 	if f == nil || f.handle == nil {
 		return FusionState{}, ErrClosed
@@ -258,6 +334,8 @@ func (f *FusionFilter) State() (FusionState, error) {
 	}
 	return state, conversionErr
 }
+
+// TimeSyncStatus returns detached time-sync buffer status.
 func (f *FusionFilter) TimeSyncStatus() (FusionTimeSyncStatus, error) {
 	if f == nil || f.handle == nil {
 		return FusionTimeSyncStatus{}, ErrClosed
@@ -281,6 +359,8 @@ func (f *FusionFilter) TimeSyncStatus() (FusionTimeSyncStatus, error) {
 	}
 	return FusionTimeSyncStatus{imuCapacity, imuLength, checkpointCapacity, checkpointLength, v.HasOldestIMU, v.HasNewestIMU, v.HasOldestCheckpoint, v.HasNewestCheckpoint, v.OldestIMU, v.NewestIMU, v.OldestCheckpoint, v.NewestCheckpoint}, publicError(e)
 }
+
+// Covariance returns the detached row-major filter covariance.
 func (f *FusionFilter) Covariance() ([]float64, error) {
 	if f == nil || f.handle == nil {
 		return nil, ErrClosed
@@ -288,6 +368,8 @@ func (f *FusionFilter) Covariance() ([]float64, error) {
 	v, e := f.handle.Covariance()
 	return append([]float64(nil), v...), publicError(e)
 }
+
+// Propagate applies one IMU sample to the native filter.
 func (f *FusionFilter) Propagate(s FusionIMUSample) error {
 	if f == nil || f.handle == nil {
 		return ErrClosed
@@ -295,6 +377,8 @@ func (f *FusionFilter) Propagate(s FusionIMUSample) error {
 	v := native.NativeFusionIMUSample{Epoch: s.EpochJ2000S, Kind: uint32(s.Kind), SpecificForce: s.SpecificForceMPerS2, AngularRate: s.AngularRateRadPerS, DeltaVelocity: s.DeltaVelocityMPerS, DeltaTheta: s.DeltaThetaRad, DTS: s.DTS}
 	return publicError(f.handle.Propagate(v))
 }
+
+// Encode returns a detached serialized filter state.
 func (f *FusionFilter) Encode() ([]byte, error) {
 	if f == nil || f.handle == nil {
 		return nil, ErrClosed
@@ -302,6 +386,8 @@ func (f *FusionFilter) Encode() ([]byte, error) {
 	v, e := f.handle.Encode()
 	return append([]byte(nil), v...), publicError(e)
 }
+
+// Restore loads a previously encoded native filter state.
 func (f *FusionFilter) Restore(data []byte) error {
 	if f == nil || f.handle == nil {
 		return ErrClosed
@@ -318,6 +404,8 @@ func validateFusionLoose(v FusionLooseMeasurement) error {
 	}
 	return nil
 }
+
+// UpdateLoose applies a loose GNSS update and returns row diagnostics.
 func (f *FusionFilter) UpdateLoose(m FusionLooseMeasurement) (FusionUpdate, error) {
 	if f == nil || f.handle == nil {
 		return FusionUpdate{}, ErrClosed
@@ -332,6 +420,8 @@ func (f *FusionFilter) UpdateLoose(m FusionLooseMeasurement) (FusionUpdate, erro
 	}
 	return update, conversionErr
 }
+
+// UpdateStationary applies a stationary-vehicle update.
 func (f *FusionFilter) UpdateStationary() (FusionUpdate, bool, error) {
 	if f == nil || f.handle == nil {
 		return FusionUpdate{}, false, ErrClosed
@@ -343,6 +433,8 @@ func (f *FusionFilter) UpdateStationary() (FusionUpdate, bool, error) {
 	}
 	return update, p, conversionErr
 }
+
+// UpdateNonHolonomic applies a non-holonomic vehicle update.
 func (f *FusionFilter) UpdateNonHolonomic() (FusionUpdate, bool, error) {
 	if f == nil || f.handle == nil {
 		return FusionUpdate{}, false, ErrClosed
@@ -355,6 +447,7 @@ func (f *FusionFilter) UpdateNonHolonomic() (FusionUpdate, bool, error) {
 	return update, p, conversionErr
 }
 
+// ConfigureTimeSync sizes the native IMU and checkpoint buffers.
 func (f *FusionFilter) ConfigureTimeSync(imuCapacity, checkpointCapacity int) error {
 	if f == nil || f.handle == nil {
 		return ErrClosed
@@ -380,6 +473,7 @@ func nativeFusionTight(v FusionTightEpoch) native.NativeFusionTightEpoch {
 	return out
 }
 
+// PropagateRecorded propagates and appends one sample to RTS history.
 func (f *FusionFilter) PropagateRecorded(sample FusionIMUSample, history *FusionRTSHistoryBuilder) error {
 	if f == nil || f.handle == nil || history == nil || history.handle == nil {
 		return ErrClosed
@@ -387,6 +481,7 @@ func (f *FusionFilter) PropagateRecorded(sample FusionIMUSample, history *Fusion
 	return publicError(f.handle.PropagateRecorded(native.NativeFusionIMUSample{Epoch: sample.EpochJ2000S, Kind: uint32(sample.Kind), SpecificForce: sample.SpecificForceMPerS2, AngularRate: sample.AngularRateRadPerS, DeltaVelocity: sample.DeltaVelocityMPerS, DeltaTheta: sample.DeltaThetaRad, DTS: sample.DTS}, history.handle))
 }
 
+// UpdateLooseRecorded applies a loose update and appends RTS history.
 func (f *FusionFilter) UpdateLooseRecorded(m FusionLooseMeasurement, history *FusionRTSHistoryBuilder) (FusionUpdate, error) {
 	if f == nil || f.handle == nil || history == nil || history.handle == nil {
 		return FusionUpdate{}, ErrClosed
@@ -402,6 +497,7 @@ func (f *FusionFilter) UpdateLooseRecorded(m FusionLooseMeasurement, history *Fu
 	return update, conversionErr
 }
 
+// UpdateLooseTimeSync applies a time-synchronized loose update.
 func (f *FusionFilter) UpdateLooseTimeSync(m FusionLooseMeasurement) (FusionTimeSyncUpdate, error) {
 	if f == nil || f.handle == nil {
 		return FusionTimeSyncUpdate{}, ErrClosed
@@ -417,6 +513,7 @@ func (f *FusionFilter) UpdateLooseTimeSync(m FusionLooseMeasurement) (FusionTime
 	return update, conversionErr
 }
 
+// UpdateStationaryRecorded applies a stationary update with RTS history.
 func (f *FusionFilter) UpdateStationaryRecorded(history *FusionRTSHistoryBuilder) (FusionUpdate, bool, error) {
 	if f == nil || f.handle == nil || history == nil || history.handle == nil {
 		return FusionUpdate{}, false, ErrClosed
@@ -429,6 +526,7 @@ func (f *FusionFilter) UpdateStationaryRecorded(history *FusionRTSHistoryBuilder
 	return update, propagated, conversionErr
 }
 
+// UpdateNonHolonomicRecorded applies a non-holonomic update with RTS history.
 func (f *FusionFilter) UpdateNonHolonomicRecorded(history *FusionRTSHistoryBuilder) (FusionUpdate, bool, error) {
 	if f == nil || f.handle == nil || history == nil || history.handle == nil {
 		return FusionUpdate{}, false, ErrClosed
@@ -441,6 +539,7 @@ func (f *FusionFilter) UpdateNonHolonomicRecorded(history *FusionRTSHistoryBuild
 	return update, propagated, conversionErr
 }
 
+// UpdateTightSP3 applies a tight update using precise SP3 ephemeris.
 func (f *FusionFilter) UpdateTightSP3(epoch FusionTightEpoch, sp3 *SP3, history *FusionRTSHistoryBuilder, mode FusionTightUpdateMode) (FusionUpdate, FusionTimeSyncUpdate, error) {
 	if f == nil || f.handle == nil || sp3 == nil || sp3.handle == nil {
 		return FusionUpdate{}, FusionTimeSyncUpdate{}, ErrClosed
@@ -470,6 +569,7 @@ func (f *FusionFilter) UpdateTightSP3(epoch FusionTightEpoch, sp3 *SP3, history 
 	return convertedUpdate, convertedSync, nil
 }
 
+// UpdateTightBroadcast applies a tight update using broadcast ephemeris.
 func (f *FusionFilter) UpdateTightBroadcast(epoch FusionTightEpoch, broadcast *BroadcastEphemeris, history *FusionRTSHistoryBuilder, mode FusionTightUpdateMode) (FusionUpdate, FusionTimeSyncUpdate, error) {
 	if f == nil || f.handle == nil || broadcast == nil || broadcast.handle == nil {
 		return FusionUpdate{}, FusionTimeSyncUpdate{}, ErrClosed
@@ -498,6 +598,8 @@ func (f *FusionFilter) UpdateTightBroadcast(epoch FusionTightEpoch, broadcast *B
 	}
 	return convertedUpdate, convertedSync, nil
 }
+
+// NewFusionRTSHistoryBuilder creates an empty native RTS history builder.
 func NewFusionRTSHistoryBuilder() (*FusionRTSHistoryBuilder, error) {
 	h, e := native.NewFusionRTSHistoryBuilder()
 	if e != nil {
@@ -505,6 +607,8 @@ func NewFusionRTSHistoryBuilder() (*FusionRTSHistoryBuilder, error) {
 	}
 	return &FusionRTSHistoryBuilder{handle: h}, nil
 }
+
+// NewFusionRTSHistoryBuilderFromFilter snapshots a filter into an RTS builder.
 func NewFusionRTSHistoryBuilderFromFilter(f *FusionFilter) (*FusionRTSHistoryBuilder, error) {
 	if f == nil || f.handle == nil {
 		return nil, ErrClosed
@@ -515,12 +619,16 @@ func NewFusionRTSHistoryBuilderFromFilter(f *FusionFilter) (*FusionRTSHistoryBui
 	}
 	return &FusionRTSHistoryBuilder{handle: h}, nil
 }
+
+// Close releases the RTS history builder and is idempotent.
 func (b *FusionRTSHistoryBuilder) Close() error {
 	if b == nil || b.handle == nil {
 		return nil
 	}
 	return publicError(b.handle.Close())
 }
+
+// Finish seals the builder and returns an owning RTS history.
 func (b *FusionRTSHistoryBuilder) Finish() (*FusionRTSHistory, error) {
 	if b == nil || b.handle == nil {
 		return nil, ErrClosed
@@ -531,12 +639,16 @@ func (b *FusionRTSHistoryBuilder) Finish() (*FusionRTSHistory, error) {
 	}
 	return &FusionRTSHistory{handle: h}, nil
 }
+
+// Close releases the finished RTS history and is idempotent.
 func (h *FusionRTSHistory) Close() error {
 	if h == nil || h.handle == nil {
 		return nil
 	}
 	return publicError(h.handle.Close())
 }
+
+// EpochCount returns the number of recorded RTS epochs.
 func (h *FusionRTSHistory) EpochCount() (int, error) {
 	if h == nil || h.handle == nil {
 		return 0, ErrClosed
@@ -544,6 +656,8 @@ func (h *FusionRTSHistory) EpochCount() (int, error) {
 	v, e := h.handle.EpochCount()
 	return v, publicError(e)
 }
+
+// Epoch returns detached metadata for one RTS epoch.
 func (h *FusionRTSHistory) Epoch(index int) (FusionRTSEpoch, error) {
 	if h == nil || h.handle == nil {
 		return FusionRTSEpoch{}, ErrClosed
@@ -559,6 +673,8 @@ func (h *FusionRTSHistory) Epoch(index int) (FusionRTSEpoch, error) {
 	}
 	return FusionRTSEpoch{v.Epoch, covarianceDimension, augmentedDimension, v.HasTransition}, publicError(e)
 }
+
+// PredictedPosition returns the detached predicted ECEF position in metres.
 func (h *FusionRTSHistory) PredictedPosition(index int) ([]float64, error) {
 	if h == nil || h.handle == nil {
 		return nil, ErrClosed
@@ -566,6 +682,8 @@ func (h *FusionRTSHistory) PredictedPosition(index int) ([]float64, error) {
 	v, e := h.handle.Values(index, 0)
 	return append([]float64(nil), v...), publicError(e)
 }
+
+// UpdatedPosition returns the detached updated ECEF position in metres.
 func (h *FusionRTSHistory) UpdatedPosition(index int) ([]float64, error) {
 	if h == nil || h.handle == nil {
 		return nil, ErrClosed
@@ -573,6 +691,8 @@ func (h *FusionRTSHistory) UpdatedPosition(index int) ([]float64, error) {
 	v, e := h.handle.Values(index, 1)
 	return append([]float64(nil), v...), publicError(e)
 }
+
+// Transition returns the detached row-major state transition matrix.
 func (h *FusionRTSHistory) Transition(index int) ([]float64, error) {
 	if h == nil || h.handle == nil {
 		return nil, ErrClosed
@@ -654,6 +774,7 @@ func (h *FusionRTSHistory) Smooth() (*SmoothedFusionTrajectory, error) {
 	return &SmoothedFusionTrajectory{handle: v}, nil
 }
 
+// Close releases the smoothed trajectory and is idempotent.
 func (s *SmoothedFusionTrajectory) Close() error {
 	if s == nil || s.handle == nil {
 		return nil
@@ -661,6 +782,7 @@ func (s *SmoothedFusionTrajectory) Close() error {
 	return publicError(s.handle.Close())
 }
 
+// EpochCount returns the number of smoothed epochs.
 func (s *SmoothedFusionTrajectory) EpochCount() (int, error) {
 	if s == nil || s.handle == nil {
 		return 0, ErrClosed
@@ -669,6 +791,7 @@ func (s *SmoothedFusionTrajectory) EpochCount() (int, error) {
 	return v, publicError(err)
 }
 
+// Epoch returns detached metadata for one smoothed epoch.
 func (s *SmoothedFusionTrajectory) Epoch(index int) (SmoothedFusionEpoch, error) {
 	if s == nil || s.handle == nil {
 		return SmoothedFusionEpoch{}, ErrClosed

@@ -6,16 +6,27 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 type RTCMMessageKind uint32
 
 const (
-	RTCMMultisignalMessage          RTCMMessageKind = RTCMMessageKind(native.RTCMMessageMSMValue)
-	RTCMMessageStationCoordinates   RTCMMessageKind = RTCMMessageKind(native.RTCMMessageStationCoordinatesValue)
-	RTCMMessageAntennaDescriptor    RTCMMessageKind = RTCMMessageKind(native.RTCMMessageAntennaDescriptorValue)
-	RTCMMessageGPSEphemeris         RTCMMessageKind = RTCMMessageKind(native.RTCMMessageGPSEphemerisValue)
-	RTCMMessageGLONASSEphemeris     RTCMMessageKind = RTCMMessageKind(native.RTCMMessageGLONASSEphemerisValue)
-	RTCMMessageSSR                  RTCMMessageKind = RTCMMessageKind(native.RTCMMessageSSRValue)
-	RTCMUnsupportedMessage          RTCMMessageKind = RTCMMessageKind(native.RTCMMessageUnsupportedValue)
-	RTCMMessageBeiDouEphemeris      RTCMMessageKind = RTCMMessageKind(native.RTCMMessageBeiDouEphemerisValue)
-	RTCMMessageQZSSEphemeris        RTCMMessageKind = RTCMMessageKind(native.RTCMMessageQZSSEphemerisValue)
+	// RTCMMultisignalMessage identifies an MSM message.
+	RTCMMultisignalMessage RTCMMessageKind = RTCMMessageKind(native.RTCMMessageMSMValue)
+	// RTCMMessageStationCoordinates identifies station coordinates.
+	RTCMMessageStationCoordinates RTCMMessageKind = RTCMMessageKind(native.RTCMMessageStationCoordinatesValue)
+	// RTCMMessageAntennaDescriptor identifies an antenna descriptor.
+	RTCMMessageAntennaDescriptor RTCMMessageKind = RTCMMessageKind(native.RTCMMessageAntennaDescriptorValue)
+	// RTCMMessageGPSEphemeris identifies GPS ephemeris.
+	RTCMMessageGPSEphemeris RTCMMessageKind = RTCMMessageKind(native.RTCMMessageGPSEphemerisValue)
+	// RTCMMessageGLONASSEphemeris identifies GLONASS ephemeris.
+	RTCMMessageGLONASSEphemeris RTCMMessageKind = RTCMMessageKind(native.RTCMMessageGLONASSEphemerisValue)
+	// RTCMMessageSSR identifies an SSR message.
+	RTCMMessageSSR RTCMMessageKind = RTCMMessageKind(native.RTCMMessageSSRValue)
+	// RTCMUnsupportedMessage identifies an unsupported message.
+	RTCMUnsupportedMessage RTCMMessageKind = RTCMMessageKind(native.RTCMMessageUnsupportedValue)
+	// RTCMMessageBeiDouEphemeris identifies BeiDou ephemeris.
+	RTCMMessageBeiDouEphemeris RTCMMessageKind = RTCMMessageKind(native.RTCMMessageBeiDouEphemerisValue)
+	// RTCMMessageQZSSEphemeris identifies QZSS ephemeris.
+	RTCMMessageQZSSEphemeris RTCMMessageKind = RTCMMessageKind(native.RTCMMessageQZSSEphemerisValue)
+	// RTCMMessageGalileoFNavEphemeris identifies Galileo F/NAV ephemeris.
 	RTCMMessageGalileoFNavEphemeris RTCMMessageKind = RTCMMessageKind(native.RTCMMessageGalileoFNavEphemerisValue)
+	// RTCMMessageGalileoINavEphemeris identifies Galileo I/NAV ephemeris.
 	RTCMMessageGalileoINavEphemeris RTCMMessageKind = RTCMMessageKind(native.RTCMMessageGalileoINavEphemerisValue)
 )
 
@@ -23,7 +34,9 @@ const (
 type RTCMMSMKind uint32
 
 const (
+	// RTCMMSM4 identifies an MSM4 payload.
 	RTCMMSM4 RTCMMSMKind = RTCMMSMKind(native.RTCMMSM4Value)
+	// RTCMMSM7 identifies an MSM7 payload.
 	RTCMMSM7 RTCMMSMKind = RTCMMSMKind(native.RTCMMSM7Value)
 )
 
@@ -31,13 +44,16 @@ const (
 type RTCMFrameSkipReason uint32
 
 const (
+	// RTCMFrameTruncated identifies a truncated frame.
 	RTCMFrameTruncated RTCMFrameSkipReason = RTCMFrameSkipReason(native.RTCMFrameTruncatedValue)
+	// RTCMFrameMalformed identifies a malformed frame.
 	RTCMFrameMalformed RTCMFrameSkipReason = RTCMFrameSkipReason(native.RTCMFrameMalformedValue)
 )
 
 // RTCMMSMHeader contains raw MSM header fields. EpochTime is the native
 // constellation-specific time-of-week representation.
 type RTCMMSMHeader struct {
+	// ReferenceStationID identifies the station; EpochTime is constellation TOW.
 	ReferenceStationID                           uint16
 	EpochTime                                    uint32
 	MultipleMessage                              bool
@@ -48,6 +64,7 @@ type RTCMMSMHeader struct {
 
 // RTCMMSMInfo contains copied MSM metadata and decoded cell dimensions.
 type RTCMMSMInfo struct {
+	// MessageNumber, System, and Kind identify the decoded MSM message.
 	MessageNumber               uint16
 	System                      GNSSSystem
 	Kind                        RTCMMSMKind
@@ -58,6 +75,7 @@ type RTCMMSMInfo struct {
 // RTCMMSMSatellite contains one raw MSM satellite cell. Ranges are in
 // milliseconds and rates in metres per second after native scaling.
 type RTCMMSMSatellite struct {
+	// ID and range fields are native quantized MSM values; units follow their names.
 	ID, RoughRangeMS       uint8
 	RoughRangeMod1         uint16
 	HasExtendedInfo        bool
@@ -69,6 +87,7 @@ type RTCMMSMSatellite struct {
 // RTCMMSMSignal contains one raw MSM signal cell. CNR is in the native
 // quantized representation and lock time is milliseconds.
 type RTCMMSMSignal struct {
+	// SatelliteID and SignalID identify the cell; range/rate fields preserve native quantization.
 	SatelliteID, SignalID           uint8
 	FinePseudorange, FinePhaseRange int32
 	LockTimeIndicator               uint16
@@ -81,6 +100,7 @@ type RTCMMSMSignal struct {
 // RTCMStationCoordinates contains a copied 1005/1006 station message. ECEF
 // integer and floating-point coordinates are metres.
 type RTCMStationCoordinates struct {
+	// MessageNumber and ReferenceStationID identify the station message.
 	MessageNumber, ReferenceStationID                                           uint16
 	ITRFRealizationYear                                                         uint8
 	GPS, GLONASS, Galileo, ReferenceStation, SingleReceiverOscillator, Reserved bool
@@ -95,6 +115,7 @@ type RTCMStationCoordinates struct {
 // RTCMAntennaDescriptor contains copied presence flags for an antenna
 // descriptor message; strings are retrieved with AntennaString.
 type RTCMAntennaDescriptor struct {
+	// MessageNumber and ReferenceStationID identify the antenna message.
 	MessageNumber, ReferenceStationID                                                            uint16
 	AntennaSetupID                                                                               uint8
 	HasAntennaSerialNumber, HasReceiverType, HasReceiverFirmwareVersion, HasReceiverSerialNumber bool
@@ -103,6 +124,7 @@ type RTCMAntennaDescriptor struct {
 // RTCMGPSEphemeris is the lossless raw transmitted-integer payload of a 1019
 // GPS broadcast ephemeris. Time fields retain the RTCM wire units.
 type RTCMGPSEphemeris struct {
+	// SatelliteID, week, issue, and health fields preserve raw GPS navigation values.
 	SatelliteID              uint8
 	WeekNumber               uint16
 	SVAccuracy, CodeOnL2     uint8
@@ -134,6 +156,7 @@ type RTCMGPSEphemeris struct {
 // RTCMQZSSEphemeris is the lossless raw transmitted-integer payload of a 1044
 // QZSS broadcast ephemeris. Time fields retain the RTCM wire units.
 type RTCMQZSSEphemeris struct {
+	// SatelliteID, week, issue, health, and fit fields preserve raw QZSS values.
 	SatelliteID    uint8
 	TOC            uint16
 	AF2            int16
@@ -164,6 +187,7 @@ type RTCMQZSSEphemeris struct {
 // RTCMBeiDouEphemeris is the lossless raw transmitted-integer payload of a
 // 1042 BeiDou broadcast ephemeris.
 type RTCMBeiDouEphemeris struct {
+	// SatelliteID, week, issue, health, and fit fields preserve raw BeiDou values.
 	SatelliteID  uint8
 	WeekNumber   uint16
 	SVURAI       uint8
@@ -194,6 +218,7 @@ type RTCMBeiDouEphemeris struct {
 // RTCMGalileoFNavEphemeris is the lossless raw transmitted-integer payload of
 // a 1045 Galileo F/NAV broadcast ephemeris.
 type RTCMGalileoFNavEphemeris struct {
+	// SatelliteID, week, issue, health, and validity fields preserve raw Galileo values.
 	SatelliteID        uint8
 	WeekNumber, IodNav uint16
 	SISA               uint8
@@ -225,6 +250,7 @@ type RTCMGalileoFNavEphemeris struct {
 // RTCMGalileoINavEphemeris is the lossless raw transmitted-integer payload of
 // a 1046 Galileo I/NAV broadcast ephemeris.
 type RTCMGalileoINavEphemeris struct {
+	// SatelliteID, week, issue, health, and validity fields preserve raw Galileo values.
 	SatelliteID        uint8
 	WeekNumber, IodNav uint16
 	SISAIndex          uint8
@@ -258,6 +284,7 @@ type RTCMGalileoINavEphemeris struct {
 // RTCMGLONASSEphemeris is the lossless raw transmitted-integer payload of a
 // 1020 GLONASS broadcast ephemeris.
 type RTCMGLONASSEphemeris struct {
+	// SatelliteID and FrequencyChannel identify the GLONASS slot and FDMA channel.
 	SatelliteID, FrequencyChannel            uint8
 	AlmanacHealth, AlmanacHealthAvailability bool
 	P1                                       uint8
@@ -292,6 +319,7 @@ type RTCMGLONASSEphemeris struct {
 
 // RTCMFrameSkip contains one detached stream skip offset and reason.
 type RTCMFrameSkip struct {
+	// Offset is the byte offset; MessageNumber is present only when HasMessageNumber is true.
 	Offset           int
 	HasMessageNumber bool
 	MessageNumber    uint16
@@ -300,6 +328,7 @@ type RTCMFrameSkip struct {
 
 // RTCMCellLLI contains one loss-of-lock result from the lock-time tracker.
 type RTCMCellLLI struct {
+	// SatelliteID, SignalID, and LLI identify the lock-loss indicator cell.
 	SatelliteID, SignalID, LLI uint8
 	HasMinLockTime             bool
 	MinLockTimeMS              uint32
@@ -308,6 +337,7 @@ type RTCMCellLLI struct {
 // RTCMMessage is a detached decoded message. Body and Frame are copied bytes;
 // only the matching typed payload pointer is populated.
 type RTCMMessage struct {
+	// Kind and MessageNumber identify the decoded message.
 	Kind           RTCMMessageKind
 	MessageNumber  uint16
 	Body, Frame    []byte
@@ -630,6 +660,7 @@ func (m *RTCMMessages) Message(index int) (RTCMMessage, error) {
 	return out, nil
 }
 
+// SSRInfo returns detached SSR metadata for one message.
 func (m *RTCMMessages) SSRInfo(index int) (RTCMSSRInfo, error) {
 	if m == nil || m.handle == nil {
 		return RTCMSSRInfo{}, ErrClosed
@@ -638,6 +669,7 @@ func (m *RTCMMessages) SSRInfo(index int) (RTCMSSRInfo, error) {
 	return ssrInfoFromNative(v), publicError(err)
 }
 
+// SSROrbits returns detached SSR orbit records for one message.
 func (m *RTCMMessages) SSROrbits(index int) ([]RTCMSSROrbitRecord, error) {
 	if m == nil || m.handle == nil {
 		return nil, ErrClosed
@@ -653,6 +685,7 @@ func (m *RTCMMessages) SSROrbits(index int) ([]RTCMSSROrbitRecord, error) {
 	return out, nil
 }
 
+// SSRClocks returns detached SSR clock records for one message.
 func (m *RTCMMessages) SSRClocks(index int) ([]RTCMSSRClockRecord, error) {
 	if m == nil || m.handle == nil {
 		return nil, ErrClosed
@@ -668,6 +701,7 @@ func (m *RTCMMessages) SSRClocks(index int) ([]RTCMSSRClockRecord, error) {
 	return out, nil
 }
 
+// SSRCodeBiases returns detached SSR code-bias groups for one message.
 func (m *RTCMMessages) SSRCodeBiases(index int) ([]RTCMSSRCodeBiasGroup, error) {
 	if m == nil || m.handle == nil {
 		return nil, ErrClosed
@@ -694,6 +728,7 @@ func (m *RTCMMessages) SSRCodeBiases(index int) ([]RTCMSSRCodeBiasGroup, error) 
 	return out, nil
 }
 
+// SSRCodeBiasSignals returns detached signal rows for one code-bias record.
 func (m *RTCMMessages) SSRCodeBiasSignals(index, recordIndex int) ([]RTCMSSRCodeBiasSignal, error) {
 	if m == nil || m.handle == nil {
 		return nil, ErrClosed
@@ -709,6 +744,7 @@ func (m *RTCMMessages) SSRCodeBiasSignals(index, recordIndex int) ([]RTCMSSRCode
 	return out, nil
 }
 
+// SSRPhaseBiases returns detached SSR phase-bias groups for one message.
 func (m *RTCMMessages) SSRPhaseBiases(index int) ([]RTCMSSRPhaseBiasGroup, error) {
 	if m == nil || m.handle == nil {
 		return nil, ErrClosed
@@ -735,6 +771,7 @@ func (m *RTCMMessages) SSRPhaseBiases(index int) ([]RTCMSSRPhaseBiasGroup, error
 	return out, nil
 }
 
+// SSRPhaseBiasSignals returns detached signal rows for one phase-bias record.
 func (m *RTCMMessages) SSRPhaseBiasSignals(index, recordIndex int) ([]RTCMSSRPhaseBiasSignal, error) {
 	if m == nil || m.handle == nil {
 		return nil, ErrClosed
@@ -750,6 +787,7 @@ func (m *RTCMMessages) SSRPhaseBiasSignals(index, recordIndex int) ([]RTCMSSRPha
 	return out, nil
 }
 
+// SSRURA returns detached user-range-accuracy records for one message.
 func (m *RTCMMessages) SSRURA(index int) ([]RTCMSSRURARecord, error) {
 	if m == nil || m.handle == nil {
 		return nil, ErrClosed
@@ -764,6 +802,8 @@ func (m *RTCMMessages) SSRURA(index int) ([]RTCMSSRURARecord, error) {
 	}
 	return out, nil
 }
+
+// Encode returns a detached native RTCM frame body.
 func (m *RTCMMessages) Encode(index int) ([]byte, error) {
 	if m == nil || m.handle == nil {
 		return nil, ErrClosed
@@ -771,6 +811,8 @@ func (m *RTCMMessages) Encode(index int) ([]byte, error) {
 	v, e := m.handle.Encode(index)
 	return v, publicError(e)
 }
+
+// Frame returns a detached complete RTCM transport frame.
 func (m *RTCMMessages) Frame(index int) ([]byte, error) {
 	if m == nil || m.handle == nil {
 		return nil, ErrClosed
@@ -778,6 +820,8 @@ func (m *RTCMMessages) Frame(index int) ([]byte, error) {
 	v, e := m.handle.Frame(index)
 	return v, publicError(e)
 }
+
+// MSMInfo returns detached MSM metadata for one message.
 func (m *RTCMMessages) MSMInfo(index int) (RTCMMSMInfo, error) {
 	if m == nil || m.handle == nil {
 		return RTCMMSMInfo{}, ErrClosed
@@ -785,6 +829,8 @@ func (m *RTCMMessages) MSMInfo(index int) (RTCMMSMInfo, error) {
 	v, e := m.handle.MSMInfo(index)
 	return rtcmMSMInfo(v), publicError(e)
 }
+
+// MSMSatellites returns detached MSM satellite rows.
 func (m *RTCMMessages) MSMSatellites(index int) ([]RTCMMSMSatellite, error) {
 	if m == nil || m.handle == nil {
 		return nil, ErrClosed
@@ -799,6 +845,8 @@ func (m *RTCMMessages) MSMSatellites(index int) ([]RTCMMSMSatellite, error) {
 	}
 	return out, nil
 }
+
+// MSMSignals returns detached MSM signal rows.
 func (m *RTCMMessages) MSMSignals(index int) ([]RTCMMSMSignal, error) {
 	if m == nil || m.handle == nil {
 		return nil, ErrClosed
@@ -813,6 +861,8 @@ func (m *RTCMMessages) MSMSignals(index int) ([]RTCMMSMSignal, error) {
 	}
 	return out, nil
 }
+
+// StationCoordinates returns detached station ECEF coordinates.
 func (m *RTCMMessages) StationCoordinates(index int) (RTCMStationCoordinates, error) {
 	if m == nil || m.handle == nil {
 		return RTCMStationCoordinates{}, ErrClosed
@@ -821,6 +871,7 @@ func (m *RTCMMessages) StationCoordinates(index int) (RTCMStationCoordinates, er
 	return rtcmStation(v), publicError(e)
 }
 
+// GPSEphemeris returns detached GPS ephemeris.
 func (m *RTCMMessages) GPSEphemeris(index int) (RTCMGPSEphemeris, error) {
 	if m == nil || m.handle == nil {
 		return RTCMGPSEphemeris{}, ErrClosed
@@ -828,6 +879,8 @@ func (m *RTCMMessages) GPSEphemeris(index int) (RTCMGPSEphemeris, error) {
 	v, err := m.handle.GPSEphemeris(index)
 	return rtcmGPS(v), publicError(err)
 }
+
+// GLONASSEphemeris returns detached GLONASS ephemeris.
 func (m *RTCMMessages) GLONASSEphemeris(index int) (RTCMGLONASSEphemeris, error) {
 	if m == nil || m.handle == nil {
 		return RTCMGLONASSEphemeris{}, ErrClosed
@@ -835,6 +888,8 @@ func (m *RTCMMessages) GLONASSEphemeris(index int) (RTCMGLONASSEphemeris, error)
 	v, err := m.handle.GLONASSEphemeris(index)
 	return rtcmGLONASS(v), publicError(err)
 }
+
+// BeiDouEphemeris returns detached BeiDou ephemeris.
 func (m *RTCMMessages) BeiDouEphemeris(index int) (RTCMBeiDouEphemeris, error) {
 	if m == nil || m.handle == nil {
 		return RTCMBeiDouEphemeris{}, ErrClosed
@@ -842,6 +897,8 @@ func (m *RTCMMessages) BeiDouEphemeris(index int) (RTCMBeiDouEphemeris, error) {
 	v, err := m.handle.BeidouEphemeris(index)
 	return rtcmBeiDou(v), publicError(err)
 }
+
+// QZSSEphemeris returns detached QZSS ephemeris.
 func (m *RTCMMessages) QZSSEphemeris(index int) (RTCMQZSSEphemeris, error) {
 	if m == nil || m.handle == nil {
 		return RTCMQZSSEphemeris{}, ErrClosed
@@ -849,6 +906,8 @@ func (m *RTCMMessages) QZSSEphemeris(index int) (RTCMQZSSEphemeris, error) {
 	v, err := m.handle.QZSSEphemeris(index)
 	return rtcmQZSS(v), publicError(err)
 }
+
+// GalileoFNavEphemeris returns detached Galileo F/NAV ephemeris.
 func (m *RTCMMessages) GalileoFNavEphemeris(index int) (RTCMGalileoFNavEphemeris, error) {
 	if m == nil || m.handle == nil {
 		return RTCMGalileoFNavEphemeris{}, ErrClosed
@@ -856,6 +915,8 @@ func (m *RTCMMessages) GalileoFNavEphemeris(index int) (RTCMGalileoFNavEphemeris
 	v, err := m.handle.GalileoFNavEphemeris(index)
 	return rtcmGalileoFNav(v), publicError(err)
 }
+
+// GalileoINavEphemeris returns detached Galileo I/NAV ephemeris.
 func (m *RTCMMessages) GalileoINavEphemeris(index int) (RTCMGalileoINavEphemeris, error) {
 	if m == nil || m.handle == nil {
 		return RTCMGalileoINavEphemeris{}, ErrClosed
@@ -868,11 +929,16 @@ func (m *RTCMMessages) GalileoINavEphemeris(index int) (RTCMGalileoINavEphemeris
 type RTCMAntennaStringField uint32
 
 const (
-	RTCMAntennaDescriptorField       RTCMAntennaStringField = RTCMAntennaStringField(native.RTCMAntennaDescriptorFieldValue)
-	RTCMAntennaSerialNumberField     RTCMAntennaStringField = RTCMAntennaStringField(native.RTCMAntennaSerialNumberFieldValue)
-	RTCMReceiverTypeField            RTCMAntennaStringField = RTCMAntennaStringField(native.RTCMReceiverTypeFieldValue)
+	// RTCMAntennaDescriptorField selects the antenna descriptor.
+	RTCMAntennaDescriptorField RTCMAntennaStringField = RTCMAntennaStringField(native.RTCMAntennaDescriptorFieldValue)
+	// RTCMAntennaSerialNumberField selects the antenna serial number.
+	RTCMAntennaSerialNumberField RTCMAntennaStringField = RTCMAntennaStringField(native.RTCMAntennaSerialNumberFieldValue)
+	// RTCMReceiverTypeField selects the receiver type.
+	RTCMReceiverTypeField RTCMAntennaStringField = RTCMAntennaStringField(native.RTCMReceiverTypeFieldValue)
+	// RTCMReceiverFirmwareVersionField selects receiver firmware.
 	RTCMReceiverFirmwareVersionField RTCMAntennaStringField = RTCMAntennaStringField(native.RTCMReceiverFirmwareVersionFieldValue)
-	RTCMReceiverSerialNumberField    RTCMAntennaStringField = RTCMAntennaStringField(native.RTCMReceiverSerialNumberFieldValue)
+	// RTCMReceiverSerialNumberField selects the receiver serial number.
+	RTCMReceiverSerialNumberField RTCMAntennaStringField = RTCMAntennaStringField(native.RTCMReceiverSerialNumberFieldValue)
 )
 
 // AntennaDescriptor returns copied antenna descriptor presence metadata.
@@ -1107,3 +1173,23 @@ func RTCMLLIBits() (lossOfLock, halfCycle uint8, err error) {
 	lossOfLock, halfCycle, err = native.RTCMLLIBits()
 	return lossOfLock, halfCycle, publicError(err)
 }
+
+// MultipleMessage, IODS, and reserved/clock flags preserve wire header bits.
+// DivergenceFreeSmoothing and SmoothingInterval preserve optional smoothing metadata.
+// Header is the copied raw MSM header.
+// SatelliteCount and SignalCount are native decoded dimensions.
+// LockTimeIndicator, HalfCycleAmbiguity, and CNR preserve native signal flags.
+// ITRFRealizationYear and constellation flags preserve wire metadata.
+// ECEFX/ECEFY/ECEFZ are raw integer fields; XM/YM/ZM are metres.
+// HasAntennaHeight controls AntennaHeight and AntennaHeightM.
+// AntennaSetupID is the native setup number; Has* fields guard optional strings.
+// Orbital and clock fields use the native RTCM quantized representation.
+// Orbital and clock fields use the native RTCM quantized representation.
+// Orbital and clock fields use the native RTCM quantized representation.
+// Orbital, clock, and group-delay fields use native RTCM representation.
+// Orbital, clock, and group-delay fields use native RTCM representation.
+// Almanac, timing, and health flags preserve native GLONASS wire fields.
+// XN, YN, ZN and derivative fields preserve native scaled state values.
+// HasMinLockTime controls MinLockTimeMS, which is in milliseconds.
+// Body and Frame are detached native byte representations.
+// Typed pointers are present only for the matching Kind; slices hold detached SSR rows.

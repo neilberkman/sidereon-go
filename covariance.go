@@ -5,12 +5,15 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 // Covariance6 is a value-owned row-major six-by-six covariance matrix.
 // Methods delegate validation and transformations to the C library.
 type Covariance6 struct {
+	// Values is a row-major covariance in caller-selected units.
 	Values [6][6]float64
 }
 
 // CovarianceValidation contains the C library's matrix validation results.
 type CovarianceValidation struct {
-	Symmetric            bool
+	// Symmetric reports C's symmetry check.
+	Symmetric bool
+	// PositiveSemidefinite reports C's PSD check.
 	PositiveSemidefinite bool
 }
 
@@ -19,8 +22,10 @@ type CovarianceValidation struct {
 type CovarianceFrame uint32
 
 const (
+	// CovarianceInertial selects ECI coordinates.
 	CovarianceInertial CovarianceFrame = 0
-	CovarianceRTN      CovarianceFrame = 1
+	// CovarianceRTN selects radial/transverse/normal coordinates.
+	CovarianceRTN CovarianceFrame = 1
 )
 
 // ProcessNoiseKind selects the C process-noise interpretation. Values are
@@ -28,7 +33,9 @@ const (
 type ProcessNoiseKind uint32
 
 const (
-	ProcessNoiseNone               ProcessNoiseKind = 0
+	// ProcessNoiseNone disables process noise.
+	ProcessNoiseNone ProcessNoiseKind = 0
+	// ProcessNoiseRTNAccelerationPSD selects RTN acceleration power spectral density.
 	ProcessNoiseRTNAccelerationPSD ProcessNoiseKind = 1
 )
 
@@ -67,10 +74,13 @@ func (c Covariance6) Interpolate(other Covariance6, u float64) (Covariance6, err
 	return Covariance6{Values: values}, publicError(err)
 }
 
+// ECIToRTN rotates this covariance from ECI to RTN using state position and velocity.
 func (c Covariance6) ECIToRTN(state CartesianState) (Covariance6, error) {
 	v, err := native.CovarianceECIToRTN(c.Values, native.NativeCartesianState{EpochS: state.EpochTDBSeconds, PositionKm: state.PositionKm, VelocityKmS: state.VelocityKmPerS})
 	return Covariance6{Values: v}, publicError(err)
 }
+
+// RTNToECI rotates this covariance from RTN to ECI using state position and velocity.
 func (c Covariance6) RTNToECI(state CartesianState) (Covariance6, error) {
 	v, err := native.CovarianceRTNToECI(c.Values, native.NativeCartesianState{EpochS: state.EpochTDBSeconds, PositionKm: state.PositionKm, VelocityKmS: state.VelocityKmPerS})
 	return Covariance6{Values: v}, publicError(err)
@@ -79,15 +89,20 @@ func (c Covariance6) RTNToECI(state CartesianState) (Covariance6, error) {
 // CovarianceTransportSegment contains one C-provided state transition matrix
 // and the ECI state used to rotate radial/transverse/normal process noise.
 type CovarianceTransportSegment struct {
-	STM            [6][6]float64
-	DTSeconds      float64
+	// STM is the row-major six-state transition matrix.
+	STM [6][6]float64
+	// DTSeconds is the segment duration in seconds.
+	DTSeconds float64
+	// QRotationState supplies the ECI state used for RTN noise rotation.
 	QRotationState CartesianState
 }
 
 // ProcessNoise describes C's optional RTN acceleration power spectral density
 // in km²/s³. It is applied during covariance transport in the inertial frame.
 type ProcessNoise struct {
-	Kind                                      ProcessNoiseKind
+	// Kind selects whether the PSD fields are used.
+	Kind ProcessNoiseKind
+	// RadialKm2S3, TransverseKm2S3, and NormalKm2S3 are acceleration PSDs in km²/s³.
 	RadialKm2S3, TransverseKm2S3, NormalKm2S3 float64
 }
 
@@ -95,28 +110,46 @@ type ProcessNoise struct {
 // velocity is km/s, EpochTDBSeconds is seconds since J2000 TDB, tolerances are
 // dimensionless, and step limits are seconds.
 type PropagationConfig struct {
-	EpochTDBSeconds                                  float64
-	PositionKm, VelocityKmPerS                       [3]float64
-	ForceModel                                       PropagationForceModel
-	Integrator                                       PropagationIntegrator
+	// EpochTDBSeconds is seconds since J2000 TDB.
+	EpochTDBSeconds float64
+	// PositionKm and VelocityKmPerS are ECI state vectors in km and km/s.
+	PositionKm, VelocityKmPerS [3]float64
+	// ForceModel and Integrator select the native propagation models.
+	ForceModel PropagationForceModel
+	Integrator PropagationIntegrator
+	// AbsTol and RelTol are dimensionless tolerances; step fields are seconds.
 	AbsTol, RelTol, InitialStepS, MinStepS, MaxStepS float64
-	MaxSteps                                         uint32
-	MuEnabled                                        bool
-	MuKm3S2                                          float64
-	HasDrag                                          bool
-	Drag                                             DragParameters
-	ForceComponents                                  ForceModelComponents
+	// MaxSteps bounds native integration steps.
+	MaxSteps uint32
+	// MuEnabled controls use of MuKm3S2.
+	MuEnabled bool
+	// MuKm3S2 is the gravitational parameter in km³/s².
+	MuKm3S2 float64
+	// HasDrag controls use of Drag.
+	HasDrag bool
+	// Drag contains optional atmospheric-drag parameters.
+	Drag DragParameters
+	// ForceComponents selects enabled force terms.
+	ForceComponents ForceModelComponents
 }
+
+// CovarianceNode is one propagated state and covariance sample.
 type CovarianceNode struct {
-	State      CartesianState
+	// State is the detached propagated state.
+	State CartesianState
+	// Covariance is the covariance at State.
 	Covariance Covariance6
-	Frame      CovarianceFrame
+	// Frame identifies Covariance's coordinates.
+	Frame CovarianceFrame
 }
+
+// CovarianceEphemeris owns a native propagated covariance ephemeris.
 type CovarianceEphemeris struct {
 	_      noCopy
 	handle *native.CovarianceEphemeris
 }
 
+// DefaultPropagationConfig returns native propagation defaults, including SI-independent km units.
 func DefaultPropagationConfig() (PropagationConfig, error) {
 	v, e := native.PropagationConfigDefault()
 	return PropagationConfig{EpochTDBSeconds: v.Epoch, PositionKm: v.Position, VelocityKmPerS: v.Velocity,
@@ -126,6 +159,8 @@ func DefaultPropagationConfig() (PropagationConfig, error) {
 		Drag:            DragParameters{BCFactorM2PerKg: v.Drag.BCFactorM2PerKg, Weather: SpaceWeather{F107: v.Drag.Weather.F107, F107A: v.Drag.Weather.F107A, Ap: v.Drag.Weather.Ap}, CutoffAltitudeKm: v.Drag.CutoffAltitudeKm},
 		ForceComponents: publicForceComponents(v.ForceComponents)}, publicError(e)
 }
+
+// PropagateCovariance propagates covariance samples at TDB seconds since J2000.
 func PropagateCovariance(config PropagationConfig, covariance Covariance6, epochs []float64, inputFrame, outputFrame CovarianceFrame, noise ProcessNoise) (*CovarianceEphemeris, error) {
 	v, e := native.PropagateCovariance(native.NativePropagationConfig{Epoch: config.EpochTDBSeconds, Position: config.PositionKm, Velocity: config.VelocityKmPerS, ForceModel: uint32(config.ForceModel), Integrator: uint32(config.Integrator), AbsTol: config.AbsTol, RelTol: config.RelTol, InitialStep: config.InitialStepS, MinStep: config.MinStepS, MaxStep: config.MaxStepS, MaxSteps: config.MaxSteps, MuEnabled: config.MuEnabled, Mu: config.MuKm3S2, HasDrag: config.HasDrag, Drag: native.DragParameters{BCFactorM2PerKg: config.Drag.BCFactorM2PerKg, Weather: nativeSpaceWeather(config.Drag.Weather), CutoffAltitudeKm: config.Drag.CutoffAltitudeKm}, ForceComponents: nativeForceComponents(config.ForceComponents)}, covariance.Values, append([]float64(nil), epochs...), uint32(inputFrame), uint32(outputFrame), native.NativeProcessNoise{Kind: uint32(noise.Kind), RadialKm2S3: noise.RadialKm2S3, TransverseKm2S3: noise.TransverseKm2S3, NormalKm2S3: noise.NormalKm2S3})
 	if e != nil {
@@ -133,12 +168,16 @@ func PropagateCovariance(config PropagationConfig, covariance Covariance6, epoch
 	}
 	return &CovarianceEphemeris{handle: v}, nil
 }
+
+// Close releases the covariance ephemeris and is idempotent.
 func (e *CovarianceEphemeris) Close() error {
 	if e == nil || e.handle == nil {
 		return nil
 	}
 	return publicError(e.handle.Close())
 }
+
+// Count returns the number of propagated covariance nodes.
 func (e *CovarianceEphemeris) Count() (int, error) {
 	if e == nil || e.handle == nil {
 		return 0, ErrClosed
@@ -146,6 +185,8 @@ func (e *CovarianceEphemeris) Count() (int, error) {
 	v, x := e.handle.Count()
 	return v, publicError(x)
 }
+
+// CovarianceAt returns the covariance interpolated at a TDB epoch.
 func (e *CovarianceEphemeris) CovarianceAt(epoch float64) (Covariance6, error) {
 	if e == nil || e.handle == nil {
 		return Covariance6{}, ErrClosed
@@ -153,6 +194,8 @@ func (e *CovarianceEphemeris) CovarianceAt(epoch float64) (Covariance6, error) {
 	v, x := e.handle.CovarianceAt(epoch)
 	return Covariance6{v}, publicError(x)
 }
+
+// Nodes returns detached propagated states and covariances.
 func (e *CovarianceEphemeris) Nodes() ([]CovarianceNode, error) {
 	if e == nil || e.handle == nil {
 		return nil, ErrClosed
@@ -168,6 +211,7 @@ func (e *CovarianceEphemeris) Nodes() ([]CovarianceNode, error) {
 	return out, nil
 }
 
+// CovarianceTransport applies state-transition segments and optional process noise.
 func CovarianceTransport(c Covariance6, segments []CovarianceTransportSegment, noise ProcessNoise) ([][6][6]float64, error) {
 	s := make([]native.NativeCovarianceTransportSegment, len(segments))
 	for i, x := range segments {

@@ -10,16 +10,22 @@ import (
 type RINEXObservationKind uint32
 
 const (
-	RINEXObservationPseudorange    RINEXObservationKind = 0
-	RINEXObservationCarrierPhase   RINEXObservationKind = 1
-	RINEXObservationDoppler        RINEXObservationKind = 2
+	// RINEXObservationPseudorange identifies a pseudorange observable.
+	RINEXObservationPseudorange RINEXObservationKind = 0
+	// RINEXObservationCarrierPhase identifies a carrier-phase observable.
+	RINEXObservationCarrierPhase RINEXObservationKind = 1
+	// RINEXObservationDoppler identifies a Doppler observable.
+	RINEXObservationDoppler RINEXObservationKind = 2
+	// RINEXObservationSignalStrength identifies a signal-strength observable.
 	RINEXObservationSignalStrength RINEXObservationKind = 3
-	RINEXObservationUnknown        RINEXObservationKind = 4
+	// RINEXObservationUnknown identifies an unrecognized observable.
+	RINEXObservationUnknown RINEXObservationKind = 4
 )
 
 // RINEXObservationHeader retains optional header presence independently from
 // its value. Counts and vectors are copied from C.
 type RINEXObservationHeader struct {
+	// Version is the RINEX format version.
 	Version              float64
 	HasApproxPosition    bool
 	ApproxPositionM      [3]float64
@@ -40,12 +46,14 @@ type RINEXObservationHeader struct {
 
 // RINEXObservationCode identifies one system/code pair.
 type RINEXObservationCode struct {
+	// System identifies the constellation; Code is the RINEX observation code.
 	System GNSSSystem
 	Code   string
 }
 
 // RINEXObservationEpoch contains one epoch timestamp and event metadata.
 type RINEXObservationEpoch struct {
+	// Epoch is the civil observation epoch; Flag is the native event flag.
 	Epoch          CivilDateTime
 	Flag           uint8
 	SatelliteCount int
@@ -54,6 +62,7 @@ type RINEXObservationEpoch struct {
 // RINEXObservationValue contains one copied observation value. Value is
 // optional; LLI and SSI are loss-of-lock and signal-strength indicators.
 type RINEXObservationValue struct {
+	// SatelliteID and Code identify the observable; Kind is its classification.
 	SatelliteID, Code string
 	Kind              RINEXObservationKind
 	HasValue          bool
@@ -63,6 +72,7 @@ type RINEXObservationValue struct {
 
 // RINEXPseudorange contains an optional-value-filtered pseudorange in metres.
 type RINEXPseudorange struct {
+	// SatelliteID identifies the row; PseudorangeM is metres.
 	SatelliteID  string
 	PseudorangeM float64
 }
@@ -70,6 +80,7 @@ type RINEXPseudorange struct {
 // RINEXCarrierPhase contains carrier phase in cycles and derived metres.
 // Value, frequency, and wavelength each have independent presence flags.
 type RINEXCarrierPhase struct {
+	// SatelliteID and Code identify the phase observable.
 	SatelliteID, Code string
 	HasValueCycles    bool
 	ValueCycles       float64
@@ -86,6 +97,7 @@ type RINEXCarrierPhase struct {
 // ReceiverClockPhaseSample contains an optional receiver-clock phase in
 // seconds for one observation epoch.
 type ReceiverClockPhaseSample struct {
+	// HasPhaseS controls PhaseS, which is in seconds.
 	HasPhaseS bool
 	PhaseS    float64
 }
@@ -309,6 +321,7 @@ func RINEXObservationWavelength(system GNSSSystem, code string, version float64,
 // ObservationQCOptions controls interval, gap, and receiver-clock checks.
 // IntervalOverrideS and ClockJumpThresholdS are seconds.
 type ObservationQCOptions struct {
+	// HasIntervalOverride controls the interval override in IntervalOverrideS.
 	HasIntervalOverride                               bool
 	IntervalOverrideS, GapFactor, ClockJumpThresholdS float64
 }
@@ -321,6 +334,7 @@ type ObservationQCIntervalSource uint32
 // ObservationQCSummary contains copied QC counts and optional interval
 // provenance. All count fields are checked Go ints.
 type ObservationQCSummary struct {
+	// The count fields are native record/observation totals.
 	TotalEpochRecords, ObservationEpochs, EventRecords, PowerFailureEpochs, SkippedRecords          int
 	HasInterval                                                                                     bool
 	IntervalS                                                                                       float64
@@ -331,6 +345,7 @@ type ObservationQCSummary struct {
 // ObservationQCDataGap describes a missing-epoch interval; times and deltas
 // are civil timestamps and seconds respectively.
 type ObservationQCDataGap struct {
+	// StartEpoch and EndEpoch bracket the gap; interval fields are seconds.
 	StartEpoch, EndEpoch             CivilDateTime
 	NominalIntervalS, ObservedDeltaS float64
 	MissingEpochs                    int
@@ -338,6 +353,7 @@ type ObservationQCDataGap struct {
 
 // ObservationQCClockJump describes a receiver-clock discontinuity in seconds.
 type ObservationQCClockJump struct {
+	// EpochIndex identifies the event; Epoch is its civil time and DeltaS is seconds.
 	EpochIndex int
 	Epoch      CivilDateTime
 	DeltaS     float64
@@ -345,6 +361,7 @@ type ObservationQCClockJump struct {
 
 // ObservationQCCycleSlips summarizes cycle-slip detection counts.
 type ObservationQCCycleSlips struct {
+	// Observations, TotalSlips, and SystemCount are native counts.
 	Observations, TotalSlips, SystemCount int
 	HasObservationsPerSlip                bool
 	ObservationsPerSlip                   float64
@@ -352,6 +369,7 @@ type ObservationQCCycleSlips struct {
 
 // ObservationQCSystemCycleSlip summarizes cycle slips for one GNSS system.
 type ObservationQCSystemCycleSlip struct {
+	// System identifies the constellation; count fields are native counts.
 	System                 GNSSSystem
 	Observations, Slips    int
 	HasObservationsPerSlip bool
@@ -360,6 +378,7 @@ type ObservationQCSystemCycleSlip struct {
 
 // ObservationQCSatellite summarizes one satellite's observation counts.
 type ObservationQCSatellite struct {
+	// SatelliteID identifies the satellite; count fields are native counts.
 	SatelliteID                               string
 	EpochsWithObservations, ValueObservations int
 }
@@ -367,6 +386,7 @@ type ObservationQCSatellite struct {
 // ObservationQCSignal summarizes one signal's values and optional SNR/SSI
 // statistics. SNR is in dBHz and SNRN is a sample count.
 type ObservationQCSignal struct {
+	// SatelliteID, System, and Code identify the signal row.
 	SatelliteID             string
 	System                  GNSSSystem
 	Code                    string
@@ -382,6 +402,7 @@ type ObservationQCSignal struct {
 
 // ObservationQCMpStats contains a multipath sample count and RMS in metres.
 type ObservationQCMpStats struct {
+	// N is the sample count; RMSM is multipath RMS in metres.
 	N    int
 	RMSM float64
 }
@@ -389,6 +410,7 @@ type ObservationQCMpStats struct {
 // ObservationQCSatelliteMultipath contains optional MP1/MP2 statistics for a
 // satellite.
 type ObservationQCSatelliteMultipath struct {
+	// SatelliteID identifies the row; HasMP1 and HasMP2 control metric payloads.
 	SatelliteID string
 	HasMP1      bool
 	MP1         ObservationQCMpStats
@@ -399,6 +421,7 @@ type ObservationQCSatelliteMultipath struct {
 // ObservationQCSystemMultipath contains optional MP1/MP2 statistics for a
 // GNSS system.
 type ObservationQCSystemMultipath struct {
+	// System identifies the constellation; HasMP1 and HasMP2 control payloads.
 	System GNSSSystem
 	HasMP1 bool
 	MP1    ObservationQCMpStats
@@ -624,3 +647,26 @@ func (report *ObservationQCReport) JSON() ([]byte, error) {
 	out, err := report.handle.JSON()
 	return out, publicError(err)
 }
+
+// HasApproxPosition controls ApproxPositionM, which is ECEF metres.
+// HasAntennaDelta controls AntennaDeltaHENM in metres.
+// HasInterval controls IntervalS in seconds.
+// HasTimeOfFirstObs controls TimeOfFirstObs and its scale.
+// Counts are native header record counts.
+// HasMarkerName controls the optional MarkerName.
+// SatelliteCount is the native row count.
+// HasValue controls Value; LLI and SSI preserve native indicators.
+// HasValueCycles controls ValueCycles, which is in cycles.
+// LLI and SSI preserve native indicators.
+// HasFrequency and HasWavelength control hertz/metre fields.
+// HasValueM controls ValueM; PhaseShiftCycles is in cycles.
+// GapFactor and ClockJumpThresholdS are native quality-control thresholds.
+// HasInterval controls IntervalS and IntervalSource.
+// MissingEpochs through NoteCount are native quality-control counts.
+// MissingEpochs is the native missing-epoch count.
+// HasObservationsPerSlip controls ObservationsPerSlip.
+// HasObservationsPerSlip controls ObservationsPerSlip.
+// ValueObservations and SNRN are native counts.
+// HasSSI controls SSICounts; HasSNR controls SNR statistics.
+// SNRMean, SNRMin, and SNRMax use the native signal-strength units.
+// HasSNRStd controls SNRStd.

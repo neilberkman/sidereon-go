@@ -4,29 +4,34 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 
 // RTKAmbiguitySatellite associates an ambiguity identifier with a satellite.
 type RTKAmbiguitySatellite struct {
+	// ID is the ambiguity key; SatelliteID is its GNSS satellite identifier.
 	ID, SatelliteID string
 }
 
 // RTKFloatMapEntry is one ambiguity-keyed wavelength or metre offset.
 type RTKFloatMapEntry struct {
+	// ID is the ambiguity key; Value is the copied metre value.
 	ID    string
 	Value float64
 }
 
 // RTKReceiverAntennaNoAzimuthPCV is one zenith-dependent receiver PCV sample.
 type RTKReceiverAntennaNoAzimuthPCV struct {
+	// ZenithDeg is the zenith angle; ValueM is the correction in metres.
 	ZenithDeg, ValueM float64
 }
 
 // RTKReceiverAntennaAzimuthPCV is one azimuth- and zenith-dependent receiver
 // PCV sample.
 type RTKReceiverAntennaAzimuthPCV struct {
+	// AzimuthDeg and ZenithDeg are angles in degrees; ValueM is metres.
 	AzimuthDeg, ZenithDeg, ValueM float64
 }
 
 // RTKReceiverAntennaCalibration contains one frequency's PCO/PCV correction.
 // PCO is in local north/east/up metres.
 type RTKReceiverAntennaCalibration struct {
+	// PCONEUM is phase-center offset in local north/east/up metres.
 	PCONEUM      [3]float64
 	NoAzimuthPCV []RTKReceiverAntennaNoAzimuthPCV
 	AzimuthPCV   []RTKReceiverAntennaAzimuthPCV
@@ -34,6 +39,7 @@ type RTKReceiverAntennaCalibration struct {
 
 // RTKReceiverAntennaCorrections contains base and rover calibrations.
 type RTKReceiverAntennaCorrections struct {
+	// Base and Rover contain independent copied antenna calibrations.
 	Base, Rover RTKReceiverAntennaCalibration
 }
 
@@ -41,6 +47,7 @@ type RTKReceiverAntennaCorrections struct {
 // Use the DefaultRTK* functions to obtain engine defaults before overriding
 // option fields.
 type RTKFixedConfig struct {
+	// Epochs is the copied RTK observation sequence.
 	Epochs              []RTKEpoch
 	BaseECEFM           [3]float64
 	AmbiguityIDs        []string
@@ -60,12 +67,15 @@ type RTKFixedConfig struct {
 type RTKIntegerStatus uint32
 
 const (
-	RTKIntegerFixed    RTKIntegerStatus = 0
+	// RTKIntegerFixed indicates an integer-fixed solution.
+	RTKIntegerFixed RTKIntegerStatus = 0
+	// RTKIntegerNotFixed indicates that integer fixing was not achieved.
 	RTKIntegerNotFixed RTKIntegerStatus = 1
 )
 
 // RTKFixedAmbiguity is one accepted integer ambiguity in cycles and metres.
 type RTKFixedAmbiguity struct {
+	// ID identifies the ambiguity; Cycles is integer cycles and ValueM is metres.
 	ID     string
 	Cycles int64
 	ValueM float64
@@ -73,6 +83,7 @@ type RTKFixedAmbiguity struct {
 
 // RTKFixedMetadata contains copied fixed-solve and integer-search metadata.
 type RTKFixedMetadata struct {
+	// Iteration, observation, ambiguity, residual, and satellite fields are native counts.
 	Iterations, NObservations, FreeAmbiguityCount, FixedAmbiguityCount int
 	ResidualCount, UsedSatCount                                        int
 	Converged                                                          bool
@@ -260,3 +271,14 @@ func (s *RTKFixedSolution) UsedSatelliteIDs() ([]string, error) {
 	value, err := s.handle.UsedSatelliteIDs()
 	return append([]string(nil), value...), publicError(err)
 }
+
+// NoAzimuthPCV and AzimuthPCV are copied optional correction tables.
+// BaseECEFM and InitialBaselineM are ECEF baseline inputs in metres.
+// AmbiguityIDs and AmbiguitySatellites define the copied ambiguity graph.
+// Wavelengths and Offsets are copied ambiguity-keyed metre values.
+// Model and option fields select native float/fixed validation behavior.
+// ReceiverAntenna is optional copied antenna calibration data.
+// FloatOnlySystems excludes selected constellations from integer fixing.
+// Converged and Status preserve the native fixed-solve status.
+// RMS fields are metre-valued residual diagnostics.
+// IntegerStatus and optional score fields describe ambiguity search results.

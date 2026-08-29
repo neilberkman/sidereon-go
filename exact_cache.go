@@ -18,35 +18,42 @@ const defaultExactCacheLockTimeout = 30 * time.Second
 // not be acquired. The underlying StatusError is available through Unwrap.
 type CacheLockTimeoutError struct{ Err error }
 
+// Error describes an exact-cache lock timeout.
 func (e *CacheLockTimeoutError) Error() string {
 	return fmt.Sprintf("sidereon: timed out waiting for the exact-cache lock: %v", e.Err)
 }
 
+// Unwrap returns the native lock error.
 func (e *CacheLockTimeoutError) Unwrap() error { return e.Err }
 
 // CacheSingleFlightTimeoutError reports that a live owner did not publish
 // before a single-flight wait deadline.
 type CacheSingleFlightTimeoutError struct{ Err error }
 
+// Error describes a single-flight wait timeout.
 func (e *CacheSingleFlightTimeoutError) Error() string {
 	return fmt.Sprintf("sidereon: timed out waiting for the exact-cache in-flight owner: %v", e.Err)
 }
 
+// Unwrap returns the native single-flight error.
 func (e *CacheSingleFlightTimeoutError) Unwrap() error { return e.Err }
 
 // CacheFormatError reports a malformed, incomplete, corrupt, or mismatched
 // immutable cache transaction. Such an error is never treated as a miss.
 type CacheFormatError struct{ Err error }
 
+// Error describes malformed or mismatched immutable cache data.
 func (e *CacheFormatError) Error() string {
 	return fmt.Sprintf("sidereon: invalid exact-cache transaction: %v", e.Err)
 }
 
+// Unwrap returns the underlying cache validation error.
 func (e *CacheFormatError) Unwrap() error { return e.Err }
 
 // CacheFiles contains paths and independent Go-owned copies of all bytes in
 // one digest-verified immutable exact-cache transaction.
 type CacheFiles struct {
+	// ProductPath, ArchivePath, and ProvenancePath are Go-owned filesystem paths.
 	ProductPath     string
 	ArchivePath     string
 	ProvenancePath  string
@@ -60,6 +67,7 @@ type CacheFiles struct {
 // coalescing. Every duration must be positive and HeartbeatInterval must be
 // shorter than LivenessTimeout.
 type ExactCacheSingleFlightOptions struct {
+	// All durations bound cross-process polling/liveness and must be positive.
 	PollInterval      time.Duration
 	HeartbeatInterval time.Duration
 	LivenessTimeout   time.Duration
@@ -169,7 +177,9 @@ func (cache *ExactProductCache) CleanupAbandoned() error {
 // ExactCacheOpenResult contains exactly one non-nil field: Files for a
 // verified hit, or Owner for exclusive ownership of a cache miss.
 type ExactCacheOpenResult struct {
+	// Files is the detached cache transaction when a read succeeds.
 	Files *CacheFiles
+	// Owner is non-nil when this process acquired publication ownership.
 	Owner *ExactCacheOwner
 }
 
@@ -372,3 +382,6 @@ func exactCacheSingleFlightError(err error) error {
 	}
 	return translated
 }
+
+// EntryID is the verified cache entry identifier.
+// ProductBytes, ArchiveBytes, and ProvenanceBytes are detached byte copies.

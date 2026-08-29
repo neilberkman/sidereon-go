@@ -218,25 +218,34 @@ func (i *IONEX) GridEpochsJ2000S() ([]float64, error) {
 type IONEXCoveragePolicy uint32
 
 const (
+	// IONEXCoveragePolicyStrict rejects epochs outside map coverage.
 	IONEXCoveragePolicyStrict IONEXCoveragePolicy = IONEXCoveragePolicy(native.IONEXCoveragePolicyStrictValue)
-	IONEXCoveragePolicyHold   IONEXCoveragePolicy = IONEXCoveragePolicy(native.IONEXCoveragePolicyHoldValue)
+	// IONEXCoveragePolicyHold holds the nearest map outside coverage.
+	IONEXCoveragePolicyHold IONEXCoveragePolicy = IONEXCoveragePolicy(native.IONEXCoveragePolicyHoldValue)
 )
 
 // IONEXSlantDelayStatus identifies the returned delay status.
 type IONEXSlantDelayStatus uint32
 
 const (
+	// IONEXSlantDelayStatusValid indicates a directly interpolated delay.
 	IONEXSlantDelayStatusValid IONEXSlantDelayStatus = IONEXSlantDelayStatus(native.IONEXSlantDelayStatusValidValue)
-	IONEXSlantDelayStatusHeld  IONEXSlantDelayStatus = IONEXSlantDelayStatus(native.IONEXSlantDelayStatusHeldValue)
+	// IONEXSlantDelayStatusHeld indicates a held boundary delay.
+	IONEXSlantDelayStatusHeld IONEXSlantDelayStatus = IONEXSlantDelayStatus(native.IONEXSlantDelayStatusHeldValue)
 )
 
 // IONEXCoverageErrorKind identifies a held-value coverage miss.
 type IONEXCoverageErrorKind uint32
 
 const (
-	IONEXCoverageErrorNone                IONEXCoverageErrorKind = IONEXCoverageErrorKind(native.IONEXCoverageErrorNoneValue)
+	// IONEXCoverageErrorNone indicates no coverage error.
+	IONEXCoverageErrorNone IONEXCoverageErrorKind = IONEXCoverageErrorKind(native.IONEXCoverageErrorNoneValue)
+	// IONEXCoverageErrorEpochBeforeFirstMap indicates an early epoch.
 	IONEXCoverageErrorEpochBeforeFirstMap IONEXCoverageErrorKind = IONEXCoverageErrorKind(native.IONEXCoverageErrorEpochBeforeFirstMapValue)
-	IONEXCoverageErrorEpochAfterLastMap   IONEXCoverageErrorKind = IONEXCoverageErrorKind(native.IONEXCoverageErrorEpochAfterLastMapValue)
-	IONEXCoverageErrorLatitude            IONEXCoverageErrorKind = IONEXCoverageErrorKind(native.IONEXCoverageErrorLatitudeValue)
-	IONEXCoverageErrorLongitude           IONEXCoverageErrorKind = IONEXCoverageErrorKind(native.IONEXCoverageErrorLongitudeValue)
+	// IONEXCoverageErrorEpochAfterLastMap indicates a late epoch.
+	IONEXCoverageErrorEpochAfterLastMap IONEXCoverageErrorKind = IONEXCoverageErrorKind(native.IONEXCoverageErrorEpochAfterLastMapValue)
+	// IONEXCoverageErrorLatitude indicates an invalid latitude.
+	IONEXCoverageErrorLatitude IONEXCoverageErrorKind = IONEXCoverageErrorKind(native.IONEXCoverageErrorLatitudeValue)
+	// IONEXCoverageErrorLongitude indicates an invalid longitude.
+	IONEXCoverageErrorLongitude IONEXCoverageErrorKind = IONEXCoverageErrorKind(native.IONEXCoverageErrorLongitudeValue)
 )

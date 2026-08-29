@@ -11,23 +11,35 @@ import (
 type StatusCode int
 
 const (
-	StatusOK              StatusCode = 0
-	StatusNullPointer     StatusCode = 1
+	// StatusOK indicates successful completion.
+	StatusOK StatusCode = 0
+	// StatusNullPointer indicates a required null pointer.
+	StatusNullPointer StatusCode = 1
+	// StatusInvalidArgument indicates an invalid argument.
 	StatusInvalidArgument StatusCode = 2
-	StatusInvalidToken    StatusCode = 3
-	StatusSP3Parse        StatusCode = 4
-	StatusSolve           StatusCode = 5
-	StatusPanic           StatusCode = 6
-	StatusTimeout         StatusCode = 7
+	// StatusInvalidToken indicates an invalid textual token.
+	StatusInvalidToken StatusCode = 3
+	// StatusSP3Parse indicates an SP3 parsing failure.
+	StatusSP3Parse StatusCode = 4
+	// StatusSolve indicates a numerical solve failure.
+	StatusSolve StatusCode = 5
+	// StatusPanic indicates a native panic boundary failure.
+	StatusPanic StatusCode = 6
+	// StatusTimeout indicates a native timeout.
+	StatusTimeout StatusCode = 7
 )
 
 // StatusError reports one failed C call. Text is the stable status name from
 // sidereon_status_message; Detail is the thread-local reason captured during
 // the same call.
 type StatusError struct {
-	Code         StatusCode
-	Text         string
-	Detail       string
+	// Code is the native status namespace.
+	Code StatusCode
+	// Text is the stable native status label.
+	Text string
+	// Detail is same-call thread-local diagnostic text.
+	Detail string
+	// TerrainDatum and TerrainStore carry optional structured causes.
 	TerrainDatum *TerrainDatumError
 	TerrainStore *TerrainStoreError
 }
@@ -37,13 +49,20 @@ type StatusError struct {
 type FallbackStatus uint32
 
 const (
-	FallbackOK              FallbackStatus = 0
-	FallbackNullPointer     FallbackStatus = 1
+	// FallbackOK indicates successful fallback completion.
+	FallbackOK FallbackStatus = 0
+	// FallbackNullPointer indicates a required null pointer.
+	FallbackNullPointer FallbackStatus = 1
+	// FallbackInvalidArgument indicates an invalid argument.
 	FallbackInvalidArgument FallbackStatus = 2
-	FallbackInvalidToken    FallbackStatus = 3
-	FallbackPanic           FallbackStatus = 4
-	FallbackPreciseSolve    FallbackStatus = 5
-	FallbackBroadcastSolve  FallbackStatus = 6
+	// FallbackInvalidToken indicates an invalid textual token.
+	FallbackInvalidToken FallbackStatus = 3
+	// FallbackPanic indicates a native panic boundary failure.
+	FallbackPanic FallbackStatus = 4
+	// FallbackPreciseSolve indicates failure in precise solving.
+	FallbackPreciseSolve FallbackStatus = 5
+	// FallbackBroadcastSolve indicates failure in broadcast solving.
+	FallbackBroadcastSolve FallbackStatus = 6
 )
 
 func (s FallbackStatus) name() string {
@@ -70,10 +89,13 @@ func (s FallbackStatus) name() string {
 // FallbackError reports one failed fallback solve. Detail is the native
 // thread-local reason captured during the same call.
 type FallbackError struct {
+	// Status is the fallback solver's distinct status namespace.
 	Status FallbackStatus
+	// Detail is same-call native diagnostic text.
 	Detail string
 }
 
+// Error describes a fallback solve failure including its status detail.
 func (e *FallbackError) Error() string {
 	if e == nil {
 		return "sidereon fallback solve failed"
@@ -85,6 +107,7 @@ func (e *FallbackError) Error() string {
 	return message
 }
 
+// Error formats the native status and thread-local detail.
 func (e *StatusError) Error() string {
 	if e.Detail == "" {
 		return e.Text
@@ -92,6 +115,7 @@ func (e *StatusError) Error() string {
 	return fmt.Sprintf("%s: %s", e.Text, e.Detail)
 }
 
+// Unwrap exposes structured terrain causes attached to the status.
 func (e *StatusError) Unwrap() error {
 	var details []error
 	if e.TerrainDatum != nil {
@@ -115,6 +139,7 @@ func nativeCountToInt(value uint64, field string) (int, error) {
 
 var errNilNativeHandle = errors.New("sidereon: native constructor returned no handle")
 
+// Error formats a terrain-datum acquisition failure.
 func (e *TerrainDatumError) Error() string {
 	if e == nil {
 		return "sidereon: terrain datum error"
@@ -131,6 +156,7 @@ func (e *TerrainDatumError) Error() string {
 	return "sidereon: terrain datum error"
 }
 
+// Error formats a terrain-store acquisition failure.
 func (e *TerrainStoreError) Error() string {
 	if e == nil {
 		return "sidereon: terrain store error"

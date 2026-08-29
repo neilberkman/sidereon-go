@@ -6,36 +6,53 @@ import (
 	"github.com/neilberkman/sidereon-go/internal/native"
 )
 
+// TRLSKind selects the residual model solved by TRLS.
 type TRLSKind uint32
 
 const (
-	TRLSLinear      TRLSKind = TRLSKind(native.TrlsLinearValue)
-	TRLSPolynomial  TRLSKind = TRLSKind(native.TrlsPolynomialValue)
+	// TRLSLinear selects a linear residual model.
+	TRLSLinear TRLSKind = TRLSKind(native.TrlsLinearValue)
+	// TRLSPolynomial selects a polynomial residual model.
+	TRLSPolynomial TRLSKind = TRLSKind(native.TrlsPolynomialValue)
+	// TRLSExponential selects an exponential residual model.
 	TRLSExponential TRLSKind = TRLSKind(native.TrlsExponentialValue)
 )
 
+// TRLSLoss selects the robust loss used by the native optimizer.
 type TRLSLoss uint32
 
 const (
+	// TRLSLossLinear uses a linear loss.
 	TRLSLossLinear TRLSLoss = TRLSLoss(native.TrlsLossLinearValue)
+	// TRLSLossSoftL1 uses a soft-L1 loss.
 	TRLSLossSoftL1 TRLSLoss = TRLSLoss(native.TrlsLossSoftL1Value)
-	TRLSLossHuber  TRLSLoss = TRLSLoss(native.TrlsLossHuberValue)
+	// TRLSLossHuber uses a Huber loss.
+	TRLSLossHuber TRLSLoss = TRLSLoss(native.TrlsLossHuberValue)
+	// TRLSLossCauchy uses a Cauchy loss.
 	TRLSLossCauchy TRLSLoss = TRLSLoss(native.TrlsLossCauchyValue)
+	// TRLSLossArctan uses an arctangent loss.
 	TRLSLossArctan TRLSLoss = TRLSLoss(native.TrlsLossArctanValue)
 )
 
+// TRLSXScale selects the parameter scaling policy.
 type TRLSXScale uint32
 
 const (
-	TRLSXScaleUnit   TRLSXScale = TRLSXScale(native.TrlsXScaleUnitValue)
-	TRLSXScaleJac    TRLSXScale = TRLSXScale(native.TrlsXScaleJacValue)
+	// TRLSXScaleUnit uses unit parameter scales.
+	TRLSXScaleUnit TRLSXScale = TRLSXScale(native.TrlsXScaleUnitValue)
+	// TRLSXScaleJac derives scales from the Jacobian.
+	TRLSXScaleJac TRLSXScale = TRLSXScale(native.TrlsXScaleJacValue)
+	// TRLSXScaleValues uses XScaleValues.
 	TRLSXScaleValues TRLSXScale = TRLSXScale(native.TrlsXScaleValuesValue)
 )
 
+// TRLSBackend selects the native or host LAPACK implementation.
 type TRLSBackend uint32
 
 const (
-	TRLSBackendNative     TRLSBackend = TRLSBackend(native.TrlsBackendNativeValue)
+	// TRLSBackendNative uses the native implementation.
+	TRLSBackendNative TRLSBackend = TRLSBackend(native.TrlsBackendNativeValue)
+	// TRLSBackendHostLAPACK uses the host LAPACK implementation.
 	TRLSBackendHostLAPACK TRLSBackend = TRLSBackend(native.TrlsBackendHostLAPACKValue)
 )
 
@@ -43,6 +60,7 @@ const (
 // SolveTRLS and remain caller-owned thereafter. Linear A is row-major m by n;
 // polynomial/exponential T and Y have equal length.
 type TRLSProblem struct {
+	// Kind selects the model; A/B/T/Y/X0 are copied model arrays.
 	Kind             TRLSKind
 	A, B, T, Y, X0   []float64
 	M, N, Degree     int
@@ -75,17 +93,23 @@ func DefaultTRLSProblem(kind TRLSKind) (TRLSProblem, error) {
 	}, nil
 }
 
+// TRLSSummary contains detached optimizer cost, dimensions, and status.
 type TRLSSummary struct {
+	// Cost and Optimality are native optimizer diagnostics.
 	Cost, Optimality float64
 	NFEV, NJEV       uint64
 	Status           int32
 	Success          bool
 	N, M             uint64
 }
+
+// TRLSSolution owns a native TRLS solution.
 type TRLSSolution struct {
 	_      noCopy
 	handle *native.TRLSSolution
 }
+
+// TRLSDropOne owns native leave-one-out diagnostics.
 type TRLSDropOne struct {
 	_      noCopy
 	handle *native.TRLSDropOne
@@ -138,6 +162,7 @@ func validateTRLSProblem(problem TRLSProblem) error {
 	return nil
 }
 
+// SolveTRLS solves a checked TRLS problem.
 func SolveTRLS(problem TRLSProblem) (*TRLSSolution, error) {
 	if err := validateTRLSProblem(problem); err != nil {
 		return nil, err
@@ -148,6 +173,8 @@ func SolveTRLS(problem TRLSProblem) (*TRLSSolution, error) {
 	}
 	return &TRLSSolution{handle: v.(*native.TRLSSolution)}, nil
 }
+
+// SolveTRLSDropOne computes native leave-one-out TRLS diagnostics.
 func SolveTRLSDropOne(problem TRLSProblem) (*TRLSDropOne, error) {
 	if err := validateTRLSProblem(problem); err != nil {
 		return nil, err
@@ -158,12 +185,16 @@ func SolveTRLSDropOne(problem TRLSProblem) (*TRLSDropOne, error) {
 	}
 	return &TRLSDropOne{handle: v.(*native.TRLSDropOne)}, nil
 }
+
+// Close releases the TRLS solution and is idempotent.
 func (s *TRLSSolution) Close() error {
 	if s == nil || s.handle == nil {
 		return nil
 	}
 	return publicError(s.handle.Close())
 }
+
+// Summary returns detached TRLS optimizer summary data.
 func (s *TRLSSolution) Summary() (TRLSSummary, error) {
 	if s == nil || s.handle == nil {
 		return TRLSSummary{}, ErrClosed
@@ -171,6 +202,8 @@ func (s *TRLSSolution) Summary() (TRLSSummary, error) {
 	v, e := s.handle.Summary()
 	return toTRLSSummary(v), publicError(e)
 }
+
+// X returns the detached fitted parameter vector.
 func (s *TRLSSolution) X() ([]float64, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -178,6 +211,8 @@ func (s *TRLSSolution) X() ([]float64, error) {
 	v, e := s.handle.Values(0)
 	return append([]float64(nil), v...), publicError(e)
 }
+
+// Residuals returns detached fitted residuals.
 func (s *TRLSSolution) Residuals() ([]float64, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -185,6 +220,8 @@ func (s *TRLSSolution) Residuals() ([]float64, error) {
 	v, e := s.handle.Values(1)
 	return append([]float64(nil), v...), publicError(e)
 }
+
+// Jacobian returns the detached fitted Jacobian in row-major order.
 func (s *TRLSSolution) Jacobian() ([]float64, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -192,6 +229,8 @@ func (s *TRLSSolution) Jacobian() ([]float64, error) {
 	v, e := s.handle.Values(2)
 	return append([]float64(nil), v...), publicError(e)
 }
+
+// Gradient returns the detached fitted gradient.
 func (s *TRLSSolution) Gradient() ([]float64, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -199,12 +238,16 @@ func (s *TRLSSolution) Gradient() ([]float64, error) {
 	v, e := s.handle.Values(3)
 	return append([]float64(nil), v...), publicError(e)
 }
+
+// Close releases leave-one-out diagnostics and is idempotent.
 func (d *TRLSDropOne) Close() error {
 	if d == nil || d.handle == nil {
 		return nil
 	}
 	return publicError(d.handle.Close())
 }
+
+// Count returns the number of leave-one-out rows.
 func (d *TRLSDropOne) Count() (int, error) {
 	if d == nil || d.handle == nil {
 		return 0, ErrClosed
@@ -212,6 +255,8 @@ func (d *TRLSDropOne) Count() (int, error) {
 	v, e := d.handle.Count()
 	return v, publicError(e)
 }
+
+// CostDeltas returns detached cost changes for each omitted observation.
 func (d *TRLSDropOne) CostDeltas() ([]float64, error) {
 	if d == nil || d.handle == nil {
 		return nil, ErrClosed
@@ -219,6 +264,8 @@ func (d *TRLSDropOne) CostDeltas() ([]float64, error) {
 	v, e := d.handle.Values()
 	return append([]float64(nil), v...), publicError(e)
 }
+
+// X returns the detached parameter vector for one omitted observation.
 func (d *TRLSDropOne) X(index int) ([]float64, error) {
 	if d == nil || d.handle == nil {
 		return nil, ErrClosed
@@ -226,6 +273,8 @@ func (d *TRLSDropOne) X(index int) ([]float64, error) {
 	v, e := d.handle.X(index)
 	return append([]float64(nil), v...), publicError(e)
 }
+
+// BaseSummary returns the detached full-data summary.
 func (d *TRLSDropOne) BaseSummary() (TRLSSummary, error) {
 	if d == nil || d.handle == nil {
 		return TRLSSummary{}, ErrClosed
@@ -233,6 +282,8 @@ func (d *TRLSDropOne) BaseSummary() (TRLSSummary, error) {
 	v, e := d.handle.BaseSummary()
 	return toTRLSSummary(v), publicError(e)
 }
+
+// Summary returns detached summary data for one omitted observation.
 func (d *TRLSDropOne) Summary(index int) (TRLSSummary, error) {
 	if d == nil || d.handle == nil {
 		return TRLSSummary{}, ErrClosed
@@ -240,3 +291,11 @@ func (d *TRLSDropOne) Summary(index int) (TRLSSummary, error) {
 	v, e := d.handle.Summary(index)
 	return toTRLSSummary(v), publicError(e)
 }
+
+// M, N, and Degree are model dimensions and polynomial degree.
+// Loss, FScale, and XScaleMode select robust loss and scaling.
+// XScaleValues is used when XScaleMode is TRLSXScaleValues.
+// MaxNFEV is a native evaluation limit; tolerances are dimensionless.
+// NFEV and NJEV are function/Jacobian evaluation counts.
+// Status and Success preserve native solve status.
+// N and M are parameter and residual dimensions.

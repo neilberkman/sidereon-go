@@ -10,12 +10,15 @@ import (
 type RINEXClockInstantRepresentation uint32
 
 const (
+	// RINEXClockInstantJulianDate stores clock epochs as split Julian dates.
 	RINEXClockInstantJulianDate RINEXClockInstantRepresentation = RINEXClockInstantRepresentation(native.RINEXClockInstantJulianDateValue)
-	RINEXClockInstantNanos      RINEXClockInstantRepresentation = RINEXClockInstantRepresentation(native.RINEXClockInstantNanosValue)
+	// RINEXClockInstantNanos stores clock epochs as nanoseconds from J2000.
+	RINEXClockInstantNanos RINEXClockInstantRepresentation = RINEXClockInstantRepresentation(native.RINEXClockInstantNanosValue)
 )
 
 // GNSSWeekTow is a scale-tagged GNSS week and time-of-week value.
 type GNSSWeekTow struct {
+	// System identifies the time scale; Week and TOWSeconds are native GNSS time.
 	System     TimeScale
 	Week       uint32
 	TOWSeconds float64
@@ -23,6 +26,7 @@ type GNSSWeekTow struct {
 
 // ClockEpoch preserves the C ABI's lossless clock-epoch representation.
 type ClockEpoch struct {
+	// Scale and Representation identify the lossless epoch encoding.
 	Scale          TimeScale
 	Representation RINEXClockInstantRepresentation
 	JulianWhole    float64
@@ -34,6 +38,7 @@ type ClockEpoch struct {
 // KeplerianElements contains one complete broadcast orbit in SI units and
 // radians. C performs all parsing and numerical interpretation.
 type KeplerianElements struct {
+	// All fields are detached broadcast orbital elements in native engineering units.
 	SqrtA    float64
 	E        float64
 	M0       float64
@@ -54,6 +59,7 @@ type KeplerianElements struct {
 
 // ClockPolynomial is the broadcast satellite-clock polynomial about TocSOW.
 type ClockPolynomial struct {
+	// AF0, AF1, and AF2 are native clock polynomial coefficients; TocSOW is seconds of week.
 	AF0    float64
 	AF1    float64
 	AF2    float64
@@ -63,6 +69,7 @@ type ClockPolynomial struct {
 // BroadcastGroupDelays contains optional broadcast group-delay values. A
 // Has... field distinguishes an absent value from a present zero.
 type BroadcastGroupDelays struct {
+	// Each Has* flag controls the corresponding optional group-delay coefficient.
 	HasGPSTGD          bool
 	GPSTGD             float64
 	HasGalileoBGDE5AE1 bool
@@ -89,6 +96,7 @@ type BroadcastGroupDelays struct {
 
 // BroadcastCNAV contains the optional CNAV/CNAV-2 extension.
 type BroadcastCNAV struct {
+	// Present controls the optional CNAV fields.
 	Present             bool
 	ADOTMPerS           float64
 	DeltaN0DotRadPerS2  float64
@@ -105,6 +113,7 @@ type BroadcastCNAV struct {
 // BroadcastRecord is one complete raw RINEX NAV record. Optional values are
 // retained with explicit presence flags, matching the C value model.
 type BroadcastRecord struct {
+	// SatelliteID and message/issue fields identify the detached broadcast record.
 	SatelliteID    string
 	Message        uint32
 	Issue          uint32
@@ -221,6 +230,7 @@ func ParseRINEXNavRecords(data []byte) (*RINEXNavRecords, error) {
 	return &RINEXNavRecords{handle: handle}, nil
 }
 
+// Close releases parsed NAV records and is idempotent.
 func (records *RINEXNavRecords) Close() error {
 	if records == nil || records.handle == nil {
 		return nil
@@ -283,6 +293,7 @@ func ParseRINEXNavLenient(data []byte) (*RINEXNavParse, error) {
 	return &RINEXNavParse{handle: handle}, nil
 }
 
+// Close releases lenient NAV parse results and is idempotent.
 func (parse *RINEXNavParse) Close() error {
 	if parse == nil || parse.handle == nil {
 		return nil
@@ -326,6 +337,7 @@ func (parse *RINEXNavParse) SkippedCount() (int, error) {
 
 // SkippedNavBlock identifies a malformed block retained by the lenient parser.
 type SkippedNavBlock struct {
+	// SatelliteID identifies the skipped block; Message contains native diagnostics.
 	SatelliteID string
 	Message     string
 }
@@ -348,6 +360,7 @@ func (parse *RINEXNavParse) Skipped() ([]SkippedNavBlock, error) {
 
 // IONOCorrections contains optional NAV-header ionosphere parameters.
 type IONOCorrections struct {
+	// GPSPresent, BeiDouPresent, and GalileoPresent control corresponding correction fields.
 	GPSPresent     bool
 	GPSAlpha       [4]float64
 	GPSBeta        [4]float64
@@ -374,6 +387,7 @@ func ParseRINEXLeapSeconds(data []byte) (float64, bool, error) {
 
 // ClockPoint is one complete copied RINEX clock sample.
 type ClockPoint struct {
+	// Epoch is the lossless clock epoch; BiasS is bias in seconds.
 	Epoch ClockEpoch
 	BiasS float64
 }
@@ -400,6 +414,7 @@ func parseRINEXClock(data []byte, lossy bool) (*RINEXClock, error) {
 	return &RINEXClock{handle: handle}, nil
 }
 
+// Close releases the RINEX clock and is idempotent.
 func (clock *RINEXClock) Close() error {
 	if clock == nil || clock.handle == nil {
 		return nil
@@ -407,6 +422,7 @@ func (clock *RINEXClock) Close() error {
 	return publicError(clock.handle.Close())
 }
 
+// Satellites returns detached satellite identifiers in the clock product.
 func (clock *RINEXClock) Satellites() ([]string, error) {
 	if clock == nil || clock.handle == nil {
 		return nil, ErrClosed
@@ -415,6 +431,7 @@ func (clock *RINEXClock) Satellites() ([]string, error) {
 	return values, publicError(err)
 }
 
+// SatelliteCount returns the number of clock-product satellites.
 func (clock *RINEXClock) SatelliteCount() (int, error) {
 	if clock == nil || clock.handle == nil {
 		return 0, ErrClosed
@@ -432,6 +449,7 @@ func (clock *RINEXClock) SeriesCount() (int, error) {
 	return value, publicError(err)
 }
 
+// SampleCount returns the number of clock samples.
 func (clock *RINEXClock) SampleCount() (int, error) {
 	if clock == nil || clock.handle == nil {
 		return 0, ErrClosed
@@ -440,7 +458,7 @@ func (clock *RINEXClock) SampleCount() (int, error) {
 	return value, publicError(err)
 }
 
-// Read-only methods may run concurrently with Close; Close waits for active
+// RINEXClockSeries owns one C-backed satellite clock series. Read-only methods may run concurrently with Close; Close waits for active
 // calls to finish before releasing the native resource.
 type RINEXClockSeries struct {
 	_      noCopy
@@ -527,6 +545,7 @@ func (series *RINEXClockSeries) Close() error {
 	return publicError(series.handle.Close())
 }
 
+// Satellite returns the detached satellite identifier.
 func (series *RINEXClockSeries) Satellite() (string, error) {
 	if series == nil || series.handle == nil {
 		return "", ErrClosed
@@ -535,6 +554,7 @@ func (series *RINEXClockSeries) Satellite() (string, error) {
 	return value, publicError(err)
 }
 
+// Samples returns detached clock samples for the series.
 func (series *RINEXClockSeries) Samples() ([]ClockPoint, error) {
 	if series == nil || series.handle == nil {
 		return nil, ErrClosed
@@ -550,6 +570,7 @@ func (series *RINEXClockSeries) Samples() ([]ClockPoint, error) {
 	return out, nil
 }
 
+// SampleCount returns the number of samples in the series.
 func (series *RINEXClockSeries) SampleCount() (int, error) {
 	if series == nil || series.handle == nil {
 		return 0, ErrClosed
@@ -557,3 +578,13 @@ func (series *RINEXClockSeries) SampleCount() (int, error) {
 	value, err := series.handle.SampleCount()
 	return value, publicError(err)
 }
+
+// JulianWhole and JulianFraction are used for JulianDate representation.
+// NanosHigh and NanosLow are used for nanosecond representation.
+// ADOTMPerS and DeltaN0DotRadPerS2 are CNAV orbital rates in named units.
+// Top is the CNAV reference time; URA indices and transmission time preserve native values.
+// HasFlags controls Flags.
+// Toe and Toc are GNSS week/time tags; Elements and Clock contain orbital data.
+// GroupDelays and CNAV contain optional signal-specific fields.
+// HasFitInterval controls FitIntervalS, which is in seconds.
+// Alpha and Beta arrays contain native ionospheric coefficients.

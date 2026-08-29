@@ -108,7 +108,7 @@ func GNSSWeekTowUnrolledWeek(value GNSSWeekTow, rollovers uint32) (uint32, error
 	return result, publicError(err)
 }
 
-// LeapSecondTableInfo describes the compiled leap-second table.
+// LeapSecondTableMetadata describes the compiled leap-second table.
 type LeapSecondTableMetadata struct {
 	FirstMJD  int32
 	LastMJD   int32
@@ -128,7 +128,7 @@ func LeapSecondTableSource() ([]byte, error) {
 	return append([]byte(nil), value...), publicError(err)
 }
 
-// UT1CoverageInfo describes the compiled UT1 coverage table.
+// UT1CoverageMetadata describes the compiled UT1 coverage table.
 type UT1CoverageMetadata struct {
 	FirstMJD  int32
 	LastMJD   int32

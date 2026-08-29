@@ -6,12 +6,15 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 type VelocityObservable uint32
 
 const (
+	// VelocityObservableRangeRate interprets observations as metres per second.
 	VelocityObservableRangeRate VelocityObservable = VelocityObservable(native.VelocityObservableRangeRateValue)
-	VelocityObservableDoppler   VelocityObservable = VelocityObservable(native.VelocityObservableDopplerValue)
+	// VelocityObservableDoppler interprets observations as Doppler hertz.
+	VelocityObservableDoppler VelocityObservable = VelocityObservable(native.VelocityObservableDopplerValue)
 )
 
 // VelocityObservation is one pseudorange-rate or Doppler observation.
 type VelocityObservation struct {
+	// SatelliteID identifies the GNSS satellite.
 	SatelliteID         string
 	Value               float64
 	CarrierHz           float64
@@ -20,6 +23,7 @@ type VelocityObservation struct {
 
 // VelocityOptions controls corrections and observation interpretation.
 type VelocityOptions struct {
+	// Observable selects range-rate or Doppler interpretation.
 	Observable VelocityObservable
 	LightTime  bool
 	Sagnac     bool
@@ -157,12 +161,15 @@ func (s *VelocitySolution) Velocity() ([3]float64, error) {
 type MovingBaselineStatus uint32
 
 const (
+	// MovingBaselineStatusFixed indicates an integer-fixed baseline.
 	MovingBaselineStatusFixed MovingBaselineStatus = MovingBaselineStatus(native.MovingBaselineStatusFixedValue)
+	// MovingBaselineStatusFloat indicates a float baseline.
 	MovingBaselineStatusFloat MovingBaselineStatus = MovingBaselineStatus(native.MovingBaselineStatusFloatValue)
 )
 
 // MovingBaselineEpochSummary is a detached moving-baseline epoch result.
 type MovingBaselineEpochSummary struct {
+	// BasePositionM, BaselineM, and BaselineLengthM are ECEF/local metre values.
 	BasePositionM   [3]float64
 	BaselineM       [3]float64
 	BaselineLengthM float64
@@ -173,6 +180,7 @@ type MovingBaselineEpochSummary struct {
 
 // MovingBaselineEpoch is one moving-baseline input epoch.
 type MovingBaselineEpoch struct {
+	// BasePositionM is the ECEF base position in metres.
 	BasePositionM       [3]float64
 	Epoch               RTKEpoch
 	AmbiguityIDs        []string
@@ -184,6 +192,7 @@ type MovingBaselineEpoch struct {
 
 // MovingBaselineConfig describes a complete native moving-baseline solve.
 type MovingBaselineConfig struct {
+	// Epochs is the copied observation sequence.
 	Epochs           []MovingBaselineEpoch
 	Model            RTKMeasurementModel
 	FloatOptions     RTKFloatOptions
@@ -285,3 +294,15 @@ func (s *MovingBaselineSolution) Epoch(index int) (MovingBaselineEpochSummary, e
 	}
 	return publicMovingBaselineSummary(value), nil
 }
+
+// Value is range rate in m/s or Doppler in Hz according to Observable.
+// CarrierHz is the carrier frequency; SatelliteClockDrift is seconds per second.
+// LightTime and Sagnac control optional native corrections.
+// Status reports fixed versus float; Float and Fixed contain native metadata.
+// Epoch contains detached RTK observations and timing.
+// AmbiguityIDs and AmbiguitySatellites define the copied ambiguity graph.
+// WavelengthsM and OffsetsM are copied ambiguity-keyed metre values.
+// FloatOnlySystems selects constellations excluded from fixing.
+// Model, FloatOptions, and FixedOptions select native estimation behavior.
+// InitialBaselineM is the initial baseline in metres; WarmStart controls reuse.
+// ReceiverAntenna optionally supplies copied antenna corrections.

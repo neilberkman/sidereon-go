@@ -6,13 +6,20 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 type GNSSSystem uint32
 
 const (
-	GNSSSystemGPS     GNSSSystem = GNSSSystem(native.GNSSSystemGPS)
+	// GNSSSystemGPS identifies GPS.
+	GNSSSystemGPS GNSSSystem = GNSSSystem(native.GNSSSystemGPS)
+	// GNSSSystemGLONASS identifies GLONASS.
 	GNSSSystemGLONASS GNSSSystem = GNSSSystem(native.GNSSSystemGLONASS)
+	// GNSSSystemGalileo identifies Galileo.
 	GNSSSystemGalileo GNSSSystem = GNSSSystem(native.GNSSSystemGalileo)
-	GNSSSystemBeiDou  GNSSSystem = GNSSSystem(native.GNSSSystemBeiDou)
-	GNSSSystemQZSS    GNSSSystem = GNSSSystem(native.GNSSSystemQZSS)
-	GNSSSystemNavIC   GNSSSystem = GNSSSystem(native.GNSSSystemNavIC)
-	GNSSSystemSBAS    GNSSSystem = GNSSSystem(native.GNSSSystemSBAS)
+	// GNSSSystemBeiDou identifies BeiDou.
+	GNSSSystemBeiDou GNSSSystem = GNSSSystem(native.GNSSSystemBeiDou)
+	// GNSSSystemQZSS identifies QZSS.
+	GNSSSystemQZSS GNSSSystem = GNSSSystem(native.GNSSSystemQZSS)
+	// GNSSSystemNavIC identifies NavIC.
+	GNSSSystemNavIC GNSSSystem = GNSSSystem(native.GNSSSystemNavIC)
+	// GNSSSystemSBAS identifies SBAS.
+	GNSSSystemSBAS GNSSSystem = GNSSSystem(native.GNSSSystemSBAS)
 )
 
 // CarrierBand identifies a constellation carrier band in the C frequency
@@ -20,27 +27,45 @@ const (
 type CarrierBand uint32
 
 const (
-	CarrierBandL1  CarrierBand = CarrierBand(native.CarrierBandL1)
-	CarrierBandL2  CarrierBand = CarrierBand(native.CarrierBandL2)
-	CarrierBandL5  CarrierBand = CarrierBand(native.CarrierBandL5)
-	CarrierBandE1  CarrierBand = CarrierBand(native.CarrierBandE1)
+	// CarrierBandL1 is the L1 carrier band.
+	CarrierBandL1 CarrierBand = CarrierBand(native.CarrierBandL1)
+	// CarrierBandL2 is the L2 carrier band.
+	CarrierBandL2 CarrierBand = CarrierBand(native.CarrierBandL2)
+	// CarrierBandL5 is the L5 carrier band.
+	CarrierBandL5 CarrierBand = CarrierBand(native.CarrierBandL5)
+	// CarrierBandE1 is the E1 carrier band.
+	CarrierBandE1 CarrierBand = CarrierBand(native.CarrierBandE1)
+	// CarrierBandE5A is the E5a carrier band.
 	CarrierBandE5A CarrierBand = CarrierBand(native.CarrierBandE5A)
+	// CarrierBandE5B is the E5b carrier band.
 	CarrierBandE5B CarrierBand = CarrierBand(native.CarrierBandE5B)
-	CarrierBandE5  CarrierBand = CarrierBand(native.CarrierBandE5)
-	CarrierBandE6  CarrierBand = CarrierBand(native.CarrierBandE6)
+	// CarrierBandE5 is the combined E5 carrier band.
+	CarrierBandE5 CarrierBand = CarrierBand(native.CarrierBandE5)
+	// CarrierBandE6 is the E6 carrier band.
+	CarrierBandE6 CarrierBand = CarrierBand(native.CarrierBandE6)
+	// CarrierBandB1C is the BeiDou B1C carrier band.
 	CarrierBandB1C CarrierBand = CarrierBand(native.CarrierBandB1C)
+	// CarrierBandB1I is the BeiDou B1I carrier band.
 	CarrierBandB1I CarrierBand = CarrierBand(native.CarrierBandB1I)
+	// CarrierBandB2A is the BeiDou B2a carrier band.
 	CarrierBandB2A CarrierBand = CarrierBand(native.CarrierBandB2A)
+	// CarrierBandB2B is the BeiDou B2b carrier band.
 	CarrierBandB2B CarrierBand = CarrierBand(native.CarrierBandB2B)
-	CarrierBandB2  CarrierBand = CarrierBand(native.CarrierBandB2)
+	// CarrierBandB2 is the BeiDou B2 carrier band.
+	CarrierBandB2 CarrierBand = CarrierBand(native.CarrierBandB2)
+	// CarrierBandB3I is the BeiDou B3I carrier band.
 	CarrierBandB3I CarrierBand = CarrierBand(native.CarrierBandB3I)
-	CarrierBandG1  CarrierBand = CarrierBand(native.CarrierBandG1)
-	CarrierBandG2  CarrierBand = CarrierBand(native.CarrierBandG2)
+	// CarrierBandG1 is the GLONASS G1 carrier band.
+	CarrierBandG1 CarrierBand = CarrierBand(native.CarrierBandG1)
+	// CarrierBandG2 is the GLONASS G2 carrier band.
+	CarrierBandG2 CarrierBand = CarrierBand(native.CarrierBandG2)
 )
 
 // CarrierPair is a standard two-band ionosphere-free pair.
 type CarrierPair struct {
+	// Band1 is the first carrier in the pair.
 	Band1 CarrierBand
+	// Band2 is the second carrier in the pair.
 	Band2 CarrierBand
 }
 
