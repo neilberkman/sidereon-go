@@ -12,6 +12,9 @@ func TestRTKFloatZeroValueCloseAndNativeFailure(t *testing.T) {
 	if err := zero.Close(); err != nil {
 		t.Fatalf("zero-value Close: %v", err)
 	}
+	if _, err := zero.BaselineENU(); !errors.Is(err, ErrClosed) {
+		t.Fatalf("zero-value BaselineENU: %v, want ErrClosed", err)
+	}
 	options, err := DefaultRTKFloatOptions()
 	if err != nil {
 		t.Fatalf("DefaultRTKFloatOptions: %v", err)

@@ -435,7 +435,7 @@ type BroadcastEphemeris struct{}
 
 func ParseBroadcast([]byte) (*BroadcastEphemeris, error) { return nil, protocolUnavailable() }
 
-func (*BroadcastEphemeris) Close() error                         { return nil }
+func (*BroadcastEphemeris) Close() error { return nil }
 
 type NativeObservablesOptions struct {
 	CarrierHz         float64

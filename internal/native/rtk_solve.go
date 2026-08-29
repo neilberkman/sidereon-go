@@ -259,6 +259,26 @@ func (s *RtkFloatSolution) BaselineECEF() ([3]float64, error) {
 	return result, err
 }
 
+func (s *RtkFloatSolution) BaselineENU() ([3]float64, error) {
+	var result [3]float64
+	if s == nil || s.handle == nil {
+		return result, ErrClosed
+	}
+	var values [3]C.double
+	err := s.handle.read(func(pointer unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_rtk_float_solution_baseline_enu((*C.SidereonRtkFloatSolution)(pointer), &values[0], 3))
+		})
+	})
+	if err != nil {
+		return result, err
+	}
+	for i := range result {
+		result[i] = float64(values[i])
+	}
+	return result, nil
+}
+
 func (s *RtkFloatSolution) Metadata() (RtkFloatMetadata, error) {
 	var value C.SidereonRtkFloatMetadata
 	if s == nil || s.handle == nil {

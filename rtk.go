@@ -148,6 +148,13 @@ func (s *RTKFloatSolution) BaselineECEF() ([3]float64, error) {
 	value, err := s.handle.BaselineECEF()
 	return value, publicError(err)
 }
+func (s *RTKFloatSolution) BaselineENU() ([3]float64, error) {
+	if s == nil || s.handle == nil {
+		return [3]float64{}, ErrClosed
+	}
+	value, err := s.handle.BaselineENU()
+	return value, publicError(err)
+}
 func (s *RTKFloatSolution) Metadata() (RTKFloatMetadata, error) {
 	if s == nil || s.handle == nil {
 		return RTKFloatMetadata{}, ErrClosed
