@@ -236,6 +236,7 @@ func SolveVelocityBroadcast(broadcast *BroadcastEphemeris, observations []Veloci
 		})
 		return operationErr
 	})
+	runtime.KeepAlive(broadcast)
 	return result, err
 }
 
