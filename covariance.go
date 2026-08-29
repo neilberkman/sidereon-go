@@ -103,6 +103,9 @@ type PropagationConfig struct {
 	MaxSteps                                         uint32
 	MuEnabled                                        bool
 	MuKm3S2                                          float64
+	HasDrag                                          bool
+	Drag                                             DragParameters
+	ForceComponents                                  ForceModelComponents
 }
 type CovarianceNode struct {
 	State      CartesianState
@@ -116,10 +119,15 @@ type CovarianceEphemeris struct {
 
 func DefaultPropagationConfig() (PropagationConfig, error) {
 	v, e := native.PropagationConfigDefault()
-	return PropagationConfig{v.Epoch, v.Position, v.Velocity, PropagationForceModel(v.ForceModel), PropagationIntegrator(v.Integrator), v.AbsTol, v.RelTol, v.InitialStep, v.MinStep, v.MaxStep, v.MaxSteps, v.MuEnabled, v.Mu}, publicError(e)
+	return PropagationConfig{EpochTDBSeconds: v.Epoch, PositionKm: v.Position, VelocityKmPerS: v.Velocity,
+		ForceModel: PropagationForceModel(v.ForceModel), Integrator: PropagationIntegrator(v.Integrator),
+		AbsTol: v.AbsTol, RelTol: v.RelTol, InitialStepS: v.InitialStep, MinStepS: v.MinStep, MaxStepS: v.MaxStep,
+		MaxSteps: v.MaxSteps, MuEnabled: v.MuEnabled, MuKm3S2: v.Mu, HasDrag: v.HasDrag,
+		Drag:            DragParameters{BCFactorM2PerKg: v.Drag.BCFactorM2PerKg, Weather: SpaceWeather{F107: v.Drag.Weather.F107, F107A: v.Drag.Weather.F107A, Ap: v.Drag.Weather.Ap}, CutoffAltitudeKm: v.Drag.CutoffAltitudeKm},
+		ForceComponents: publicForceComponents(v.ForceComponents)}, publicError(e)
 }
 func PropagateCovariance(config PropagationConfig, covariance Covariance6, epochs []float64, inputFrame, outputFrame CovarianceFrame, noise ProcessNoise) (*CovarianceEphemeris, error) {
-	v, e := native.PropagateCovariance(native.NativePropagationConfig{Epoch: config.EpochTDBSeconds, Position: config.PositionKm, Velocity: config.VelocityKmPerS, ForceModel: uint32(config.ForceModel), Integrator: uint32(config.Integrator), AbsTol: config.AbsTol, RelTol: config.RelTol, InitialStep: config.InitialStepS, MinStep: config.MinStepS, MaxStep: config.MaxStepS, MaxSteps: config.MaxSteps, MuEnabled: config.MuEnabled, Mu: config.MuKm3S2}, covariance.Values, append([]float64(nil), epochs...), uint32(inputFrame), uint32(outputFrame), native.NativeProcessNoise{Kind: uint32(noise.Kind), RadialKm2S3: noise.RadialKm2S3, TransverseKm2S3: noise.TransverseKm2S3, NormalKm2S3: noise.NormalKm2S3})
+	v, e := native.PropagateCovariance(native.NativePropagationConfig{Epoch: config.EpochTDBSeconds, Position: config.PositionKm, Velocity: config.VelocityKmPerS, ForceModel: uint32(config.ForceModel), Integrator: uint32(config.Integrator), AbsTol: config.AbsTol, RelTol: config.RelTol, InitialStep: config.InitialStepS, MinStep: config.MinStepS, MaxStep: config.MaxStepS, MaxSteps: config.MaxSteps, MuEnabled: config.MuEnabled, Mu: config.MuKm3S2, HasDrag: config.HasDrag, Drag: native.DragParameters{BCFactorM2PerKg: config.Drag.BCFactorM2PerKg, Weather: nativeSpaceWeather(config.Drag.Weather), CutoffAltitudeKm: config.Drag.CutoffAltitudeKm}, ForceComponents: nativeForceComponents(config.ForceComponents)}, covariance.Values, append([]float64(nil), epochs...), uint32(inputFrame), uint32(outputFrame), native.NativeProcessNoise{Kind: uint32(noise.Kind), RadialKm2S3: noise.RadialKm2S3, TransverseKm2S3: noise.TransverseKm2S3, NormalKm2S3: noise.NormalKm2S3})
 	if e != nil {
 		return nil, publicError(e)
 	}

@@ -20,6 +20,9 @@ type NativePropagationConfig struct {
 	MaxSteps                                      uint32
 	MuEnabled                                     bool
 	Mu                                            float64
+	HasDrag                                       bool
+	Drag                                          DragParameters
+	ForceComponents                               ForceModelComponents
 }
 type NativeCovarianceNode struct {
 	State      NativeCartesianState
@@ -48,6 +51,9 @@ func propagationConfig(v NativePropagationConfig) C.SidereonStatePropagationConf
 	out.max_steps = C.uint32_t(v.MaxSteps)
 	out.mu_km3_s2_enabled = C.bool(v.MuEnabled)
 	out.mu_km3_s2 = C.double(v.Mu)
+	out.has_drag = C.bool(v.HasDrag)
+	out.drag = cDragParameters(v.Drag)
+	out.force_components = cForceModelComponents(v.ForceComponents)
 	return out
 }
 func PropagationConfigDefault() (NativePropagationConfig, error) {
@@ -58,7 +64,7 @@ func PropagationConfigDefault() (NativePropagationConfig, error) {
 		p[i] = float64(c.position_km[i])
 		v[i] = float64(c.velocity_km_s[i])
 	}
-	return NativePropagationConfig{float64(c.epoch_s), p, v, uint32(c.force_model), uint32(c.integrator), float64(c.abs_tol), float64(c.rel_tol), float64(c.initial_step_s), float64(c.min_step_s), float64(c.max_step_s), uint32(c.max_steps), bool(c.mu_km3_s2_enabled), float64(c.mu_km3_s2)}, err
+	return NativePropagationConfig{Epoch: float64(c.epoch_s), Position: p, Velocity: v, ForceModel: uint32(c.force_model), Integrator: uint32(c.integrator), AbsTol: float64(c.abs_tol), RelTol: float64(c.rel_tol), InitialStep: float64(c.initial_step_s), MinStep: float64(c.min_step_s), MaxStep: float64(c.max_step_s), MaxSteps: uint32(c.max_steps), MuEnabled: bool(c.mu_km3_s2_enabled), Mu: float64(c.mu_km3_s2), HasDrag: bool(c.has_drag), Drag: dragParametersFromC(c.drag), ForceComponents: forceModelComponentsFromC(c.force_components)}, err
 }
 func PropagateCovariance(config NativePropagationConfig, covariance [6][6]float64, epochs []float64, inputFrame, outputFrame uint32, noise NativeProcessNoise) (*CovarianceEphemeris, error) {
 	if len(epochs) == 0 {
