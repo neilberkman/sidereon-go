@@ -95,7 +95,8 @@ func GCRSToTopocentric(positionKm [3]float64, station GroundStation, scales Time
 
 // FrameGASTRadians returns Greenwich apparent sidereal time in radians.
 func FrameGASTRadians(scales TimeScales) (float64, error) {
-	return native.FrameGASTRadians(nativeTimeScales(scales))
+	value, err := native.FrameGASTRadians(nativeTimeScales(scales))
+	return value, publicError(err)
 }
 
 // FrameGastRadians is the idiomatic spelling of FrameGASTRadians.
@@ -140,7 +141,8 @@ func FrameGeodeticToITRS(latitudeDeg, longitudeDeg, altitudeKm float64) ([3]floa
 
 // FrameGMSTRadians returns Greenwich mean sidereal time in radians.
 func FrameGMSTRadians(scales TimeScales) (float64, error) {
-	return native.FrameGMSTRadians(nativeTimeScales(scales))
+	value, err := native.FrameGMSTRadians(nativeTimeScales(scales))
+	return value, publicError(err)
 }
 
 // FrameGmstRadians is the idiomatic spelling of FrameGMSTRadians.

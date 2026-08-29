@@ -184,9 +184,6 @@ func (g *CoverageGrid) MaxElevationDeg() ([]float64, error) {
 			if memory != nil {
 				defer C.free(memory)
 			}
-			if n > 0 {
-				raw = append(raw, unsafe.Slice((*C.double)(memory), n)...)
-			}
 			written, required = 0, 0
 			var out *C.double
 			if n > 0 {
@@ -195,8 +192,12 @@ func (g *CoverageGrid) MaxElevationDeg() ([]float64, error) {
 			if err := statusErrorLocked(uint32(call(out, C.size_t(n)))); err != nil {
 				return err
 			}
-			if _, err := validateTwoPassCounts("coverage maximum elevations", n, n, uint64(written), uint64(required)); err != nil {
+			count, err := validateTwoPassCounts("coverage maximum elevations", n, n, uint64(written), uint64(required))
+			if err != nil {
 				return err
+			}
+			if count > 0 {
+				raw = append(raw, unsafe.Slice((*C.double)(memory), count)...)
 			}
 			return nil
 		})
@@ -237,9 +238,6 @@ func (g *CoverageGrid) VisibleMask(minElevationDeg float64) ([]bool, error) {
 			if memory != nil {
 				defer C.free(memory)
 			}
-			if n > 0 {
-				raw = append(raw, unsafe.Slice((*C.bool)(memory), n)...)
-			}
 			written, required = 0, 0
 			var out *C.bool
 			if n > 0 {
@@ -248,8 +246,14 @@ func (g *CoverageGrid) VisibleMask(minElevationDeg float64) ([]bool, error) {
 			if err := statusErrorLocked(uint32(call(out, C.size_t(n)))); err != nil {
 				return err
 			}
-			_, err = validateTwoPassCounts("coverage visible mask", n, n, uint64(written), uint64(required))
-			return err
+			count, err := validateTwoPassCounts("coverage visible mask", n, n, uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if count > 0 {
+				raw = append(raw, unsafe.Slice((*C.bool)(memory), count)...)
+			}
+			return nil
 		})
 	})
 	runtime.KeepAlive(g)

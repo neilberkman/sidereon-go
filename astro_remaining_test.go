@@ -115,13 +115,13 @@ func TestRemainingCoverageFixtureAndCloseRace(t *testing.T) {
 	if _, err := grid.LookAngle(-1, 0); err == nil {
 		t.Fatal("negative coverage index was accepted")
 	}
-	if values, err := CoverageGridAccessCounts(grid, 0); err != nil || len(values) != 1 {
+	if values, err := CoverageGridAccessCounts(grid, -90); err != nil || len(values) != 1 || values[0] != 1 {
 		t.Fatalf("coverage access counts = %v, %v", values, err)
 	}
-	if values, err := CoverageGridMaxElevationDeg(grid); err != nil || len(values) != 1 {
+	if values, err := CoverageGridMaxElevationDeg(grid); err != nil || len(values) != 1 || math.Abs(values[0]+26.2630526291348) > 1e-12 {
 		t.Fatalf("coverage maximum elevation = %v, %v", values, err)
 	}
-	if values, err := CoverageGridVisibleMask(grid, 0); err != nil || len(values) != 1 {
+	if values, err := CoverageGridVisibleMask(grid, -90); err != nil || len(values) != 1 || !values[0] {
 		t.Fatalf("coverage visible mask = %v, %v", values, err)
 	}
 	var wg sync.WaitGroup
