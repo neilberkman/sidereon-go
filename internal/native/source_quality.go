@@ -352,6 +352,14 @@ func sourceCovarianceFromC(value C.SidereonSourceCovariance) (NativeSourceCovari
 	return NativeSourceCovariance{Dimension: dimension, StateDimension: stateDimension, State: state, PositionM2: position, HasOriginTimeS2: bool(value.has_origin_time_s2), OriginTimeS2: float64(value.origin_time_s2), TimingSigmaS: float64(value.timing_sigma_s)}, nil
 }
 
+func sourceCovarianceResult(present bool, decode func() (NativeSourceCovariance, error)) (NativeSourceCovariance, bool, error) {
+	if !present {
+		return NativeSourceCovariance{}, false, nil
+	}
+	decoded, err := decode()
+	return decoded, true, err
+}
+
 func sourceInfluenceFromC(value C.SidereonSourceSensorInfluence) (NativeSourceSensorInfluence, error) {
 	index, err := sizeTToInt(value.sensor_index, "source influence sensor index")
 	if err != nil {
@@ -436,8 +444,7 @@ func (s *SourceSolution) Covariance() (NativeSourceCovariance, bool, error) {
 	if err != nil {
 		return NativeSourceCovariance{}, false, err
 	}
-	value, err := sourceCovarianceFromC(output)
-	return value, bool(present), err
+	return sourceCovarianceResult(bool(present), func() (NativeSourceCovariance, error) { return sourceCovarianceFromC(output) })
 }
 
 func (s *SourceSolution) Influences() ([]NativeSourceSensorInfluence, error) {
@@ -615,6 +622,8 @@ func (s *SourcedSolution) BroadcastReason() (uint32, uint32, NativeStalenessMeta
 		if err := validateDegradation(uint32(metadata.kind)); err != nil {
 			return 0, 0, NativeStalenessMetadata{}, false, err
 		}
+	} else {
+		return uint32(reason), uint32(selection), NativeStalenessMetadata{}, false, nil
 	}
 	return uint32(reason), uint32(selection), NativeStalenessMetadata{Kind: uint32(metadata.kind), RequestedEpochJ2000S: float64(metadata.requested_epoch_j2000_s), SourceEpochJ2000S: float64(metadata.source_epoch_j2000_s), StalenessS: float64(metadata.staleness_s), StalenessDays: float64(metadata.staleness_days)}, bool(present), nil
 }
@@ -669,6 +678,8 @@ func (s *SourcedSolution) Staleness() (NativeStalenessMetadata, bool, error) {
 		if err := validateDegradation(uint32(output.kind)); err != nil {
 			return NativeStalenessMetadata{}, false, err
 		}
+	} else {
+		return NativeStalenessMetadata{}, false, nil
 	}
 	return NativeStalenessMetadata{Kind: uint32(output.kind), RequestedEpochJ2000S: float64(output.requested_epoch_j2000_s), SourceEpochJ2000S: float64(output.source_epoch_j2000_s), StalenessS: float64(output.staleness_s), StalenessDays: float64(output.staleness_days)}, bool(present), nil
 }
