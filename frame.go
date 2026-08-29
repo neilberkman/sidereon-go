@@ -2,6 +2,13 @@ package sidereon
 
 import "github.com/neilberkman/sidereon-go/internal/native"
 
+func nativeTimeScales(value TimeScales) native.TimeScales {
+	return native.TimeScales{
+		JDWhole: value.JDWhole, UT1Fraction: value.UT1Fraction, TTFraction: value.TTFraction,
+		TDBFraction: value.TDBFraction, JDUT1: value.JDUT1, JDTT: value.JDTT, JDTDB: value.JDTDB,
+	}
+}
+
 // Matrix3 is a row-major 3x3 matrix represented with Go-owned values.
 type Matrix3 [3][3]float64
 
@@ -84,6 +91,118 @@ func GCRSToTopocentric(positionKm [3]float64, station GroundStation, scales Time
 		}, skyfieldCompatible,
 	)
 	return Topocentric{AzimuthDeg: value[0], ElevationDeg: value[1], RangeKm: value[2]}, publicError(err)
+}
+
+// FrameGASTRadians returns Greenwich apparent sidereal time in radians.
+func FrameGASTRadians(scales TimeScales) (float64, error) {
+	return native.FrameGASTRadians(nativeTimeScales(scales))
+}
+
+// FrameGastRadians is the idiomatic spelling of FrameGASTRadians.
+func FrameGastRadians(scales TimeScales) (float64, error) {
+	return FrameGASTRadians(scales)
+}
+
+// FrameGCRSToITRSMatrixWithPolarMotion returns the C row-major GCRS-to-ITRS
+// matrix with polar motion supplied in arcseconds.
+func FrameGCRSToITRSMatrixWithPolarMotion(scales TimeScales, xpArcsec, ypArcsec float64) (Matrix3, error) {
+	value, err := native.FrameGCRSToITRSMatrixWithPolarMotion(nativeTimeScales(scales), xpArcsec, ypArcsec)
+	return Matrix3(value), publicError(err)
+}
+
+// FrameGCRSToITRSWithPolarMotion transforms a GCRS position in kilometres to
+// ITRS kilometres with explicit polar motion in arcseconds.
+func FrameGCRSToITRSWithPolarMotion(positionKm [3]float64, scales TimeScales, skyfieldCompatible bool, xpArcsec, ypArcsec float64) ([3]float64, error) {
+	value, err := native.FrameGCRSToITRSWithPolarMotion(positionKm, nativeTimeScales(scales), skyfieldCompatible, xpArcsec, ypArcsec)
+	return value, publicError(err)
+}
+
+// FrameGeodeticFromECEF is the PROJ-compatible degree/metre geodetic result.
+// Longitude and latitude are degrees; altitude is metres.
+type FrameGeodeticFromECEF struct {
+	LongitudeDeg float64
+	LatitudeDeg  float64
+	AltitudeM    float64
+}
+
+// FrameGeodeticFromECEFProj converts ECEF metres to geodetic degrees/metres.
+func FrameGeodeticFromECEFProj(ecefM [3]float64) (FrameGeodeticFromECEF, error) {
+	value, err := native.FrameGeodeticFromECEFProj(ecefM)
+	return FrameGeodeticFromECEF{LongitudeDeg: value.LongitudeDeg, LatitudeDeg: value.LatitudeDeg, AltitudeM: value.AltitudeM}, publicError(err)
+}
+
+// FrameGeodeticToITRS converts WGS84 latitude/longitude degrees and altitude
+// kilometres to ITRS/ECEF kilometres.
+func FrameGeodeticToITRS(latitudeDeg, longitudeDeg, altitudeKm float64) ([3]float64, error) {
+	value, err := native.FrameGeodeticToITRS(latitudeDeg, longitudeDeg, altitudeKm)
+	return value, publicError(err)
+}
+
+// FrameGMSTRadians returns Greenwich mean sidereal time in radians.
+func FrameGMSTRadians(scales TimeScales) (float64, error) {
+	return native.FrameGMSTRadians(nativeTimeScales(scales))
+}
+
+// FrameGmstRadians is the idiomatic spelling of FrameGMSTRadians.
+func FrameGmstRadians(scales TimeScales) (float64, error) {
+	return FrameGMSTRadians(scales)
+}
+
+// FrameGeodeticFromITRS is the degree/kilometre geodetic result returned by
+// the ITRS conversion route.
+type FrameGeodeticFromITRS struct {
+	LatitudeDeg  float64
+	LongitudeDeg float64
+	AltitudeKm   float64
+}
+
+// FrameITRSToGCRSMatrixWithPolarMotion returns the C row-major ITRS-to-GCRS
+// matrix with polar motion supplied in arcseconds.
+func FrameITRSToGCRSMatrixWithPolarMotion(scales TimeScales, xpArcsec, ypArcsec float64) (Matrix3, error) {
+	value, err := native.FrameITRSToGCRSMatrixWithPolarMotion(nativeTimeScales(scales), xpArcsec, ypArcsec)
+	return Matrix3(value), publicError(err)
+}
+
+// FrameITRSToGCRSWithPolarMotion transforms an ITRS position in kilometres to
+// GCRS kilometres with explicit polar motion in arcseconds.
+func FrameITRSToGCRSWithPolarMotion(positionKm [3]float64, scales TimeScales, xpArcsec, ypArcsec float64) ([3]float64, error) {
+	value, err := native.FrameITRSToGCRSWithPolarMotion(positionKm, nativeTimeScales(scales), xpArcsec, ypArcsec)
+	return value, publicError(err)
+}
+
+// FrameITRSToGeodetic converts ITRS/ECEF kilometres to geodetic
+// latitude/longitude degrees and altitude kilometres.
+func FrameITRSToGeodetic(positionKm [3]float64) (FrameGeodeticFromITRS, error) {
+	value, err := native.FrameITRSToGeodetic(positionKm)
+	return FrameGeodeticFromITRS{LatitudeDeg: value.LatitudeDeg, LongitudeDeg: value.LongitudeDeg, AltitudeKm: value.AltitudeKm}, publicError(err)
+}
+
+// FrameMeanOfDateToITRSMatrix returns the C row-major mean-of-date-to-ITRS
+// rotation matrix.
+func FrameMeanOfDateToITRSMatrix(scales TimeScales) (Matrix3, error) {
+	value, err := native.FrameMeanOfDateToITRSMatrix(nativeTimeScales(scales))
+	return Matrix3(value), publicError(err)
+}
+
+// FrameMeanOfDateToITRSMatrixWithPolarMotion returns the mean-of-date-to-ITRS
+// matrix with polar motion supplied in arcseconds.
+func FrameMeanOfDateToITRSMatrixWithPolarMotion(scales TimeScales, xpArcsec, ypArcsec float64) (Matrix3, error) {
+	value, err := native.FrameMeanOfDateToITRSMatrixWithPolarMotion(nativeTimeScales(scales), xpArcsec, ypArcsec)
+	return Matrix3(value), publicError(err)
+}
+
+// FrameTEMEToGCRSResult contains a copied position/velocity pair in
+// kilometres and kilometres per second.
+type FrameTEMEToGCRSResult struct {
+	PositionKm     [3]float64
+	VelocityKmPerS [3]float64
+}
+
+// FrameTEMEToGCRS transforms a TEME position and velocity to GCRS using the
+// supplied time scales and compatibility choice.
+func FrameTEMEToGCRS(positionKm, velocityKmPerS [3]float64, scales TimeScales, skyfieldCompatible bool) (FrameTEMEToGCRSResult, error) {
+	value, err := native.FrameTEMEToGCRS(positionKm, velocityKmPerS, nativeTimeScales(scales), skyfieldCompatible)
+	return FrameTEMEToGCRSResult{PositionKm: value.PositionKm, VelocityKmPerS: value.VelocityKmPerS}, publicError(err)
 }
 
 // DopplerRangeRate is the C range-rate and dimensionless Doppler-ratio result.
