@@ -96,6 +96,23 @@ func withInputError(data []byte, fn func(*C.uint8_t, C.size_t) error) error {
 	return operationErr
 }
 
+func copyNativeCString(value, name string) (unsafe.Pointer, error) {
+	if err := rejectEmbeddedNUL(value, name); err != nil {
+		return nil, err
+	}
+	if len(value) == int(^uint(0)>>1) {
+		return nil, errors.New("sidereon: native string is too large")
+	}
+	if _, err := checkedNativeAllocationSize(len(value)+1, 1); err != nil {
+		return nil, err
+	}
+	pointer := C.CBytes(append([]byte(value), 0))
+	if pointer == nil {
+		return nil, fmt.Errorf("sidereon: unable to allocate native %s", name)
+	}
+	return pointer, nil
+}
+
 func callStatus(fn func() uint32) error {
 	var err error
 	withCThread(func() {

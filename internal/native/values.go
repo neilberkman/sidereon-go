@@ -325,6 +325,9 @@ func EarthAngularRadius(positionKm [3]float64) (float64, error) {
 }
 
 func EclipseShadowFraction(satelliteKm, sunKm [3]float64, model *uint32) (float64, error) {
+	if model != nil && *model > 1 {
+		return 0, invalidArgument("Earth shadow model is not defined by the C ABI")
+	}
 	satellite := [3]C.double{C.double(satelliteKm[0]), C.double(satelliteKm[1]), C.double(satelliteKm[2])}
 	sun := [3]C.double{C.double(sunKm[0]), C.double(sunKm[1]), C.double(sunKm[2])}
 	var output C.double
@@ -340,6 +343,9 @@ func EclipseShadowFraction(satelliteKm, sunKm [3]float64, model *uint32) (float6
 }
 
 func EclipseStatus(satelliteKm, sunKm [3]float64, model *uint32) (int, error) {
+	if model != nil && *model > 1 {
+		return 0, invalidArgument("Earth shadow model is not defined by the C ABI")
+	}
 	satellite := [3]C.double{C.double(satelliteKm[0]), C.double(satelliteKm[1]), C.double(satelliteKm[2])}
 	sun := [3]C.double{C.double(sunKm[0]), C.double(sunKm[1]), C.double(sunKm[2])}
 	var output uint32

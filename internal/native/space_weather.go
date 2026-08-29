@@ -101,6 +101,7 @@ type SpaceWeatherTableSummary struct {
 }
 
 type SpaceWeatherTable struct {
+	_      noCopy
 	handle *positioningHandle
 }
 
