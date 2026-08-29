@@ -4,40 +4,53 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 
 // RTKRINEXStaticBaselineConfig configures a static RTK solve from paired
 // RINEX observations and an SP3 product.
+// RTKRINEXStaticBaselineConfig configures static-baseline RTK processing from RINEX observations.
 type RTKRINEXStaticBaselineConfig struct {
-	BaseM                [3]float64
-	ArcOptions           RTKRINEXArcOptions
-	ReferenceMode        RTKArcReferenceMode
-	ReferenceSatellite   string
-	ReferencePerSystem   []RTKArcReferenceEntry
-	Model                RTKMeasurementModel
-	BaselinePriorSigmaM  float64
+	// BaseM contains metres.
+	BaseM         [3]float64
+	ArcOptions    RTKRINEXArcOptions
+	ReferenceMode RTKArcReferenceMode
+	// ReferenceSatellite is the selected reference-satellite identifier.
+	ReferenceSatellite string
+	ReferencePerSystem []RTKArcReferenceEntry
+	Model              RTKMeasurementModel
+	// BaselinePriorSigmaM contains metres.
+	BaselinePriorSigmaM float64
+	// AmbiguityPriorSigmaM contains metres.
 	AmbiguityPriorSigmaM float64
-	InitialBaselineM     [3]float64
-	UpdateOptions        RTKArcUpdateOptions
-	Preprocessing        RTKArcPreprocessing
-	FloatOptions         RTKFloatOptions
-	FixedOptions         RTKFixedOptions
-	ResidualOptions      RTKResidualValidationOptions
+	// InitialBaselineM contains metres.
+	InitialBaselineM [3]float64
+	UpdateOptions    RTKArcUpdateOptions
+	Preprocessing    RTKArcPreprocessing
+	FloatOptions     RTKFloatOptions
+	FixedOptions     RTKFixedOptions
+	ResidualOptions  RTKResidualValidationOptions
 }
 
 // RTKRINEXWideLaneFixedConfig configures a static dual-frequency wide-lane
 // fixed solve from paired RINEX observations and an SP3 product.
+// RTKRINEXWideLaneFixedConfig configures wide-lane-fixed RTK processing from RINEX observations.
 type RTKRINEXWideLaneFixedConfig struct {
-	BaseM                [3]float64
-	ArcOptions           RTKRINEXDualArcOptions
-	ReferenceMode        RTKArcReferenceMode
-	ReferenceSatellite   string
-	ReferencePerSystem   []RTKArcReferenceEntry
-	Model                RTKMeasurementModel
-	BaselinePriorSigmaM  float64
+	// BaseM contains metres.
+	BaseM         [3]float64
+	ArcOptions    RTKRINEXDualArcOptions
+	ReferenceMode RTKArcReferenceMode
+	// ReferenceSatellite is the selected reference-satellite identifier.
+	ReferenceSatellite string
+	ReferencePerSystem []RTKArcReferenceEntry
+	Model              RTKMeasurementModel
+	// BaselinePriorSigmaM contains metres.
+	BaselinePriorSigmaM float64
+	// AmbiguityPriorSigmaM contains metres.
 	AmbiguityPriorSigmaM float64
-	InitialBaselineM     [3]float64
-	UpdateOptions        RTKArcUpdateOptions
-	FloatOptions         RTKFloatOptions
-	FixedOptions         RTKFixedOptions
-	ResidualOptions      RTKResidualValidationOptions
-	ApplyTroposphere     bool
+	// InitialBaselineM contains metres.
+	InitialBaselineM [3]float64
+	UpdateOptions    RTKArcUpdateOptions
+	FloatOptions     RTKFloatOptions
+	FixedOptions     RTKFixedOptions
+	ResidualOptions  RTKResidualValidationOptions
+	// ApplyTroposphere reports whether the troposphere correction is enabled.
+	ApplyTroposphere bool
 }
 
 // RTKStaticArcConfig configures the static raw-arc float and fixed solve.
@@ -50,6 +63,7 @@ type RTKStaticArcConfig struct {
 
 // RTKWideLaneFixedRINEXMetadata summarizes a combined wide-lane fixed solve.
 type RTKWideLaneFixedRINEXMetadata struct {
+	// WideLaneFixed reports whether a wide-lane fixed solution was obtained.
 	WideLaneFixed          bool
 	WideLaneAmbiguityCount int
 	DroppedCycleSlipCount  int
@@ -58,6 +72,7 @@ type RTKWideLaneFixedRINEXMetadata struct {
 
 // RTKStaticArcSolution owns a static RTK result and must not be copied after
 // first use.
+// RTKStaticArcSolution owns a native static RTK arc solution.
 type RTKStaticArcSolution struct {
 	_      noCopy
 	handle *native.RtkStaticArcSolution
@@ -65,6 +80,7 @@ type RTKStaticArcSolution struct {
 
 // RTKWideLaneFixedRINEXSolution owns a combined wide-lane fixed RINEX result
 // and must not be copied after first use.
+// RTKWideLaneFixedRINEXSolution owns a native wide-lane-fixed RINEX RTK solution.
 type RTKWideLaneFixedRINEXSolution struct {
 	_      noCopy
 	handle *native.RtkWideLaneFixedRinexSolution
@@ -142,6 +158,7 @@ func publicRTKReceiverAntenna(value *native.RtkReceiverAntennaCorrections) *RTKR
 
 // DefaultRTKRINEXWideLaneFixedConfig returns C's dual-frequency static
 // wide-lane fixed defaults.
+// DefaultRTKRINEXWideLaneFixedConfig returns native defaults for wide-lane-fixed RINEX processing.
 func DefaultRTKRINEXWideLaneFixedConfig() (RTKRINEXWideLaneFixedConfig, error) {
 	value, err := native.RtkRinexWideLaneFixedConfigInit()
 	return publicRTKRINEXWideLaneFixedConfig(value), publicError(err)
@@ -174,6 +191,7 @@ func SolveStaticRTKArc(epochs []RTKArcEpoch, config RTKStaticArcConfig) (*RTKSta
 
 // SolveStaticRINEXRTKBaseline solves a static RTK baseline from RINEX OBS and
 // SP3 handles.
+// SolveStaticRINEXRTKBaseline solves a static RTK baseline from RINEX observations and SP3 positions.
 func SolveStaticRINEXRTKBaseline(sp3 *SP3, base, rover *RINEXObservation, config RTKRINEXStaticBaselineConfig) (*RTKStaticArcSolution, error) {
 	result, err := native.SolveStaticRinexRtkBaseline(nativeSP3(sp3), nativeRinexObs(base), nativeRinexObs(rover), nativeRTKRINEXStaticConfig(config))
 	if err != nil {
@@ -184,6 +202,7 @@ func SolveStaticRINEXRTKBaseline(sp3 *SP3, base, rover *RINEXObservation, config
 
 // SolveWideLaneFixedRINEXRTKBaseline solves a static dual-frequency wide-lane
 // fixed baseline from RINEX OBS and SP3 handles.
+// SolveWideLaneFixedRINEXRTKBaseline solves a dual-frequency wide-lane-fixed RINEX baseline.
 func SolveWideLaneFixedRINEXRTKBaseline(sp3 *SP3, base, rover *RINEXObservation, config RTKRINEXWideLaneFixedConfig) (*RTKWideLaneFixedRINEXSolution, error) {
 	result, err := native.SolveWideLaneFixedRinexRtkBaseline(nativeSP3(sp3), nativeRinexObs(base), nativeRinexObs(rover), nativeRTKRINEXWideLaneFixedConfig(config))
 	if err != nil {
@@ -204,6 +223,7 @@ func publicRTKFloatMetadata(value native.RtkFloatMetadata) RTKFloatMetadata {
 	return RTKFloatMetadata{Iterations: value.Iterations, NObservations: value.NObservations, AmbiguityCount: value.AmbiguityCount, ResidualCount: value.ResidualCount, UsedSatCount: value.UsedSatCount, Converged: value.Converged, Status: value.Status, CodeRMSM: value.CodeRMSM, PhaseRMSM: value.PhaseRMSM, WeightedRMSM: value.WeightedRMSM, GeometryQuality: publicRTKGeometry(value.GeometryQuality)}
 }
 
+// Close releases the native static RTK arc solution; repeated calls are safe.
 func (s *RTKStaticArcSolution) Close() error {
 	if s == nil || s.handle == nil {
 		return nil
@@ -211,6 +231,7 @@ func (s *RTKStaticArcSolution) Close() error {
 	return publicError(s.handle.Close())
 }
 
+// AmbiguityIDs returns detached satellite IDs associated with RTK ambiguities.
 func (s *RTKStaticArcSolution) AmbiguityIDs() ([]string, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -219,6 +240,7 @@ func (s *RTKStaticArcSolution) AmbiguityIDs() ([]string, error) {
 	return append([]string(nil), value...), publicError(err)
 }
 
+// AmbiguitySatellites returns detached satellite metadata for RTK ambiguity entries.
 func (s *RTKStaticArcSolution) AmbiguitySatellites() ([]RTKAmbiguitySatellite, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -234,6 +256,7 @@ func (s *RTKStaticArcSolution) AmbiguitySatellites() ([]RTKAmbiguitySatellite, e
 	return result, nil
 }
 
+// DroppedSatellites returns detached IDs of satellites dropped from the solution.
 func (s *RTKStaticArcSolution) DroppedSatellites() ([]string, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -242,6 +265,7 @@ func (s *RTKStaticArcSolution) DroppedSatellites() ([]string, error) {
 	return append([]string(nil), value...), publicError(err)
 }
 
+// ElevationMaskedSatellites returns detached IDs rejected by the elevation mask.
 func (s *RTKStaticArcSolution) ElevationMaskedSatellites() ([]string, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -250,6 +274,7 @@ func (s *RTKStaticArcSolution) ElevationMaskedSatellites() ([]string, error) {
 	return append([]string(nil), value...), publicError(err)
 }
 
+// FixedAmbiguities returns detached ambiguities accepted by integer fixing.
 func (s *RTKStaticArcSolution) FixedAmbiguities() ([]RTKFixedAmbiguity, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -265,6 +290,7 @@ func (s *RTKStaticArcSolution) FixedAmbiguities() ([]RTKFixedAmbiguity, error) {
 	return result, nil
 }
 
+// FixedBaselineECEF returns the fixed rover-minus-base baseline in ECEF metres.
 func (s *RTKStaticArcSolution) FixedBaselineECEF() ([3]float64, error) {
 	if s == nil || s.handle == nil {
 		return [3]float64{}, ErrClosed
@@ -273,6 +299,7 @@ func (s *RTKStaticArcSolution) FixedBaselineECEF() ([3]float64, error) {
 	return value, publicError(err)
 }
 
+// FixedFreeAmbiguities returns detached ambiguities left free after integer fixing.
 func (s *RTKStaticArcSolution) FixedFreeAmbiguities() ([]RTKAmbiguity, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -288,6 +315,7 @@ func (s *RTKStaticArcSolution) FixedFreeAmbiguities() ([]RTKAmbiguity, error) {
 	return result, nil
 }
 
+// FixedMetadata returns metadata from the fixed-ambiguity RTK solution.
 func (s *RTKStaticArcSolution) FixedMetadata() (RTKFixedMetadata, error) {
 	if s == nil || s.handle == nil {
 		return RTKFixedMetadata{}, ErrClosed
@@ -296,6 +324,7 @@ func (s *RTKStaticArcSolution) FixedMetadata() (RTKFixedMetadata, error) {
 	return publicRTKFixedMetadata(value), publicError(err)
 }
 
+// FloatAmbiguities returns detached ambiguities from the float solution.
 func (s *RTKStaticArcSolution) FloatAmbiguities() ([]RTKAmbiguity, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -311,6 +340,7 @@ func (s *RTKStaticArcSolution) FloatAmbiguities() ([]RTKAmbiguity, error) {
 	return result, nil
 }
 
+// FloatBaselineECEF returns the float rover-minus-base baseline in ECEF metres.
 func (s *RTKStaticArcSolution) FloatBaselineECEF() ([3]float64, error) {
 	if s == nil || s.handle == nil {
 		return [3]float64{}, ErrClosed
@@ -319,6 +349,7 @@ func (s *RTKStaticArcSolution) FloatBaselineECEF() ([3]float64, error) {
 	return value, publicError(err)
 }
 
+// FloatMetadata returns metadata from the RTK float solution.
 func (s *RTKStaticArcSolution) FloatMetadata() (RTKFloatMetadata, error) {
 	if s == nil || s.handle == nil {
 		return RTKFloatMetadata{}, ErrClosed
@@ -327,6 +358,7 @@ func (s *RTKStaticArcSolution) FloatMetadata() (RTKFloatMetadata, error) {
 	return publicRTKFloatMetadata(value), publicError(err)
 }
 
+// GeometryQuality returns satellite-geometry quality metrics for the RTK solution.
 func (s *RTKStaticArcSolution) GeometryQuality() (SPPGeometryQuality, error) {
 	if s == nil || s.handle == nil {
 		return SPPGeometryQuality{}, ErrClosed
@@ -335,6 +367,7 @@ func (s *RTKStaticArcSolution) GeometryQuality() (SPPGeometryQuality, error) {
 	return publicRTKGeometry(value), publicError(err)
 }
 
+// References returns detached ambiguity-reference selections used by the solution.
 func (s *RTKStaticArcSolution) References() ([]RTKArcReference, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -350,6 +383,7 @@ func (s *RTKStaticArcSolution) References() ([]RTKArcReference, error) {
 	return result, nil
 }
 
+// SplitCycleSlipArcs returns detached arc ranges created by cycle-slip splitting.
 func (s *RTKStaticArcSolution) SplitCycleSlipArcs() ([]RTKArcSplitArc, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -365,6 +399,7 @@ func (s *RTKStaticArcSolution) SplitCycleSlipArcs() ([]RTKArcSplitArc, error) {
 	return result, nil
 }
 
+// DroppedSatellites returns detached IDs of satellites dropped from the solution.
 func (s *RTKWideLaneArcSolution) DroppedSatellites() ([]string, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -373,6 +408,7 @@ func (s *RTKWideLaneArcSolution) DroppedSatellites() ([]string, error) {
 	return append([]string(nil), value...), publicError(err)
 }
 
+// EpochCount returns the number of recorded epochs.
 func (s *RTKWideLaneArcSolution) EpochCount() (int, error) {
 	if s == nil || s.handle == nil {
 		return 0, ErrClosed
@@ -381,6 +417,7 @@ func (s *RTKWideLaneArcSolution) EpochCount() (int, error) {
 	return value, publicError(err)
 }
 
+// GeometryQuality returns satellite-geometry quality metrics for the RTK solution.
 func (s *RTKWideLaneArcSolution) GeometryQuality() (SPPGeometryQuality, error) {
 	if s == nil || s.handle == nil {
 		return SPPGeometryQuality{}, ErrClosed
@@ -389,6 +426,7 @@ func (s *RTKWideLaneArcSolution) GeometryQuality() (SPPGeometryQuality, error) {
 	return publicRTKGeometry(value), publicError(err)
 }
 
+// References returns detached ambiguity-reference selections used by the solution.
 func (s *RTKWideLaneArcSolution) References() ([]RTKArcReference, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -404,6 +442,7 @@ func (s *RTKWideLaneArcSolution) References() ([]RTKArcReference, error) {
 	return result, nil
 }
 
+// SplitCycleSlipArcs returns detached arc ranges created by cycle-slip splitting.
 func (s *RTKWideLaneArcSolution) SplitCycleSlipArcs() ([]RTKArcSplitArc, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -419,6 +458,7 @@ func (s *RTKWideLaneArcSolution) SplitCycleSlipArcs() ([]RTKArcSplitArc, error) 
 	return result, nil
 }
 
+// WideLaneCycles returns detached wide-lane ambiguity cycles.
 func (s *RTKWideLaneArcSolution) WideLaneCycles() ([]RTKWideLaneCycle, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -434,6 +474,7 @@ func (s *RTKWideLaneArcSolution) WideLaneCycles() ([]RTKWideLaneCycle, error) {
 	return result, nil
 }
 
+// Close releases the native wide-lane-fixed RINEX RTK solution; repeated calls are safe.
 func (s *RTKWideLaneFixedRINEXSolution) Close() error {
 	if s == nil || s.handle == nil {
 		return nil
@@ -441,6 +482,7 @@ func (s *RTKWideLaneFixedRINEXSolution) Close() error {
 	return publicError(s.handle.Close())
 }
 
+// FixedBaselineECEF returns the fixed rover-minus-base baseline in ECEF metres.
 func (s *RTKWideLaneFixedRINEXSolution) FixedBaselineECEF() ([3]float64, error) {
 	if s == nil || s.handle == nil {
 		return [3]float64{}, ErrClosed
@@ -449,6 +491,7 @@ func (s *RTKWideLaneFixedRINEXSolution) FixedBaselineECEF() ([3]float64, error) 
 	return value, publicError(err)
 }
 
+// FixedMetadata returns metadata from the fixed-ambiguity RTK solution.
 func (s *RTKWideLaneFixedRINEXSolution) FixedMetadata() (RTKFixedMetadata, error) {
 	if s == nil || s.handle == nil {
 		return RTKFixedMetadata{}, ErrClosed
@@ -457,6 +500,7 @@ func (s *RTKWideLaneFixedRINEXSolution) FixedMetadata() (RTKFixedMetadata, error
 	return publicRTKFixedMetadata(value), publicError(err)
 }
 
+// FloatBaselineECEF returns the float rover-minus-base baseline in ECEF metres.
 func (s *RTKWideLaneFixedRINEXSolution) FloatBaselineECEF() ([3]float64, error) {
 	if s == nil || s.handle == nil {
 		return [3]float64{}, ErrClosed
@@ -465,6 +509,7 @@ func (s *RTKWideLaneFixedRINEXSolution) FloatBaselineECEF() ([3]float64, error) 
 	return value, publicError(err)
 }
 
+// FloatMetadata returns metadata from the RTK float solution.
 func (s *RTKWideLaneFixedRINEXSolution) FloatMetadata() (RTKFloatMetadata, error) {
 	if s == nil || s.handle == nil {
 		return RTKFloatMetadata{}, ErrClosed
@@ -473,6 +518,7 @@ func (s *RTKWideLaneFixedRINEXSolution) FloatMetadata() (RTKFloatMetadata, error
 	return publicRTKFloatMetadata(value), publicError(err)
 }
 
+// Metadata returns solver iteration, geometry, and status metadata.
 func (s *RTKWideLaneFixedRINEXSolution) Metadata() (RTKWideLaneFixedRINEXMetadata, error) {
 	if s == nil || s.handle == nil {
 		return RTKWideLaneFixedRINEXMetadata{}, ErrClosed
@@ -481,6 +527,7 @@ func (s *RTKWideLaneFixedRINEXSolution) Metadata() (RTKWideLaneFixedRINEXMetadat
 	return RTKWideLaneFixedRINEXMetadata{WideLaneFixed: value.WideLaneFixed, WideLaneAmbiguityCount: value.WideLaneAmbiguityCount, DroppedCycleSlipCount: value.DroppedCycleSlipCount, SplitCycleSlipCount: value.SplitCycleSlipCount}, publicError(err)
 }
 
+// WideLaneCycles returns detached wide-lane ambiguity cycles.
 func (s *RTKWideLaneFixedRINEXSolution) WideLaneCycles() ([]RTKWideLaneCycle, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed

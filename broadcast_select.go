@@ -4,40 +4,62 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 
 // CompareEpoch is one broadcast/precise epoch pair for SISRE comparison.
 // Julian-date fields preserve the split representation required by the C ABI.
+// CompareEpoch contains epoch-by-epoch agreement metrics for two broadcast products.
 type CompareEpoch struct {
-	BroadcastTJ2000S       float64
-	PreciseJDWhole         float64
-	PreciseJDFraction      float64
-	PrecisePlusJDWhole     float64
-	PrecisePlusJDFraction  float64
-	PreciseMinusJDWhole    float64
+	// BroadcastTJ2000S is the broadcast epoch in seconds from J2000.
+	BroadcastTJ2000S float64
+	// PreciseJDWhole is the whole-day part of the precise sample's Julian date.
+	PreciseJDWhole float64
+	// PreciseJDFraction is the fractional-day part of the precise sample's Julian date.
+	PreciseJDFraction float64
+	// PrecisePlusJDWhole is the whole-day part of the precise-plus sample's Julian date.
+	PrecisePlusJDWhole float64
+	// PrecisePlusJDFraction is the fractional-day part of the precise-plus sample's Julian date.
+	PrecisePlusJDFraction float64
+	// PreciseMinusJDWhole is the whole-day part of the precise-minus sample's Julian date.
+	PreciseMinusJDWhole float64
+	// PreciseMinusJDFraction is the fractional-day part of the precise-minus sample's Julian date.
 	PreciseMinusJDFraction float64
 }
 
 // CompareWindow describes a regular broadcast/precise comparison grid.
 type CompareWindow struct {
+	// BroadcastWindowStartJ2000S is the comparison-window start in seconds from J2000.
 	BroadcastWindowStartJ2000S float64
-	BroadcastWindowEndJ2000S   float64
-	PreciseStartJDWhole        float64
-	PreciseStartJDFraction     float64
-	StepS                      float64
-	VelocityHalfS              float64
+	// BroadcastWindowEndJ2000S is the comparison-window end in seconds from J2000.
+	BroadcastWindowEndJ2000S float64
+	// PreciseStartJDWhole is the whole-day part of the comparison start's Julian date.
+	PreciseStartJDWhole float64
+	// PreciseStartJDFraction is the fractional-day part of the comparison start's Julian date.
+	PreciseStartJDFraction float64
+	// StepS is the comparison step in seconds.
+	StepS float64
+	// VelocityHalfS is the velocity comparison half-window in seconds.
+	VelocityHalfS float64
 }
 
 // CompareStats contains C-computed broadcast-vs-precise error statistics.
 // Distance fields are metres; Count is the number of compared samples.
+// CompareStats contains aggregate position, clock, and record agreement statistics.
 type CompareStats struct {
-	Count                          int
-	Orbit3DRMSM, Orbit3DMaxM       float64
-	RadialRMSM, RadialMaxM         float64
-	AlongRMSM, AlongMaxM           float64
-	CrossRMSM, CrossMaxM           float64
-	ClockRMSM, ClockMaxM           float64
+	Count int
+	// Orbit3DRMSM and Orbit3DMaxM are three-dimensional position residuals in metres.
+	Orbit3DRMSM, Orbit3DMaxM float64
+	// RadialRMSM and RadialMaxM are radial position residuals in metres.
+	RadialRMSM, RadialMaxM float64
+	// AlongRMSM and AlongMaxM are along-track position residuals in metres.
+	AlongRMSM, AlongMaxM float64
+	// CrossRMSM and CrossMaxM are cross-track position residuals in metres.
+	CrossRMSM, CrossMaxM float64
+	// ClockRMSM and ClockMaxM are satellite-clock residuals expressed as metres.
+	ClockRMSM, ClockMaxM float64
+	// ClockDatumRMSM and ClockDatumMaxM are clock-datum residuals expressed as metres.
 	ClockDatumRMSM, ClockDatumMaxM float64
 }
 
 // BroadcastComparison owns a native comparison report and must not be copied.
 // Close is idempotent and safe to call concurrently with read methods.
+// BroadcastComparison owns the result of comparing two broadcast products.
 type BroadcastComparison struct {
 	_      noCopy
 	handle *native.BroadcastComparison
@@ -49,6 +71,7 @@ func publicCompareStats(value native.NativeCompareStats) CompareStats {
 
 // CompareBroadcast compares selected broadcast and SP3 satellites at explicit
 // split-Julian epochs using the native numerical implementation.
+// CompareBroadcast compares two broadcast products and returns agreement metrics.
 func CompareBroadcast(broadcast *BroadcastEphemeris, precise *SP3, satellites []string, epochs []CompareEpoch, velocityHalfS float64) (*BroadcastComparison, error) {
 	nativeEpochs := make([]native.NativeCompareEpoch, len(epochs))
 	for i, value := range epochs {
@@ -121,18 +144,31 @@ func (r *BroadcastComparison) Satellite(index int) (string, CompareStats, error)
 
 // BroadcastRecordInfo is the compact record metadata returned by native
 // issue-selection and record-list routes.
+// BroadcastRecordInfo identifies a decoded broadcast record and its navigation-message payload.
 type BroadcastRecordInfo struct {
-	SatelliteID       string
-	Message, Issue    uint32
-	IssueMessage      uint32
-	Week, ToeWeek     uint32
-	ToeTOWSeconds     float64
-	TocWeek           uint32
-	TocTOWSeconds     float64
-	SVHealth          float64
-	SVAccuracyM       float64
-	HasFitInterval    bool
-	FitIntervalS      float64
+	// SatelliteID is the GNSS satellite identifier.
+	SatelliteID string
+	// Message and Issue are the broadcast message number, the broadcast issue number.
+	Message, Issue uint32
+	// IssueMessage is the issue message number.
+	IssueMessage uint32
+	// Week and ToeWeek are the GNSS week number, the ephemeris reference week.
+	Week, ToeWeek uint32
+	// ToeTOWSeconds is the ephemeris reference time of week in seconds.
+	ToeTOWSeconds float64
+	// TocWeek is the clock reference week.
+	TocWeek uint32
+	// TocTOWSeconds is the clock reference time of week in seconds.
+	TocTOWSeconds float64
+	// SVHealth is the broadcast satellite-health indicator.
+	SVHealth float64
+	// SVAccuracyM contains metres.
+	SVAccuracyM float64
+	// HasFitInterval reports whether FitIntervalS is valid.
+	HasFitInterval bool
+	// FitIntervalS is the broadcast fit interval in seconds when HasFitInterval is true.
+	FitIntervalS float64
+	// DefaultGroupDelay is the default group delay in seconds.
 	DefaultGroupDelay float64
 	CNAV              BroadcastCNAV
 }
@@ -177,6 +213,7 @@ func (b *BroadcastEphemeris) RecordsInfo() ([]BroadcastRecordInfo, error) {
 
 // SelectByIssue selects a record by satellite, issue, message family, and
 // epoch. The boolean reports C's optional-record presence separately from err.
+// SelectByIssue selects the broadcast record matching a satellite, issue, message, and epoch.
 func (b *BroadcastEphemeris) SelectByIssue(satellite string, issue, message uint32, epochJ2000S float64) (BroadcastRecordInfo, bool, error) {
 	if b == nil || b.handle == nil {
 		return BroadcastRecordInfo{}, false, ErrClosed
@@ -201,16 +238,20 @@ func BroadcastEccentricAnomaly(meanAnomalyRad, eccentricity float64) (float64, i
 
 // ConstellationConstants contains native physical constants used for broadcast
 // orbit and clock evaluation. Values use SI units.
+// ConstellationConstants contains orbital and signal constants for one GNSS constellation.
 type ConstellationConstants struct{ GMM3PerS2, OmegaERadPerS, DTRF float64 }
 
-// ClockOffset contains the native broadcast satellite-clock decomposition.
+// ClockOffset is a broadcast satellite-clock correction in seconds with its validity metadata.
 type ClockOffset struct{ ClockPolynomialS, RelativisticS, GroupDelayS, TotalS float64 }
 
 // OrbitState contains the complete native broadcast orbit evaluation, including
 // intermediate Kepler and corrected-orbit values.
+// OrbitState contains propagated satellite orbital parameters and derived state values.
 type OrbitState struct {
-	A, N0, N, TK, MK, EccentricAnomaly                                           float64
-	KeplerIterations                                                             int
+	// A is the semi-major axis in metres; N0 and N are mean motions in radians per second; TK is seconds from the reference epoch; MK and EccentricAnomaly are angles in radians.
+	A, N0, N, TK, MK, EccentricAnomaly float64
+	KeplerIterations                   int
+	// SinE and CosE, S2 and C2 are dimensionless; Nu, Phi, DU, DI, U, I, and OmegaK are radians; DR, R, XP, YP, and XM/YM/ZM are metres.
 	SinE, CosE, Nu, Phi, S2, C2, DU, DR, DI, U, R, I, XP, YP, OmegaK, XM, YM, ZM float64
 }
 
@@ -274,6 +315,7 @@ func SelectSP3OverRange(products []*SP3, startEpochJ2000S, endEpochJ2000S float6
 
 // SPPDopplerObservation is one Doppler row in hertz and carrier frequency.
 type SPPDopplerObservation struct {
+	// SatelliteID is the GNSS satellite identifier.
 	SatelliteID                                    string
 	DopplerHz, CarrierHz, SatelliteClockDriftSPerS float64
 }
@@ -282,36 +324,51 @@ type SPPDopplerObservation struct {
 type SPPDopplerVelocityErrorKind uint32
 
 const (
+	// SPPDopplerVelocityNoError indicates a successful Doppler-velocity solve.
 	SPPDopplerVelocityNoError SPPDopplerVelocityErrorKind = iota
+	// SPPDopplerVelocityNoObservations indicates that no Doppler observations were supplied.
 	SPPDopplerVelocityNoObservations
+	// SPPDopplerVelocityTooFewSatellites indicates insufficient satellites for a velocity solve.
 	SPPDopplerVelocityTooFewSatellites
+	// SPPDopplerVelocitySingularGeometry indicates singular velocity geometry.
 	SPPDopplerVelocitySingularGeometry
+	// SPPDopplerVelocityDuplicateObservation indicates duplicate Doppler observations.
 	SPPDopplerVelocityDuplicateObservation
+	// SPPDopplerVelocityInvalidCarrier indicates an invalid carrier frequency.
 	SPPDopplerVelocityInvalidCarrier
+	// SPPDopplerVelocityInvalidInput indicates invalid Doppler-solver input.
 	SPPDopplerVelocityInvalidInput
+	// SPPDopplerVelocityInvalidObservation indicates an invalid Doppler observation.
 	SPPDopplerVelocityInvalidObservation
+	// SPPDopplerVelocityInvalidReceiverState indicates an invalid receiver state.
 	SPPDopplerVelocityInvalidReceiverState
 )
 
 // SPPDopplerSolution is a detached receiver SPP result plus Doppler status.
 type SPPDopplerSolution struct {
-	Receiver          SPPSolution
+	Receiver SPPSolution
+	// HasVelocity reports whether Velocity contains a solution.
 	HasVelocity       bool
 	VelocityErrorKind SPPDopplerVelocityErrorKind
-	Velocity          *SPPDopplerVelocitySolution
+	// Velocity refers to an optional value; nil means it is unavailable.
+	Velocity *SPPDopplerVelocitySolution
 }
 
 // SPPDopplerVelocitySolution is the detached native velocity result. Velocity
 // and residuals use metres per second; ClockDriftSPerS uses seconds per second.
-// StateCovariance is the native row-major unit-variance 4x4 matrix.
+// StateCovariance is the row-major 4x4 covariance for [vx, vy, vz, clock drift], with products of m/s and s/s units.
+// SPPDopplerVelocitySolution contains Doppler-derived SPP velocity, clock drift, and residual metadata.
 type SPPDopplerVelocitySolution struct {
-	VelocityMPerS      [3]float64
-	ClockDriftSPerS    float64
+	// VelocityMPerS contains metres per second.
+	VelocityMPerS   [3]float64
+	ClockDriftSPerS float64
+	// SpeedMPerS contains metres per second.
 	SpeedMPerS         float64
 	StateCovariance    [16]float64
 	UsedSatelliteCount int
 	UsedSatelliteIDs   []string
-	ResidualsMPerS     []float64
+	// ResidualsMPerS contains metres per second.
+	ResidualsMPerS []float64
 }
 
 // SolveBroadcast solves one SPP epoch using broadcast navigation messages.
@@ -325,6 +382,7 @@ func SolveBroadcast(broadcast *BroadcastEphemeris, config SPPConfig) (SPPSolutio
 
 // SolveBroadcastWithDopplerVelocity solves broadcast SPP and its native Doppler
 // velocity extension. The returned receiver solution is always detached.
+// SolveBroadcastWithDopplerVelocity solves SPP position and velocity from broadcast Doppler observations.
 func SolveBroadcastWithDopplerVelocity(broadcast *BroadcastEphemeris, config SPPConfig, observations []SPPDopplerObservation) (SPPDopplerSolution, error) {
 	if broadcast == nil || broadcast.handle == nil {
 		return SPPDopplerSolution{}, ErrClosed

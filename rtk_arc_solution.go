@@ -4,11 +4,15 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 
 // RTKArcReferenceMode selects the reference satellite policy for sequential
 // RTK and its derived arc products.
+// RTKArcReferenceMode selects how RTK ambiguity references are chosen.
 type RTKArcReferenceMode uint32
 
 const (
-	RTKArcReferenceAuto      RTKArcReferenceMode = 0
+	// RTKArcReferenceAuto selects automatic ambiguity-reference selection.
+	RTKArcReferenceAuto RTKArcReferenceMode = 0
+	// RTKArcReferenceSatellite selects single-satellite ambiguity-reference selection.
 	RTKArcReferenceSatellite RTKArcReferenceMode = 1
+	// RTKArcReferencePerSystem selects per-constellation ambiguity-reference selection.
 	RTKArcReferencePerSystem RTKArcReferenceMode = 2
 )
 
@@ -16,16 +20,21 @@ const (
 type RTKCycleSlipPolicy uint32
 
 const (
-	RTKCycleSlipError         RTKCycleSlipPolicy = 0
+	// RTKCycleSlipError reports that cycle-slip handling failed.
+	RTKCycleSlipError RTKCycleSlipPolicy = 0
+	// RTKCycleSlipDropSatellite selects dropping the affected satellite on a cycle slip.
 	RTKCycleSlipDropSatellite RTKCycleSlipPolicy = 1
-	RTKCycleSlipSplitArc      RTKCycleSlipPolicy = 2
+	// RTKCycleSlipSplitArc selects splitting the arc on a cycle slip.
+	RTKCycleSlipSplitArc RTKCycleSlipPolicy = 2
 )
 
-// RTKCycleSlipReceiver identifies the receiver side of a split arc.
+// RTKCycleSlipReceiver identifies whether a cycle slip belongs to the base or rover receiver.
 type RTKCycleSlipReceiver uint32
 
 const (
-	RTKCycleSlipBase  RTKCycleSlipReceiver = 0
+	// RTKCycleSlipBase selects the base receiver as cycle-slip source.
+	RTKCycleSlipBase RTKCycleSlipReceiver = 0
+	// RTKCycleSlipRover selects the rover receiver as cycle-slip source.
 	RTKCycleSlipRover RTKCycleSlipReceiver = 1
 )
 
@@ -33,83 +42,113 @@ const (
 type RTKArcEpochIDList uint32
 
 const (
-	RTKArcEpochNewlyFixedIDs            RTKArcEpochIDList = 0
-	RTKArcEpochFixedIDs                 RTKArcEpochIDList = 1
+	// RTKArcEpochNewlyFixedIDs selects newly fixed ambiguity IDs.
+	RTKArcEpochNewlyFixedIDs RTKArcEpochIDList = 0
+	// RTKArcEpochFixedIDs selects all fixed ambiguity IDs.
+	RTKArcEpochFixedIDs RTKArcEpochIDList = 1
+	// RTKArcEpochFixedDoubleDifferenceIDs selects fixed double-difference ambiguity IDs.
 	RTKArcEpochFixedDoubleDifferenceIDs RTKArcEpochIDList = 2
 )
 
 // RTKArcPositionEntry is one satellite-keyed ECEF position in meters.
 type RTKArcPositionEntry struct {
+	// SatelliteID is the GNSS satellite identifier.
 	SatelliteID string
-	PositionM   [3]float64
+	// PositionM contains metres.
+	PositionM [3]float64
 }
 
 // RTKArcEpoch is one raw sequential RTK epoch. Empty receiver-specific
 // position slices use SatellitePositions, as specified by the C ABI.
+// RTKArcEpoch contains base, rover, and satellite observations for one RTK epoch.
 type RTKArcEpoch struct {
 	Base, Rover             []RTKArcObservation
 	SatellitePositions      []RTKArcPositionEntry
 	BaseSatellitePositions  []RTKArcPositionEntry
 	RoverSatellitePositions []RTKArcPositionEntry
-	HasVelocityMPS          bool
-	VelocityMPS             [3]float64
-	HasPredictionTime       bool
-	PredictionTimeS         float64
+	// HasVelocityMPS reports whether VelocityMPS is supplied.
+	HasVelocityMPS bool
+	// VelocityMPS contains metres per second.
+	VelocityMPS [3]float64
+	// HasPredictionTime reports whether PredictionTimeS is valid.
+	HasPredictionTime bool
+	// PredictionTimeS is the epoch time coordinate in seconds when HasPredictionTime is true.
+	PredictionTimeS float64
 }
 
 // RTKArcReferenceEntry specifies a per-constellation reference satellite.
 type RTKArcReferenceEntry struct {
-	System      GNSSSystem
+	// System identifies the GNSS constellation or constellation set.
+	System GNSSSystem
+	// SatelliteID is the GNSS satellite identifier.
 	SatelliteID string
 }
 
 // RTKArcPreprocessing controls optional cycle-slip, Hatch, and elevation
 // preprocessing in a sequential solve.
+// RTKArcPreprocessing configures cycle-slip and observation preprocessing.
 type RTKArcPreprocessing struct {
-	HasCycleSlip        bool
-	CycleSlip           RTKCycleSlipPolicy
-	HasHatchWindowCap   bool
-	HatchWindowCap      int
+	// HasCycleSlip reports whether CycleSlip is present.
+	HasCycleSlip bool
+	CycleSlip    RTKCycleSlipPolicy
+	// HasHatchWindowCap reports whether HatchWindowCap is valid.
+	HasHatchWindowCap bool
+	// HatchWindowCap is the maximum Hatch smoothing window in epochs.
+	HatchWindowCap int
+	// HasElevationMaskDeg reports whether ElevationMaskDeg is valid.
 	HasElevationMaskDeg bool
-	ElevationMaskDeg    float64
+	// ElevationMaskDeg is the elevation mask in degrees.
+	ElevationMaskDeg float64
 }
 
 // RTKArcConfig contains all inputs to a sequential RTK arc solve.
 type RTKArcConfig struct {
-	BaseM                [3]float64
-	ReferenceMode        RTKArcReferenceMode
-	ReferenceSatellite   string
-	ReferencePerSystem   []RTKArcReferenceEntry
-	Model                RTKMeasurementModel
-	BaselinePriorSigmaM  float64
+	// BaseM contains metres.
+	BaseM         [3]float64
+	ReferenceMode RTKArcReferenceMode
+	// ReferenceSatellite is the selected reference satellite identifier.
+	ReferenceSatellite string
+	ReferencePerSystem []RTKArcReferenceEntry
+	Model              RTKMeasurementModel
+	// BaselinePriorSigmaM contains metres.
+	BaselinePriorSigmaM float64
+	// AmbiguityPriorSigmaM contains metres.
 	AmbiguityPriorSigmaM float64
-	InitialBaselineM     [3]float64
-	Wavelengths          []RTKFloatMapEntry
-	Offsets              []RTKFloatMapEntry
-	UpdateOptions        RTKArcUpdateOptions
-	ReceiverAntenna      *RTKReceiverAntennaCorrections
-	Preprocessing        RTKArcPreprocessing
+	// InitialBaselineM contains metres.
+	InitialBaselineM [3]float64
+	Wavelengths      []RTKFloatMapEntry
+	Offsets          []RTKFloatMapEntry
+	UpdateOptions    RTKArcUpdateOptions
+	// ReceiverAntenna refers to an optional value; nil means it is unavailable.
+	ReceiverAntenna *RTKReceiverAntennaCorrections
+	Preprocessing   RTKArcPreprocessing
 }
 
 // RTKArcEpochMetadata contains one copied sequential solution epoch.
 type RTKArcEpochMetadata struct {
-	ReportedBaselineM, FloatBaselineM              [3]float64
-	IntegerFixed                                   bool
+	// ReportedBaselineM and FloatBaselineM are rover-minus-base ECEF baselines in metres.
+	ReportedBaselineM, FloatBaselineM [3]float64
+	// IntegerFixed reports whether integer ambiguities were fixed.
+	IntegerFixed bool
+	// IntegerRatio is the ambiguity ratio.
 	IntegerRatio                                   float64
 	NewlyFixedCount, FixedIDCount                  int
 	FixedDoubleDifferenceCount, UsedSatelliteCount int
 	SDAmbiguityCount, ResidualCount                int
-	HasSearch                                      bool
+	// HasSearch reports whether integer-search diagnostics are available.
+	HasSearch bool
 }
 
 // RTKArcReference is one copied per-constellation reference result.
 type RTKArcReference struct {
+	// System and ReferenceID identifies the GNSS constellation or constellation set.
 	System, ReferenceID string
 }
 
 // RTKArcSplitArc is one copied cycle-slip split interval.
 type RTKArcSplitArc struct {
-	Receiver                       RTKCycleSlipReceiver
+	Receiver RTKCycleSlipReceiver
+	// SatelliteID identifies the satellite; AmbiguityID identifies its carrier-phase ambiguity.
 	SatelliteID, AmbiguityID       string
 	StartEpochIndex, EndEpochIndex int
 	EpochCount                     int
@@ -117,59 +156,82 @@ type RTKArcSplitArc struct {
 
 // RTKDualFrequencyArcEpoch is one dual-frequency epoch accepted by the
 // wide-lane and ionosphere-free C routes.
+// RTKDualFrequencyArcEpoch contains dual-frequency observations and satellite positions for one epoch.
 type RTKDualFrequencyArcEpoch struct {
-	JDWhole, JDFraction     float64
-	HasEpochSortKey         bool
-	EpochSortKey            string
-	HasGapTimeS             bool
+	// JDWhole and JDFraction are the split Julian-date day value and fractional day.
+	JDWhole, JDFraction float64
+	// HasEpochSortKey reports whether the epoch sort key is valid.
+	HasEpochSortKey bool
+	// EpochSortKey is the caller-provided key used to order epochs.
+	EpochSortKey string
+	// HasGapTimeS reports whether GapTimeS is valid.
+	HasGapTimeS bool
+	// GapTimeS is the cycle-slip gap threshold in seconds.
 	GapTimeS                float64
 	Observations            []RTKDualFrequencySatelliteObservation
 	SatellitePositions      []RTKArcPositionEntry
 	BaseSatellitePositions  []RTKArcPositionEntry
 	RoverSatellitePositions []RTKArcPositionEntry
-	HasVelocityMPS          bool
-	VelocityMPS             [3]float64
-	HasPredictionTime       bool
-	PredictionTimeS         float64
+	// HasVelocityMPS reports whether VelocityMPS is supplied.
+	HasVelocityMPS bool
+	// VelocityMPS contains metres per second.
+	VelocityMPS [3]float64
+	// HasPredictionTime reports whether PredictionTimeS is valid.
+	HasPredictionTime bool
+	// PredictionTimeS is the epoch time coordinate in seconds when HasPredictionTime is true.
+	PredictionTimeS float64
 }
 
 // RTKWideLaneCycle is one fixed Melbourne-Wubbena ambiguity in cycles.
 type RTKWideLaneCycle struct {
-	ID     string
+	// ID identifies the associated record.
+	ID string
+	// Cycles is the carrier-cycle count.
 	Cycles int64
 }
 
 // RTKWideLaneOptions controls wide-lane estimation.
 type RTKWideLaneOptions struct {
-	MinEpochs       int
+	// MinEpochs is the minimum epoch count.
+	MinEpochs int
+	// ToleranceCycles is the cycle-slip tolerance in cycles.
 	ToleranceCycles float64
-	SkipShort       bool
+	// SkipShort reports whether short arcs are skipped.
+	SkipShort bool
 }
 
 // RTKWideLaneArcConfig configures the wide-lane solver.
 type RTKWideLaneArcConfig struct {
-	BaseM              [3]float64
-	ReferenceMode      RTKArcReferenceMode
+	// BaseM contains metres.
+	BaseM         [3]float64
+	ReferenceMode RTKArcReferenceMode
+	// ReferenceSatellite is the selected reference satellite identifier.
 	ReferenceSatellite string
 	ReferencePerSystem []RTKArcReferenceEntry
 	Options            RTKWideLaneOptions
-	HasCycleSlip       bool
-	CycleSlipPolicy    RTKCycleSlipPolicy
-	CycleSlipOptions   CycleSlipOptions
+	// HasCycleSlip reports whether CycleSlip is present.
+	HasCycleSlip     bool
+	CycleSlipPolicy  RTKCycleSlipPolicy
+	CycleSlipOptions CycleSlipOptions
 }
 
 // RTKIonosphereFreeArcConfig configures ionosphere-free preparation.
 type RTKIonosphereFreeArcConfig struct {
-	BaseM              [3]float64
-	InitialBaselineM   [3]float64
-	ReferenceMode      RTKArcReferenceMode
+	// BaseM contains metres.
+	BaseM [3]float64
+	// InitialBaselineM contains metres.
+	InitialBaselineM [3]float64
+	ReferenceMode    RTKArcReferenceMode
+	// ReferenceSatellite is the selected reference satellite identifier.
 	ReferenceSatellite string
 	ReferencePerSystem []RTKArcReferenceEntry
-	ApplyTroposphere   bool
+	// ApplyTroposphere reports whether the troposphere correction is enabled.
+	ApplyTroposphere bool
 }
 
 // RTKArcSolution owns a sequential RTK result and must not be copied after
 // first use.
+// RTKArcSolution owns a native sequential RTK arc solution.
 type RTKArcSolution struct {
 	_      noCopy
 	handle *native.RtkArcSolution
@@ -177,6 +239,7 @@ type RTKArcSolution struct {
 
 // RTKIonosphereFreeArcSolution owns an ionosphere-free RTK result and must not
 // be copied after first use.
+// RTKIonosphereFreeArcSolution owns a native ionosphere-free RTK arc solution.
 type RTKIonosphereFreeArcSolution struct {
 	_      noCopy
 	handle *native.RtkIonosphereFreeArcSolution
@@ -184,6 +247,7 @@ type RTKIonosphereFreeArcSolution struct {
 
 // RTKWideLaneArcSolution owns a wide-lane result and must not be copied after
 // first use.
+// RTKWideLaneArcSolution owns a native wide-lane RTK arc solution.
 type RTKWideLaneArcSolution struct {
 	_      noCopy
 	handle *native.RtkWideLaneArcSolution
@@ -357,6 +421,7 @@ func (s *RTKWideLaneArcSolution) Close() error {
 	return publicError(s.handle.Close())
 }
 
+// EpochCount returns the number of recorded epochs.
 func (s *RTKArcSolution) EpochCount() (int, error) {
 	if s == nil || s.handle == nil {
 		return 0, ErrClosed
@@ -365,6 +430,7 @@ func (s *RTKArcSolution) EpochCount() (int, error) {
 	return value, publicError(err)
 }
 
+// FinalEpochCount returns the number of epochs retained in the final RTK arc.
 func (s *RTKArcSolution) FinalEpochCount() (int, error) {
 	if s == nil || s.handle == nil {
 		return 0, ErrClosed
@@ -373,6 +439,7 @@ func (s *RTKArcSolution) FinalEpochCount() (int, error) {
 	return value, publicError(err)
 }
 
+// EpochMetadata returns ambiguity, residual, and used-satellite counts for the selected epoch.
 func (s *RTKArcSolution) EpochMetadata(index int) (RTKArcEpochMetadata, error) {
 	if s == nil || s.handle == nil {
 		return RTKArcEpochMetadata{}, ErrClosed
@@ -384,6 +451,7 @@ func (s *RTKArcSolution) EpochMetadata(index int) (RTKArcEpochMetadata, error) {
 	return RTKArcEpochMetadata{ReportedBaselineM: value.ReportedBaselineM, FloatBaselineM: value.FloatBaselineM, IntegerFixed: value.IntegerFixed, IntegerRatio: value.IntegerRatio, NewlyFixedCount: value.NewlyFixedCount, FixedIDCount: value.FixedIDCount, FixedDoubleDifferenceCount: value.FixedDoubleDifferenceCount, UsedSatelliteCount: value.UsedSatelliteCount, SDAmbiguityCount: value.SDAmbiguityCount, ResidualCount: value.ResidualCount, HasSearch: value.HasSearch}, nil
 }
 
+// EpochSDAmbiguities returns detached single-difference ambiguities for the selected epoch.
 func (s *RTKArcSolution) EpochSDAmbiguities(index int) ([]RTKAmbiguity, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -399,6 +467,7 @@ func (s *RTKArcSolution) EpochSDAmbiguities(index int) ([]RTKAmbiguity, error) {
 	return result, nil
 }
 
+// EpochStringIDs returns the selected detached satellite-ID list for the epoch.
 func (s *RTKArcSolution) EpochStringIDs(index int, which RTKArcEpochIDList) ([]string, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -407,6 +476,7 @@ func (s *RTKArcSolution) EpochStringIDs(index int, which RTKArcEpochIDList) ([]s
 	return append([]string(nil), value...), publicError(err)
 }
 
+// EpochUsedSatellites returns detached IDs of satellites used at the selected epoch.
 func (s *RTKArcSolution) EpochUsedSatellites(index int) ([]string, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -415,6 +485,7 @@ func (s *RTKArcSolution) EpochUsedSatellites(index int) ([]string, error) {
 	return append([]string(nil), value...), publicError(err)
 }
 
+// DroppedSatellites returns detached IDs of satellites dropped from the solution.
 func (s *RTKArcSolution) DroppedSatellites() ([]string, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -423,6 +494,7 @@ func (s *RTKArcSolution) DroppedSatellites() ([]string, error) {
 	return append([]string(nil), value...), publicError(err)
 }
 
+// ElevationMaskedSatellites returns detached IDs rejected by the elevation mask.
 func (s *RTKArcSolution) ElevationMaskedSatellites() ([]string, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -431,6 +503,7 @@ func (s *RTKArcSolution) ElevationMaskedSatellites() ([]string, error) {
 	return append([]string(nil), value...), publicError(err)
 }
 
+// FinalBaseline returns the final rover-minus-base baseline in ECEF metres.
 func (s *RTKArcSolution) FinalBaseline() ([3]float64, error) {
 	if s == nil || s.handle == nil {
 		return [3]float64{}, ErrClosed
@@ -439,6 +512,7 @@ func (s *RTKArcSolution) FinalBaseline() ([3]float64, error) {
 	return value, publicError(err)
 }
 
+// MeasurementCovariance returns detached final measurement covariance in row-major order.
 func (s *RTKArcSolution) MeasurementCovariance() ([]float64, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -447,6 +521,7 @@ func (s *RTKArcSolution) MeasurementCovariance() ([]float64, error) {
 	return append([]float64(nil), value...), publicError(err)
 }
 
+// References returns detached ambiguity-reference selections used by the solution.
 func (s *RTKArcSolution) References() ([]RTKArcReference, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -462,6 +537,7 @@ func (s *RTKArcSolution) References() ([]RTKArcReference, error) {
 	return result, nil
 }
 
+// SplitCycleSlipArcs returns detached arc ranges created by cycle-slip splitting.
 func (s *RTKArcSolution) SplitCycleSlipArcs() ([]RTKArcSplitArc, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -477,6 +553,7 @@ func (s *RTKArcSolution) SplitCycleSlipArcs() ([]RTKArcSplitArc, error) {
 	return result, nil
 }
 
+// EpochCount returns the number of recorded epochs.
 func (s *RTKIonosphereFreeArcSolution) EpochCount() (int, error) {
 	if s == nil || s.handle == nil {
 		return 0, ErrClosed
@@ -485,6 +562,7 @@ func (s *RTKIonosphereFreeArcSolution) EpochCount() (int, error) {
 	return value, publicError(err)
 }
 
+// EpochBaseObservations returns detached base observations for the selected epoch.
 func (s *RTKIonosphereFreeArcSolution) EpochBaseObservations(index int) ([]RTKArcObservation, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -500,6 +578,7 @@ func (s *RTKIonosphereFreeArcSolution) EpochBaseObservations(index int) ([]RTKAr
 	return result, nil
 }
 
+// EpochRoverObservations returns detached rover observations for the selected epoch.
 func (s *RTKIonosphereFreeArcSolution) EpochRoverObservations(index int) ([]RTKArcObservation, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -523,6 +602,7 @@ func publicRTKArcPositions(value []native.RtkRinexArcPosition) []RTKArcPosition 
 	return result
 }
 
+// EpochSatellitePositions returns detached satellite ECEF positions for the selected epoch.
 func (s *RTKIonosphereFreeArcSolution) EpochSatellitePositions(index int) ([]RTKArcPosition, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -534,6 +614,7 @@ func (s *RTKIonosphereFreeArcSolution) EpochSatellitePositions(index int) ([]RTK
 	return publicRTKArcPositions(value), nil
 }
 
+// EpochBaseSatellitePositions returns detached base-side satellite positions for the selected epoch.
 func (s *RTKIonosphereFreeArcSolution) EpochBaseSatellitePositions(index int) ([]RTKArcPosition, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -545,6 +626,7 @@ func (s *RTKIonosphereFreeArcSolution) EpochBaseSatellitePositions(index int) ([
 	return publicRTKArcPositions(value), nil
 }
 
+// EpochRoverSatellitePositions returns detached rover-side satellite positions for the selected epoch.
 func (s *RTKIonosphereFreeArcSolution) EpochRoverSatellitePositions(index int) ([]RTKArcPosition, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -556,6 +638,7 @@ func (s *RTKIonosphereFreeArcSolution) EpochRoverSatellitePositions(index int) (
 	return publicRTKArcPositions(value), nil
 }
 
+// EpochMetadata returns ambiguity, residual, and used-satellite counts for the selected epoch.
 func (s *RTKIonosphereFreeArcSolution) EpochMetadata(index int) (RTKRINEXArcEpochMetadata, error) {
 	if s == nil || s.handle == nil {
 		return RTKRINEXArcEpochMetadata{}, ErrClosed
@@ -567,6 +650,7 @@ func (s *RTKIonosphereFreeArcSolution) EpochMetadata(index int) (RTKRINEXArcEpoc
 	return RTKRINEXArcEpochMetadata{BaseCount: value.BaseCount, RoverCount: value.RoverCount, SatellitePositionCount: value.SatellitePositionCount, BaseSatellitePositionCount: value.BaseSatellitePositionCount, RoverSatellitePositionCount: value.RoverSatellitePositionCount, HasVelocityMPS: value.HasVelocityMPS, VelocityMPS: value.VelocityMPS, HasPredictionTime: value.HasPredictionTime, PredictionTimeS: value.PredictionTimeS}, nil
 }
 
+// OffsetsM returns detached ionosphere-free code offsets in metres.
 func (s *RTKIonosphereFreeArcSolution) OffsetsM() ([]RTKFloatMapEntry, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -582,6 +666,7 @@ func (s *RTKIonosphereFreeArcSolution) OffsetsM() ([]RTKFloatMapEntry, error) {
 	return result, nil
 }
 
+// WavelengthsM returns detached ionosphere-free carrier wavelengths in metres.
 func (s *RTKIonosphereFreeArcSolution) WavelengthsM() ([]RTKFloatMapEntry, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -597,6 +682,7 @@ func (s *RTKIonosphereFreeArcSolution) WavelengthsM() ([]RTKFloatMapEntry, error
 	return result, nil
 }
 
+// References returns detached ambiguity-reference selections used by the solution.
 func (s *RTKIonosphereFreeArcSolution) References() ([]RTKArcReference, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed

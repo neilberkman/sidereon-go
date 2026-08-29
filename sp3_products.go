@@ -6,7 +6,9 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 type ExactSP3Coverage uint32
 
 const (
-	ExactSP3CoverageHalfOpen  ExactSP3Coverage = ExactSP3Coverage(native.ExactSp3CoverageHalfOpen)
+	// ExactSP3CoverageHalfOpen selects half-open SP3 coverage intervals.
+	ExactSP3CoverageHalfOpen ExactSP3Coverage = ExactSP3Coverage(native.ExactSp3CoverageHalfOpen)
+	// ExactSP3CoverageInclusive selects inclusive SP3 coverage intervals.
 	ExactSP3CoverageInclusive ExactSP3Coverage = ExactSP3Coverage(native.ExactSp3CoverageInclusive)
 )
 
@@ -78,8 +80,11 @@ func ValidateExactSP3(sp3 *SP3, request *ExactSP3Request) (ExactSP3Coverage, err
 type SP3MergeCombine uint32
 
 const (
-	SP3MergeCombineMean       SP3MergeCombine = SP3MergeCombine(native.Sp3MergeCombineMean)
-	SP3MergeCombineMedian     SP3MergeCombine = SP3MergeCombine(native.Sp3MergeCombineMedian)
+	// SP3MergeCombineMean selects mean combination of overlapping SP3 records.
+	SP3MergeCombineMean SP3MergeCombine = SP3MergeCombine(native.Sp3MergeCombineMean)
+	// SP3MergeCombineMedian selects median combination of overlapping SP3 records.
+	SP3MergeCombineMedian SP3MergeCombine = SP3MergeCombine(native.Sp3MergeCombineMedian)
+	// SP3MergeCombinePrecedence selects precedence-based combination of overlapping SP3 records.
 	SP3MergeCombinePrecedence SP3MergeCombine = SP3MergeCombine(native.Sp3MergeCombinePrecedence)
 )
 
@@ -87,7 +92,9 @@ const (
 type SP3MergePrecedenceScope uint32
 
 const (
-	SP3MergePrecedenceCell         SP3MergePrecedenceScope = SP3MergePrecedenceScope(native.Sp3MergePrecedenceCell)
+	// SP3MergePrecedenceCell selects cell-level source precedence.
+	SP3MergePrecedenceCell SP3MergePrecedenceScope = SP3MergePrecedenceScope(native.Sp3MergePrecedenceCell)
+	// SP3MergePrecedenceSatelliteArc selects satellite-arc source precedence.
 	SP3MergePrecedenceSatelliteArc SP3MergePrecedenceScope = SP3MergePrecedenceScope(native.Sp3MergePrecedenceSatelliteArc)
 )
 
@@ -95,37 +102,52 @@ const (
 type SP3MergeFlagKind uint32
 
 const (
-	SP3MergeFlagQuarantined     SP3MergeFlagKind = SP3MergeFlagKind(native.Sp3MergeFlagQuarantined)
-	SP3MergeFlagSingleSource    SP3MergeFlagKind = SP3MergeFlagKind(native.Sp3MergeFlagSingleSource)
+	// SP3MergeFlagQuarantined selects the quarantined merge flag.
+	SP3MergeFlagQuarantined SP3MergeFlagKind = SP3MergeFlagKind(native.Sp3MergeFlagQuarantined)
+	// SP3MergeFlagSingleSource selects the single-source merge flag.
+	SP3MergeFlagSingleSource SP3MergeFlagKind = SP3MergeFlagKind(native.Sp3MergeFlagSingleSource)
+	// SP3MergeFlagPositionOutlier selects the position-outlier merge flag.
 	SP3MergeFlagPositionOutlier SP3MergeFlagKind = SP3MergeFlagKind(native.Sp3MergeFlagPositionOutlier)
-	SP3MergeFlagClockOutlier    SP3MergeFlagKind = SP3MergeFlagKind(native.Sp3MergeFlagClockOutlier)
+	// SP3MergeFlagClockOutlier selects the clock-outlier merge flag.
+	SP3MergeFlagClockOutlier SP3MergeFlagKind = SP3MergeFlagKind(native.Sp3MergeFlagClockOutlier)
 )
 
 // SP3FrameReconciliationMethod identifies how coordinate labels were reconciled.
 type SP3FrameReconciliationMethod uint32
 
 const (
+	// SP3FrameReconciliationAssertedEquivalence selects asserted frame equivalence.
 	SP3FrameReconciliationAssertedEquivalence SP3FrameReconciliationMethod = SP3FrameReconciliationMethod(native.Sp3FrameReconciliationAssertedEquivalence)
-	SP3FrameReconciliationHelmert             SP3FrameReconciliationMethod = SP3FrameReconciliationMethod(native.Sp3FrameReconciliationHelmert)
+	// SP3FrameReconciliationHelmert selects Helmert frame reconciliation.
+	SP3FrameReconciliationHelmert SP3FrameReconciliationMethod = SP3FrameReconciliationMethod(native.Sp3FrameReconciliationHelmert)
 )
 
 // SP3MergeOptions controls native SP3 consensus merging. Distances are metres,
 // clock tolerances are seconds, and target intervals are seconds.
 type SP3MergeOptions struct {
-	PositionToleranceM             float64
-	ClockToleranceS                float64
-	MinAgree                       int
-	ClockMinCommon                 int
-	Combine                        SP3MergeCombine
-	PrecedenceScope                SP3MergePrecedenceScope
+	// PositionToleranceM contains metres.
+	PositionToleranceM float64
+	// ClockToleranceS is the clock disagreement tolerance in seconds.
+	ClockToleranceS float64
+	// MinAgree is the minimum agreeing sources.
+	MinAgree int
+	// ClockMinCommon is the minimum common clock samples.
+	ClockMinCommon  int
+	Combine         SP3MergeCombine
+	PrecedenceScope SP3MergePrecedenceScope
+	// OutlierRejectEnabled reports whether position/clock outlier rejection is enabled.
 	OutlierRejectEnabled           bool
 	OutlierRejectPositionTolerance float64
 	OutlierRejectClockTolerance    float64
-	TargetEpochIntervalEnabled     bool
-	TargetEpochIntervalS           float64
-	Systems                        []GNSSSystem
-	AssertedFrameLabelSets         [][]string
-	HelmertFrameReconciliation     bool
+	// TargetEpochIntervalEnabled reports whether target-epoch interval filtering is enabled.
+	TargetEpochIntervalEnabled bool
+	// TargetEpochIntervalS is the desired SP3 epoch spacing in seconds when enabled.
+	TargetEpochIntervalS float64
+	// Systems identifies the GNSS constellation or constellation set.
+	Systems                []GNSSSystem
+	AssertedFrameLabelSets [][]string
+	// HelmertFrameReconciliation reports whether Helmert frame reconciliation is enabled.
+	HelmertFrameReconciliation bool
 }
 
 // NewSP3MergeOptions returns native merge defaults.
@@ -157,9 +179,12 @@ type SP3ArtifactIdentity struct {
 	RequestedIdentity ProductIdentity
 	ResolvedIdentity  ProductIdentity
 	Distribution      DistributionSource
-	OfficialFilename  string
+	// OfficialFilename is the provider's canonical SP3 filename.
+	OfficialFilename string
+	// ProductSHA256 is the lowercase SHA-256 digest of the SP3 product bytes.
 	ProductSHA256     string
 	ProductByteLength uint64
+	// ArchiveSHA256 is the lowercase SHA-256 digest of the compressed archive bytes.
 	ArchiveSHA256     string
 	ArchiveByteLength uint64
 	Compression       ArchiveCompression
@@ -282,17 +307,23 @@ func (r *SP3MergeReport) Close() error {
 
 // SP3AgreementSummary is a whole-product merge agreement summary.
 type SP3AgreementSummary struct {
+	// PositionRMSPresent reports whether PositionRMSM is valid.
 	PositionRMSPresent bool
-	PositionRMSM       float64
+	// PositionRMSM contains metres.
+	PositionRMSM float64
+	// PositionMaxPresent reports whether PositionMaxM is valid.
 	PositionMaxPresent bool
-	PositionMaxM       float64
-	ClockRMSPresent    bool
-	ClockRMSS          float64
-	ClockMaxPresent    bool
-	ClockMaxS          float64
+	// PositionMaxM contains metres.
+	PositionMaxM float64
+	// ClockRMSPresent reports whether ClockRMSS is valid.
+	ClockRMSPresent bool
+	ClockRMSS       float64
+	// ClockMaxPresent reports whether ClockMaxS is valid.
+	ClockMaxPresent bool
+	ClockMaxS       float64
 }
 
-// AgreementSummary returns copied agreement metrics.
+// AgreementSummary returns detached position and clock agreement metrics.
 func (r *SP3MergeReport) AgreementSummary() (SP3AgreementSummary, error) {
 	if r == nil || r.handle == nil {
 		return SP3AgreementSummary{}, ErrClosed
@@ -303,12 +334,17 @@ func (r *SP3MergeReport) AgreementSummary() (SP3AgreementSummary, error) {
 
 // SP3EpochAgreement is one per-epoch merge agreement row.
 type SP3EpochAgreement struct {
-	EpochJ2000S     float64
-	Satellites      int
-	PositionRMSM    float64
-	PositionMaxM    float64
+	// EpochJ2000S is the agreement epoch in seconds from J2000.
+	EpochJ2000S float64
+	Satellites  int
+	// PositionRMSM contains metres.
+	PositionRMSM float64
+	// PositionMaxM contains metres.
+	PositionMaxM float64
+	// ClockRMSPresent reports whether ClockRMSS is valid.
 	ClockRMSPresent bool
 	ClockRMSS       float64
+	// ClockMaxPresent reports whether ClockMaxS is valid.
 	ClockMaxPresent bool
 	ClockMaxS       float64
 }
@@ -333,7 +369,9 @@ func (r *SP3MergeReport) EpochAgreement(index int) (SP3EpochAgreement, error) {
 
 // SP3MergeFlag is one merge audit flag.
 type SP3MergeFlag struct {
+	// EpochJ2000S is the merge-flag epoch in seconds from J2000.
 	EpochJ2000S float64
+	// SatelliteID is the GNSS satellite identifier.
 	SatelliteID string
 	SourceCount int
 }
@@ -367,35 +405,54 @@ func (r *SP3MergeReport) FlagSources(kind SP3MergeFlagKind, index int) ([]int, e
 
 // SP3FrameReconciliation is one merge coordinate-label reconciliation row.
 type SP3FrameReconciliation struct {
-	SourceIndex               int
-	SourceLabelLen            int
-	TargetLabelLen            int
-	Method                    SP3FrameReconciliationMethod
-	AssertedLabelCount        int
-	SourceFramePresent        bool
-	SourceFrame               TerrestrialFrame
-	TargetFramePresent        bool
-	TargetFrame               TerrestrialFrame
-	CatalogFramePresent       bool
-	CatalogSourceFrame        TerrestrialFrame
-	CatalogTargetFrame        TerrestrialFrame
-	CatalogInverse            bool
+	SourceIndex        int
+	SourceLabelLen     int
+	TargetLabelLen     int
+	Method             SP3FrameReconciliationMethod
+	AssertedLabelCount int
+	// SourceFramePresent reports whether SourceFrame is valid.
+	SourceFramePresent bool
+	// SourceFrame identifies the coordinate frame for the values.
+	SourceFrame TerrestrialFrame
+	// TargetFramePresent reports whether TargetFrame is valid.
+	TargetFramePresent bool
+	// TargetFrame identifies the coordinate frame for the values.
+	TargetFrame TerrestrialFrame
+	// CatalogFramePresent reports whether catalog frame metadata is valid.
+	CatalogFramePresent bool
+	// CatalogSourceFrame identifies the coordinate frame for the values.
+	CatalogSourceFrame TerrestrialFrame
+	// CatalogTargetFrame identifies the coordinate frame for the values.
+	CatalogTargetFrame TerrestrialFrame
+	// CatalogInverse reports whether the catalog transform is inverse.
+	CatalogInverse bool
+	// ReferenceEpochYearPresent reports whether ReferenceEpochYear is valid.
 	ReferenceEpochYearPresent bool
 	ReferenceEpochYear        float64
-	ParametersPresent         bool
-	TranslationMM             [3]float64
-	ScalePPB                  float64
-	RotationMAS               [3]float64
-	RatesPresent              bool
-	TranslationMMPerYear      [3]float64
-	ScalePPBPerYear           float64
-	RotationMASPerYear        [3]float64
-	ProvenanceLen             int
-	EpochYearSpanPresent      bool
-	EpochYearStart            float64
-	EpochYearEnd              float64
-	RecordsAffected           int
-	Identity                  bool
+	// ParametersPresent reports whether Helmert parameters are valid.
+	ParametersPresent bool
+	// TranslationMM contains translation components in millimetres.
+	TranslationMM [3]float64
+	// ScalePPB contains parts per billion.
+	ScalePPB float64
+	// RotationMAS contains milliarcseconds.
+	RotationMAS [3]float64
+	// RatesPresent reports whether Helmert rates are valid.
+	RatesPresent bool
+	// TranslationMMPerYear contains translation rates in millimetres per year.
+	TranslationMMPerYear [3]float64
+	// ScalePPBPerYear is the scale rate in parts per billion per year.
+	ScalePPBPerYear float64
+	// RotationMASPerYear contains rotation rates in milliarcseconds per year.
+	RotationMASPerYear [3]float64
+	ProvenanceLen      int
+	// EpochYearSpanPresent reports whether the epoch-year span is valid.
+	EpochYearSpanPresent bool
+	EpochYearStart       float64
+	EpochYearEnd         float64
+	RecordsAffected      int
+	// Identity reports whether the frame transform is the identity.
+	Identity bool
 }
 
 func publicSP3FrameReconciliation(v native.NativeSp3FrameReconciliation) SP3FrameReconciliation {
@@ -483,6 +540,7 @@ func MergeSP3(sources []*SP3, options *SP3MergeOptions) (*SP3, *SP3MergeReport, 
 
 // VisibilityPass describes one sampled rise/set/peak pass.
 type VisibilityPass struct {
+	// Satellite identifies the GNSS satellite associated with this record.
 	Satellite     string
 	RiseStepIndex int
 	SetStepIndex  int
@@ -498,9 +556,12 @@ type VisibilitySeriesPoint struct {
 
 // GeometryVisible describes one satellite above an elevation mask.
 type GeometryVisible struct {
-	Satellite    string
+	// Satellite identifies the GNSS satellite associated with this record.
+	Satellite string
+	// ElevationDeg contains degrees.
 	ElevationDeg float64
-	AzimuthDeg   float64
+	// AzimuthDeg contains degrees.
+	AzimuthDeg float64
 }
 
 func geometrySystems(values []GNSSSystem) ([]uint32, error) {

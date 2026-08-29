@@ -6,16 +6,21 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 type EclipseStatus uint32
 
 const (
-	EclipseSunlit   EclipseStatus = 0
+	// EclipseSunlit indicates full solar illumination.
+	EclipseSunlit EclipseStatus = 0
+	// EclipsePenumbra indicates partial solar illumination in the penumbra.
 	EclipsePenumbra EclipseStatus = 1
-	EclipseUmbra    EclipseStatus = 2
+	// EclipseUmbra indicates that the satellite is in the umbra.
+	EclipseUmbra EclipseStatus = 2
 )
 
 // EarthShadowModel selects the Earth model used by eclipse helpers.
 type EarthShadowModel uint32
 
 const (
-	EarthShadowSpherical   EarthShadowModel = 0
+	// EarthShadowSpherical selects a spherical-Earth shadow model.
+	EarthShadowSpherical EarthShadowModel = 0
+	// EarthShadowWGS84Oblate selects an oblate WGS 84 Earth-shadow model.
 	EarthShadowWGS84Oblate EarthShadowModel = 1
 )
 

@@ -42,12 +42,15 @@ func metadataUnixMicroseconds(value time.Time) (int64, error) {
 type ConstellationBoolStyle uint32
 
 const (
+	// ConstellationBoolStyleLower selects lowercase boolean spelling.
 	ConstellationBoolStyleLower ConstellationBoolStyle = ConstellationBoolStyle(native.ConstellationBoolStyleLowerValue)
+	// ConstellationBoolStyleTitle selects title-case boolean spelling.
 	ConstellationBoolStyleTitle ConstellationBoolStyle = ConstellationBoolStyle(native.ConstellationBoolStyleTitleValue)
 )
 
 // ConstellationPRN identifies a system and PRN pair.
 type ConstellationPRN struct {
+	// System identifies the GNSS constellation or constellation set.
 	System GNSSSystem
 	PRN    uint16
 }
@@ -57,6 +60,7 @@ type ConstellationDiffCounts struct{ Added, Removed, NORADReassigned, SP3IDChang
 
 // ConstellationBoolChange records a boolean field change.
 type ConstellationBoolChange struct {
+	// System identifies the GNSS constellation or constellation set.
 	System   GNSSSystem
 	PRN      uint16
 	From, To bool
@@ -64,41 +68,56 @@ type ConstellationBoolChange struct {
 
 // ConstellationOptionalU16Change records an optional uint16 field change.
 type ConstellationOptionalU16Change struct {
-	System      GNSSSystem
-	PRN         uint16
+	// System identifies the GNSS constellation or constellation set.
+	System GNSSSystem
+	PRN    uint16
+	// FromPresent reports whether From is valid.
 	FromPresent bool
-	From        uint16
-	ToPresent   bool
-	To          uint16
+	// From is the previous optional uint16 metadata value when FromPresent is true.
+	From uint16
+	// ToPresent reports whether To is valid.
+	ToPresent bool
+	// To is the replacement optional uint16 metadata value when ToPresent is true.
+	To uint16
 }
 
 // ConstellationOptionalI8Change records an optional int8 field change.
 type ConstellationOptionalI8Change struct {
-	System      GNSSSystem
-	PRN         uint16
+	// System identifies the GNSS constellation or constellation set.
+	System GNSSSystem
+	PRN    uint16
+	// FromPresent reports whether From is valid.
 	FromPresent bool
-	From        int8
-	ToPresent   bool
-	To          int8
+	// From is the previous optional int8 metadata value when FromPresent is true.
+	From int8
+	// ToPresent reports whether To is valid.
+	ToPresent bool
+	// To is the replacement optional int8 metadata value when ToPresent is true.
+	To int8
 }
 
 // ConstellationU32Change records a uint32 field change.
 type ConstellationU32Change struct {
-	System   GNSSSystem
-	PRN      uint16
+	// System identifies the GNSS constellation or constellation set.
+	System GNSSSystem
+	PRN    uint16
+	// From and To are the previous metadata value, the replacement metadata value.
 	From, To uint32
 }
 
 // ConstellationStringChangeMeta records changed string lengths.
 type ConstellationStringChangeMeta struct {
-	System         GNSSSystem
-	PRN            uint16
+	// System identifies the GNSS constellation or constellation set.
+	System GNSSSystem
+	PRN    uint16
+	// FromLen and ToLen are the previous and replacement string lengths in bytes.
 	FromLen, ToLen int
 }
 
 // ConstellationStringChange records a changed constellation string.
 type ConstellationStringChange struct {
-	Meta     ConstellationStringChangeMeta
+	Meta ConstellationStringChangeMeta
+	// From and To are the previous metadata value, the replacement metadata value.
 	From, To string
 }
 
@@ -492,21 +511,34 @@ func GLONASSFDMAChannel(slot uint16) (bool, int8, error) {
 
 // NAVCENAssessment is one time-aware navigation advisory assessment.
 type NAVCENAssessment struct {
-	System                GNSSSystem
-	PRN                   uint16
-	SVNPresent            bool
-	SVN                   uint16
-	Usable                bool
-	ActiveNANU            bool
-	EvaluatedAt           time.Time
-	EvaluatedAtUnixUS     int64
-	Timing                uint32
+	// System identifies the GNSS constellation or constellation set.
+	System GNSSSystem
+	PRN    uint16
+	// SVNPresent reports whether SVN is valid.
+	SVNPresent bool
+	SVN        uint16
+	// Usable reports whether the navigation assessment is usable.
+	Usable bool
+	// ActiveNANU reports whether an active NANU affects the assessment.
+	ActiveNANU bool
+	// EvaluatedAt is the UTC instant at which the assessment was evaluated.
+	EvaluatedAt time.Time
+	// EvaluatedAtUnixUS contains Unix microseconds.
+	EvaluatedAtUnixUS int64
+	// Timing is the navigation timing classification.
+	Timing uint32
+	// EffectiveStartPresent reports whether EffectiveStart is valid.
 	EffectiveStartPresent bool
-	EffectiveStart        time.Time
-	EffectiveStartUnixUS  int64
-	EffectiveEndPresent   bool
-	EffectiveEnd          time.Time
-	EffectiveEndUnixUS    int64
+	// EffectiveStart is the inclusive UTC start of the assessment interval when present.
+	EffectiveStart time.Time
+	// EffectiveStartUnixUS contains Unix microseconds.
+	EffectiveStartUnixUS int64
+	// EffectiveEndPresent reports whether EffectiveEnd is valid.
+	EffectiveEndPresent bool
+	// EffectiveEnd is the exclusive UTC end of the assessment interval when present.
+	EffectiveEnd time.Time
+	// EffectiveEndUnixUS contains Unix microseconds.
+	EffectiveEndUnixUS int64
 }
 
 // NAVCENAssessments owns parsed NAVCEN assessments.

@@ -2,11 +2,13 @@ package sidereon
 
 import "github.com/neilberkman/sidereon-go/internal/native"
 
-// GeodeticTimeSeriesFrame identifies the coordinate frame of a position series.
+// GeodeticTimeSeriesFrame identifies the coordinate frame of a geodetic time series.
 type GeodeticTimeSeriesFrame uint32
 
 const (
-	GeodeticTimeSeriesFrameENU  GeodeticTimeSeriesFrame = GeodeticTimeSeriesFrame(native.GeodeticTimeSeriesFrameENUValue)
+	// GeodeticTimeSeriesFrameENU selects the local east-north-up (ENU) frame.
+	GeodeticTimeSeriesFrameENU GeodeticTimeSeriesFrame = GeodeticTimeSeriesFrame(native.GeodeticTimeSeriesFrameENUValue)
+	// GeodeticTimeSeriesFrameECEF selects the Earth-centered, Earth-fixed (ECEF) frame.
 	GeodeticTimeSeriesFrameECEF GeodeticTimeSeriesFrame = GeodeticTimeSeriesFrame(native.GeodeticTimeSeriesFrameECEFValue)
 )
 
@@ -14,7 +16,9 @@ const (
 type GeodeticTimeSeriesQuality uint32
 
 const (
-	GeodeticTimeSeriesQualityNominal   GeodeticTimeSeriesQuality = GeodeticTimeSeriesQuality(native.GeodeticTimeSeriesQualityNominalValue)
+	// GeodeticTimeSeriesQualityNominal identifies nominal observation span quality.
+	GeodeticTimeSeriesQualityNominal GeodeticTimeSeriesQuality = GeodeticTimeSeriesQuality(native.GeodeticTimeSeriesQualityNominalValue)
+	// GeodeticTimeSeriesQualityShortSpan identifies insufficient span quality.
 	GeodeticTimeSeriesQualityShortSpan GeodeticTimeSeriesQuality = GeodeticTimeSeriesQuality(native.GeodeticTimeSeriesQualityShortSpanValue)
 )
 
@@ -22,10 +26,15 @@ const (
 type GeodeticTrajectoryLoss uint32
 
 const (
+	// GeodeticTrajectoryLossLinear selects linear least-squares loss.
 	GeodeticTrajectoryLossLinear GeodeticTrajectoryLoss = GeodeticTrajectoryLoss(native.GeodeticTrajectoryLossLinearValue)
+	// GeodeticTrajectoryLossSoftL1 selects soft-L1 robust loss.
 	GeodeticTrajectoryLossSoftL1 GeodeticTrajectoryLoss = GeodeticTrajectoryLoss(native.GeodeticTrajectoryLossSoftL1Value)
-	GeodeticTrajectoryLossHuber  GeodeticTrajectoryLoss = GeodeticTrajectoryLoss(native.GeodeticTrajectoryLossHuberValue)
+	// GeodeticTrajectoryLossHuber selects Huber robust loss.
+	GeodeticTrajectoryLossHuber GeodeticTrajectoryLoss = GeodeticTrajectoryLoss(native.GeodeticTrajectoryLossHuberValue)
+	// GeodeticTrajectoryLossCauchy selects Cauchy robust loss.
 	GeodeticTrajectoryLossCauchy GeodeticTrajectoryLoss = GeodeticTrajectoryLoss(native.GeodeticTrajectoryLossCauchyValue)
+	// GeodeticTrajectoryLossArctan selects arctangent robust loss.
 	GeodeticTrajectoryLossArctan GeodeticTrajectoryLoss = GeodeticTrajectoryLoss(native.GeodeticTrajectoryLossArctanValue)
 )
 
@@ -33,30 +42,42 @@ const (
 type GeodeticTrajectoryTermKind uint32
 
 const (
-	GeodeticTrajectoryTermPosition      GeodeticTrajectoryTermKind = GeodeticTrajectoryTermKind(native.GeodeticTrajectoryTermPositionValue)
-	GeodeticTrajectoryTermVelocity      GeodeticTrajectoryTermKind = GeodeticTrajectoryTermKind(native.GeodeticTrajectoryTermVelocityValue)
-	GeodeticTrajectoryTermAnnualSin     GeodeticTrajectoryTermKind = GeodeticTrajectoryTermKind(native.GeodeticTrajectoryTermAnnualSinValue)
-	GeodeticTrajectoryTermAnnualCos     GeodeticTrajectoryTermKind = GeodeticTrajectoryTermKind(native.GeodeticTrajectoryTermAnnualCosValue)
+	// GeodeticTrajectoryTermPosition selects a position term.
+	GeodeticTrajectoryTermPosition GeodeticTrajectoryTermKind = GeodeticTrajectoryTermKind(native.GeodeticTrajectoryTermPositionValue)
+	// GeodeticTrajectoryTermVelocity selects a velocity term.
+	GeodeticTrajectoryTermVelocity GeodeticTrajectoryTermKind = GeodeticTrajectoryTermKind(native.GeodeticTrajectoryTermVelocityValue)
+	// GeodeticTrajectoryTermAnnualSin selects an annual sine term.
+	GeodeticTrajectoryTermAnnualSin GeodeticTrajectoryTermKind = GeodeticTrajectoryTermKind(native.GeodeticTrajectoryTermAnnualSinValue)
+	// GeodeticTrajectoryTermAnnualCos selects an annual cosine term.
+	GeodeticTrajectoryTermAnnualCos GeodeticTrajectoryTermKind = GeodeticTrajectoryTermKind(native.GeodeticTrajectoryTermAnnualCosValue)
+	// GeodeticTrajectoryTermSemiannualSin selects a semiannual sine term.
 	GeodeticTrajectoryTermSemiannualSin GeodeticTrajectoryTermKind = GeodeticTrajectoryTermKind(native.GeodeticTrajectoryTermSemiannualSinValue)
+	// GeodeticTrajectoryTermSemiannualCos selects a semiannual cosine term.
 	GeodeticTrajectoryTermSemiannualCos GeodeticTrajectoryTermKind = GeodeticTrajectoryTermKind(native.GeodeticTrajectoryTermSemiannualCosValue)
-	GeodeticTrajectoryTermOffset        GeodeticTrajectoryTermKind = GeodeticTrajectoryTermKind(native.GeodeticTrajectoryTermOffsetValue)
+	// GeodeticTrajectoryTermOffset selects an offset term.
+	GeodeticTrajectoryTermOffset GeodeticTrajectoryTermKind = GeodeticTrajectoryTermKind(native.GeodeticTrajectoryTermOffsetValue)
 )
 
 // GeodeticStepDetectionHeuristic identifies the step-detection method.
 type GeodeticStepDetectionHeuristic uint32
 
+// GeodeticStepDetectionHeuristicDetrendedSlidingMedian selects the detrended sliding-median step detector.
 const GeodeticStepDetectionHeuristicDetrendedSlidingMedian GeodeticStepDetectionHeuristic = GeodeticStepDetectionHeuristic(native.GeodeticStepDetectionHeuristicDetrendedSlidingMedianValue)
 
 // GeodeticPositionSample is one position and optional covariance observation.
 type GeodeticPositionSample struct {
-	EpochYear         float64
-	PositionM         [3]float64
+	EpochYear float64
+	// PositionM contains metres.
+	PositionM [3]float64
+	// CovariancePresent reports whether CovarianceM2 is supplied.
 	CovariancePresent bool
-	CovarianceM2      [9]float64
+	// CovarianceM2 is the row-major 3x3 position covariance in square metres.
+	CovarianceM2 [9]float64
 }
 
 // GeodeticPositionSeries is a time-ordered station position series.
 type GeodeticPositionSeries struct {
+	// Frame identifies the coordinate frame for the values.
 	Frame     GeodeticTimeSeriesFrame
 	Reference Geodetic
 	Samples   []GeodeticPositionSample
@@ -64,38 +85,48 @@ type GeodeticPositionSeries struct {
 
 // MIDASOptions configures the MIDAS velocity estimator.
 type MIDASOptions struct {
+	// DominantPeriodYears and PeriodToleranceYears are the dominant periodicity in years, the periodicity tolerance in years.
 	DominantPeriodYears, PeriodToleranceYears float64
 	MinPairs                                  int
 }
 
 // MIDASComponentStats reports pair selection for one velocity component.
 type MIDASComponentStats struct {
-	PairCount, RetainedPairCount         int
+	PairCount, RetainedPairCount int
+	// SlopeSigmaMPerYr and EffectivePairCount are the slope standard deviation in metres per year, the effective pair count used by MIDAS.
 	SlopeSigmaMPerYr, EffectivePairCount float64
 }
 
 // MIDASVelocity is the C-derived velocity estimate and diagnostics.
 type MIDASVelocity struct {
-	RateENU, SigmaENU     [3]float64
+	// RateENU is the ENU velocity in metres per year; SigmaENU is its component uncertainty in metres per year.
+	RateENU, SigmaENU [3]float64
+	// CovarianceENUM2PerYr2 contains square metres per square year.
 	CovarianceENUM2PerYr2 [9]float64
-	ComponentStats        [3]MIDASComponentStats
-	SampleCount           int
-	SpanYears             float64
-	Quality               GeodeticTimeSeriesQuality
+	// ComponentStats contains per-component MIDAS pair counts and robust statistics in ENU order.
+	ComponentStats [3]MIDASComponentStats
+	SampleCount    int
+	SpanYears      float64
+	Quality        GeodeticTimeSeriesQuality
 }
 
 // GeodeticStepDetectionOptions configures displacement-step detection.
 type GeodeticStepDetectionOptions struct {
+	// WindowYears and ScoreThreshold and MinOffsetM are the step-detection window in years, the step score threshold, the minimum step offset in metres.
 	WindowYears, ScoreThreshold, MinOffsetM float64
-	MinSamplesEachSide                      int
-	MinSeparationYears                      float64
-	MIDAS                                   MIDASOptions
+	// MinSamplesEachSide is the minimum samples on each side of a candidate step.
+	MinSamplesEachSide int
+	// MinSeparationYears is the minimum separation between steps in years.
+	MinSeparationYears float64
+	MIDAS              MIDASOptions
 }
 
 // GeodeticStepCandidate is one detected displacement step.
 type GeodeticStepCandidate struct {
-	EpochYear               float64
-	OffsetENU               [3]float64
+	EpochYear float64
+	// OffsetENU is the candidate step offset in ENU metres.
+	OffsetENU [3]float64
+	// Score is the step-detection score.
 	Score                   float64
 	BeforeCount, AfterCount int
 	Heuristic               GeodeticStepDetectionHeuristic
@@ -103,6 +134,7 @@ type GeodeticStepCandidate struct {
 
 // GeodeticTrajectoryModel describes the terms fitted to a position series.
 type GeodeticTrajectoryModel struct {
+	// ReferenceEpochPresent reports whether ReferenceEpochYear is supplied.
 	ReferenceEpochPresent            bool
 	ReferenceEpochYear               float64
 	IncludeAnnual, IncludeSemiannual bool
@@ -111,35 +143,50 @@ type GeodeticTrajectoryModel struct {
 
 // GeodeticTrajectoryFitOptions configures trajectory fitting.
 type GeodeticTrajectoryFitOptions struct {
-	Loss           GeodeticTrajectoryLoss
-	FScaleM        float64
+	Loss GeodeticTrajectoryLoss
+	// FScaleM contains metres.
+	FScaleM float64
+	// MaxNFEVPresent reports whether MaxNFEV is supplied.
 	MaxNFEVPresent bool
-	MaxNFEV        int
+	// MaxNFEV is the maximum number of nonlinear evaluations.
+	MaxNFEV int
 }
 
 // GeodeticTrajectoryComponent contains one ENU component's fit coefficients.
 type GeodeticTrajectoryComponent struct {
 	PositionM, VelocityMPerYr float64
-	AnnualSinPresent          bool
-	AnnualSinM                float64
-	AnnualCosPresent          bool
-	AnnualCosM                float64
-	SemiannualSinPresent      bool
-	SemiannualSinM            float64
-	SemiannualCosPresent      bool
-	SemiannualCosM            float64
-	OffsetCount               int
+	// AnnualSinPresent reports whether AnnualSinM is supplied.
+	AnnualSinPresent bool
+	// AnnualSinM contains metres.
+	AnnualSinM float64
+	// AnnualCosPresent reports whether AnnualCosM is supplied.
+	AnnualCosPresent bool
+	// AnnualCosM contains metres.
+	AnnualCosM float64
+	// SemiannualSinPresent reports whether SemiannualSinM is supplied.
+	SemiannualSinPresent bool
+	// SemiannualSinM contains metres.
+	SemiannualSinM float64
+	// SemiannualCosPresent reports whether SemiannualCosM is supplied.
+	SemiannualCosPresent bool
+	// SemiannualCosM contains metres.
+	SemiannualCosM float64
+	OffsetCount    int
 }
 
 // GeodeticTrajectorySummary contains trajectory fit diagnostics.
 type GeodeticTrajectorySummary struct {
-	ReferenceEpochYear       float64
+	ReferenceEpochYear float64
+	// TermCount and CovarianceDim are the number of trajectory terms, the covariance dimension.
 	TermCount, CovarianceDim int
-	ResidualRMSENU           [3]float64
-	GeometryQuality          GeometryQuality
-	Status                   int32
-	NFEV, NJEV               int
-	Cost, Optimality         float64
+	// ResidualRMSENU contains ENU residual RMS values in metres.
+	ResidualRMSENU  [3]float64
+	GeometryQuality GeometryQuality
+	Status          int32
+	// NFEV and NJEV are the nonlinear function-evaluation count, the nonlinear Jacobian-evaluation count.
+	NFEV, NJEV int
+	// Cost and Optimality are the least-squares objective cost, the final solver optimality measure.
+	Cost, Optimality float64
 }
 
 // GeodeticTrajectoryTerm describes one fitted term.
@@ -157,6 +204,7 @@ type GeodeticTrajectory struct {
 
 // GeodeticNetworkStation supplies one station to network estimation.
 type GeodeticNetworkStation struct {
+	// ID identifies the associated record.
 	ID        string
 	Reference Geodetic
 	Series    GeodeticPositionSeries
@@ -164,13 +212,16 @@ type GeodeticNetworkStation struct {
 
 // GeodeticNetworkFrame configures the network reference frame.
 type GeodeticNetworkFrame struct {
-	Origin           Geodetic
+	Origin Geodetic
+	// RemoveCommonMode reports whether common-mode removal is enabled.
 	RemoveCommonMode bool
 }
 
 // GeodeticStationMotion contains one estimated station motion.
 type GeodeticStationMotion struct {
-	ID                            string
+	// ID identifies the associated record.
+	ID string
+	// RateENU and RawRateENU are ENU velocities in metres per year; SigmaENU contains their component uncertainties in metres per year.
 	RateENU, RawRateENU, SigmaENU [3]float64
 	LocalVelocity                 MIDASVelocity
 }

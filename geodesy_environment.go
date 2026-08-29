@@ -10,40 +10,53 @@ import (
 
 // GeoidPointDeg is a geoid query point expressed in degrees.
 type GeoidPointDeg struct {
-	LatitudeDeg  float64
+	// LatitudeDeg contains degrees.
+	LatitudeDeg float64
+	// LongitudeDeg contains degrees.
 	LongitudeDeg float64
 }
 
 // GeoidPointRad is a geoid query point expressed in radians.
 type GeoidPointRad struct {
-	LatitudeRad  float64
+	// LatitudeRad contains radians.
+	LatitudeRad float64
+	// LongitudeRad contains radians.
 	LongitudeRad float64
 }
 
 // PROJVGridshiftArithmetic selects the floating-point evaluation
 // recipe used by PROJ-compatible vertical-grid interpolation.
+// PROJVGridshiftArithmetic selects arithmetic used for PROJ grid-shift values.
 type PROJVGridshiftArithmetic uint32
 
 const (
+	// PROJVGridshiftArithmeticSeparateMultiplyAdd selects separate multiply/add arithmetic.
 	PROJVGridshiftArithmeticSeparateMultiplyAdd PROJVGridshiftArithmetic = PROJVGridshiftArithmetic(native.ProjVgridshiftArithmeticSeparateMultiplyAddValue)
-	PROJVGridshiftArithmeticFusedMultiplyAdd    PROJVGridshiftArithmetic = PROJVGridshiftArithmetic(native.ProjVgridshiftArithmeticFusedMultiplyAddValue)
+	// PROJVGridshiftArithmeticFusedMultiplyAdd selects fused multiply-add arithmetic.
+	PROJVGridshiftArithmeticFusedMultiplyAdd PROJVGridshiftArithmetic = PROJVGridshiftArithmetic(native.ProjVgridshiftArithmeticFusedMultiplyAddValue)
 )
 
 // PROJVGridshiftErrorKind identifies a PROJ vertical-grid error.
 type PROJVGridshiftErrorKind uint32
 
 const (
-	PROJVGridshiftErrorNone                  PROJVGridshiftErrorKind = PROJVGridshiftErrorKind(native.ProjVgridshiftErrorNoneValue)
-	PROJVGridshiftErrorNonFiniteCoordinate   PROJVGridshiftErrorKind = PROJVGridshiftErrorKind(native.ProjVgridshiftErrorNonFiniteCoordinateValue)
+	// PROJVGridshiftErrorNone indicates that the operation produced no error.
+	PROJVGridshiftErrorNone PROJVGridshiftErrorKind = PROJVGridshiftErrorKind(native.ProjVgridshiftErrorNoneValue)
+	// PROJVGridshiftErrorNonFiniteCoordinate reports that a coordinate was not finite.
+	PROJVGridshiftErrorNonFiniteCoordinate PROJVGridshiftErrorKind = PROJVGridshiftErrorKind(native.ProjVgridshiftErrorNonFiniteCoordinateValue)
+	// PROJVGridshiftErrorCoordinateOutsideGrid reports that a coordinate lies outside the grid.
 	PROJVGridshiftErrorCoordinateOutsideGrid PROJVGridshiftErrorKind = PROJVGridshiftErrorKind(native.ProjVgridshiftErrorCoordinateOutsideGridValue)
 )
 
-// PROJVGridshiftCoordinate identifies the coordinate in a PROJ error.
+// PROJVGridshiftCoordinate identifies the latitude or longitude component involved in a grid-shift error.
 type PROJVGridshiftCoordinate uint32
 
 const (
-	PROJVGridshiftCoordinateNone      PROJVGridshiftCoordinate = PROJVGridshiftCoordinate(native.ProjVgridshiftCoordinateNoneValue)
-	PROJVGridshiftCoordinateLatitude  PROJVGridshiftCoordinate = PROJVGridshiftCoordinate(native.ProjVgridshiftCoordinateLatitudeValue)
+	// PROJVGridshiftCoordinateNone selects no coordinate component.
+	PROJVGridshiftCoordinateNone PROJVGridshiftCoordinate = PROJVGridshiftCoordinate(native.ProjVgridshiftCoordinateNoneValue)
+	// PROJVGridshiftCoordinateLatitude selects latitude coordinate.
+	PROJVGridshiftCoordinateLatitude PROJVGridshiftCoordinate = PROJVGridshiftCoordinate(native.ProjVgridshiftCoordinateLatitudeValue)
+	// PROJVGridshiftCoordinateLongitude selects longitude coordinate.
 	PROJVGridshiftCoordinateLongitude PROJVGridshiftCoordinate = PROJVGridshiftCoordinate(native.ProjVgridshiftCoordinateLongitudeValue)
 )
 
@@ -57,18 +70,25 @@ type PROJVGridshiftError struct {
 type EGM2008GridSpacing uint32
 
 const (
-	EGM2008OneMinute          EGM2008GridSpacing = EGM2008GridSpacing(native.Egm2008GridSpacingOneMinuteValue)
+	// EGM2008OneMinute selects one-arc-minute EGM2008 grid spacing.
+	EGM2008OneMinute EGM2008GridSpacing = EGM2008GridSpacing(native.Egm2008GridSpacingOneMinuteValue)
+	// EGM2008TwoPointFiveMinute selects 2.5-arc-minute EGM2008 grid spacing.
 	EGM2008TwoPointFiveMinute EGM2008GridSpacing = EGM2008GridSpacing(native.Egm2008GridSpacingTwoPointFiveMinuteValue)
 )
 
 // EGM2008RasterWindow describes a degree-coordinate crop in an EGM2008
 // raster. Counts are the number of latitude and longitude postings.
+// EGM2008RasterWindow identifies the EGM2008 raster window and arc-minute spacing.
 type EGM2008RasterWindow struct {
-	Spacing   EGM2008GridSpacing
+	Spacing EGM2008GridSpacing
+	// LatMinDeg is the minimum latitude in degrees.
 	LatMinDeg float64
+	// LonMinDeg is the minimum longitude in degrees.
 	LonMinDeg float64
-	NLat      int
-	NLon      int
+	// NLat is the latitude-grid sample count.
+	NLat int
+	// NLon is the longitude-grid sample count.
+	NLon int
 }
 
 func checkedEnvironmentAllocation(count int, elementSize uintptr) error {
@@ -121,6 +141,7 @@ func validEGM2008Spacing(value EGM2008GridSpacing) bool {
 // GeoidGrid owns a native C geoid-grid handle. Read methods may run
 // concurrently. Close waits for active C calls, clears the resource, and is
 // idempotent. The handle must not be copied after first use.
+// GeoidGrid owns a native geoid grid used to interpolate undulation values.
 type GeoidGrid struct {
 	_      noCopy
 	native *native.GeoidGrid
@@ -164,6 +185,7 @@ func GeoidGridFromEGM96DAC(data []byte) (*GeoidGrid, error) {
 
 // GeoidGridFromEGM2008Raster parses a global EGM2008 raster at the supplied
 // spacing.
+// GeoidGridFromEGM2008Raster builds a geoid grid from EGM2008 raster values.
 func GeoidGridFromEGM2008Raster(data []byte, spacing EGM2008GridSpacing) (*GeoidGrid, error) {
 	if !validEGM2008Spacing(spacing) {
 		return nil, errors.New("sidereon: invalid EGM2008 grid spacing")
@@ -198,6 +220,7 @@ func GeoidGridFromEGM2008RasterWindow(data []byte, window EGM2008RasterWindow) (
 
 // NewGeoidGrid constructs a grid from copied values. values are ordered by
 // the native C row-major grid contract and are not retained by Go.
+// NewGeoidGrid creates a native geoid grid from the supplied raster window.
 func NewGeoidGrid(latMinDeg, lonMinDeg, dLatDeg, dLonDeg float64, nLat, nLon int, values []float64) (*GeoidGrid, error) {
 	value, err := native.NewGeoidGrid(latMinDeg, lonMinDeg, dLatDeg, dLonDeg, nLat, nLon, values)
 	if err != nil {
@@ -237,6 +260,7 @@ func (g *GeoidGrid) UndulationRad(latitudeRad, longitudeRad float64) (float64, e
 
 // UndulationPROJRad returns the PROJ-compatible interpolation result and
 // typed arithmetic/coordinate diagnostic.
+// UndulationPROJRad returns geoid undulation in metres at radian coordinates.
 func (g *GeoidGrid) UndulationPROJRad(latitudeRad, longitudeRad float64, arithmetic PROJVGridshiftArithmetic) (float64, PROJVGridshiftError, error) {
 	if g == nil || g.native == nil {
 		return 0, PROJVGridshiftError{}, ErrClosed
@@ -248,12 +272,12 @@ func (g *GeoidGrid) UndulationPROJRad(latitudeRad, longitudeRad float64, arithme
 	return value, PROJVGridshiftError{Kind: PROJVGridshiftErrorKind(detail.Kind), Coordinate: PROJVGridshiftCoordinate(detail.Coordinate)}, publicError(err)
 }
 
-// UndulationsDeg returns copied degree-coordinate undulations in input order.
+// UndulationsDeg returns geoid undulations in metres for degree-coordinate inputs.
 func (g *GeoidGrid) UndulationsDeg(points []GeoidPointDeg) ([]float64, error) {
 	return g.undulations(points, false)
 }
 
-// UndulationsRad returns copied radian-coordinate undulations in input order.
+// UndulationsRad returns geoid undulations in metres for radian-coordinate inputs.
 func (g *GeoidGrid) UndulationsRad(points []GeoidPointRad) ([]float64, error) {
 	return g.undulations(points, true)
 }
@@ -313,6 +337,7 @@ func (g *GeoidGrid) EllipsoidalHeightRad(orthometricHeightM, latitudeRad, longit
 // EGM96FifteenMinuteGeoid owns a loaded WW15MGH.DAC C handle. Read access may
 // run concurrently. Close waits for active C calls, clears the resource, and
 // is idempotent. The handle must not be copied after first use.
+// EGM96FifteenMinuteGeoid owns the built-in 15-minute EGM96 geoid model.
 type EGM96FifteenMinuteGeoid struct {
 	_      noCopy
 	native *native.EGM96FifteenMinuteGeoid
@@ -332,6 +357,7 @@ func EGM96FifteenMinuteGeoidFromBytes(data []byte) (*EGM96FifteenMinuteGeoid, er
 
 // EGM96FifteenMinuteGeoidFromPath loads WW15MGH.DAC from path using Go file
 // I/O and the canonical byte constructor.
+// EGM96FifteenMinuteGeoidFromPath opens the supplied EGM96 15-minute geoid file.
 func EGM96FifteenMinuteGeoidFromPath(path string) (*EGM96FifteenMinuteGeoid, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -426,6 +452,7 @@ func geoidUndulationsDeg(points []GeoidPointDeg, egm96 bool) ([]float64, error) 
 
 // GeoidUndulationsRad returns embedded geoid undulations for copied input
 // points in input order.
+// GeoidUndulationsRad returns geoid undulations in metres for radian coordinates.
 func GeoidUndulationsRad(points []GeoidPointRad) ([]float64, error) {
 	return geoidUndulationsRad(points, false)
 }
@@ -462,22 +489,28 @@ type DTEDLookupOptions struct {
 
 // DTEDHeightResult contains one batch result. Status preserves the native
 // per-point status even when another point in the batch succeeds.
+// DTEDHeightResult contains one DTED terrain height and its native status.
 type DTEDHeightResult struct {
-	Status     StatusCode
+	Status StatusCode
+	// HasHeightM reports whether HeightM contains a valid result.
 	HasHeightM bool
-	HeightM    float64
+	// HeightM contains metres.
+	HeightM float64
 }
 
 // LonLatDeg is a longitude-first DTED query point in degrees.
 type LonLatDeg struct {
+	// LongitudeDeg contains degrees.
 	LongitudeDeg float64
-	LatitudeDeg  float64
+	// LatitudeDeg contains degrees.
+	LatitudeDeg float64
 }
 
 // DTEDTerrain owns a mutable native C tile cache. Read calls may run
 // concurrently; internally mutating cache calls and Close are serialized.
 // Close clears the resource and is idempotent. The handle must not be copied
 // after first use.
+// DTEDTerrain owns a native DTED terrain store.
 type DTEDTerrain struct {
 	_      noCopy
 	native *native.DtedTerrain
@@ -568,6 +601,7 @@ func (t *DTEDTerrain) HeightBatch(points []LonLatDeg, options DTEDLookupOptions)
 // DTEDTile owns one loaded DTED C tile. Read calls may run concurrently. Close
 // waits for active C calls, clears the resource, and is idempotent. The handle
 // must not be copied after first use.
+// DTEDTile contains one decoded DTED tile and its geospatial extent.
 type DTEDTile struct {
 	_      noCopy
 	native *native.DtedTile
@@ -610,12 +644,15 @@ type TerrainTileID struct {
 
 // DTEDTileListEntry maps a tile identifier to a source path.
 type DTEDTileListEntry struct {
+	// TileID is the DTED or terrain tile identifier.
 	TileID TerrainTileID
-	Path   string
+	// Path is the terrain-store filesystem path.
+	Path string
 }
 
 // DTEDTileListToMMapStore converts DTED sources to copied memory-mappable
 // terrain-store bytes.
+// DTEDTileListToMMapStore builds a memory-mapped terrain store from DTED tiles.
 func DTEDTileListToMMapStore(entries []DTEDTileListEntry) ([]byte, error) {
 	if err := checkedEnvironmentAllocation(len(entries), unsafe.Sizeof(native.DtedTileListEntry{})); err != nil {
 		return nil, err
@@ -655,30 +692,38 @@ func WriteDTEDTreeToMMapStore(root, path string) error {
 // MMapTerrainHeightResult contains one memory-mappable terrain batch result.
 // Status preserves the per-point native status; OrthometricHeightM is valid
 // only when HasOrthometricHeightM is true.
+// MMapTerrainHeightResult contains one memory-mapped terrain height and status.
 type MMapTerrainHeightResult struct {
-	Status                StatusCode
+	Status StatusCode
+	// HasOrthometricHeightM reports whether OrthometricHeightM contains a valid result.
 	HasOrthometricHeightM bool
-	OrthometricHeightM    float64
+	// OrthometricHeightM contains metres.
+	OrthometricHeightM float64
 }
 
 // TerrainStoreTileIndex describes one copied memory-mappable terrain tile.
 type TerrainStoreTileIndex struct {
-	LatIndex        int32
-	LonIndex        int32
+	LatIndex int32
+	LonIndex int32
+	// MinLongitudeDeg contains degrees.
 	MinLongitudeDeg float64
-	MinLatitudeDeg  float64
+	// MinLatitudeDeg contains degrees.
+	MinLatitudeDeg float64
+	// MaxLongitudeDeg contains degrees.
 	MaxLongitudeDeg float64
-	MaxLatitudeDeg  float64
-	LonCount        uint32
-	LatCount        uint32
-	DataOffset      uint64
-	DataLen         uint64
-	Checksum64      uint64
-	VerticalDatum   VerticalDatum
+	// MaxLatitudeDeg contains degrees.
+	MaxLatitudeDeg float64
+	LonCount       uint32
+	LatCount       uint32
+	DataOffset     uint64
+	DataLen        uint64
+	Checksum64     uint64
+	VerticalDatum  VerticalDatum
 }
 
 // DigestProvenance identifies whether a terrain-store checksum was verified or
 // supplied by the caller as an attestation.
+// DigestProvenance records the digest and provenance of a terrain data source.
 type DigestProvenance uint32
 
 const (
@@ -693,6 +738,7 @@ const (
 // run concurrently; internally mutating terrain-cache calls and Close are
 // serialized. Close clears the resource and is idempotent. The value must not
 // be copied after first use.
+// MMapTerrain owns a native memory-mapped terrain store.
 type MMapTerrain struct {
 	_      noCopy
 	native *native.MmapTerrain
@@ -720,6 +766,7 @@ func MMapTerrainFromPath(path string) (*MMapTerrain, error) {
 
 // MMapTerrainFromPathAttested opens a terrain-store file with a caller-supplied
 // full-store checksum claim.
+// MMapTerrainFromPathAttested opens and verifies an attested memory-mapped terrain store.
 func MMapTerrainFromPathAttested(path string, checksum64 uint64) (*MMapTerrain, error) {
 	return mmapTerrain(native.MmapTerrainFromPathAttested(path, checksum64))
 }
@@ -803,6 +850,7 @@ func (t *MMapTerrain) EllipsoidalHeightM(longitudeDeg, latitudeDeg float64) (flo
 
 // EllipsoidalHeightMWithOptions returns one-degree ellipsoidal height using
 // interpolation options.
+// EllipsoidalHeightMWithOptions returns ellipsoidal height in metres using the selected DTED interpolation.
 func (t *MMapTerrain) EllipsoidalHeightMWithOptions(longitudeDeg, latitudeDeg float64, options DTEDLookupOptions) (float64, error) {
 	if t == nil || t.native == nil {
 		return 0, ErrClosed
@@ -816,6 +864,7 @@ func (t *MMapTerrain) EllipsoidalHeightMWithOptions(longitudeDeg, latitudeDeg fl
 
 // EllipsoidalHeightMWithModel returns ellipsoidal height using the selected
 // terrain geoid model. The fifteen-minute model requires geoid to be non-nil.
+// EllipsoidalHeightMWithModel returns ellipsoidal height in metres using the selected geoid model.
 func (t *MMapTerrain) EllipsoidalHeightMWithModel(longitudeDeg, latitudeDeg float64, options DTEDLookupOptions, model TerrainGeoidModel, geoid *EGM96FifteenMinuteGeoid) (float64, error) {
 	if t == nil || t.native == nil {
 		return 0, ErrClosed
@@ -840,13 +889,12 @@ func (t *MMapTerrain) EllipsoidalHeightMWithModel(longitudeDeg, latitudeDeg floa
 	return value, publicError(err)
 }
 
-// HeightBatch returns copied typed orthometric results in input order.
+// HeightBatch returns typed orthometric heights in input order for degree coordinates.
 func (t *MMapTerrain) HeightBatch(points []LonLatDeg, options DTEDLookupOptions) ([]MMapTerrainHeightResult, error) {
 	return t.heightBatch(points, options, false)
 }
 
-// OrthometricHeightBatch returns copied typed orthometric results in input
-// order through the typed C route.
+// OrthometricHeightBatch returns typed orthometric heights in input order.
 func (t *MMapTerrain) OrthometricHeightBatch(points []LonLatDeg, options DTEDLookupOptions) ([]MMapTerrainHeightResult, error) {
 	return t.heightBatch(points, options, true)
 }
@@ -882,7 +930,7 @@ func (t *MMapTerrain) heightBatch(points []LonLatDeg, options DTEDLookupOptions,
 	return result, nil
 }
 
-// TileIndex returns copied tile-index rows in native store order.
+// TileIndex returns detached terrain-store tile index rows in native order.
 func (t *MMapTerrain) TileIndex() ([]TerrainStoreTileIndex, error) {
 	if t == nil || t.native == nil {
 		return nil, ErrClosed
@@ -916,6 +964,7 @@ func (t *MMapTerrain) ToBytes() ([]byte, error) {
 
 // Verify hashes and verifies the terrain payload, changing attested provenance
 // to verified on success.
+// Verify checks integrity metadata and checksums of the terrain store.
 func (t *MMapTerrain) Verify() error {
 	if t == nil || t.native == nil {
 		return ErrClosed
@@ -954,10 +1003,15 @@ const (
 type TerrainDatumErrorKind uint32
 
 const (
-	TerrainDatumErrorNone            TerrainDatumErrorKind = TerrainDatumErrorKind(native.TerrainDatumErrorNoneValue)
-	TerrainDatumErrorTerrain         TerrainDatumErrorKind = TerrainDatumErrorKind(native.TerrainDatumErrorTerrainValue)
-	TerrainDatumErrorGeoid           TerrainDatumErrorKind = TerrainDatumErrorKind(native.TerrainDatumErrorGeoidValue)
-	TerrainDatumErrorIO              TerrainDatumErrorKind = TerrainDatumErrorKind(native.TerrainDatumErrorIOValue)
+	// TerrainDatumErrorNone indicates that the operation produced no error.
+	TerrainDatumErrorNone TerrainDatumErrorKind = TerrainDatumErrorKind(native.TerrainDatumErrorNoneValue)
+	// TerrainDatumErrorTerrain reports a terrain-source failure.
+	TerrainDatumErrorTerrain TerrainDatumErrorKind = TerrainDatumErrorKind(native.TerrainDatumErrorTerrainValue)
+	// TerrainDatumErrorGeoid reports a geoid-source failure.
+	TerrainDatumErrorGeoid TerrainDatumErrorKind = TerrainDatumErrorKind(native.TerrainDatumErrorGeoidValue)
+	// TerrainDatumErrorIO reports an I/O failure.
+	TerrainDatumErrorIO TerrainDatumErrorKind = TerrainDatumErrorKind(native.TerrainDatumErrorIOValue)
+	// TerrainDatumErrorMissingEGM96DAC reports missing EGM96 digital-arc data.
 	TerrainDatumErrorMissingEGM96DAC TerrainDatumErrorKind = TerrainDatumErrorKind(native.TerrainDatumErrorMissingEGM96DACValue)
 )
 
@@ -965,34 +1019,49 @@ const (
 type TerrainStoreErrorKind uint32
 
 const (
-	TerrainStoreErrorNone                     TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorNoneValue)
-	TerrainStoreErrorIO                       TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorIOValue)
-	TerrainStoreErrorParse                    TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorParseValue)
-	TerrainStoreErrorUnsupportedVersion       TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorUnsupportedVersionValue)
-	TerrainStoreErrorUnsupportedDatum         TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorUnsupportedDatumValue)
-	TerrainStoreErrorDuplicateTile            TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorDuplicateTileValue)
-	TerrainStoreErrorChecksum                 TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorChecksumValue)
-	TerrainStoreErrorTileIDMismatch           TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorTileIDMismatchValue)
+	// TerrainStoreErrorNone indicates that the operation produced no error.
+	TerrainStoreErrorNone TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorNoneValue)
+	// TerrainStoreErrorIO reports a terrain-store I/O failure.
+	TerrainStoreErrorIO TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorIOValue)
+	// TerrainStoreErrorParse reports a terrain-store parse failure.
+	TerrainStoreErrorParse TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorParseValue)
+	// TerrainStoreErrorUnsupportedVersion reports an unsupported terrain-store version.
+	TerrainStoreErrorUnsupportedVersion TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorUnsupportedVersionValue)
+	// TerrainStoreErrorUnsupportedDatum reports an unsupported terrain datum.
+	TerrainStoreErrorUnsupportedDatum TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorUnsupportedDatumValue)
+	// TerrainStoreErrorDuplicateTile reports a duplicate terrain tile.
+	TerrainStoreErrorDuplicateTile TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorDuplicateTileValue)
+	// TerrainStoreErrorChecksum reports a checksum mismatch.
+	TerrainStoreErrorChecksum TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorChecksumValue)
+	// TerrainStoreErrorTileIDMismatch reports a tile-identifier mismatch.
+	TerrainStoreErrorTileIDMismatch TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorTileIDMismatchValue)
+	// TerrainStoreErrorAttestedChecksumMismatch reports a mismatch against the attested checksum.
 	TerrainStoreErrorAttestedChecksumMismatch TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorAttestedChecksumMismatchValue)
 )
 
 // TerrainDatumError is the typed terrain datum detail captured from a failed
-// native operation.
 type TerrainDatumError struct {
-	Kind        TerrainDatumErrorKind
-	Path        string
-	Message     string
+	Kind TerrainDatumErrorKind
+	// Path is the terrain-store filesystem path.
+	Path string
+	// Message is native diagnostic text describing the terrain-datum failure.
+	Message string
+	// Remediation describes the corrective action reported by the parser.
 	Remediation string
 }
 
 // TerrainStoreError is the typed terrain-store detail captured from a failed
-// native operation.
 type TerrainStoreError struct {
-	Kind             TerrainStoreErrorKind
-	Path             string
-	Message          string
-	Reason           string
-	Version          uint16
+	Kind TerrainStoreErrorKind
+	// Path is the terrain-store filesystem path.
+	Path string
+	// Message is native diagnostic text describing the terrain-store failure.
+	Message string
+	// Reason is the terrain-store verification or parsing reason.
+	Reason string
+	// Version is the tile format version.
+	Version uint16
+	// Tag is the tile record tag.
 	Tag              uint8
 	LatIndex         int32
 	LonIndex         int32
@@ -1026,20 +1095,28 @@ func TerrainGeoidModelLabel(model TerrainGeoidModel) (string, error) {
 
 // AtmosphereInput contains the complete NRLMSISE-00 input, including explicit
 // presence for local solar time and Ap history.
+// AtmosphereInput contains day-of-year, UTC seconds, local solar time, solar flux, and geomagnetic index.
 type AtmosphereInput struct {
-	Year         int
-	DayOfYear    int
-	Second       float64
-	AltitudeKm   float64
-	LatitudeDeg  float64
+	// Year is the calendar year.
+	Year      int
+	DayOfYear int
+	Second    float64
+	// AltitudeKm contains kilometres.
+	AltitudeKm float64
+	// LatitudeDeg contains degrees.
+	LatitudeDeg float64
+	// LongitudeDeg contains degrees.
 	LongitudeDeg float64
-	HasLST       bool
-	LST          float64
-	F107         float64
-	F107A        float64
-	Ap           float64
-	HasApArray   bool
-	ApArray      [7]float64
+	// HasLST reports whether LST is supplied.
+	HasLST bool
+	LST    float64
+	F107   float64
+	F107A  float64
+	Ap     float64
+	// HasApArray reports whether ApArray is supplied.
+	HasApArray bool
+	// ApArray contains the seven daily geomagnetic Ap history values used by the atmosphere model.
+	ApArray [7]float64
 }
 
 // AtmosphereOutput is the NRLMSISE-00 density and temperature result.
@@ -1081,21 +1158,28 @@ type MappingFactors struct {
 type TropoMappingErrorKind uint32
 
 const (
-	TropoMappingErrorNone         TropoMappingErrorKind = TropoMappingErrorKind(native.TropoMappingErrorNoneValue)
+	// TropoMappingErrorNone indicates that the operation produced no error.
+	TropoMappingErrorNone TropoMappingErrorKind = TropoMappingErrorKind(native.TropoMappingErrorNoneValue)
+	// TropoMappingErrorLowElevation reports that elevation is too low for mapping.
 	TropoMappingErrorLowElevation TropoMappingErrorKind = TropoMappingErrorKind(native.TropoMappingErrorLowElevationValue)
+	// TropoMappingErrorInvalidInput reports invalid tropospheric-mapping input.
 	TropoMappingErrorInvalidInput TropoMappingErrorKind = TropoMappingErrorKind(native.TropoMappingErrorInvalidInputValue)
 )
 
 // TropoMappingError contains typed low-elevation diagnostic fields.
 type TropoMappingError struct {
-	Kind            TropoMappingErrorKind
-	ElevationRad    float64
+	Kind TropoMappingErrorKind
+	// ElevationRad contains radians.
+	ElevationRad float64
+	// MinElevationRad contains radians.
 	MinElevationRad float64
 }
 
 // ZenithDelay contains hydrostatic and wet zenith delays in metres.
 type ZenithDelay struct {
+	// DryM contains metres.
 	DryM float64
+	// WetM contains metres.
 	WetM float64
 }
 
@@ -1138,12 +1222,16 @@ func TropoSlantDelay(elevationRad float64, receiver Geodetic, met Met, scale Tim
 	return value, publicError(err)
 }
 
-// LinkBudget contains the native RF link-budget terms.
+// LinkBudget contains link-budget inputs and received carrier-to-noise ratio in dB-Hz.
 type LinkBudget struct {
-	EIRPdBW         float64
-	FSPLdB          float64
-	ReceiverGTdBK   float64
-	OtherLossesdB   float64
+	// EIRPdBW contains dBW.
+	EIRPdBW float64
+	// FSPLdB contains dB.
+	FSPLdB        float64
+	ReceiverGTdBK float64
+	// OtherLossesdB contains dB.
+	OtherLossesdB float64
+	// RequiredCN0dBHz contains hertz.
 	RequiredCN0dBHz float64
 }
 

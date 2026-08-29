@@ -6,19 +6,27 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 type SignalModulationKind uint32
 
 const (
-	SignalBPSK           SignalModulationKind = SignalModulationKind(native.SignalModulationBPSKValue)
-	SignalBOCSine        SignalModulationKind = SignalModulationKind(native.SignalModulationBOCSineValue)
-	SignalBOCCosine      SignalModulationKind = SignalModulationKind(native.SignalModulationBOCCosineValue)
-	SignalMBOC611Over11  SignalModulationKind = SignalModulationKind(native.SignalModulationMBOCValue)
+	// SignalBPSK selects binary phase-shift keying modulation.
+	SignalBPSK SignalModulationKind = SignalModulationKind(native.SignalModulationBPSKValue)
+	// SignalBOCSine selects sine-phased binary offset-carrier modulation.
+	SignalBOCSine SignalModulationKind = SignalModulationKind(native.SignalModulationBOCSineValue)
+	// SignalBOCCosine selects cosine-phased binary offset-carrier modulation.
+	SignalBOCCosine SignalModulationKind = SignalModulationKind(native.SignalModulationBOCCosineValue)
+	// SignalMBOC611Over11 selects MBOC 6/1-1/11 modulation.
+	SignalMBOC611Over11 SignalModulationKind = SignalModulationKind(native.SignalModulationMBOCValue)
+	// SignalTMBOC614Over33 selects TMBOC 6/1-4/14-33 modulation.
 	SignalTMBOC614Over33 SignalModulationKind = SignalModulationKind(native.SignalModulationTMBOCValue)
-	SignalCBOCPlus       SignalModulationKind = SignalModulationKind(native.SignalModulationCBOCPlusValue)
-	SignalCBOCMinus      SignalModulationKind = SignalModulationKind(native.SignalModulationCBOCMinusValue)
+	// SignalCBOCPlus selects positive CBOC modulation.
+	SignalCBOCPlus SignalModulationKind = SignalModulationKind(native.SignalModulationCBOCPlusValue)
+	// SignalCBOCMinus selects negative CBOC modulation.
+	SignalCBOCMinus SignalModulationKind = SignalModulationKind(native.SignalModulationCBOCMinusValue)
 )
 
 // SignalModulation is a value descriptor consumed by C's signal-analysis
 // routines. For BPSK use Order; for BOC use M and N.
 type SignalModulation struct {
-	Kind        SignalModulationKind
+	Kind SignalModulationKind
+	// Order is the BPSK code-replica order; M and N are the BOC subcarrier and code-rate multipliers.
 	Order, M, N float64
 }
 
@@ -66,16 +74,22 @@ func nativeModulation(v SignalModulation) native.NativeSignalModulation {
 // IQSample is one complex baseband sample. I and Q are dimensionless sample
 // amplitudes.
 type IQSample struct {
+	// I is the in-phase correlation component.
 	I float64
+	// Q is the quadrature correlation component.
 	Q float64
 }
 
 // AcquisitionOptions defines the sample rate and Doppler search grid. All
 // frequency fields are in hertz.
 type AcquisitionOptions struct {
-	SampleRateHz  float64
-	DopplerMinHz  float64
-	DopplerMaxHz  float64
+	// SampleRateHz contains hertz.
+	SampleRateHz float64
+	// DopplerMinHz contains hertz.
+	DopplerMinHz float64
+	// DopplerMaxHz contains hertz.
+	DopplerMaxHz float64
+	// DopplerStepHz contains hertz.
 	DopplerStepHz float64
 }
 
@@ -83,9 +97,11 @@ type AcquisitionOptions struct {
 // grid dimensions. Code phase is in chips and Doppler is in hertz.
 type AcquisitionResult struct {
 	CodePhaseChips, DopplerHz, PeakMetric, Metric, PeakPower float64
-	GridCodePhaseBins                                        int
-	GridDopplerStepHz, GridSamplesPerChip                    float64
-	GridDopplerBinCount                                      int
+	// GridCodePhaseBins is the number of code-phase grid bins.
+	GridCodePhaseBins int
+	// GridDopplerStepHz and GridSamplesPerChip are the Doppler grid step in hertz, the samples per code chip.
+	GridDopplerStepHz, GridSamplesPerChip float64
+	GridDopplerBinCount                   int
 }
 
 func toNativeIQ(v []IQSample) []native.NativeIQSample {
@@ -118,6 +134,7 @@ func CACode(prn int64) ([]int8, error) {
 // ReplicaOptions controls generated C/A-code samples. Rate is hertz, phase
 // is chips, Doppler is hertz, and NumSamples is the requested count.
 type ReplicaOptions struct {
+	// SampleRateHz contains hertz.
 	SampleRateHz                  float64
 	NumSamples                    int
 	CodePhaseChips, CodeDopplerHz float64
@@ -132,15 +149,21 @@ func SignalReplica(prn int64, options ReplicaOptions) ([]int8, error) {
 // CorrelateOptions controls one code correlation. Rate and Dopplers are in
 // hertz; code phase is in chips.
 type CorrelateOptions struct {
-	SampleRateHz   float64
-	DopplerHz      float64
+	// SampleRateHz contains hertz.
+	SampleRateHz float64
+	// DopplerHz contains hertz.
+	DopplerHz float64
+	// CodePhaseChips contains code chips.
 	CodePhaseChips float64
-	CodeDopplerHz  float64
+	// CodeDopplerHz contains hertz.
+	CodeDopplerHz float64
 }
 
 // CorrelationResult contains the complex correlation and its power.
 type CorrelationResult struct {
-	I     float64
+	// I is the in-phase correlation component.
+	I float64
+	// Q is the quadrature correlation component.
 	Q     float64
 	Power float64
 }
@@ -283,26 +306,37 @@ func AnalysisRMSBandwidthHz(mod SignalModulation, bandwidthHz float64) (float64,
 type DLLProcessing uint32
 
 const (
-	DLLCoherent    DLLProcessing = DLLProcessing(native.DLLCoherentValue)
+	// DLLCoherent selects coherent DLL processing.
+	DLLCoherent DLLProcessing = DLLProcessing(native.DLLCoherentValue)
+	// DLLNonCoherent selects non-coherent DLL processing.
 	DLLNonCoherent DLLProcessing = DLLProcessing(native.DLLNonCoherentValue)
 )
 
 // DLLTrackingOptions describes a delay-lock loop in dBHz, hertz, seconds,
 // chips, and hertz respectively.
 type DLLTrackingOptions struct {
-	CN0DBHz                float64
-	LoopBandwidthHz        float64
-	IntegrationTimeS       float64
+	// CN0DBHz contains dB-Hz.
+	CN0DBHz float64
+	// LoopBandwidthHz contains hertz.
+	LoopBandwidthHz float64
+	// IntegrationTimeS is the coherent integration interval in seconds.
+	IntegrationTimeS float64
+	// CorrelatorSpacingChips contains code chips.
 	CorrelatorSpacingChips float64
-	ReceiverBandwidthHz    float64
+	// ReceiverBandwidthHz contains hertz.
+	ReceiverBandwidthHz float64
 }
 
 // DLLJitter contains equivalent delay jitter in seconds, chips, and metres;
 // SquaringLoss is a dimensionless linear factor.
 type DLLJitter struct {
-	Seconds      float64
-	Chips        float64
-	Meters       float64
+	// Seconds is the delay in seconds.
+	Seconds float64
+	// Chips contains code chips.
+	Chips float64
+	// Meters is the delay in metres.
+	Meters float64
+	// SquaringLoss is the squaring loss factor.
 	SquaringLoss float64
 }
 
@@ -367,7 +401,9 @@ type SignalInterference struct {
 // CN0Degradation contains effective linear CN0 in hertz, effective CN0 in
 // dBHz, and degradation in dB.
 type CN0Degradation struct {
-	EffectiveCN0Hz   float64
+	// EffectiveCN0Hz contains hertz.
+	EffectiveCN0Hz float64
+	// EffectiveCN0DBHz contains dB-Hz.
 	EffectiveCN0DBHz float64
 	DegradationDB    float64
 }
@@ -415,25 +451,39 @@ func AnalysisFractionPowerInBand(mod SignalModulation, bandwidthHz float64) (flo
 // MultipathOptions controls multipath-envelope evaluation. Ratio is
 // dimensionless, spacing is chips, and receiver bandwidth is hertz.
 type MultipathOptions struct {
+	// MultipathToDirectRatio is the multipath-to-direct power ratio.
 	MultipathToDirectRatio float64
+	// CorrelatorSpacingChips contains code chips.
 	CorrelatorSpacingChips float64
-	ReceiverBandwidthHz    float64
+	// ReceiverBandwidthHz contains hertz.
+	ReceiverBandwidthHz float64
 }
 
 // MultipathEnvelopePoint contains delay in chips and seconds and error
 // envelopes in chips, seconds, and metres.
 type MultipathEnvelopePoint struct {
-	DelayChips          float64
-	DelayS              float64
-	InPhaseChips        float64
-	InPhaseS            float64
-	InPhaseM            float64
-	AntiPhaseChips      float64
-	AntiPhaseS          float64
-	AntiPhaseM          float64
+	// DelayChips contains code chips.
+	DelayChips float64
+	// DelayS is the multipath delay in seconds.
+	DelayS float64
+	// InPhaseChips contains code chips.
+	InPhaseChips float64
+	// InPhaseS is the in-phase delay in seconds.
+	InPhaseS float64
+	// InPhaseM contains metres.
+	InPhaseM float64
+	// AntiPhaseChips contains code chips.
+	AntiPhaseChips float64
+	// AntiPhaseS is the anti-phase delay in seconds.
+	AntiPhaseS float64
+	// AntiPhaseM contains metres.
+	AntiPhaseM float64
+	// RunningAverageChips contains code chips.
 	RunningAverageChips float64
-	RunningAverageS     float64
-	RunningAverageM     float64
+	// RunningAverageS is the running-average delay in seconds.
+	RunningAverageS float64
+	// RunningAverageM contains metres.
+	RunningAverageM float64
 }
 
 // MultipathErrorEnvelope evaluates the native multipath error envelope.
@@ -470,7 +520,9 @@ func multipathErrorEnvelope(mod SignalModulation, opt MultipathOptions, delays [
 
 // SpectralSeparation contains spectral separation in hertz and dBHz.
 type SpectralSeparation struct {
-	Hz   float64
+	// Hz contains hertz.
+	Hz float64
+	// DBHz contains dB-Hz.
 	DBHz float64
 }
 

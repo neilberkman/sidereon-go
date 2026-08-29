@@ -8,6 +8,7 @@ import (
 
 // AllanSeriesKind identifies the units and missing-sample policy of a clock
 // stability series.
+// AllanSeriesKind identifies an Allan-deviation series representation.
 type AllanSeriesKind uint32
 
 const (
@@ -29,6 +30,7 @@ type AllanSeries struct {
 
 // AllanSample carries an explicitly present or missing clock sample. Value is
 // ignored when Present is false.
+// AllanSample contains one clock-error sample used for Allan-deviation analysis.
 type AllanSample struct {
 	// Present reports whether Value is observed.
 	Present bool
@@ -38,6 +40,7 @@ type AllanSample struct {
 
 // AllanSeriesFromSamples constructs a series while preserving explicit sample
 // presence. It is the lossless constructor for gapped inputs.
+// AllanSeriesFromSamples constructs an Allan-deviation series from time-ordered clock samples.
 func AllanSeriesFromSamples(kind AllanSeriesKind, values []AllanSample) AllanSeries {
 	samples := make([]native.AllanSample, len(values))
 	for index, value := range values {
@@ -105,6 +108,7 @@ const (
 
 // TauGrid describes the averaging-factor grid and owns a copy of explicit
 // factors. Factors are dimensionless positive integers.
+// TauGrid contains the averaging-time grid used by Allan-deviation analysis.
 type TauGrid struct {
 	// Kind selects the averaging-factor grid.
 	Kind AllanTauGrid
@@ -213,6 +217,7 @@ func NewAllanInput(series AllanSeries, tau0S float64, options *AllanOptions) All
 	return AllanInput{Series: series, Tau0S: tau0S, Options: value}
 }
 
+// AllanPoint is one Allan-deviation sample at a specified averaging time.
 type AllanPoint struct {
 	// TauS is the averaging time in seconds.
 	TauS float64
@@ -224,6 +229,7 @@ type AllanPoint struct {
 
 // AllanResult contains the three parallel arrays returned by a C estimator.
 // Their lengths are always identical.
+// AllanResult contains Allan deviation values and confidence metadata.
 type AllanResult struct {
 	// TauS contains averaging times in seconds.
 	TauS []float64
@@ -239,6 +245,7 @@ func (r AllanResult) Len() int { return len(r.TauS) }
 // AllanDeviationCurves owns combined C-computed estimator curves. It is
 // non-copyable. Reads use shared locking and may race with Close; Close waits
 // for an in-flight read, prevents later use, and is idempotent.
+// AllanDeviationCurves contains Allan-deviation curves grouped by series kind.
 type AllanDeviationCurves struct {
 	_      noCopy
 	native *native.AllanDeviationCurves
@@ -266,6 +273,7 @@ func (c *AllanDeviationCurves) Close() error {
 
 // Present reports whether an estimator curve is available. False with nil
 // error is a valid absence result.
+// Present reports whether the selected Allan-deviation curve is available.
 func (c *AllanDeviationCurves) Present(estimator AllanEstimator) (bool, error) {
 	if c == nil || c.native == nil {
 		return false, ErrClosed
@@ -310,6 +318,7 @@ func (c *AllanDeviationCurves) TDEV() (AllanResult, bool, error) { return c.Curv
 func nativeSeries(value AllanSeries) native.AllanSeries {
 	return native.AllanSeries{Kind: uint32(value.kind), Samples: append([]native.AllanSample(nil), value.samples...)}
 }
+
 func publicAllanResult(values []native.AllanPoint, err error) (AllanResult, error) {
 	if err != nil {
 		return AllanResult{}, publicError(err)
@@ -386,6 +395,7 @@ const (
 	PowerLawFlagged PowerLawOctaveDominance = PowerLawOctaveDominance(native.PowerLawFlaggedValue)
 )
 
+// PowerLawNoiseOptions selects clock-noise power-law terms and fitting limits.
 type PowerLawNoiseOptions struct {
 	// MinPointsPerOctave is the minimum tau-point count for classification.
 	MinPointsPerOctave int
@@ -405,6 +415,7 @@ func DefaultPowerLawNoiseOptions(basicTauS, bandwidthHz float64) (PowerLawNoiseO
 	return PowerLawNoiseOptions{MinPointsPerOctave: value.MinPointsPerOctave, SlopeTolerance: value.SlopeTolerance, ScatterTolerance: value.ScatterTolerance, BasicTauS: value.BasicTauS, MeasurementBandwidthHz: value.MeasurementBandwidthHz}, publicError(err)
 }
 
+// PowerLawOctave records one averaging-time octave and its fitted clock-noise coefficients.
 type PowerLawOctave struct {
 	// TauStartS is the first tau in seconds.
 	TauStartS float64
@@ -452,6 +463,7 @@ type PowerLawNoiseRegion struct {
 
 // PowerLawNoiseFit owns a native IEEE 1139 power-law classification. It is
 // non-copyable; reads may race with Close, which is synchronized and idempotent.
+// PowerLawNoiseFit contains fitted clock-noise power-law coefficients and fit diagnostics.
 type PowerLawNoiseFit struct {
 	_      noCopy
 	native *native.PowerLawNoiseFit
@@ -459,6 +471,7 @@ type PowerLawNoiseFit struct {
 
 // FitPowerLawNoise classifies matching ADEV and MDEV result arrays. Inputs
 // and options are copied before the native call.
+// FitPowerLawNoise fits power-law clock-noise coefficients to Allan-deviation samples.
 func FitPowerLawNoise(adev, mdev AllanResult, options *PowerLawNoiseOptions) (*PowerLawNoiseFit, error) {
 	if len(adev.TauS) != len(adev.Deviation) || len(adev.TauS) != len(adev.N) {
 		return nil, errors.New("sidereon: Allan ADEV result arrays have different lengths")

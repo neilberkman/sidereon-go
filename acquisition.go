@@ -33,18 +33,24 @@ type AcquireRequest struct {
 // C-catalog identity used to obtain the returned bytes. They are equal for
 // Acquire and may differ for AcquireLatest.
 type AcquisitionProvenance struct {
-	RequestedIdentity  ProductIdentity
-	ResolvedIdentity   ProductIdentity
-	Source             DistributionSource
-	OfficialFilename   string
-	OriginalURL        string
-	FinalURL           string
-	RetrievedAt        time.Time
-	ByteLength         int
+	RequestedIdentity ProductIdentity
+	ResolvedIdentity  ProductIdentity
+	Source            DistributionSource
+	// OfficialFilename is the provider's canonical product filename.
+	OfficialFilename string
+	// OriginalURL is the URL requested from the provider.
+	OriginalURL string
+	// FinalURL is the final URL after redirects.
+	FinalURL string
+	// RetrievedAt is the UTC time at which the product bytes were retrieved.
+	RetrievedAt time.Time
+	ByteLength  int
+	// SHA256 is the lowercase SHA-256 digest of the returned product bytes.
 	SHA256             string
 	ArchiveCompression ArchiveCompression
 	ArchiveByteLength  int
-	ArchiveSHA256      string
+	// ArchiveSHA256 is the lowercase SHA-256 digest of the compressed archive bytes.
+	ArchiveSHA256 string
 }
 
 // AcquiredProduct contains decompressed product bytes and their provenance.
@@ -57,14 +63,19 @@ type AcquiredProduct struct {
 // HTTPAcquirer owns HTTP transport policy. The supplied Client is cloned for
 // each operation so its redirect policy cannot bypass the catalog allowlist.
 type HTTPAcquirer struct {
-	Client          *http.Client
+	// Client is the HTTP client to clone for requests; nil uses http.DefaultClient.
+	Client *http.Client
+	// MaxArchiveBytes is the maximum archive size in bytes.
 	MaxArchiveBytes int64
+	// MaxProductBytes is the maximum extracted product size in bytes.
 	MaxProductBytes int64
 	// Retries is capped at maxHTTPRetries (32) to keep exponential backoff
 	// configuration bounded and predictable.
 	Retries int
+	// Backoff is the base delay between retry attempts.
 	Backoff time.Duration
-	Now     func() time.Time
+	// Now supplies the retry/retrieval clock; nil defaults to time.Now.
+	Now func() time.Time
 }
 
 // NewHTTPAcquirer creates an acquirer with bounded archive/product reads and
@@ -76,19 +87,24 @@ func NewHTTPAcquirer(client *http.Client) *HTTPAcquirer {
 // HTTPStatusError reports a non-success HTTP status.
 type HTTPStatusError struct {
 	Status int
-	URL    string
+	// URL is the URL whose HTTP status caused the error.
+	URL string
 }
 
+// Error returns the HTTP status code and rejected URL.
 func (e *HTTPStatusError) Error() string {
 	return fmt.Sprintf("sidereon: HTTP status %d for %s", e.Status, e.URL)
 }
 
 // SizeLimitError reports an archive or decompressed product exceeding a bound.
 type SizeLimitError struct {
-	Kind  string
+	// Kind identifies the resource whose byte limit was exceeded.
+	Kind string
+	// Limit is the byte limit that was exceeded.
 	Limit int64
 }
 
+// Error returns the limited resource kind and maximum byte count.
 func (e *SizeLimitError) Error() string {
 	return fmt.Sprintf("sidereon: %s exceeds %d bytes", e.Kind, e.Limit)
 }
@@ -97,6 +113,7 @@ func (e *SizeLimitError) Error() string {
 // catalog for this operation.
 type RedirectPolicyError struct{ URL string }
 
+// Error returns the redirect URL rejected by the catalog allowlist.
 func (e *RedirectPolicyError) Error() string {
 	return fmt.Sprintf("sidereon: redirect target is not catalog-allowlisted: %s", e.URL)
 }
@@ -107,6 +124,7 @@ type UnsupportedHTTPSourceError struct {
 	Source DistributionSource
 }
 
+// Error returns the unsupported distribution source.
 func (e *UnsupportedHTTPSourceError) Error() string {
 	return fmt.Sprintf("sidereon: source %s is not an HTTP source", e.Source)
 }

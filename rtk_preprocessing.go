@@ -4,40 +4,62 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 
 // ArcEpoch is one dual-frequency carrier/code epoch. Missing scalar values
 // are represented by NaN, as in the native ABI.
+// ArcEpoch contains rover/base observations and satellite positions for one preprocessing epoch.
 type ArcEpoch struct {
+	// Phi1Cycles and Phi2Cycles are the first-frequency carrier phase in cycles, the second-frequency carrier phase in cycles.
 	Phi1Cycles, Phi2Cycles float64
-	P1M, P2M               float64
-	HasLLI1                bool
-	LLI1                   int64
-	HasLLI2                bool
-	LLI2                   int64
-	F1Hz, F2Hz             float64
-	GapTimeS               float64
+	// P1M and P2M are the two code pseudoranges in metres.
+	P1M, P2M float64
+	// HasLLI1 reports whether LLI1 is valid.
+	HasLLI1 bool
+	// LLI1 is the first-frequency loss-of-lock indicator.
+	LLI1 int64
+	// HasLLI2 reports whether LLI2 is valid.
+	HasLLI2 bool
+	// LLI2 is the second-frequency loss-of-lock indicator.
+	LLI2 int64
+	// F1Hz and F2Hz are the first and second carrier frequencies in hertz.
+	F1Hz, F2Hz float64
+	// GapTimeS is the cycle-slip gap threshold in seconds.
+	GapTimeS float64
 }
 
 // CycleSlipOptions controls geometry-free and Melbourne-Wubbena detection.
 type CycleSlipOptions struct {
+	// GFThresholdM and MWThresholdCycles and MinArcGapS are the geometry-free threshold in metres, the Melbourne-Wubbena threshold in cycles, the minimum arc gap in seconds.
 	GFThresholdM, MWThresholdCycles, MinArcGapS float64
 }
 
 // SlipResult is the native classification for one input epoch.
 type SlipResult struct {
-	Slip       bool
+	// Slip reports whether a cycle slip was detected.
+	Slip bool
+	// ReasonMask is the bit mask of cycle-slip reasons.
 	ReasonMask uint32
-	GFM, MWM   float64
-	Skipped    bool
+	// GFM is the geometry-free code/phase combination in metres; MWM is the Melbourne-Wübbena combination in cycles.
+	GFM, MWM float64
+	// Skipped reports whether this observation was skipped.
+	Skipped bool
 }
 
+// SmoothCodeResult contains one Hatch-smoothed code observation and validity metadata.
 type SmoothCodeResult struct {
+	// PSmoothM contains metres.
 	PSmoothM float64
-	Window   int
-	Reset    bool
+	// Window is the smoothing window in epochs.
+	Window int
+	// Reset reports whether smoothing reset at this epoch.
+	Reset bool
 }
 
+// IonoFreeSmoothResult contains one smoothed ionosphere-free code and carrier observation.
 type IonoFreeSmoothResult struct {
+	// PSmoothM is the Hatch-smoothed code in metres; PIFM is the ionosphere-free code in metres; LIFM is the ionosphere-free carrier in metres.
 	PSmoothM, PIFM, LIFM float64
-	Window               int
-	Reset                bool
+	// Window is the smoothing window in epochs.
+	Window int
+	// Reset reports whether smoothing reset at this epoch.
+	Reset bool
 }
 
 func nativeArcEpoch(value ArcEpoch) native.ArcEpoch {
@@ -59,11 +81,13 @@ func nativeArcEpochs(values []ArcEpoch) []native.ArcEpoch {
 	return result
 }
 
+// CycleSlipOptionsDefault returns defaults for cycle-slip detection and smoothing.
 func CycleSlipOptionsDefault() (CycleSlipOptions, error) {
 	value, err := native.CycleSlipOptionsInit()
 	return CycleSlipOptions{GFThresholdM: value.GFThresholdM, MWThresholdCycles: value.MWThresholdCycles, MinArcGapS: value.MinArcGapS}, publicError(err)
 }
 
+// DetectCycleSlips identifies cycle-slip events in observation epochs.
 func DetectCycleSlips(epochs []ArcEpoch, options *CycleSlipOptions) ([]SlipResult, error) {
 	values, err := native.DetectCycleSlips(nativeArcEpochs(epochs), nativeCycleSlipOptions(options))
 	if err != nil {
@@ -76,6 +100,7 @@ func DetectCycleSlips(epochs []ArcEpoch, options *CycleSlipOptions) ([]SlipResul
 	return result, nil
 }
 
+// SmoothCode computes Hatch-smoothed code observations.
 func SmoothCode(epochs []ArcEpoch, options *CycleSlipOptions, hatchWindowCap int) ([]SmoothCodeResult, error) {
 	values, err := native.SmoothCode(nativeArcEpochs(epochs), nativeCycleSlipOptions(options), hatchWindowCap)
 	if err != nil {
@@ -88,6 +113,7 @@ func SmoothCode(epochs []ArcEpoch, options *CycleSlipOptions, hatchWindowCap int
 	return result, nil
 }
 
+// SmoothIonoFreeCode computes Hatch-smoothed ionosphere-free code observations.
 func SmoothIonoFreeCode(epochs []ArcEpoch, options *CycleSlipOptions, hatchWindowCap int) ([]IonoFreeSmoothResult, error) {
 	values, err := native.SmoothIonoFreeCode(nativeArcEpochs(epochs), nativeCycleSlipOptions(options), hatchWindowCap)
 	if err != nil {
@@ -100,34 +126,48 @@ func SmoothIonoFreeCode(epochs []ArcEpoch, options *CycleSlipOptions, hatchWindo
 	return result, nil
 }
 
+// PseudorangeObservation supplies one satellite pseudorange and carrier-frequency metadata.
 type PseudorangeObservation struct {
-	SatelliteID  string
+	// SatelliteID is the GNSS satellite identifier.
+	SatelliteID string
+	// PseudorangeM contains metres.
 	PseudorangeM float64
 }
 
+// IonoFreeOverride supplies a per-satellite or per-system ionosphere-free wavelength override.
 type IonoFreeOverride struct {
+	// System identifies the GNSS constellation or constellation set.
 	System byte
-	Band1  string
-	Band2  string
+	// Band1 is the first signal-band identifier.
+	Band1 string
+	// Band2 is the second signal-band identifier.
+	Band2 string
 }
 
+// IonoFreeCombined contains one successfully combined ionosphere-free observation.
 type IonoFreeCombined struct {
-	SatelliteID  string
+	// SatelliteID is the GNSS satellite identifier.
+	SatelliteID string
+	// PseudorangeM contains metres.
 	PseudorangeM float64
 }
 
+// IonoFreeDropped identifies an observation omitted from ionosphere-free combination and its reason.
 type IonoFreeDropped struct {
+	// SatelliteID is the GNSS satellite identifier.
 	SatelliteID string
 	Reason      uint32
 }
 
 // IonoFreePseudoranges owns the native result until Close. Accessors always
 // return detached Go copies and are safe to call concurrently with Close.
+// IonoFreePseudoranges owns native ionosphere-free pseudorange results.
 type IonoFreePseudoranges struct {
 	_      noCopy
 	handle *native.IonoFreePseudoranges
 }
 
+// CombineIonosphereFreePseudoranges combines two code bands into ionosphere-free pseudoranges.
 func CombineIonosphereFreePseudoranges(band1, band2 []PseudorangeObservation, overrides []IonoFreeOverride) (*IonoFreePseudoranges, error) {
 	first := make([]native.PseudorangeObservation, len(band1))
 	for i, value := range band1 {
@@ -148,6 +188,7 @@ func CombineIonosphereFreePseudoranges(band1, band2 []PseudorangeObservation, ov
 	return &IonoFreePseudoranges{handle: handle}, nil
 }
 
+// Close releases the native ionosphere-free pseudorange result; repeated calls are safe.
 func (r *IonoFreePseudoranges) Close() error {
 	if r == nil || r.handle == nil {
 		return nil
@@ -155,6 +196,7 @@ func (r *IonoFreePseudoranges) Close() error {
 	return publicError(r.handle.Close())
 }
 
+// Combined returns detached successfully combined ionosphere-free observations.
 func (r *IonoFreePseudoranges) Combined() ([]IonoFreeCombined, error) {
 	if r == nil || r.handle == nil {
 		return nil, ErrClosed
@@ -170,6 +212,7 @@ func (r *IonoFreePseudoranges) Combined() ([]IonoFreeCombined, error) {
 	return result, nil
 }
 
+// Dropped returns detached observations omitted during ionosphere-free combination.
 func (r *IonoFreePseudoranges) Dropped() ([]IonoFreeDropped, error) {
 	if r == nil || r.handle == nil {
 		return nil, ErrClosed
