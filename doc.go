@@ -18,4 +18,12 @@
 // coordinate concurrent reads and native release internally, so a concurrent
 // Close cannot overlap a native read. Callers must still synchronize their own
 // mutation of Go slices, option structs, and other input values.
+//
+// Unless a function documents a narrower error, a failed native operation is
+// returned as *StatusError with the stable status code and same-call native
+// detail. Methods invoked after their owning handle is closed return ErrClosed,
+// and native argument failures use StatusInvalidArgument. Invalid indices,
+// Go-side validation, transport, and context cancellation may instead return
+// ordinary Go errors. Constructors and methods returning a handle transfer
+// ownership to the caller, who should defer Close after checking the error.
 package sidereon
