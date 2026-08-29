@@ -496,7 +496,11 @@ func copyLabel(call func(*C.uint8_t, C.size_t, *C.size_t, *C.size_t) uint32) ([]
 	if err != nil {
 		return nil, err
 	}
-	buffer := make([]C.uint8_t, int(required))
+	requiredCount, err := checkedNativeCount(uint64(required))
+	if err != nil {
+		return nil, err
+	}
+	buffer := make([]C.uint8_t, requiredCount)
 	var pointer *C.uint8_t
 	if len(buffer) != 0 {
 		pointer = &buffer[0]
@@ -507,7 +511,15 @@ func copyLabel(call func(*C.uint8_t, C.size_t, *C.size_t, *C.size_t) uint32) ([]
 	if err != nil {
 		return nil, err
 	}
-	return C.GoBytes(unsafe.Pointer(pointer), C.int(written)), nil
+	writtenCount, err := validateTwoPassCounts("label", len(buffer), requiredCount, uint64(written), uint64(required))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]byte, writtenCount)
+	for index := range out {
+		out[index] = byte(buffer[index])
+	}
+	return out, nil
 }
 
 func CarrierBandLabel(band uint32) ([]byte, error) {

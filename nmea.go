@@ -27,6 +27,7 @@ type NMEAEpoch struct {
 // read-only Summary and Epochs calls. Close may run concurrently with reads;
 // it waits for an active read, clears the native pointer, and is idempotent.
 type NMEALog struct {
+	_      noCopy
 	handle *native.NMEALog
 }
 

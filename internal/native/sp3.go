@@ -188,7 +188,7 @@ func (s *SP3) Satellites() ([]string, error) {
 	}
 	out := make([]string, len(tokens))
 	for i := range tokens {
-		out[i] = C.GoString((*C.char)(unsafe.Pointer(&tokens[i].bytes[0])))
+		out[i] = tokenFromC(tokens[i])
 	}
 	return out, nil
 }

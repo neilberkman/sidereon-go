@@ -62,13 +62,21 @@ func statusErrorLocked(status uint32) error {
 	required := C.sidereon_last_error_message(nil, 0)
 	var detail string
 	if required > 0 {
-		buffer := make([]byte, int(required)+1)
+		requiredInt, err := checkedNativeCount(uint64(required))
+		if err != nil {
+			return err
+		}
+		if requiredInt == int(^uint(0)>>1) {
+			return errors.New("sidereon: native error detail is too large")
+		}
+		buffer := make([]byte, requiredInt+1)
 		written := C.sidereon_last_error_message(
 			(*C.char)(unsafe.Pointer(&buffer[0])), C.size_t(len(buffer)))
-		if written > C.size_t(len(buffer)) {
-			written = C.size_t(len(buffer))
+		writtenInt, err := validateTwoPassCounts("error detail", requiredInt, requiredInt, uint64(written), uint64(required))
+		if err != nil {
+			return err
 		}
-		detail = string(buffer[:int(written)])
+		detail = string(buffer[:writtenInt])
 	}
 	return &StatusError{Code: int(status), Text: text, Detail: detail}
 }
@@ -274,11 +282,14 @@ func cleanupNMEALog(r *resource) {
 	r.close()
 }
 
-func newNMEALog(pointer *C.SidereonNmeaLog) *NMEALog {
+func newNMEALog(pointer *C.SidereonNmeaLog) (*NMEALog, error) {
+	if pointer == nil {
+		return nil, errNilNativeHandle
+	}
 	r := &resource{ptr: unsafe.Pointer(pointer), release: releaseNMEALog}
 	log := &NMEALog{resource: r}
 	log.cleanup = runtime.AddCleanup(log, cleanupNMEALog, r)
-	return log
+	return log, nil
 }
 
 func ParseNMEA(data []byte) (*NMEALog, error) {
@@ -301,7 +312,7 @@ func ParseNMEA(data []byte) (*NMEALog, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newNMEALog(pointer), nil
+	return newNMEALog(pointer)
 }
 
 func (l *NMEALog) Close() error {
@@ -364,7 +375,11 @@ func (l *NMEALog) Epochs() ([]NMEAEpoch, error) {
 		if err != nil {
 			return err
 		}
-		epochs = make([]C.SidereonNmeaEpochSummary, int(required))
+		requiredInt, err := checkedNativeCount(uint64(required))
+		if err != nil {
+			return err
+		}
+		epochs = make([]C.SidereonNmeaEpochSummary, requiredInt)
 		var output *C.SidereonNmeaEpochSummary
 		if len(epochs) != 0 {
 			output = &epochs[0]
@@ -377,7 +392,11 @@ func (l *NMEALog) Epochs() ([]NMEAEpoch, error) {
 		if err != nil {
 			return err
 		}
-		epochs = epochs[:int(written)]
+		writtenInt, err := validateTwoPassCounts("NMEA epochs", len(epochs), requiredInt, uint64(written), uint64(required))
+		if err != nil {
+			return err
+		}
+		epochs = epochs[:writtenInt]
 		return nil
 	})
 	runtime.KeepAlive(l)

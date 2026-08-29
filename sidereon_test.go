@@ -1,13 +1,12 @@
 package sidereon
 
 import (
-	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"math"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"testing"
 )
@@ -16,41 +15,13 @@ const nmeaFixture = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,
 	"$GPGGA,123520,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*4D\r\n"
 
 func TestVendoredHeaderMatchesPinnedPublicHeader(t *testing.T) {
-	_, thisFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
-	}
-	root := filepath.Dir(thisFile)
-	publicRepo := filepath.Clean(filepath.Join(root, "..", "..", "repos", "sidereon-c"))
-	publicHeader := filepath.Join(publicRepo, "bindings", "c", "include", "sidereon.h")
-	_, err := os.Stat(publicHeader)
-	if errors.Is(err, os.ErrNotExist) {
-		t.Skip("pinned public C checkout is not available")
-	}
+	got, err := os.ReadFile(filepath.Join("internal", "native", "include", "sidereon.h"))
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	commit := exec.Command("git", "rev-parse", "HEAD")
-	commit.Dir = publicRepo
-	gotCommit, err := commit.Output()
-	if err != nil {
-		t.Fatalf("read public checkout commit: %v", err)
-	}
-	if got := string(bytes.TrimSpace(gotCommit)); got != "b38ecf8caf796a02f209dbb4cbebdaa4a042204c" {
-		t.Fatalf("public checkout is %s, want pinned commit", got)
-	}
-
-	got, err := os.ReadFile(filepath.Join(root, "internal", "native", "include", "sidereon.h"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	want, err := os.ReadFile(publicHeader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(got, want) {
-		t.Fatal("vendored header differs from pinned public header")
+	digest := sha256.Sum256(got)
+	if value := hex.EncodeToString(digest[:]); value != "6e79405bbce65d91958fe591279ad4c73f79f86573c64176f7c3dd0d9c29420d" {
+		t.Fatalf("vendored header digest = %s, want pinned digest", value)
 	}
 }
 

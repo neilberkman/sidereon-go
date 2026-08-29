@@ -98,6 +98,12 @@ func validateTwoPassCounts(label string, capacity, expected int, written, requir
 	return writtenCount, nil
 }
 
+// validateNativeOutput applies the common query/copy contract to a buffer
+// sized from the first call's required count.
+func validateNativeOutput(label string, capacity int, written, required uint64) (int, error) {
+	return validateTwoPassCounts(label, capacity, capacity, written, required)
+}
+
 func checkedNativeAllocationSize(count int, elementSize uintptr) (uintptr, error) {
 	if count < 0 || elementSize == 0 {
 		return 0, errors.New("sidereon: invalid native allocation size")

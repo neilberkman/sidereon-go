@@ -89,6 +89,22 @@ func TestValidateTwoPassCounts(t *testing.T) {
 			required: 3,
 			wantErr:  "wrote 2 entries, required 3",
 		},
+		{
+			name:     "written count exceeds capacity",
+			capacity: 3,
+			expected: 3,
+			written:  4,
+			required: 3,
+			wantErr:  "wrote 4 entries into capacity 3",
+		},
+		{
+			name:     "written count exceeds required",
+			capacity: 4,
+			expected: 3,
+			written:  4,
+			required: 3,
+			wantErr:  "wrote 4 entries, required 3",
+		},
 	}
 
 	for _, test := range tests {
