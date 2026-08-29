@@ -7,6 +7,30 @@ import (
 	"testing"
 )
 
+func TestNativeEnumValidation(t *testing.T) {
+	if err := validateStaticPositionErrorKind(staticPositionErrorKindMax); err != nil {
+		t.Fatalf("validateStaticPositionErrorKind(max): %v", err)
+	}
+	if err := validateStaticPositionErrorKind(staticPositionErrorKindMax + 1); err == nil {
+		t.Fatal("validateStaticPositionErrorKind accepted an undefined value")
+	}
+	if err := validateSPPMetadataEnums(staticSPPSolveStatusMax, staticObservabilityTierMax); err != nil {
+		t.Fatalf("validateSPPMetadataEnums(max, max): %v", err)
+	}
+	if err := validateSPPMetadataEnums(staticSPPSolveStatusMax+1, staticObservabilityTierMax); err == nil {
+		t.Fatal("validateSPPMetadataEnums accepted an undefined solve status")
+	}
+	if err := validateSPPMetadataEnums(staticSPPSolveStatusMax, staticObservabilityTierMax+1); err == nil {
+		t.Fatal("validateSPPMetadataEnums accepted an undefined observability tier")
+	}
+	if err := validateRtkStochastic(RtkStochasticRTKLIBValue); err != nil {
+		t.Fatalf("validateRtkStochastic(max): %v", err)
+	}
+	if err := validateRtkStochastic(RtkStochasticRTKLIBValue + 1); err == nil {
+		t.Fatal("validateRtkStochastic accepted an undefined value")
+	}
+}
+
 func TestCheckedNativeAllocationSize(t *testing.T) {
 	size, err := checkedNativeAllocationSize(3, 8)
 	if err != nil || size != 24 {

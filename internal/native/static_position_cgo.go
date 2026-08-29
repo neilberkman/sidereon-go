@@ -129,6 +129,13 @@ const (
 	staticSppRejectionReasonMax  = uint32(C.SIDEREON_SPP_REJECTION_REASON_SBAS_IONO_UNCOVERED)
 )
 
+func validateStaticPositionErrorKind(value uint32) error {
+	if value > staticPositionErrorKindMax {
+		return invalidArgument("invalid static-position error kind returned by native code")
+	}
+	return nil
+}
+
 type StaticPositionSolution struct {
 	_      noCopy
 	handle *surfaceHandle
@@ -288,14 +295,14 @@ func solveStaticPosition(source unsafe.Pointer, broadcast bool, epochs []StaticP
 		}
 		return nil
 	})
-	if err != nil {
-		return nil, uint32(kind), err
-	}
-	if uint32(kind) > staticPositionErrorKindMax {
+	if kindErr := validateStaticPositionErrorKind(uint32(kind)); kindErr != nil {
 		if pointer != nil {
 			C.sidereon_static_position_solution_free(pointer)
 		}
-		return nil, 0, invalidArgument("invalid static-position error kind returned by native code")
+		return nil, 0, kindErr
+	}
+	if err != nil {
+		return nil, uint32(kind), err
 	}
 	if pointer == nil {
 		return nil, uint32(kind), errors.New("sidereon: native static-position solve returned no solution")

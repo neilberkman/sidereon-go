@@ -105,6 +105,16 @@ func validateSPPSatelliteID(value string) error {
 	return nil
 }
 
+func validateSPPMetadataEnums(status, tier uint32) error {
+	if status > uint32(C.SIDEREON_SPP_SOLVE_STATUS_MAX_EVALUATIONS) {
+		return invalidArgument("invalid SPP solve status returned by native code")
+	}
+	if tier > uint32(C.SIDEREON_OBSERVABILITY_TIER_NOMINAL) {
+		return invalidArgument("invalid SPP observability tier returned by native code")
+	}
+	return nil
+}
+
 func (s *SBASCorrectionStore) SolveBroadcast(b *BroadcastEphemeris, geo string, mode uint32, config SPPConfig) (SPPSolution, error) {
 	if s == nil || s.resource == nil || b == nil || b.resource == nil {
 		return SPPSolution{}, ErrClosed
@@ -291,11 +301,8 @@ func readSPPSolutionLocked(solution *C.SidereonSppSolution) (SPPSolution, error)
 	if err := statusErrorLocked(C.sidereon_spp_solution_metadata(solution, &metadata)); err != nil {
 		return SPPSolution{}, err
 	}
-	if uint32(metadata.status) > uint32(C.SIDEREON_SPP_SOLVE_STATUS_MAX_EVALUATIONS) {
-		return SPPSolution{}, invalidArgument("invalid SPP solve status returned by native code")
-	}
-	if uint32(metadata.geometry_quality.tier) > uint32(C.SIDEREON_OBSERVABILITY_TIER_NOMINAL) {
-		return SPPSolution{}, invalidArgument("invalid SPP observability tier returned by native code")
+	if err := validateSPPMetadataEnums(uint32(metadata.status), uint32(metadata.geometry_quality.tier)); err != nil {
+		return SPPSolution{}, err
 	}
 	iterations, err := checkedNativeCount(uint64(metadata.iterations))
 	if err != nil {

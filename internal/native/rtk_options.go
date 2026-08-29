@@ -75,8 +75,23 @@ type RtkRinexDualArcOptions struct {
 
 func RtkMeasurementModelInit() (RtkMeasurementModel, error) {
 	var value C.SidereonRtkMeasurementModel
-	err := callStatus(func() uint32 { return uint32(C.sidereon_rtk_measurement_model_init(&value)) })
-	return RtkMeasurementModel{float64(value.code_sigma_m), float64(value.phase_sigma_m), bool(value.sagnac), uint32(value.stochastic), bool(value.elevation_weighting)}, err
+	if err := callStatus(func() uint32 { return uint32(C.sidereon_rtk_measurement_model_init(&value)) }); err != nil {
+		return RtkMeasurementModel{}, err
+	}
+	return rtkMeasurementModelFromC(value)
+}
+
+func rtkMeasurementModelFromC(value C.SidereonRtkMeasurementModel) (RtkMeasurementModel, error) {
+	if err := validateRtkStochastic(uint32(value.stochastic)); err != nil {
+		return RtkMeasurementModel{}, err
+	}
+	return RtkMeasurementModel{
+		CodeSigmaM:         float64(value.code_sigma_m),
+		PhaseSigmaM:        float64(value.phase_sigma_m),
+		Sagnac:             bool(value.sagnac),
+		Stochastic:         uint32(value.stochastic),
+		ElevationWeighting: bool(value.elevation_weighting),
+	}, nil
 }
 
 func RtkResidualValidationOptionsInit() (RtkResidualValidationOptions, error) {

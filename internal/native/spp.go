@@ -299,6 +299,10 @@ func (s *SP3) Solve(config SPPConfig) (SPPSolution, error) {
 				operationErr = statusErrorLocked(uint32(status))
 				return
 			}
+			if err := validateSPPMetadataEnums(uint32(metadata.status), uint32(metadata.geometry_quality.tier)); err != nil {
+				operationErr = err
+				return
+			}
 			metadataIterations, err := checkedNativeCount(uint64(metadata.iterations))
 			if err != nil {
 				operationErr = err
