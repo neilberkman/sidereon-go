@@ -21,13 +21,15 @@ trap 'rm -rf "$work"' EXIT
 
 cd "$ROOT"
 
-rg -o '\bsidereon_[A-Za-z0-9_]+[[:space:]]*\(' "$HEADER" \
+grep -oE 'sidereon_[A-Za-z0-9_]+[[:space:]]*\(' "$HEADER" \
 	| sed -E 's/[[:space:]]*\($//' \
 	| sort -u >"$work/header"
 
-rg --with-filename --no-line-number -o 'C\.sidereon_[A-Za-z0-9_]+' \
-	--glob '*.go' --glob '!**/*_test.go' . \
-	| sed -E 's#^\./([^:]+):C\.(sidereon_[A-Za-z0-9_]+)$#\2\t\1#' \
+while IFS= read -r source; do
+	{
+		grep -oE 'C\.sidereon_[A-Za-z0-9_]+' "$source" || true
+	} | awk -v source="${source#./}" '{ sub(/^C\./, ""); print $0 "\t" source }'
+done < <(find . -type f -name '*.go' ! -name '*_test.go' ! -path './.git/*' | LC_ALL=C sort) \
 	| sort -u >"$work/direct-all"
 
 awk -F '\t' '!seen[$1]++ { print $1 "\t`" $2 "` contains the production cgo call." }' \
@@ -50,7 +52,7 @@ sort -u "$work/composed-proof" -o "$work/composed-proof"
 cut -f1 "$work/composed-proof" >"$work/composed"
 
 while IFS=$'\t' read -r function source; do
-	if ! rg -q "^func ${function}\\(" "$source"; then
+	if ! grep -qE "^func[[:space:]]+${function}\\(" "$source"; then
 		printf 'ABI coverage: composed route %s is absent from %s\n' "$function" "$source" >&2
 		exit 1
 	fi
