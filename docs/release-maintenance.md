@@ -23,11 +23,13 @@ For a release candidate, run the normal checks and the packed consumer check:
 
 ```sh
 ./scripts/smoke-fixtures.sh
+./scripts/test-native-archives.sh
 ./scripts/check-release.sh vX.Y.Z
 ./scripts/test-packed-module.sh
 ```
 
 The packed consumer uses only tracked repository content, places it in a
-temporary module outside the checkout, downloads it through a local module
+temporary module outside the checkout, resolves it through a local module
 replacement, and performs a numerical solve. It does not publish or contact a
-module proxy.
+module proxy. The archive verifier checks the complete seven-target set,
+manifest, hashes, archive formats, source identity, and release metadata.

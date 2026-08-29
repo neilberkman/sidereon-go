@@ -127,7 +127,9 @@ checksum() {
 }
 
 C_REPO=${SIDEREON_C_REPO:-}
-if [ -z "$C_REPO" ] && [ -d "$ROOT/../../repos/sidereon-c/.git" ]; then
+if [ -z "$C_REPO" ] && [ -d "$ROOT/../repos/sidereon-c/.git" ]; then
+	C_REPO=$ROOT/../repos/sidereon-c
+elif [ -z "$C_REPO" ] && [ -d "$ROOT/../../repos/sidereon-c/.git" ]; then
 	C_REPO=$ROOT/../../repos/sidereon-c
 fi
 

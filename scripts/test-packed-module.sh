@@ -1,9 +1,9 @@
 #!/bin/sh
 # Test the packed, tracked module from an outside consumer module.
 #
-# Integration seam: the generated program below assumes these root exports:
+# Integration seam: the tracked consumer program assumes these root exports:
 #   sidereon.LoadSP3([]byte) and sidereon.SolveSPP(*sidereon.SP3, sidereon.SPPConfig)
-# Update only the generated program if the implementation chooses different
+# Update only the consumer program if the implementation chooses different
 # names. Keep the input as bytes and retain a real numerical solve.
 
 set -eu
