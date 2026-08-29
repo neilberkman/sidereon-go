@@ -197,17 +197,17 @@ func TestSPPRINEXAssemblyFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer broadcast.Close()
+	defer func() { _ = broadcast.Close() }()
 	obs, err := ParseRINEXObservation(obsData)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer obs.Close()
+	defer func() { _ = obs.Close() }()
 	inputs, err := SPPInputsFromRINEXObs(obs, broadcast, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer inputs.Close()
+	defer func() { _ = inputs.Close() }()
 	count, err := inputs.Count()
 	if err != nil || count != 2 {
 		t.Fatalf("RINEX SPP input count = %d, want 2 (%v)", count, err)
@@ -240,7 +240,7 @@ func TestSPPRINEXAssemblyFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer results.Close()
+	defer func() { _ = results.Close() }()
 	resultCount, err := results.Count()
 	if err != nil || resultCount != count {
 		t.Fatalf("RINEX SPP result count = %d, want %d (%v)", resultCount, count, err)
@@ -292,7 +292,7 @@ func TestSPPRINEXAssemblyFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer item.Close()
+	defer func() { _ = item.Close() }()
 	itemValue, err := item.Solution()
 	if err != nil {
 		t.Fatal(err)
@@ -320,17 +320,17 @@ func TestSPPFallbackFixtureCall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer broadcast.Close()
+	defer func() { _ = broadcast.Close() }()
 	sp3, err := LoadSP3(readPositioningFixture(t, "trimmed.sp3"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer sp3.Close()
+	defer func() { _ = sp3.Close() }()
 	result, err := SolveWithFallback([]*SP3{sp3}, broadcast, usedSPPConfig(), StalenessPolicyDefault())
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer result.Close()
+	defer func() { _ = result.Close() }()
 	detached, err := result.Solution()
 	if err != nil {
 		t.Fatal(err)
@@ -396,7 +396,7 @@ func TestSPPV2CloseReadRace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer sp3.Close()
+	defer func() { _ = sp3.Close() }()
 	solution, err := SolveSPPV2(sp3, v2Fixture())
 	if err != nil {
 		t.Fatal(err)
