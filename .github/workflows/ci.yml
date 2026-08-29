@@ -35,6 +35,10 @@ jobs:
         uses: golangci/golangci-lint-action@v9.3.0
         with:
           version: v2.12.2
+      - name: exported documentation and ABI coverage
+        run: |
+          ./scripts/check-doc-comments.sh
+          ./scripts/check-abi-coverage.sh
       - name: race tests
         run: go test ./... -race
       - name: deterministic fixture smokes
