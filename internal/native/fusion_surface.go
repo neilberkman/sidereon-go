@@ -695,10 +695,10 @@ func (f *FusionFilter) UpdateTightSP3(epoch NativeFusionTightEpoch, sp3 *SP3, hi
 	}
 	var update NativeFusionUpdate
 	var syncUpdate NativeFusionTimeSyncUpdate
-	var err error
-	err = sp3.handle.with(func(p unsafe.Pointer) error {
-		update, syncUpdate, err = f.tightUpdate(epoch, p, 0, history, mode)
-		return nil
+	err := sp3.handle.with(func(p unsafe.Pointer) error {
+		var inner error
+		update, syncUpdate, inner = f.tightUpdate(epoch, p, 0, history, mode)
+		return inner
 	})
 	if err != nil {
 		return NativeFusionUpdate{}, NativeFusionTimeSyncUpdate{}, err

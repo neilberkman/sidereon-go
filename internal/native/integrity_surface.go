@@ -744,12 +744,13 @@ func (r *RangeFDEResult) Output() (NativeRangeFDEOutput, error) {
 	}
 	var excluded []string
 	err = r.handle.read(func(p unsafe.Pointer) error {
+		var inner error
 		withCThread(func() {
-			excluded, err = copyNativeRtkIDs(func(o *C.SidereonRtkId, l C.size_t, w, q *C.size_t) C.enum_SidereonStatus {
+			excluded, inner = copyNativeRtkIDs(func(o *C.SidereonRtkId, l C.size_t, w, q *C.size_t) C.enum_SidereonStatus {
 				return C.sidereon_range_fde_result_excluded((*C.SidereonRangeFdeResult)(p), o, l, w, q)
 			}, "range FDE excluded")
 		})
-		return nil
+		return inner
 	})
 	if err != nil {
 		return NativeRangeFDEOutput{}, err

@@ -243,8 +243,11 @@ func SolveFDESPP(sp3 *SP3, config SPPConfig, options NativeFDEOptions) (*FDESolu
 		return nil, ErrClosed
 	}
 	var out *FDESolution
-	var err error
-	err = sp3.handle.with(func(p unsafe.Pointer) error { out, err = solveFDE(p, true, config, options); return nil })
+	err := sp3.handle.with(func(p unsafe.Pointer) error {
+		var inner error
+		out, inner = solveFDE(p, true, config, options)
+		return inner
+	})
 	return out, err
 }
 func SolveFDEBroadcast(b *BroadcastEphemeris, config SPPConfig, options NativeFDEOptions) (*FDESolution, error) {
@@ -252,8 +255,11 @@ func SolveFDEBroadcast(b *BroadcastEphemeris, config SPPConfig, options NativeFD
 		return nil, ErrClosed
 	}
 	var out *FDESolution
-	var err error
-	err = b.resource.with(func(p unsafe.Pointer) error { out, err = solveFDE(p, false, config, options); return nil })
+	err := b.resource.with(func(p unsafe.Pointer) error {
+		var inner error
+		out, inner = solveFDE(p, false, config, options)
+		return inner
+	})
 	return out, err
 }
 

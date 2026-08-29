@@ -47,6 +47,13 @@ type FDEResult struct {
 	handle *native.FDESolution
 }
 
+func newFDEResult(handle *native.FDESolution) (*FDEResult, error) {
+	if handle == nil {
+		return nil, errNilNativeHandle
+	}
+	return &FDEResult{handle: handle}, nil
+}
+
 // FDEDiagnostics contains per-satellite exclusions and fault-detection iteration details.
 type FDEDiagnostics struct {
 	Iterations           uint64
@@ -83,7 +90,7 @@ func SolveFDE(sp3 *SP3, config SPPConfig, options FDEOptions) (*FDEResult, error
 	if e != nil {
 		return nil, publicError(e)
 	}
-	return &FDEResult{handle: h}, nil
+	return newFDEResult(h)
 }
 
 // SolveFDEBroadcast computes fault-detection and exclusion diagnostics using positioning data.
@@ -99,7 +106,7 @@ func SolveFDEBroadcast(b *BroadcastEphemeris, config SPPConfig, options FDEOptio
 	if e != nil {
 		return nil, publicError(e)
 	}
-	return &FDEResult{handle: h}, nil
+	return newFDEResult(h)
 }
 
 func nativeRobustConfig(v SPPRobustConfig) (native.NativeSPPRobustConfig, error) {
@@ -122,7 +129,7 @@ func SolveRobustFDE(sp3 *SP3, config SPPConfig, robust SPPRobustConfig, options 
 	if err != nil {
 		return nil, publicError(err)
 	}
-	return &FDEResult{handle: h}, nil
+	return newFDEResult(h)
 }
 
 // SolveRobustFDEBroadcast computes robust fault-detection and exclusion diagnostics using positioning data.
@@ -138,7 +145,7 @@ func SolveRobustFDEBroadcast(b *BroadcastEphemeris, config SPPConfig, robust SPP
 	if err != nil {
 		return nil, publicError(err)
 	}
-	return &FDEResult{handle: h}, nil
+	return newFDEResult(h)
 }
 
 // Solution returns the positioning solution produced by fault detection and exclusion.
