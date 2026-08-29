@@ -247,6 +247,23 @@ func TestPPPInvalidShapesAndText(t *testing.T) {
 	}
 }
 
+func TestPPPEmptyNestedInputs(t *testing.T) {
+	sp3, config, _, _ := pppFixture(t)
+	emptyEpoch := PPPCorrectionEpoch{Epoch: config.Epochs[0].Civil, TRxJ2000S: config.Epochs[0].TRxJ2000S}
+	corrections, err := BuildPPPCorrections(sp3, []PPPCorrectionEpoch{emptyEpoch}, config.InitialState.PositionM, PPPCorrectionsOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := corrections.Close(); err != nil {
+			t.Errorf("corrections.Close() = %v", err)
+		}
+	})
+	if _, err := corrections.CodeBias(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestPPPSolutionsCloseReadRace(t *testing.T) {
 	sp3, config, _, auto := pppFixture(t)
 	solution, err := SolvePPPAutoInitFloat(sp3, config, auto)

@@ -347,7 +347,7 @@ func (a *pppArena) malloc(count int, elementSize uintptr, label string) (unsafe.
 	if size == 0 {
 		return nil, nil
 	}
-	pointer := C.malloc(C.size_t(size))
+	pointer := C.calloc(1, C.size_t(size))
 	if pointer == nil {
 		return nil, fmt.Errorf("sidereon: unable to allocate native %s", label)
 	}
