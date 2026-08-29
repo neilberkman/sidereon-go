@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Every sort below must order bytes, not locale collation. Without this the
+# generated map differs between a C-collation environment and a UTF-8 one
+# (for example sidereon_covariance6_* against sidereon_covariance_*), so the
+# committed artifact would only validate on the machine that wrote it.
+export LC_ALL=C
+
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 HEADER="$ROOT/internal/native/include/sidereon.h"
 MAP="$ROOT/audit/ABI_IMPLEMENTATION_MAP.md"
