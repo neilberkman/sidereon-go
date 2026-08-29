@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 type finding struct {
@@ -134,7 +136,12 @@ func checkComment(findings []finding, fset *token.FileSet, filename string, pos 
 		return append(findings, finding{file: filename, line: line, kind: kind, name: name, text: "missing doc comment"})
 	}
 	text := strings.TrimSpace(doc.Text())
-	if !strings.HasPrefix(text, name) {
+	startsWithName := strings.HasPrefix(text, name)
+	if startsWithName && len(text) > len(name) {
+		next, _ := utf8.DecodeRuneInString(text[len(name):])
+		startsWithName = next != '_' && !unicode.IsLetter(next) && !unicode.IsDigit(next)
+	}
+	if !startsWithName {
 		return append(findings, finding{file: filename, line: line, kind: kind, name: name, text: fmt.Sprintf("comment must start with %q", name)})
 	}
 	return findings
