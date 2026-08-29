@@ -1,3 +1,3 @@
 module github.com/neilberkman/sidereon-go
 
-go 1.26
+go 1.24

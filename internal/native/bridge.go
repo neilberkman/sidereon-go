@@ -1,4 +1,4 @@
-//go:build cgo && ((darwin && (amd64 || arm64)) || (linux && (amd64 || arm64) && ((sidereon_linux_glibc && !sidereon_linux_musl) || (sidereon_linux_musl && !sidereon_linux_glibc))) || (windows && amd64))
+//go:build cgo && ((darwin && (amd64 || arm64)) || (linux && (amd64 || arm64) && (sidereon_use_system_lib || (sidereon_linux_glibc && !sidereon_linux_musl) || (sidereon_linux_musl && !sidereon_linux_glibc))) || (windows && amd64))
 
 package native
 
@@ -10,7 +10,7 @@ package native
 #cgo linux,arm64,sidereon_linux_glibc,!sidereon_linux_musl,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_linux_arm64_glibc
 #cgo linux,amd64,sidereon_linux_musl,!sidereon_linux_glibc,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_linux_amd64_musl
 #cgo linux,arm64,sidereon_linux_musl,!sidereon_linux_glibc,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_linux_arm64_musl
-#cgo windows,amd64,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_windows_amd64
+#cgo windows,amd64,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_windows_amd64_gnu
 #include <sidereon.h>
 */
 import "C"
@@ -39,13 +39,9 @@ func (e *StatusError) Error() string {
 
 var ErrClosed = errors.New("sidereon: handle is closed")
 
-var cgoCallMu sync.Mutex
-
 func withCThread(fn func()) {
-	cgoCallMu.Lock()
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	defer cgoCallMu.Unlock()
 	fn()
 }
 
