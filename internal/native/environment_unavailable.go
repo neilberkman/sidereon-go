@@ -186,11 +186,9 @@ func (*DtedTile) Close() error               { return nil }
 func (*DtedTile) Elevation(float64, float64) (int16, error) {
 	return 0, unavailable()
 }
-func DtedTileListToMmapStore([]DtedTileListEntry) ([]byte, error)    { return nil, unavailable() }
-func WriteDtedTileListToMmapStore([]DtedTileListEntry, string) error { return unavailable() }
-func DtedTreeToMmapStore(string) ([]byte, error)                     { return nil, unavailable() }
-func WriteDtedTreeToMmapStore(string, string) error                  { return unavailable() }
-func DtedInterpolationLabel(uint32) ([]byte, error)                  { return nil, unavailable() }
+func DtedTileListToMmapStore([]DtedTileListEntry) ([]byte, error) { return nil, unavailable() }
+func DtedTreeToMmapStore(string) ([]byte, error)                  { return nil, unavailable() }
+func DtedInterpolationLabel(uint32) ([]byte, error)               { return nil, unavailable() }
 
 type TerrainDatumError struct {
 	Kind        uint32

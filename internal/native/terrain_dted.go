@@ -202,17 +202,26 @@ func (t *DtedTile) Elevation(longitudeDeg, latitudeDeg float64) (int16, error) {
 }
 
 func dtedEntries(entries []DtedTileListEntry) ([]C.SidereonDtedTileListEntry, []unsafe.Pointer, error) {
-	if _, err := checkedNativeAllocationSize(len(entries), unsafe.Sizeof(C.SidereonDtedTileListEntry{})); err != nil {
+	entryBytes, err := checkedNativeAllocationSize(len(entries), unsafe.Sizeof(C.SidereonDtedTileListEntry{}))
+	if err != nil {
 		return nil, nil, err
 	}
 	if _, err := checkedNativeAllocationSize(len(entries), unsafe.Sizeof(unsafe.Pointer(nil))); err != nil {
 		return nil, nil, err
 	}
-	cEntries := make([]C.SidereonDtedTileListEntry, len(entries))
+	var entryMemory unsafe.Pointer
+	if entryBytes != 0 {
+		entryMemory = C.malloc(C.size_t(entryBytes))
+		if entryMemory == nil {
+			return nil, nil, errors.New("sidereon: unable to allocate native DTED entries")
+		}
+	}
+	cEntries := unsafe.Slice((*C.SidereonDtedTileListEntry)(entryMemory), len(entries))
 	paths := make([]unsafe.Pointer, len(entries))
 	for i, entry := range entries {
 		path, err := cString(entry.Path)
 		if err != nil {
+			C.free(entryMemory)
 			for _, value := range paths {
 				if value != nil {
 					C.free(value)
@@ -224,6 +233,7 @@ func dtedEntries(entries []DtedTileListEntry) ([]C.SidereonDtedTileListEntry, []
 		cEntries[i].tile_id = C.SidereonTerrainTileId{lat_index: C.int32_t(entry.TileID.LatIndex), lon_index: C.int32_t(entry.TileID.LonIndex)}
 		cEntries[i].path = path
 	}
+	paths = append(paths, entryMemory)
 	return cEntries, paths, nil
 }
 
@@ -250,26 +260,6 @@ func DtedTileListToMmapStore(entries []DtedTileListEntry) ([]byte, error) {
 	}, false, true)
 }
 
-func WriteDtedTileListToMmapStore(entries []DtedTileListEntry, path string) error {
-	cEntries, paths, err := dtedEntries(entries)
-	if err != nil {
-		return err
-	}
-	defer freePointers(paths)
-	output, err := cString(path)
-	if err != nil {
-		return err
-	}
-	defer C.free(unsafe.Pointer(output))
-	var pointer *C.SidereonDtedTileListEntry
-	if len(cEntries) != 0 {
-		pointer = &cEntries[0]
-	}
-	return callStatusWithTerrainDiagnostics(func() uint32 {
-		return C.sidereon_write_dted_tile_list_to_mmap_store(pointer, C.size_t(len(cEntries)), output)
-	}, false, true)
-}
-
 func DtedTreeToMmapStore(root string) ([]byte, error) {
 	input, err := cString(root)
 	if err != nil {
@@ -278,22 +268,6 @@ func DtedTreeToMmapStore(root string) ([]byte, error) {
 	defer C.free(unsafe.Pointer(input))
 	return copyNativeBytesWithTerrainDiagnostics("DTED tree store", func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
 		return C.sidereon_dted_tree_to_mmap_store(input, out, length, written, required)
-	}, false, true)
-}
-
-func WriteDtedTreeToMmapStore(root, path string) error {
-	input, err := cString(root)
-	if err != nil {
-		return err
-	}
-	defer C.free(unsafe.Pointer(input))
-	output, err := cString(path)
-	if err != nil {
-		return err
-	}
-	defer C.free(unsafe.Pointer(output))
-	return callStatusWithTerrainDiagnostics(func() uint32 {
-		return C.sidereon_write_dted_tree_to_mmap_store(input, output)
 	}, false, true)
 }
 

@@ -423,6 +423,28 @@ func TestEnvironmentDTEDAndMMapFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	entries := []DTEDTileListEntry{
+		{TileID: TerrainTileID{LatIndex: 36, LonIndex: -106}, Path: "testdata/dted/tiles/n36_w106_1arc_v3.dt2"},
+		{TileID: TerrainTileID{LatIndex: 36, LonIndex: -107}, Path: "testdata/dted/tiles/n36_w107_1arc_v3.dt2"},
+	}
+	listBytes, err := DTEDTileListToMMapStore(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(listBytes, storeBytes) {
+		t.Fatal("DTED list and tree conversions produced different stores")
+	}
+	writtenPath := filepath.Join(t.TempDir(), "terrain.store")
+	if err := WriteDTEDTileListToMMapStore(entries, writtenPath); err != nil {
+		t.Fatal(err)
+	}
+	written, err := os.ReadFile(writtenPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(written, storeBytes) {
+		t.Fatal("Go-owned DTED writer changed the native store bytes")
+	}
 	checksum, err := TerrainStoreChecksum64(storeBytes)
 	if err != nil || checksum != 0xff514a676a94d479 {
 		t.Fatalf("terrain store checksum = %#x, %v", checksum, err)

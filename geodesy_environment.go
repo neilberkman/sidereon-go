@@ -630,14 +630,11 @@ func DTEDTileListToMMapStore(entries []DTEDTileListEntry) ([]byte, error) {
 
 // WriteDTEDTileListToMMapStore writes a converted DTED tile list to path.
 func WriteDTEDTileListToMMapStore(entries []DTEDTileListEntry, path string) error {
-	if err := checkedEnvironmentAllocation(len(entries), unsafe.Sizeof(native.DtedTileListEntry{})); err != nil {
+	data, err := DTEDTileListToMMapStore(entries)
+	if err != nil {
 		return err
 	}
-	nativeEntries := make([]native.DtedTileListEntry, len(entries))
-	for i, entry := range entries {
-		nativeEntries[i] = native.DtedTileListEntry{TileID: native.TerrainTileID{LatIndex: entry.TileID.LatIndex, LonIndex: entry.TileID.LonIndex}, Path: entry.Path}
-	}
-	return publicError(native.WriteDtedTileListToMmapStore(nativeEntries, path))
+	return os.WriteFile(path, data, 0o644)
 }
 
 // DTEDTreeToMMapStore converts a DTED directory tree to copied store bytes.
@@ -648,7 +645,11 @@ func DTEDTreeToMMapStore(root string) ([]byte, error) {
 
 // WriteDTEDTreeToMMapStore writes a converted DTED tree to path.
 func WriteDTEDTreeToMMapStore(root, path string) error {
-	return publicError(native.WriteDtedTreeToMmapStore(root, path))
+	data, err := DTEDTreeToMMapStore(root)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
 }
 
 // MMapTerrainHeightResult contains one memory-mappable terrain batch result.
