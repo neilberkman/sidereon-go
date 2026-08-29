@@ -76,15 +76,30 @@ type NMEASummary struct {
 }
 
 type NMEAEpoch struct {
+	HasCalendarEpoch   bool
+	CalendarEpoch      NativeCalendarEpoch
 	HasPosition        bool
 	LatitudeRad        float64
 	LongitudeRad       float64
 	HeightM            float64
+	HasInstantJ2000S   bool
+	InstantJ2000S      float64
+	HasPDOP            bool
+	PDOP               float64
+	HasHDOP            bool
+	HDOP               float64
+	HasVDOP            bool
+	VDOP               float64
 	SentenceCount      uint64
 	UsedSatelliteCount uint64
 	SatellitesInView   uint64
 	SkipCount          uint64
 	WarningCount       uint64
+	HasGGA             bool
+	HasRMC             bool
+	HasGLL             bool
+	GSACount           uint64
+	GSVGroupCount      uint64
 }
 
 type NMEALog struct{}

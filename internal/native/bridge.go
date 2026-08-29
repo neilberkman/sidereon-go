@@ -507,15 +507,30 @@ type NMEASummary struct {
 }
 
 type NMEAEpoch struct {
+	HasCalendarEpoch   bool
+	CalendarEpoch      NativeCalendarEpoch
 	HasPosition        bool
 	LatitudeRad        float64
 	LongitudeRad       float64
 	HeightM            float64
+	HasInstantJ2000S   bool
+	InstantJ2000S      float64
+	HasPDOP            bool
+	PDOP               float64
+	HasHDOP            bool
+	HDOP               float64
+	HasVDOP            bool
+	VDOP               float64
 	SentenceCount      uint64
 	UsedSatelliteCount uint64
 	SatellitesInView   uint64
 	SkipCount          uint64
 	WarningCount       uint64
+	HasGGA             bool
+	HasRMC             bool
+	HasGLL             bool
+	GSACount           uint64
+	GSVGroupCount      uint64
 }
 
 type resource struct {
@@ -703,18 +718,36 @@ func (l *NMEALog) Epochs() ([]NMEAEpoch, error) {
 	}
 	out := make([]NMEAEpoch, len(epochs))
 	for i := range epochs {
-		epoch := &epochs[i]
-		out[i] = NMEAEpoch{
-			HasPosition:        bool(epoch.has_position),
-			LatitudeRad:        float64(epoch.position.lat_rad),
-			LongitudeRad:       float64(epoch.position.lon_rad),
-			HeightM:            float64(epoch.position.height_m),
-			SentenceCount:      uint64(epoch.sentence_count),
-			UsedSatelliteCount: uint64(epoch.used_satellite_count),
-			SatellitesInView:   uint64(epoch.satellites_in_view),
-			SkipCount:          uint64(epoch.skip_count),
-			WarningCount:       uint64(epoch.warning_count),
-		}
+		out[i] = nmeaEpochFromC(&epochs[i])
 	}
 	return out, nil
+}
+
+func nmeaEpochFromC(epoch *C.SidereonNmeaEpochSummary) NMEAEpoch {
+	return NMEAEpoch{
+		HasCalendarEpoch:   bool(epoch.has_calendar_epoch),
+		CalendarEpoch:      calendarEpochFromC(epoch.calendar_epoch),
+		HasPosition:        bool(epoch.has_position),
+		LatitudeRad:        float64(epoch.position.lat_rad),
+		LongitudeRad:       float64(epoch.position.lon_rad),
+		HeightM:            float64(epoch.position.height_m),
+		HasInstantJ2000S:   bool(epoch.has_instant_j2000_s),
+		InstantJ2000S:      float64(epoch.instant_j2000_s),
+		HasPDOP:            bool(epoch.has_pdop),
+		PDOP:               float64(epoch.pdop),
+		HasHDOP:            bool(epoch.has_hdop),
+		HDOP:               float64(epoch.hdop),
+		HasVDOP:            bool(epoch.has_vdop),
+		VDOP:               float64(epoch.vdop),
+		SentenceCount:      uint64(epoch.sentence_count),
+		UsedSatelliteCount: uint64(epoch.used_satellite_count),
+		SatellitesInView:   uint64(epoch.satellites_in_view),
+		SkipCount:          uint64(epoch.skip_count),
+		WarningCount:       uint64(epoch.warning_count),
+		HasGGA:             bool(epoch.has_gga),
+		HasRMC:             bool(epoch.has_rmc),
+		HasGLL:             bool(epoch.has_gll),
+		GSACount:           uint64(epoch.gsa_count),
+		GSVGroupCount:      uint64(epoch.gsv_group_count),
+	}
 }
