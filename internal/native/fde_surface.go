@@ -94,6 +94,11 @@ func nativeFDEOptions(value NativeFDEOptions) (C.SidereonFdeOptions, unsafe.Poin
 	if len(value.Weights) == 0 {
 		return options, nil, nil, nil
 	}
+	for _, weight := range value.Weights {
+		if err := rejectEmbeddedNUL(weight.SatelliteID, "FDE satellite ID"); err != nil {
+			return options, nil, nil, err
+		}
+	}
 	weightCount, err := cSize(len(value.Weights), "FDE weight count")
 	if err != nil {
 		return options, nil, nil, err
@@ -109,10 +114,6 @@ func nativeFDEOptions(value NativeFDEOptions) (C.SidereonFdeOptions, unsafe.Poin
 	entries := unsafe.Slice((*C.SidereonFdeRaimWeight)(memory), len(value.Weights))
 	ids := make([]*C.char, len(value.Weights))
 	for i, w := range value.Weights {
-		if err := rejectEmbeddedNUL(w.SatelliteID, "FDE satellite ID"); err != nil {
-			C.free(memory)
-			return options, nil, nil, err
-		}
 		ids[i] = C.CString(w.SatelliteID)
 		if ids[i] == nil {
 			freeCStrings(ids)
