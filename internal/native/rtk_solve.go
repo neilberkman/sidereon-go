@@ -131,6 +131,15 @@ func copyRtkEpochs(values []RtkEpoch, alloc *cRtkAlloc) (*C.SidereonRtkEpoch, er
 	}
 	dst := unsafe.Slice((*C.SidereonRtkEpoch)(memory), len(values))
 	for i, epoch := range values {
+		dst[i] = C.SidereonRtkEpoch{}
+		referenceCount, err := checkedNativeSize(len(epoch.References))
+		if err != nil {
+			return nil, err
+		}
+		nonReferenceCount, err := checkedNativeSize(len(epoch.NonReference))
+		if err != nil {
+			return nil, err
+		}
 		all := append(append([]RtkSatMeasurement(nil), epoch.References...), epoch.NonReference...)
 		rowBytes, err := checkedNativeAllocationSize(len(all), unsafe.Sizeof(C.SidereonRtkSatMeasurement{}))
 		if err != nil {
@@ -152,11 +161,11 @@ func copyRtkEpochs(values []RtkEpoch, alloc *cRtkAlloc) (*C.SidereonRtkEpoch, er
 		if len(epoch.References) != 0 {
 			dst[i].references = &rows[0]
 		}
-		dst[i].reference_count = C.size_t(len(epoch.References))
+		dst[i].reference_count = referenceCount
 		if len(epoch.NonReference) != 0 {
 			dst[i].nonref = &rows[len(epoch.References)]
 		}
-		dst[i].nonref_count = C.size_t(len(epoch.NonReference))
+		dst[i].nonref_count = nonReferenceCount
 		dst[i].has_velocity_mps = C.bool(epoch.HasVelocityMPS)
 		for j := range epoch.VelocityMPS {
 			dst[i].velocity_mps[j] = C.double(epoch.VelocityMPS[j])
