@@ -4,15 +4,15 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 
 // ScenarioObservation is one copied synthetic observation row.
 type ScenarioObservation struct {
-	// EpochIndex identifies or counts this record.
+	// EpochIndex is the zero-based simulated epoch index.
 	EpochIndex int
-	// SatelliteID identifies or counts this record.
+	// SatelliteID is the simulated GNSS satellite identifier.
 	SatelliteID string
-	// CodeObservable is the code observable value for ScenarioObservation.
+	// CodeObservable is the code-observable label used to generate the row.
 	CodeObservable string
-	// PhaseObservable is the phase observable value for ScenarioObservation.
+	// PhaseObservable is the carrier-phase observable label used to generate the row.
 	PhaseObservable string
-	// DopplerObservable is the doppler observable value for ScenarioObservation.
+	// DopplerObservable is the Doppler observable label used to generate the row.
 	DopplerObservable string
 	// CarrierHz is the carrier hz in hertz.
 	CarrierHz float64
@@ -20,39 +20,39 @@ type ScenarioObservation struct {
 	PseudorangeM float64
 	// CarrierPhaseCycles is the carrier phase cycles in cycles.
 	CarrierPhaseCycles float64
-	// DopplerHz is the doppler hz in hertz.
+	// DopplerHz is the Doppler observable in hertz.
 	DopplerHz float64
 }
 
 // ScenarioReceiverTruthRow is one copied receiver truth row.
 type ScenarioReceiverTruthRow struct {
-	// TRxJ2000S is the t rx j2000 s in seconds.
+	// TRxJ2000S is the simulated receive epoch in seconds from J2000.
 	TRxJ2000S float64
-	// PositionECEFM is the position ecefm in metres.
+	// PositionECEFM is the simulated receiver ECEF position in metres.
 	PositionECEFM [3]float64
-	// VelocityECEFMPS is the velocity ecefmps in metres per second.
+	// VelocityECEFMPS is the simulated receiver ECEF velocity in metres per second.
 	VelocityECEFMPS [3]float64
 	// ClockM is the clock m in metres.
 	ClockM float64
-	// ClockRateMPS is the clock rate mps in metres per second.
+	// ClockRateMPS is the clock rate in metres per second.
 	ClockRateMPS float64
 }
 
 // ScenarioSummary contains deterministic simulation counts and fingerprint.
 type ScenarioSummary struct {
-	// SchemaVersion is the schema version value for ScenarioSummary.
+	// SchemaVersion is the scenario JSON schema version.
 	SchemaVersion uint32
-	// Seed is the seed value for ScenarioSummary.
+	// Seed is the deterministic pseudo-random seed used by the simulation.
 	Seed uint64
-	// ReceiverTruthCount identifies or counts this record.
+	// ReceiverTruthCount is the number of receiver-truth rows.
 	ReceiverTruthCount int
-	// ObservationCount identifies or counts this record.
+	// ObservationCount is the number of synthetic observation rows.
 	ObservationCount int
-	// EpochOffsetCount identifies or counts this record.
+	// EpochOffsetCount is the number of epoch-offset rows.
 	EpochOffsetCount int
-	// DeterminismFingerprint is the determinism fingerprint value for ScenarioSummary.
+	// DeterminismFingerprint is the native deterministic-output fingerprint.
 	DeterminismFingerprint uint64
-	// JSONLength is the jsonlength value for ScenarioSummary.
+	// JSONLength is the serialized scenario JSON length in bytes.
 	JSONLength int
 }
 
@@ -94,19 +94,19 @@ type ScenarioTerm struct {
 	CarrierPhaseBiasCycles float64
 	// CarrierPhaseQuantizationCycles is the carrier phase quantization cycles in cycles.
 	CarrierPhaseQuantizationCycles float64
-	// DopplerSatelliteMotionHz is the doppler satellite motion hz in hertz.
+	// DopplerSatelliteMotionHz is the satellite-motion Doppler contribution in hertz.
 	DopplerSatelliteMotionHz float64
-	// DopplerReceiverMotionHz is the doppler receiver motion hz in hertz.
+	// DopplerReceiverMotionHz is the receiver-motion Doppler contribution in hertz.
 	DopplerReceiverMotionHz float64
-	// DopplerSatelliteClockHz is the doppler satellite clock hz in hertz.
+	// DopplerSatelliteClockHz is the satellite-clock Doppler contribution in hertz.
 	DopplerSatelliteClockHz float64
-	// DopplerReceiverClockHz is the doppler receiver clock hz in hertz.
+	// DopplerReceiverClockHz is the receiver-clock Doppler contribution in hertz.
 	DopplerReceiverClockHz float64
-	// DopplerSatelliteClockErrorHz is the doppler satellite clock error hz in hertz.
+	// DopplerSatelliteClockErrorHz is the satellite-clock-error Doppler contribution in hertz.
 	DopplerSatelliteClockErrorHz float64
-	// DopplerThermalNoiseHz is the doppler thermal noise hz in hertz.
+	// DopplerThermalNoiseHz is the thermal-noise Doppler contribution in hertz.
 	DopplerThermalNoiseHz float64
-	// DopplerQuantizationHz is the doppler quantization hz in hertz.
+	// DopplerQuantizationHz is the quantization Doppler contribution in hertz.
 	DopplerQuantizationHz float64
 }
 
@@ -187,7 +187,7 @@ func (s *ScenarioSimulation) Close() error {
 	return publicError(s.handle.Close())
 }
 
-// ScenarioEpochOffsets returns copied epoch offsets.
+// ScenarioEpochOffsets returns detached epoch offsets in seconds from the scenario start.
 func ScenarioEpochOffsets(s *ScenarioSimulation) ([]int, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -199,7 +199,7 @@ func ScenarioEpochOffsets(s *ScenarioSimulation) ([]int, error) {
 // EpochOffsets is the method form of ScenarioEpochOffsets.
 func (s *ScenarioSimulation) EpochOffsets() ([]int, error) { return ScenarioEpochOffsets(s) }
 
-// ScenarioObservations returns copied synthetic observation rows.
+// ScenarioObservations returns detached synthetic pseudorange observation rows.
 func ScenarioObservations(s *ScenarioSimulation) ([]ScenarioObservation, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -220,7 +220,7 @@ func (s *ScenarioSimulation) Observations() ([]ScenarioObservation, error) {
 	return ScenarioObservations(s)
 }
 
-// ScenarioReceiverTruth returns copied receiver truth rows.
+// ScenarioReceiverTruth returns detached receiver truth positions and clock states.
 func ScenarioReceiverTruth(s *ScenarioSimulation) ([]ScenarioReceiverTruthRow, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -253,7 +253,7 @@ func ScenarioSimulationJSON(s *ScenarioSimulation) ([]byte, error) {
 // JSON is the method form of ScenarioSimulationJSON.
 func (s *ScenarioSimulation) JSON() ([]byte, error) { return ScenarioSimulationJSON(s) }
 
-// ScenarioSimulationSummary returns copied simulation summary metadata.
+// ScenarioSimulationSummary returns detached simulation counts, seed, schema, and fingerprint metadata.
 func ScenarioSimulationSummary(s *ScenarioSimulation) (ScenarioSummary, error) {
 	if s == nil || s.handle == nil {
 		return ScenarioSummary{}, ErrClosed
@@ -265,7 +265,7 @@ func ScenarioSimulationSummary(s *ScenarioSimulation) (ScenarioSummary, error) {
 // Summary is the method form of ScenarioSimulationSummary.
 func (s *ScenarioSimulation) Summary() (ScenarioSummary, error) { return ScenarioSimulationSummary(s) }
 
-// ScenarioTerms returns copied ground-truth term rows.
+// ScenarioTerms returns detached ground-truth propagation and correction terms.
 func ScenarioTerms(s *ScenarioSimulation) ([]ScenarioTerm, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed

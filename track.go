@@ -14,87 +14,108 @@ const (
 	TrackCallerDefinedCartesian TrackCoordinateFrame = TrackCoordinateFrame(native.TrackFrameCallerCartesianValue)
 )
 
-// TrackState describes a no-IMU filter state. Epoch is in the caller's
-// monotonic seconds; positions are metres and velocities metres per second.
-// TrackState contains the current position/velocity state dimensions and caller-monotonic epoch.
+// TrackState describes the metadata for a no-IMU filter state. Frame selects
+// the Cartesian coordinate system, Epoch is in the caller's monotonic seconds,
+// Dimension is the position dimension, and StateDimension includes position
+// and velocity components.
 type TrackState struct {
-	// Frame identifies the coordinate frame for the values.
-	Frame                     TrackCoordinateFrame
-	Epoch                     float64
+	// Frame identifies the Cartesian coordinate frame for state vectors.
+	Frame TrackCoordinateFrame
+	// Epoch is the state epoch in the caller's monotonic seconds.
+	Epoch float64
+	// Dimension is the position dimension; StateDimension includes position and velocity.
 	Dimension, StateDimension int
 }
 
-// TrackInnovation contains innovation residual, covariance, and normalized-innovation diagnostics.
+// TrackInnovation contains the measurement dimension and normalized innovation squared.
 type TrackInnovation struct {
+	// Dimension is the number of measurement components in the innovation.
 	Dimension int
-	NIS       float64
+	// NIS is the dimensionless normalized innovation squared statistic.
+	NIS float64
 }
 
-// TrackPrediction contains the predicted tracking state and covariance.
+// TrackPrediction contains the propagation interval and predicted state metadata.
 type TrackPrediction struct {
 	// DT is the prediction interval in seconds.
 	DT float64
-	// Predicted is the predicted state.
+	// Predicted is the state metadata after propagation by DT.
 	Predicted TrackState
 }
 
-// TrackUpdate contains the updated tracking state and covariance.
+// TrackUpdate contains the state metadata before and after a measurement correction.
 type TrackUpdate struct {
-	// Predicted and Updated are the predicted state, the updated state.
+	// Predicted is the state metadata before applying the correction; Updated is after it.
 	Predicted, Updated TrackState
-	// Innovation is the measurement innovation.
+	// Innovation contains the correction's measurement dimension and NIS.
 	Innovation TrackInnovation
 }
 
-// TrackGatedUpdate contains the gated update decision and its optional update/state.
+// TrackGatedUpdate contains the NIS gate decision, the accepted correction when
+// present, and the resulting current-state metadata.
 type TrackGatedUpdate struct {
 	// Gate is the NIS gate decision.
-	Gate      NISGate
+	Gate NISGate
+	// HasUpdate is true when the gate accepted and applied the correction.
 	HasUpdate bool
-	Update    TrackUpdate
-	State     TrackState
+	// Update is valid only when HasUpdate is true; it is zero otherwise.
+	Update TrackUpdate
+	// State is the current filter state metadata after the gated operation.
+	State TrackState
 }
 
-// TrackRTSEpoch contains one recorded RTS epoch and transition metadata.
+// TrackRTSEpoch contains one recorded Rauch–Tung–Striebel history epoch and
+// whether a transition from the preceding epoch is available.
 type TrackRTSEpoch struct {
+	// Epoch is the recorded epoch in the caller's monotonic seconds.
 	Epoch float64
-	// Predicted and Updated are the predicted state, the updated state.
+	// Predicted is the pre-correction state metadata recorded at this epoch; Updated is after correction.
 	Predicted, Updated TrackState
-	HasTransition      bool
+	// HasTransition reports whether transition-from-previous data is available.
+	HasTransition bool
 }
 
-// SmoothedTrackEpoch contains one RTS-smoothed state, covariance, and transition metadata.
+// SmoothedTrackEpoch contains one Rauch–Tung–Striebel smoothed epoch and its
+// optional gain to the next epoch.
 type SmoothedTrackEpoch struct {
-	Epoch            float64
-	State            TrackState
+	// Epoch is the smoothed epoch in the caller's monotonic seconds.
+	Epoch float64
+	// State is the smoothed state metadata at Epoch.
+	State TrackState
+	// HasRTSGainToNext reports whether RTSGainToNext is available for this epoch.
 	HasRTSGainToNext bool
 }
 
-// TrackFilterConfig owns the native filter configuration; Close releases it and readers are synchronized.
+// TrackFilterConfig owns the native filter configuration; Close releases it,
+// and configuration readers synchronize with Close.
 type TrackFilterConfig struct {
 	_      noCopy
 	handle *native.TrackFilterConfig
 }
 
-// TrackFilter owns the native tracking filter; Close synchronizes with prediction, update, and readers.
+// TrackFilter owns the native tracking filter; Close synchronizes with
+// prediction, update, innovation, and state readers.
 type TrackFilter struct {
 	_      noCopy
 	handle *native.TrackFilter
 }
 
-// TrackRTSHistoryBuilder owns the native RTS history recorder until Finish or Close.
+// TrackRTSHistoryBuilder owns the native Rauch–Tung–Striebel history recorder
+// until Finish transfers ownership or Close releases it.
 type TrackRTSHistoryBuilder struct {
 	_      noCopy
 	handle *native.TrackRTSHistoryBuilder
 }
 
-// TrackRTSHistory owns recorded filter history and provides detached epoch readers.
+// TrackRTSHistory owns finished recorded filter history and provides detached
+// epoch, position, and transition readers.
 type TrackRTSHistory struct {
 	_      noCopy
 	handle *native.TrackRTSHistory
 }
 
-// SmoothedTrack owns the native RTS-smoothed track and its detached epoch results.
+// SmoothedTrack owns the native Rauch–Tung–Striebel smoothed track and its
+// detached epoch, position, covariance, and gain results.
 type SmoothedTrack struct {
 	_      noCopy
 	handle *native.SmoothedTrack
@@ -368,7 +389,8 @@ func (b *TrackRTSHistoryBuilder) Close() error {
 	return publicError(b.handle.Close())
 }
 
-// Finish finalizes recorded RTS history and returns its native history handle.
+// Finish finalizes the recorded history and returns an owning TrackRTSHistory;
+// the caller must Close the returned history.
 func (b *TrackRTSHistoryBuilder) Finish() (*TrackRTSHistory, error) {
 	if b == nil || b.handle == nil {
 		return nil, ErrClosed

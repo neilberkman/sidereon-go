@@ -6,7 +6,7 @@ import (
 	"github.com/neilberkman/sidereon-go/internal/native"
 )
 
-// Geodetic is a WGS84 position. Latitude and longitude are radians; height is
+// Geodetic is a WGS 84 position. Latitude and longitude are radians; height is
 // ellipsoidal height in metres.
 type Geodetic struct {
 	// LatitudeRad is the latitude rad in radians.
@@ -17,37 +17,37 @@ type Geodetic struct {
 	HeightM float64
 }
 
-// ECEF is an ITRF/WGS84 Earth-fixed position in metres.
+// ECEF is an ITRF/WGS 84 Earth-fixed position in metres.
 type ECEF struct {
-	// X is the x value for ECEF.
+	// X is the ECEF X coordinate in metres.
 	X float64
-	// Y is the y value for ECEF.
+	// Y is the ECEF Y coordinate in metres.
 	Y float64
-	// Z is the z value for ECEF.
+	// Z is the ECEF Z coordinate in metres.
 	Z float64
 }
 
 // LineOfSight is an ECEF unit vector from a receiver towards a satellite.
 type LineOfSight struct {
-	// EX is the ex value for LineOfSight.
+	// EX is the dimensionless ECEF X component of this unit vector.
 	EX float64
-	// EY is the ey value for LineOfSight.
+	// EY is the dimensionless ECEF Y component of this unit vector.
 	EY float64
-	// EZ is the ez value for LineOfSight.
+	// EZ is the dimensionless ECEF Z component of this unit vector.
 	EZ float64
 }
 
 // DOP contains geometric dilution-of-precision scalars.
 type DOP struct {
-	// GDOP is the gdop value for DOP.
+	// GDOP is the dimensionless geometric dilution of precision for position and time.
 	GDOP float64
-	// PDOP is the pdop value for DOP.
+	// PDOP is the dimensionless positional dilution of precision.
 	PDOP float64
-	// HDOP is the hdop value for DOP.
+	// HDOP is the dimensionless horizontal dilution of precision.
 	HDOP float64
-	// VDOP is the vdop value for DOP.
+	// VDOP is the dimensionless vertical dilution of precision.
 	VDOP float64
-	// TDOP is the tdop value for DOP.
+	// TDOP is the dimensionless time dilution of precision.
 	TDOP float64
 }
 
@@ -61,7 +61,7 @@ const (
 	GeocentricRadial ENUConvention = 1
 )
 
-// GeodeticToECEF converts a WGS84 geodetic position to ECEF metres.
+// GeodeticToECEF converts a WGS 84 geodetic position to ECEF metres.
 func GeodeticToECEF(position Geodetic) (ECEF, error) {
 	value, err := native.GeodeticToECEF(native.Geodetic{
 		LatitudeRad: position.LatitudeRad, LongitudeRad: position.LongitudeRad, HeightM: position.HeightM,
@@ -72,14 +72,14 @@ func GeodeticToECEF(position Geodetic) (ECEF, error) {
 // ToECEF converts the geodetic position to ECEF metres.
 func (position Geodetic) ToECEF() (ECEF, error) { return GeodeticToECEF(position) }
 
-// ECEFToGeodetic converts an ECEF position in metres to WGS84 geodetic
+// ECEFToGeodetic converts an ECEF position in metres to WGS 84 geodetic
 // latitude/longitude radians and ellipsoidal height metres.
 func ECEFToGeodetic(position ECEF) (Geodetic, error) {
 	value, err := native.ECEFToGeodetic(native.ECEF{X: position.X, Y: position.Y, Z: position.Z})
 	return Geodetic{LatitudeRad: value.LatitudeRad, LongitudeRad: value.LongitudeRad, HeightM: value.HeightM}, publicError(err)
 }
 
-// ToGeodetic converts the ECEF position to WGS84 geodetic coordinates.
+// ToGeodetic converts the ECEF position to WGS 84 geodetic coordinates.
 func (position ECEF) ToGeodetic() (Geodetic, error) { return ECEFToGeodetic(position) }
 
 // LineOfSightFromAzEl constructs an ECEF line-of-sight unit vector. Azimuth

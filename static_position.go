@@ -5,19 +5,22 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 // StaticPositionEpoch is one pseudorange epoch in a static-position solve.
 // Weights, when present, are positive multipliers aligned with Observations.
 type StaticPositionEpoch struct {
-	Inputs  SPPInputsV2
+	// Inputs contains the SPP V2 observations and receiver-time/model settings for this epoch.
+	Inputs SPPInputsV2
+	// Weights contains positive observation multipliers aligned with Inputs.Base.Observations.
 	Weights []float64
 }
 
 // StaticPositionOptions controls the shared-position static solver.
 type StaticPositionOptions struct {
-	// InitialPositionM contains metres.
+	// InitialPositionM is the optional initial receiver position in ECEF metres.
 	InitialPositionM [3]float64
-	// WithGeodetic reports whether geodetic output is requested.
+	// WithGeodetic reports whether the solution includes a geodetic coordinate.
 	WithGeodetic bool
 	// RobustEnabled reports whether robust estimation is enabled.
 	RobustEnabled bool
-	Robust        SPPRobustConfig
+	// Robust contains Huber/IRLS scale, iteration, and tolerance settings when RobustEnabled is true.
+	Robust SPPRobustConfig
 }
 
 // StaticPositionErrorKind is the solver's typed outcome category.
@@ -93,6 +96,7 @@ const (
 
 // StaticPositionClockBias is one detached receiver clock estimate in seconds.
 type StaticPositionClockBias struct {
+	// EpochIndex is the zero-based input epoch whose receiver clock bias is reported.
 	EpochIndex int
 	// System identifies the GNSS constellation or constellation set.
 	System GNSSSystem
@@ -102,87 +106,109 @@ type StaticPositionClockBias struct {
 
 // StaticPositionEpochInfluence is a detached leave-one-epoch diagnostic.
 type StaticPositionEpochInfluence struct {
+	// EpochIndex is the zero-based omitted epoch; OmittedMeasurements is its measurement count.
 	EpochIndex, OmittedMeasurements int
-	Status                          StaticPositionInfluenceStatus
+	// Status identifies whether the leave-one-epoch solve succeeded or why it failed.
+	Status StaticPositionInfluenceStatus
 	// HasPositionDelta reports whether PositionDeltaM is valid.
 	HasPositionDelta bool
-	// PositionDeltaM contains metres.
+	// PositionDeltaM is the ECEF position change from the full solve in metres.
 	PositionDeltaM [3]float64
-	// PositionDeltaNormM contains metres.
+	// PositionDeltaNormM is the Euclidean ECEF position-change norm in metres.
 	PositionDeltaNormM float64
 	// HasResidualRMS reports whether ResidualRMSM is valid.
 	HasResidualRMS bool
-	// ResidualRMSM contains metres.
-	ResidualRMSM         float64
+	// ResidualRMSM is the post-fit residual RMS in metres.
+	ResidualRMSM float64
+	// MinRobustWeightRatio is the smallest dimensionless robust weight ratio in the influence solve.
 	MinRobustWeightRatio float64
 }
 
 // StaticPositionMetadata contains detached static solver diagnostics.
 type StaticPositionMetadata struct {
+	// Iterations and OuterIterations are inner and robust outer solver iteration counts.
+	// UsedMeasurements and Parameters are the retained-observation and fitted-parameter counts.
 	Iterations, OuterIterations, UsedMeasurements, Parameters int
-	Converged, HasFinalRobustScale                            bool
-	Status                                                    StaticPositionSolveStatus
+	// Converged reports solver convergence; HasFinalRobustScale guards FinalRobustScaleM.
+	Converged, HasFinalRobustScale bool
+	// Status identifies the native termination criterion.
+	Status StaticPositionSolveStatus
 	// FinalRobustScaleM contains metres.
 	FinalRobustScaleM float64
-	Redundancy        int64
-	GeometryQuality   SPPGeometryQuality
+	// Redundancy is the number of independent residual degrees of freedom.
+	Redundancy int64
+	// GeometryQuality contains rank, conditioning, dilution, and covariance checks.
+	GeometryQuality SPPGeometryQuality
 }
 
 // StaticPositionResidual is one detached post-fit residual in metres.
 type StaticPositionResidual struct {
+	// EpochIndex is the zero-based epoch containing the residual.
 	EpochIndex int
 	// SatelliteID is the GNSS satellite identifier.
-	SatelliteID           string
+	SatelliteID string
+	// ResidualM is the post-fit pseudorange residual in metres; BaseWeight is its dimensionless initial weight.
 	ResidualM, BaseWeight float64
-	EffectiveWeight       float64
-	RobustWeightRatio     float64
+	// EffectiveWeight is the final dimensionless weight after robust reweighting.
+	EffectiveWeight float64
+	// RobustWeightRatio is the dimensionless effective-to-base weight ratio.
+	RobustWeightRatio float64
 }
 
 // StaticPositionRejectedSatellite preserves an excluded satellite and reason.
 type StaticPositionRejectedSatellite struct {
 	// SatelliteID is the GNSS satellite identifier.
 	SatelliteID string
-	Reason      StaticPositionRejectionReason
+	// Reason identifies why the native solver excluded this satellite row.
+	Reason StaticPositionRejectionReason
 }
 
 // StaticPositionSatelliteBatchInfluence is a detached all-epochs diagnostic.
 type StaticPositionSatelliteBatchInfluence struct {
 	// SatelliteID is the GNSS satellite identifier.
-	SatelliteID         string
+	SatelliteID string
+	// OmittedMeasurements is the number of rows removed for this satellite.
 	OmittedMeasurements int
-	Status              StaticPositionInfluenceStatus
+	// Status identifies the result of the all-epochs leave-one-satellite solve.
+	Status StaticPositionInfluenceStatus
 	// HasPositionDelta reports whether PositionDeltaM is valid.
 	HasPositionDelta bool
-	// PositionDeltaM contains metres.
+	// PositionDeltaM is the ECEF position change from the full solve in metres.
 	PositionDeltaM [3]float64
-	// PositionDeltaNormM contains metres.
+	// PositionDeltaNormM is the Euclidean ECEF position-change norm in metres.
 	PositionDeltaNormM float64
 	// HasResidualRMS reports whether ResidualRMSM is valid.
 	HasResidualRMS bool
-	// ResidualRMSM contains metres.
-	ResidualRMSM         float64
+	// ResidualRMSM is the post-fit residual RMS in metres.
+	ResidualRMSM float64
+	// MinRobustWeightRatio is the smallest dimensionless robust weight ratio.
 	MinRobustWeightRatio float64
 }
 
 // StaticPositionSatelliteInfluence is a detached per-epoch satellite diagnostic.
 type StaticPositionSatelliteInfluence struct {
+	// EpochIndex is the zero-based epoch containing the satellite row.
 	EpochIndex int
 	// SatelliteID is the GNSS satellite identifier.
 	SatelliteID string
-	Status      StaticPositionInfluenceStatus
+	// Status identifies the result of omitting this satellite from the epoch.
+	Status StaticPositionInfluenceStatus
 	// HasPositionDelta reports whether PositionDeltaM is valid.
 	HasPositionDelta bool
-	// PositionDeltaM contains metres.
+	// PositionDeltaM is the ECEF position change from the full solve in metres.
 	PositionDeltaM [3]float64
-	// PositionDeltaNormM contains metres.
+	// PositionDeltaNormM is the Euclidean ECEF position-change norm in metres.
 	PositionDeltaNormM float64
 	// HasResidualRMS reports whether ResidualRMSM is valid.
 	HasResidualRMS bool
-	// ResidualRMSM contains metres.
-	ResidualRMSM          float64
+	// ResidualRMSM is the post-fit residual RMS in metres.
+	ResidualRMSM float64
+	// ResidualM is the row residual in metres; BaseWeight is its dimensionless initial weight.
 	ResidualM, BaseWeight float64
-	EffectiveWeight       float64
-	RobustWeightRatio     float64
+	// EffectiveWeight is the final dimensionless weight after robust reweighting.
+	EffectiveWeight float64
+	// RobustWeightRatio is the dimensionless effective-to-base weight ratio.
+	RobustWeightRatio float64
 }
 
 // StaticPositionSolution owns a native static-position result.
@@ -434,15 +460,16 @@ func (s *StaticPositionSolution) StateCovarianceM2() ([]float64, error) {
 
 // StaticReferenceStationRinexConfig selects static reference-station modes.
 type StaticReferenceStationRinexConfig struct {
-	// ReferencePositionM contains metres.
+	// ReferencePositionM is the fixed reference-station ECEF position in metres.
 	ReferencePositionM [3]float64
 	// EnableCodeDGNSS reports whether code-DGNSS processing is enabled.
 	EnableCodeDGNSS bool
 	// EnableCarrierRTK reports whether carrier-RTK processing is enabled.
 	EnableCarrierRTK bool
-	// WithGeodetic reports whether geodetic output is requested.
+	// WithGeodetic reports whether the solution includes a geodetic coordinate.
 	WithGeodetic bool
-	Carrier      RTKRINEXStaticBaselineConfig
+	// Carrier contains the RTK static-baseline configuration used when carrier processing is enabled.
+	Carrier RTKRINEXStaticBaselineConfig
 }
 
 // StaticReferenceStationMode identifies the static-reference processing mode.
@@ -481,8 +508,11 @@ const (
 
 // StaticReferenceEpochDiagnostic is one detached reference-station row.
 type StaticReferenceEpochDiagnostic struct {
-	Mode                                                    StaticReferenceStationMode
-	EpochIndex, UsedSatelliteCount, RejectedSatelliteCount  int
+	// Mode identifies the attempted code-DGNSS, carrier-float, or carrier-fixed mode.
+	Mode StaticReferenceStationMode
+	// EpochIndex is the zero-based RINEX epoch; the two counts are used and rejected satellites.
+	EpochIndex, UsedSatelliteCount, RejectedSatelliteCount int
+	// HasCodeResidualRMS, HasPhaseResidualRMS, and HasResidualRMS guard the code, phase, and combined RMS fields below.
 	HasCodeResidualRMS, HasPhaseResidualRMS, HasResidualRMS bool
 	// CodeResidualRMSM, PhaseResidualRMSM, and ResidualRMSM are code, phase, and combined residual RMS values in metres.
 	CodeResidualRMSM, PhaseResidualRMSM, ResidualRMSM float64
@@ -490,26 +520,36 @@ type StaticReferenceEpochDiagnostic struct {
 
 // StaticReferenceStationMetadata contains detached reference-station metadata.
 type StaticReferenceStationMetadata struct {
-	Mode        StaticReferenceStationMode
-	FixStatus   StaticReferenceFixStatus
+	// Mode and FixStatus identify the selected processing mode and its code/float/fixed outcome.
+	Mode      StaticReferenceStationMode
+	FixStatus StaticReferenceFixStatus
+	// HasGeodetic guards the returned geodetic coordinate.
 	HasGeodetic bool
-	Geodetic    Geodetic
-	// BaselineM contains metres.
-	BaselineM                           float64
+	// Geodetic is the station coordinate when HasGeodetic is true.
+	Geodetic Geodetic
+	// BaselineM is the rover-minus-reference baseline length in metres.
+	BaselineM float64
+	// HasCodeSolution and HasCarrierSolution report which nested solve families produced results.
 	HasCodeSolution, HasCarrierSolution bool
-	DiagnosticCount, ModeReportCount    int
-	CarrierIntegerStatus                RTKIntegerStatus
+	// DiagnosticCount and ModeReportCount count epoch diagnostics and attempted-mode reports.
+	DiagnosticCount, ModeReportCount int
+	// CarrierIntegerStatus identifies the carrier ambiguity resolution outcome.
+	CarrierIntegerStatus RTKIntegerStatus
 	// HasCarrierIntegerRatio reports whether CarrierIntegerRatio is valid.
-	HasCarrierIntegerRatio                      bool
-	CarrierIntegerRatio                         float64
+	HasCarrierIntegerRatio bool
+	// CarrierIntegerRatio is the carrier ambiguity ratio when HasCarrierIntegerRatio is true.
+	CarrierIntegerRatio float64
+	// CodeDiagnosticCount and CarrierDiagnosticCount count the mode-specific diagnostic rows.
 	CodeDiagnosticCount, CarrierDiagnosticCount int
 }
 
 // StaticReferenceModeReport records one attempted static mode.
 type StaticReferenceModeReport struct {
-	Mode   StaticReferenceStationMode
+	// Mode identifies the attempted reference-station processing mode.
+	Mode StaticReferenceStationMode
+	// Status reports whether that mode produced a solution.
 	Status StaticReferenceModeStatus
-	// UsedEpochs and SkippedEpochs and UsedMeasurements are the number of epochs used, the number of epochs skipped, the number of measurements used.
+	// UsedEpochs, SkippedEpochs, and UsedMeasurements count accepted epochs, rejected epochs, and retained measurement rows.
 	UsedEpochs, SkippedEpochs, UsedMeasurements int
 	// HasError reports whether an error was recorded.
 	HasError bool

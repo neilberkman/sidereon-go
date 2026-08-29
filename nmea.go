@@ -2,25 +2,25 @@ package sidereon
 
 import "github.com/neilberkman/sidereon-go/internal/native"
 
-// NMEASummary contains aggregate counts copied from a parsed NMEA log.
+// NMEASummary contains aggregate counts detached from a parsed NMEA log.
 type NMEASummary struct {
-	// SentenceCount identifies or counts this record.
+	// SentenceCount is the number of NMEA sentences parsed.
 	SentenceCount uint64
-	// EpochCount identifies or counts this record.
+	// EpochCount is the number of epoch summaries produced.
 	EpochCount uint64
-	// SkipCount identifies or counts this record.
+	// SkipCount is the number of malformed or skipped sentences.
 	SkipCount uint64
-	// WarningCount identifies or counts this record.
+	// WarningCount is the number of parser warnings.
 	WarningCount uint64
 }
 
-// NMEAEpoch is one copied epoch summary from a parsed NMEA log.
+// NMEAEpoch is one detached epoch summary from a parsed NMEA log.
 type NMEAEpoch struct {
-	// HasCalendarEpoch reports whether the has calendar epoch field is present.
+	// HasCalendarEpoch reports whether CalendarEpoch contains a parsed UTC epoch.
 	HasCalendarEpoch bool
 	// CalendarEpoch is the calendar epoch.
 	CalendarEpoch CalendarEpoch
-	// HasPosition reports whether the has position field is present.
+	// HasPosition reports whether Position contains a parsed latitude/longitude fix.
 	HasPosition bool
 	// LatitudeRad is the latitude rad in radians.
 	LatitudeRad float64
@@ -28,41 +28,41 @@ type NMEAEpoch struct {
 	LongitudeRad float64
 	// HeightM is the height m in metres.
 	HeightM float64
-	// HasInstantJ2000S reports whether the has instant j2000 s field is present.
+	// HasInstantJ2000S reports whether InstantJ2000S contains a parsed epoch.
 	HasInstantJ2000S bool
-	// InstantJ2000S is the instant j2000 s in seconds.
+	// InstantJ2000S is the parsed epoch in seconds from J2000.
 	InstantJ2000S float64
-	// HasPDOP reports whether the has pdop field is present.
+	// HasPDOP reports whether PDOP is populated from a dilution report.
 	HasPDOP bool
 	// PDOP is the dimensionless position dilution of precision when HasPDOP is true.
 	PDOP float64
-	// HasHDOP reports whether the has hdop field is present.
+	// HasHDOP reports whether HDOP is populated from a dilution report.
 	HasHDOP bool
 	// HDOP is the dimensionless horizontal dilution of precision when HasHDOP is true.
 	HDOP float64
-	// HasVDOP reports whether the has vdop field is present.
+	// HasVDOP reports whether VDOP is populated from a dilution report.
 	HasVDOP bool
 	// VDOP is the dimensionless vertical dilution of precision when HasVDOP is true.
 	VDOP float64
-	// SentenceCount identifies or counts this record.
+	// SentenceCount is the number of sentences contributing to this epoch.
 	SentenceCount uint64
-	// UsedSatelliteCount identifies or counts this record.
+	// UsedSatelliteCount is the number of satellites used in this epoch.
 	UsedSatelliteCount uint64
 	// SatellitesInView is the number of satellites reported in view.
 	SatellitesInView uint64
-	// SkipCount identifies or counts this record.
+	// SkipCount is the number of skipped sentences in this epoch.
 	SkipCount uint64
-	// WarningCount identifies or counts this record.
+	// WarningCount is the number of warnings associated with this epoch.
 	WarningCount uint64
-	// HasGGA reports whether the has gga field is present.
+	// HasGGA reports whether a GGA sentence was parsed for the epoch.
 	HasGGA bool
-	// HasRMC reports whether the has rmc field is present.
+	// HasRMC reports whether an RMC sentence was parsed for the epoch.
 	HasRMC bool
-	// HasGLL reports whether the has gll field is present.
+	// HasGLL reports whether a GLL sentence was parsed for the epoch.
 	HasGLL bool
-	// GSACount identifies or counts this record.
+	// GSACount is the number of GSA sentences in this epoch.
 	GSACount uint64
-	// GSVGroupCount identifies or counts this record.
+	// GSVGroupCount is the number of GSV groups in this epoch.
 	GSVGroupCount uint64
 }
 
@@ -70,13 +70,13 @@ type NMEAEpoch struct {
 // Finish call. RetainedLength is the number of partial-line bytes held for a
 // later chunk.
 type NMEAChunkSummary struct {
-	// SentenceCount identifies or counts this record.
+	// SentenceCount is the number of sentences consumed by the call.
 	SentenceCount uint64
-	// CompletedEpochCount identifies or counts this record.
+	// CompletedEpochCount is the number of complete epochs emitted by the call.
 	CompletedEpochCount uint64
-	// SkipCount identifies or counts this record.
+	// SkipCount is the number of skipped sentences reported by the call.
 	SkipCount uint64
-	// WarningCount identifies or counts this record.
+	// WarningCount is the number of parser warnings reported by the call.
 	WarningCount uint64
 	// RetainedLength is the number of bytes held from an incomplete trailing line.
 	RetainedLength uint64

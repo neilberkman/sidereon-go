@@ -304,7 +304,7 @@ type Ecliptic struct {
 
 // BodyObservation contains the astrometric, apparent, horizontal, and ecliptic views of a body.
 type BodyObservation struct {
-	// Astrometric is the astrometric value for BodyObservation; ApparentICRS is the apparent icrs value for BodyObservation; Apparent is the apparent value for BodyObservation.
+	// Astrometric, ApparentICRS, and Apparent contain right ascension (degrees and hours), declination (degrees), and distance (kilometres); the three fields preserve the native astrometric, apparent-ICRS, and apparent coordinate solutions.
 	Astrometric, ApparentICRS, Apparent Equatorial
 	// Horizontal contains topocentric azimuth, elevation, and range.
 	Horizontal Horizontal

@@ -20,9 +20,9 @@ import (
 type NTRIPVersion uint32
 
 const (
-	// NTRIPVersionRev1 identifies the ntrip version rev1 case.
+	// NTRIPVersionRev1 selects NTRIP protocol revision 1.
 	NTRIPVersionRev1 NTRIPVersion = NTRIPVersion(native.NTRIPVersionRev1)
-	// NTRIPVersionRev2 identifies the ntrip version rev2 case.
+	// NTRIPVersionRev2 selects NTRIP protocol revision 2.
 	NTRIPVersionRev2 NTRIPVersion = NTRIPVersion(native.NTRIPVersionRev2)
 )
 
@@ -30,17 +30,17 @@ const (
 type NTRIPState uint32
 
 const (
-	// NTRIPStateIdle identifies the ntrip state idle case.
+	// NTRIPStateIdle selects the idle parser state.
 	NTRIPStateIdle NTRIPState = NTRIPState(native.NTRIPStateIdle)
-	// NTRIPStateAwaitingStatus identifies the ntrip state awaiting status case.
+	// NTRIPStateAwaitingStatus selects the state waiting for the HTTP status line.
 	NTRIPStateAwaitingStatus NTRIPState = NTRIPState(native.NTRIPStateAwaitingStatus)
-	// NTRIPStateAwaitingHeaders identifies the ntrip state awaiting headers case.
+	// NTRIPStateAwaitingHeaders selects the state waiting for HTTP headers.
 	NTRIPStateAwaitingHeaders NTRIPState = NTRIPState(native.NTRIPStateAwaitingHeaders)
-	// NTRIPStateStreaming identifies the ntrip state streaming case.
+	// NTRIPStateStreaming selects the state delivering RTCM payload bytes.
 	NTRIPStateStreaming NTRIPState = NTRIPState(native.NTRIPStateStreaming)
-	// NTRIPStateSourcetable identifies the ntrip state sourcetable case.
+	// NTRIPStateSourcetable selects the state parsing an NTRIP sourcetable.
 	NTRIPStateSourcetable NTRIPState = NTRIPState(native.NTRIPStateSourcetable)
-	// NTRIPStateClosed identifies the ntrip state closed case.
+	// NTRIPStateClosed selects the terminal closed state.
 	NTRIPStateClosed NTRIPState = NTRIPState(native.NTRIPStateClosed)
 )
 
@@ -48,17 +48,17 @@ const (
 type NTRIPEventKind uint32
 
 const (
-	// NTRIPEventConnected identifies the ntrip event connected case.
+	// NTRIPEventConnected identifies a completed caster connection.
 	NTRIPEventConnected NTRIPEventKind = NTRIPEventKind(native.NTRIPEventConnected)
-	// NTRIPEventPayload identifies the ntrip event payload case.
+	// NTRIPEventPayload identifies a received RTCM payload event.
 	NTRIPEventPayload NTRIPEventKind = NTRIPEventKind(native.NTRIPEventPayload)
-	// NTRIPEventSourcetable identifies the ntrip event sourcetable case.
+	// NTRIPEventSourcetable identifies a parsed sourcetable event.
 	NTRIPEventSourcetable NTRIPEventKind = NTRIPEventKind(native.NTRIPEventSourcetable)
-	// NTRIPEventRejected identifies the ntrip event rejected case.
+	// NTRIPEventRejected identifies a caster rejection event.
 	NTRIPEventRejected NTRIPEventKind = NTRIPEventKind(native.NTRIPEventRejected)
-	// NTRIPEventStreamCorrupted identifies the ntrip event stream corrupted case.
+	// NTRIPEventStreamCorrupted identifies malformed stream content.
 	NTRIPEventStreamCorrupted NTRIPEventKind = NTRIPEventKind(native.NTRIPEventStreamCorrupted)
-	// NTRIPEventStreamEnded identifies the ntrip event stream ended case.
+	// NTRIPEventStreamEnded identifies an orderly end-of-stream event.
 	NTRIPEventStreamEnded NTRIPEventKind = NTRIPEventKind(native.NTRIPEventStreamEnded)
 )
 
@@ -66,21 +66,21 @@ const (
 type NTRIPRejectionKind uint32
 
 const (
-	// NTRIPRejectionNone identifies the ntrip rejection none case.
+	// NTRIPRejectionNone identifies the absence of a rejection.
 	NTRIPRejectionNone NTRIPRejectionKind = NTRIPRejectionKind(native.NTRIPRejectionNone)
-	// NTRIPRejectionUnauthorized identifies the ntrip rejection unauthorized case.
+	// NTRIPRejectionUnauthorized identifies an HTTP authorization failure.
 	NTRIPRejectionUnauthorized NTRIPRejectionKind = NTRIPRejectionKind(native.NTRIPRejectionUnauthorized)
-	// NTRIPRejectionMountpointNotFound identifies the ntrip rejection mountpoint not found case.
+	// NTRIPRejectionMountpointNotFound identifies an unknown caster mountpoint.
 	NTRIPRejectionMountpointNotFound NTRIPRejectionKind = NTRIPRejectionKind(native.NTRIPRejectionMountpointNotFound)
-	// NTRIPRejectionDigestRequired identifies the ntrip rejection digest required case.
+	// NTRIPRejectionDigestRequired identifies a caster request for digest authentication.
 	NTRIPRejectionDigestRequired NTRIPRejectionKind = NTRIPRejectionKind(native.NTRIPRejectionDigestRequired)
-	// NTRIPRejectionCasterError identifies the ntrip rejection caster error case.
+	// NTRIPRejectionCasterError identifies a caster-side protocol error.
 	NTRIPRejectionCasterError NTRIPRejectionKind = NTRIPRejectionKind(native.NTRIPRejectionCasterError)
-	// NTRIPRejectionUnexpectedContentType identifies the ntrip rejection unexpected content type case.
+	// NTRIPRejectionUnexpectedContentType identifies an unexpected HTTP content type.
 	NTRIPRejectionUnexpectedContentType NTRIPRejectionKind = NTRIPRejectionKind(native.NTRIPRejectionUnexpectedContentType)
-	// NTRIPRejectionHTTPError identifies the ntrip rejection http error case.
+	// NTRIPRejectionHTTPError identifies a non-success HTTP response.
 	NTRIPRejectionHTTPError NTRIPRejectionKind = NTRIPRejectionKind(native.NTRIPRejectionHTTPError)
-	// NTRIPRejectionMalformedHandshake identifies the ntrip rejection malformed handshake case.
+	// NTRIPRejectionMalformedHandshake identifies malformed response headers or handshake text.
 	NTRIPRejectionMalformedHandshake NTRIPRejectionKind = NTRIPRejectionKind(native.NTRIPRejectionMalformedHandshake)
 )
 
@@ -88,38 +88,38 @@ const (
 type NTRIPSourcetableAuth uint32
 
 const (
-	// NTRIPSourcetableAuthNone identifies the ntrip sourcetable auth none case.
+	// NTRIPSourcetableAuthNone identifies an STR record with no authentication.
 	NTRIPSourcetableAuthNone NTRIPSourcetableAuth = NTRIPSourcetableAuth(native.NTRIPSourcetableAuthNone)
-	// NTRIPSourcetableAuthBasic identifies the ntrip sourcetable auth basic case.
+	// NTRIPSourcetableAuthBasic identifies HTTP Basic authentication in an STR record.
 	NTRIPSourcetableAuthBasic NTRIPSourcetableAuth = NTRIPSourcetableAuth(native.NTRIPSourcetableAuthBasic)
-	// NTRIPSourcetableAuthDigest identifies the ntrip sourcetable auth digest case.
+	// NTRIPSourcetableAuthDigest identifies HTTP Digest authentication in an STR record.
 	NTRIPSourcetableAuthDigest NTRIPSourcetableAuth = NTRIPSourcetableAuth(native.NTRIPSourcetableAuthDigest)
-	// NTRIPSourcetableAuthOther identifies the ntrip sourcetable auth other case.
+	// NTRIPSourcetableAuthOther identifies an authentication scheme outside the standard choices.
 	NTRIPSourcetableAuthOther NTRIPSourcetableAuth = NTRIPSourcetableAuth(native.NTRIPSourcetableAuthOther)
 )
 
 // NTRIPConfig is the C configuration for a caster. GGAIntervalS is in
 // seconds; set HasGGAInterval when a zero interval is intentionally supplied.
 type NTRIPConfig struct {
-	// Host is the host value for NTRIPConfig.
+	// Host is the caster hostname or address.
 	Host string
-	// Port is the port value for NTRIPConfig.
+	// Port is the caster TCP port; zero selects the native default.
 	Port uint16
-	// Mountpoint is the mountpoint value for NTRIPConfig.
+	// Mountpoint is the caster mountpoint requested by the client.
 	Mountpoint string
-	// Version is the version value for NTRIPConfig.
+	// Version selects the NTRIP protocol revision; zero selects revision 2.
 	Version NTRIPVersion
-	// Username is the username value for NTRIPConfig.
+	// Username is the username sent when HasCredentials is true.
 	Username string
-	// Password is the password value for NTRIPConfig.
+	// Password is the password sent when HasCredentials is true.
 	Password string
-	// HasCredentials reports whether the has credentials field is present.
+	// HasCredentials reports whether Username and Password should be sent for authentication.
 	HasCredentials bool
-	// UserAgent is the user agent value for NTRIPConfig.
+	// UserAgent is the optional product token sent in the NTRIP request.
 	UserAgent string
 	// GGAIntervalS is the gga interval s in seconds.
 	GGAIntervalS float64
-	// HasGGAInterval reports whether the has gga interval field is present.
+	// HasGGAInterval reports whether GGAIntervalS supplies a periodic NMEA GGA interval.
 	HasGGAInterval bool
 }
 
@@ -162,32 +162,32 @@ type NTRIPGGAPosition struct {
 	LongitudeDeg float64
 	// HeightM is the height m in metres.
 	HeightM float64
-	// FixQuality is the fix quality value for NTRIPGGAPosition.
+	// FixQuality is the NMEA GGA fix-quality code.
 	FixQuality uint8
-	// Satellites is the satellites value for NTRIPGGAPosition.
+	// Satellites is the number of satellites used for the GGA position.
 	Satellites uint8
-	// HDOP is the hdop value for NTRIPGGAPosition.
+	// HDOP is the dimensionless horizontal dilution of precision.
 	HDOP float64
 }
 
-// NTRIPEvent is a fully copied C event. Payload and Detail never alias C or a
+// NTRIPEvent is a detached C event. Payload and Detail never alias C or a
 // network read buffer. Sourcetable is independently owned when present.
 type NTRIPEvent struct {
 	// Kind is the event or record kind.
 	Kind NTRIPEventKind
-	// Version is the version value for NTRIPEvent.
+	// Version is the NTRIP revision associated with the event.
 	Version NTRIPVersion
-	// Chunked is the chunked value for NTRIPEvent.
+	// Chunked reports whether the HTTP response uses chunked transfer coding.
 	Chunked bool
-	// HeaderCount identifies or counts this record.
+	// HeaderCount is the number of response headers parsed for the event.
 	HeaderCount int
 	// Payload contains a detached copy; nil means this field is absent.
 	Payload []byte
-	// SourcetableRecords is the sourcetable records value for NTRIPEvent.
+	// SourcetableRecords is the number of STR records in the sourcetable event.
 	SourcetableRecords int
-	// Rejection is the rejection value for NTRIPEvent.
+	// Rejection identifies why the caster rejected the request.
 	Rejection NTRIPRejectionKind
-	// HTTPStatus is the httpstatus value for NTRIPEvent.
+	// HTTPStatus is the HTTP response status code when one was received.
 	HTTPStatus uint16
 	// Detail contains a detached copy; nil means this field is absent.
 	Detail []byte
@@ -197,65 +197,65 @@ type NTRIPEvent struct {
 	Sourcetable *NTRIPSourcetable
 }
 
-// NTRIPStream is a copied typed STR record from a sourcetable.
+// NTRIPStream is a detached typed STR record from a sourcetable.
 type NTRIPStream struct {
-	// Mountpoint is the mountpoint value for NTRIPStream.
+	// Mountpoint is the STR record's mountpoint name.
 	Mountpoint string
-	// Identifier is the identifier value for NTRIPStream.
+	// Identifier is the STR record's station or stream identifier.
 	Identifier string
 	// Format is the product format.
 	Format string
-	// FormatDetails is the format details value for NTRIPStream.
+	// FormatDetails describes the RTCM or other payload format.
 	FormatDetails string
-	// HasCarrier reports whether the has carrier field is present.
+	// HasCarrier reports whether Carrier identifies the stream's carrier solution.
 	HasCarrier bool
-	// Carrier is the carrier value for NTRIPStream.
+	// Carrier is the native STR carrier indicator when HasCarrier is true.
 	Carrier uint8
-	// NavSystem is the nav system value for NTRIPStream.
+	// NavSystem names the navigation system advertised by the stream.
 	NavSystem string
-	// Network is the network value for NTRIPStream.
+	// Network is the network or operator name from the STR record.
 	Network string
-	// Country identifies or counts this record.
+	// Country is the country code from the STR record.
 	Country string
-	// HasLatitudeDeg reports whether the has latitude deg field is present.
+	// HasLatitudeDeg reports whether LatitudeDeg is populated for the station.
 	HasLatitudeDeg bool
 	// LatitudeDeg is the latitude deg in degrees.
 	LatitudeDeg float64
-	// HasLongitudeDeg reports whether the has longitude deg field is present.
+	// HasLongitudeDeg reports whether LongitudeDeg is populated for the station.
 	HasLongitudeDeg bool
 	// LongitudeDeg is the longitude deg in degrees.
 	LongitudeDeg float64
-	// HasNMEARequired reports whether the has nmea required field is present.
+	// HasNMEARequired reports whether the caster requires NMEA position sentences.
 	HasNMEARequired bool
-	// NMEARequired is the nmearequired value for NTRIPStream.
+	// NMEARequired reports whether the stream requires periodic GGA sentences.
 	NMEARequired bool
-	// HasNetworkSolution reports whether the has network solution field is present.
+	// HasNetworkSolution reports whether NetworkSolution names the network solution.
 	HasNetworkSolution bool
-	// NetworkSolution is the network solution value for NTRIPStream.
+	// NetworkSolution reports whether the stream provides a network solution.
 	NetworkSolution bool
-	// Generator is the generator value for NTRIPStream.
+	// Generator identifies the software or service generating the stream.
 	Generator string
 	// Compression is the archive compression.
 	Compression string
-	// Authentication is the authentication value for NTRIPStream.
+	// Authentication identifies the STR authentication scheme.
 	Authentication NTRIPSourcetableAuth
-	// HasFee reports whether the has fee field is present.
+	// HasFee reports whether Fee describes a paid stream.
 	HasFee bool
-	// Fee is the fee value for NTRIPStream.
+	// Fee reports whether the stream is fee-based when HasFee is true.
 	Fee bool
-	// HasBitrate reports whether the has bitrate field is present.
+	// HasBitrate reports whether BitrateBPS contains the advertised stream bitrate.
 	HasBitrate bool
-	// Bitrate is the bitrate value for NTRIPStream.
+	// Bitrate is the advertised stream bitrate in bits per second when HasBitrate is true.
 	Bitrate uint32
-	// Misc is the misc value for NTRIPStream.
+	// Misc contains the free-form miscellaneous STR field.
 	Misc string
 }
 
 // NTRIPSourcetableSummary contains C's record and STR-stream counts.
 type NTRIPSourcetableSummary struct {
-	// RecordCount identifies or counts this record.
+	// RecordCount is the number of sourcetable records parsed.
 	RecordCount int
-	// StreamCount identifies or counts this record.
+	// StreamCount is the number of STR stream records parsed.
 	StreamCount int
 }
 
@@ -334,7 +334,7 @@ func (m *NTRIPMachine) ConnectionRequest() ([]byte, error) {
 	return data, publicError(err)
 }
 
-// Push feeds one arbitrary network chunk to C and returns copied events. The
+// Push feeds one arbitrary network chunk to C and returns detached parser events. The
 // input is copied into C-owned memory for the duration of the call only; the
 // resulting Go and native objects do not retain caller memory.
 func (m *NTRIPMachine) Push(data []byte) ([]NTRIPEvent, error) {
@@ -349,7 +349,7 @@ func (m *NTRIPMachine) Push(data []byte) ([]NTRIPEvent, error) {
 	return copyNTRIPEvents(events)
 }
 
-// Finish tells C that the byte stream has ended and returns copied terminal
+// Finish tells C that the byte stream has ended and returns detached terminal
 // events.
 func (m *NTRIPMachine) Finish() ([]NTRIPEvent, error) {
 	if m == nil || m.handle == nil {
@@ -511,17 +511,17 @@ type NTRIPDialer func(context.Context, string, string) (net.Conn, error)
 // values above maxNTRIPReadSize (16 MiB) are invalid; zero selects the safe
 // defaultNTRIPReadSize value, and positive values up to the maximum are accepted.
 type NTRIPClient struct {
-	// Config is the config value for NTRIPClient.
+	// Config is the copied caster and mountpoint configuration used by the client.
 	Config NTRIPConfig
-	// TLS is the tls value for NTRIPClient.
+	// TLS configures the optional TLS transport.
 	TLS bool
 	// TLSConfig contains a detached copy; nil means this field is absent.
 	TLSConfig *tls.Config
-	// Dialer is the dialer value for NTRIPClient.
+	// Dialer is the optional network dial function; nil uses the standard dialer.
 	Dialer NTRIPDialer
-	// Timeout is the timestamp for this record.
+	// Timeout is the maximum duration for each transport dial and I/O deadline; zero disables deadlines.
 	Timeout time.Duration
-	// ReadSize is the read size value for NTRIPClient.
+	// ReadSize is the network read-buffer size in bytes; zero uses the default.
 	ReadSize int
 }
 
@@ -668,7 +668,7 @@ func (c *NTRIPClient) Connect(ctx context.Context) (*NTRIPConnection, error) {
 	return newNTRIPConnection(conn, machine, c.Timeout, readSize), nil
 }
 
-// Read reads one network chunk, feeds it to C, and returns copied events. EOF
+// Read reads one network chunk, feeds it to C, and returns detached parser events. EOF
 // is converted into C Finish events and returned alongside io.EOF.
 func (c *NTRIPConnection) Read(ctx context.Context) ([]NTRIPEvent, error) {
 	if c == nil {
@@ -883,7 +883,7 @@ func (c *ntripConnectionState) close() error {
 	return closeErr
 }
 
-// Run connects and delivers copied events until the context ends, the peer
+// Run connects and delivers detached events until the context ends, the peer
 // closes, or callback returns an error.
 func (c *NTRIPClient) Run(ctx context.Context, callback func(NTRIPEvent) error) (runErr error) {
 	if ctx == nil {

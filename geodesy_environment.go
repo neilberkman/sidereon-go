@@ -24,9 +24,8 @@ type GeoidPointRad struct {
 	LongitudeRad float64
 }
 
-// PROJVGridshiftArithmetic selects the floating-point evaluation
-// recipe used by PROJ-compatible vertical-grid interpolation.
-// PROJVGridshiftArithmetic selects arithmetic used for PROJ grid-shift values.
+// PROJVGridshiftArithmetic selects the floating-point evaluation recipe used
+// by PROJ-compatible vertical-grid interpolation.
 type PROJVGridshiftArithmetic uint32
 
 const (
@@ -1039,7 +1038,7 @@ const (
 	TerrainStoreErrorAttestedChecksumMismatch TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorAttestedChecksumMismatchValue)
 )
 
-// TerrainDatumError is the typed terrain datum detail captured from a failed
+// TerrainDatumError is the typed terrain-datum detail captured from a failed terrain-datum operation.
 type TerrainDatumError struct {
 	Kind TerrainDatumErrorKind
 	// Path is the terrain-store filesystem path.
@@ -1050,7 +1049,7 @@ type TerrainDatumError struct {
 	Remediation string
 }
 
-// TerrainStoreError is the typed terrain-store detail captured from a failed
+// TerrainStoreError is the typed terrain-store detail captured from a failed terrain-store operation.
 type TerrainStoreError struct {
 	Kind TerrainStoreErrorKind
 	// Path is the terrain-store filesystem path.

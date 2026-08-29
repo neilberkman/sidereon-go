@@ -56,7 +56,7 @@ func (f *TLEFile) Skipped() (int, error) {
 	return value, publicError(err)
 }
 
-// Name returns the copied name line associated with a parsed TLE record.
+// Name returns the detached name line associated with a parsed TLE record.
 func (f *TLEFile) Name(index int) (string, error) {
 	if f == nil || f.handle == nil {
 		return "", ErrClosed
@@ -277,7 +277,7 @@ func (t *TLE) PropagateWithDecayLatch(minutesSinceEpoch float64, latch *SGP4Deca
 
 // VisibleSatellite contains one visible satellite and its look-angle interval.
 type VisibleSatellite struct {
-	// CatalogNumber identifies or counts this record.
+	// CatalogNumber is the NORAD catalog identifier of the visible satellite.
 	CatalogNumber string
 	// AzimuthDeg is the azimuth deg in degrees; ElevationDeg is the elevation deg in degrees; RangeKm is the range km in kilometres.
 	AzimuthDeg, ElevationDeg, RangeKm float64

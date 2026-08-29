@@ -17,15 +17,15 @@ const (
 type SourceLoss uint32
 
 const (
-	// SourceLossLinear identifies the source loss linear case.
+	// SourceLossLinear selects the ordinary least-squares loss without robust downweighting.
 	SourceLossLinear SourceLoss = SourceLoss(native.SourceLossLinearValue)
-	// SourceLossSoftL1 identifies the source loss soft l1 case.
+	// SourceLossSoftL1 selects the smooth Soft-L1 robust loss.
 	SourceLossSoftL1 SourceLoss = SourceLoss(native.SourceLossSoftL1Value)
-	// SourceLossHuber identifies the source loss huber case.
+	// SourceLossHuber selects the Huber robust loss.
 	SourceLossHuber SourceLoss = SourceLoss(native.SourceLossHuberValue)
-	// SourceLossCauchy identifies the source loss cauchy case.
+	// SourceLossCauchy selects the Cauchy robust loss.
 	SourceLossCauchy SourceLoss = SourceLoss(native.SourceLossCauchyValue)
-	// SourceLossArctan identifies the source loss arctan case.
+	// SourceLossArctan selects the arctangent robust loss.
 	SourceLossArctan SourceLoss = SourceLoss(native.SourceLossArctanValue)
 )
 
@@ -35,9 +35,9 @@ type SourceSensor struct {
 	Dimension int
 	// PositionM is the position m in metres.
 	PositionM [3]float64
-	// HasPropagationSpeed reports whether the has propagation speed field is present.
+	// HasPropagationSpeed reports whether PropagationSpeedMS supplies a sensor-specific speed.
 	HasPropagationSpeed bool
-	// PropagationSpeedMS is the propagation speed ms value for SourceSensor.
+	// PropagationSpeedMS is the per-sensor signal propagation speed in metres per second when present.
 	PropagationSpeedMS float64
 }
 
@@ -55,11 +55,11 @@ type SourceInitialGuess struct {
 	Dimension int
 	// PositionM is the position m in metres.
 	PositionM [3]float64
-	// HasOriginTime reports whether the has origin time field is present.
+	// HasOriginTime reports whether OriginTimeS is valid for this seed.
 	HasOriginTime bool
 	// OriginTimeS is the origin time s in seconds.
 	OriginTimeS float64
-	// ResidualRMSS is the residual rmss in seconds per second.
+	// ResidualRMSS is the seed root-mean-square timing residual in seconds.
 	ResidualRMSS float64
 }
 
@@ -71,23 +71,23 @@ func sourceInitialGuess(value native.NativeSourceInitialGuess) SourceInitialGues
 type SourceLocateOptions struct {
 	// Mode is the selected mode.
 	Mode SourceSolveMode
-	// ReferenceSensor is the reference sensor value for SourceLocateOptions.
+	// ReferenceSensor is the zero-based reference-sensor index used by TDOA mode.
 	ReferenceSensor int
 	// TimingSigmaS is the timing sigma s in seconds; FScaleS is the f scale s in seconds.
 	TimingSigmaS, FScaleS float64
-	// Loss is the loss value for SourceLocateOptions.
+	// Loss selects the robust loss applied to timing residuals.
 	Loss SourceLoss
-	// HasFTOL reports whether the has ftol field is present; HasXTOL reports whether the has xtol field is present.
+	// HasFTOL and HasXTOL report whether the corresponding solver tolerances are supplied.
 	HasFTOL, HasXTOL bool
-	// FTOL is the ftol value for SourceLocateOptions; XTOL is the xtol value for SourceLocateOptions.
+	// FTOL and XTOL are optional solver cost and step tolerances when their Has* flags are true.
 	FTOL, XTOL float64
-	// HasGTOL reports whether the has gtol field is present.
+	// HasGTOL reports whether GTOL supplies a gradient tolerance.
 	HasGTOL bool
-	// GTOL is the gtol value for SourceLocateOptions.
+	// GTOL is the optional solver gradient tolerance when HasGTOL is true.
 	GTOL float64
-	// HasMaxNFEV reports whether the has max nfev field is present.
+	// HasMaxNFEV reports whether MaxNFEV supplies an evaluation limit.
 	HasMaxNFEV bool
-	// MaxNFEV is the max nfev value for SourceLocateOptions.
+	// MaxNFEV is the optional maximum number of nonlinear function evaluations.
 	MaxNFEV int
 }
 
@@ -127,67 +127,68 @@ func ClosedFormInitialGuess(sensors []SourceSensor, arrivalsS []float64, speedMS
 type SourceCovariance struct {
 	// Dimension is the state dimension; StateDimension is the state dimension.
 	Dimension, StateDimension int
-	// State contains the fixed-size array for this record.
+	// State is the row-major full-state covariance, with at most 4 by 4 entries.
 	State [16]float64
-	// PositionM2 is the position m2 in square metres.
+	// PositionM2 is the row-major position covariance block, at most 3 by 3, in square metres.
 	PositionM2 [9]float64
-	// HasOriginTimeS2 reports whether the has origin time s2 field is present.
+	// HasOriginTimeS2 reports whether OriginTimeS2 contains a valid origin-time variance.
 	HasOriginTimeS2 bool
-	// OriginTimeS2 is the origin time s2 in seconds squared; TimingSigmaS is the timing sigma s in seconds.
+	// OriginTimeS2 is the origin-time variance in seconds squared; TimingSigmaS is the timing sigma in seconds.
 	OriginTimeS2, TimingSigmaS float64
 }
 
-// SourceCRLBResult contains timing DOP and the corresponding native covariance.
+// SourceCRLBResult contains source-geometry timing dilution values and the
+// associated state covariance returned by the native solver.
 type SourceCRLBResult struct {
-	// DOP is the dop value for SourceCRLBResult.
+	// DOP contains timing dilution-of-precision values for the source geometry.
 	DOP DOP
-	// Covariance is the covariance value for SourceCRLBResult.
+	// Covariance contains the row-major state and position covariance blocks.
 	Covariance SourceCovariance
 }
 
 // SourceSensorInfluence is a detached leave-one-out sensor diagnostic.
 type SourceSensorInfluence struct {
-	// SensorIndex identifies or counts this record.
+	// SensorIndex is the zero-based index of the sensor in the input array.
 	SensorIndex int
-	// ResidualS is the residual s value for SourceSensorInfluence.
+	// ResidualS is the full-solution time-of-arrival residual in seconds.
 	ResidualS float64
-	// HasLeaveOneOutResidual reports whether the has leave one out residual field is present.
+	// HasLeaveOneOutResidual reports whether LeaveOneOutResidualS is available.
 	HasLeaveOneOutResidual bool
-	// LeaveOneOutResidualS is the leave one out residual s value for SourceSensorInfluence.
+	// LeaveOneOutResidualS is the held-out residual in seconds when HasLeaveOneOutResidual is true.
 	LeaveOneOutResidualS float64
-	// HasPositionDelta reports whether the has position delta field is present.
+	// HasPositionDelta reports whether PositionDeltaM is available.
 	HasPositionDelta bool
 	// PositionDeltaM is the position delta m in metres.
 	PositionDeltaM float64
-	// HasOriginTimeDelta reports whether the has origin time delta field is present.
+	// HasOriginTimeDelta reports whether OriginTimeDeltaS is available.
 	HasOriginTimeDelta bool
-	// OriginTimeDeltaS is the origin time delta s value for SourceSensorInfluence.
+	// OriginTimeDeltaS is the leave-one-out origin-time change in seconds when HasOriginTimeDelta is true.
 	OriginTimeDeltaS float64
-	// LossWeight is the loss weight value for SourceSensorInfluence; Score is the score value for SourceSensorInfluence.
+	// LossWeight is the dimensionless robust weight; Score is the native influence diagnostic score.
 	LossWeight, Score float64
 }
 
 // SourceResidual is one detached source-solve residual row.
 type SourceResidual struct {
-	// SensorIndex identifies or counts this record; ReferenceSensorIndex identifies or counts this record.
+	// SensorIndex and ReferenceSensorIndex are zero-based indices into the sensor input and its TDOA reference.
 	SensorIndex, ReferenceSensorIndex int
-	// HasReferenceSensor reports whether the has reference sensor field is present.
+	// HasReferenceSensor reports whether ReferenceSensorIndex is valid for this residual.
 	HasReferenceSensor bool
-	// ResidualS is the residual s value for SourceResidual.
+	// ResidualS is the time-of-arrival residual in seconds.
 	ResidualS float64
 }
 
 // SourceSolutionSummary contains detached native solve diagnostics.
 type SourceSolutionSummary struct {
-	// Dimension is the state dimension; ResidualCount identifies or counts this record; InfluenceCount identifies or counts this record.
+	// Dimension is the solved coordinate dimension; ResidualCount and InfluenceCount are the residual and influence-row counts.
 	Dimension, ResidualCount, InfluenceCount int
 	// PositionM is the position m in metres.
 	PositionM [3]float64
-	// HasOriginTime reports whether the has origin time field is present.
+	// HasOriginTime reports whether OriginTimeS2 is valid.
 	HasOriginTime bool
 	// OriginTimeS is the origin time s in seconds.
 	OriginTimeS float64
-	// HasCovariance reports whether the has covariance field is present.
+	// HasCovariance reports whether the covariance matrices contain valid values.
 	HasCovariance bool
 	// GeometryQuality is the geometry-quality diagnostics.
 	GeometryQuality GeometryQuality
@@ -195,9 +196,9 @@ type SourceSolutionSummary struct {
 	InitialGuess SourceInitialGuess
 	// Status is the native status code.
 	Status int32
-	// NFEV is the nfev value for SourceSolutionSummary; NJEV is the njev value for SourceSolutionSummary.
+	// NFEV and NJEV are the nonlinear function and Jacobian evaluation counts.
 	NFEV, NJEV int
-	// Cost is the cost value for SourceSolutionSummary; Optimality is the optimality value for SourceSolutionSummary.
+	// Cost is the native least-squares objective; Optimality is its solver optimality measure.
 	Cost, Optimality float64
 }
 
@@ -389,7 +390,7 @@ const (
 type StalenessMetadata struct {
 	// Kind is the event or record kind.
 	Kind DegradationKind
-	// RequestedEpochJ2000S is the requested epoch j2000 s in seconds; SourceEpochJ2000S is the source epoch j2000 s in seconds; StalenessS is the staleness s in seconds; StalenessDays is the staleness days in days.
+	// RequestedEpochJ2000S and SourceEpochJ2000S are UTC epochs in seconds from J2000; StalenessS and StalenessDays are their separation in seconds and days.
 	RequestedEpochJ2000S, SourceEpochJ2000S, StalenessS, StalenessDays float64
 }
 
@@ -443,7 +444,7 @@ func (s *SourcedSolution) Staleness() (StalenessMetadata, bool, error) {
 	return stalenessMetadata(value), present, publicError(err)
 }
 
-// Solution returns a detached receiver solution copied by C.
+// Solution returns a detached receiver solution produced by C.
 func (s *SourcedSolution) Solution() (SPPSolution, error) {
 	if s == nil || s.handle == nil {
 		return SPPSolution{}, ErrClosed
@@ -492,9 +493,9 @@ func PseudorangeVariance(elevationDeg float64, options PseudorangeVarianceOption
 
 // SolutionValidationOptions configures native receiver plausibility gates.
 type SolutionValidationOptions struct {
-	// HasMaxPDOP reports whether the has max pdop field is present.
+	// HasMaxPDOP reports whether MaxPDOP supplies a geometry ceiling.
 	HasMaxPDOP bool
-	// MaxPDOP is the max pdop value for SolutionValidationOptions; MinPlausibleRadiusM is the min plausible radius m value for SolutionValidationOptions; MaxPlausibleRadiusM is the max plausible radius m value for SolutionValidationOptions; MaxConvergedResidualRMSM is the max converged residual rmsm value for SolutionValidationOptions.
+	// MaxPDOP is the optional dimensionless PDOP limit; the radius and residual limits are metres.
 	MaxPDOP, MinPlausibleRadiusM, MaxPlausibleRadiusM, MaxConvergedResidualRMSM float64
 }
 

@@ -282,7 +282,7 @@ type PredictedIONEXCandidate struct {
 	Sample string
 	// Issue is the issue code.
 	Issue string
-	// Filename is the filename value for PredictedIONEXCandidate.
+	// Filename is the candidate product filename.
 	Filename string
 	// URL is the candidate product URL.
 	URL string
@@ -299,7 +299,7 @@ type CoverageInterval struct {
 // NominalIssue describes the next nominal catalog issue and its C-supplied
 // observed/predicted coverage intervals.
 type NominalIssue struct {
-	// Identity is the identity value for NominalIssue.
+	// Identity identifies the product family, analysis center, publisher, solution class, campaign, date, issue, format, and prediction metadata.
 	Identity ProductIdentity
 	// DueAt is the timestamp for this record.
 	DueAt time.Time

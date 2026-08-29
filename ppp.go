@@ -34,30 +34,30 @@ const (
 
 // PPPAutoInitOptions controls SPP-seeded PPP initialization.
 type PPPAutoInitOptions struct {
-	// HasInitialGuess reports whether the has initial guess field is present.
+	// HasInitialGuess reports whether InitialGuessPosition and InitialGuessClockM override the native seed.
 	HasInitialGuess bool
-	// InitialGuessPosition contains the fixed-size array for this record.
+	// InitialGuessPosition is an explicit ECEF receiver-position seed in metres when HasInitialGuess is true.
 	InitialGuessPosition [3]float64
 	// InitialGuessClockM is the initial guess clock m in metres.
 	InitialGuessClockM float64
-	// SPPInitialGuess contains the fixed-size array for this record.
+	// SPPInitialGuess is the SPP cold-start state [x_m, y_m, z_m, clock_m] used for per-epoch seed solves.
 	SPPInitialGuess [4]float64
-	// SPPTroposphere is the spptroposphere value for PPPAutoInitOptions.
+	// SPPTroposphere enables troposphere correction during each SPP seed solve; ionosphere is disabled there.
 	SPPTroposphere bool
-	// SPPPressureHPA is the spp pressure hpa in hectopascals.
+	// SPPPressureHPA is the SPP seed-solve atmospheric pressure in hectopascals.
 	SPPPressureHPA float64
 	// SPPTemperatureK is the spp temperature k in kelvin.
 	SPPTemperatureK float64
-	// SPPRelativeHumidity is the spp relative humidity value for PPPAutoInitOptions.
+	// SPPRelativeHumidity is the SPP seed relative humidity as a fraction in [0, 1].
 	SPPRelativeHumidity float64
 }
 
 // PPPObservation is one ionosphere-free code/phase measurement. Distances are
 // metres and frequencies are hertz.
 type PPPObservation struct {
-	// SatelliteID identifies or counts this record.
+	// SatelliteID is the GNSS satellite identifier for the observation.
 	SatelliteID string
-	// AmbiguityID identifies or counts this record.
+	// AmbiguityID identifies the carrier-phase ambiguity associated with the observation.
 	AmbiguityID string
 	// CodeM is the code m in metres.
 	CodeM float64
@@ -77,7 +77,7 @@ type PPPEpoch struct {
 	JDWhole float64
 	// JDFraction is the associated Julian-date value.
 	JDFraction float64
-	// TRxJ2000S is the t rx j2000 s in seconds.
+	// TRxJ2000S is the receiver epoch in seconds from J2000.
 	TRxJ2000S float64
 	// Observations contains a detached copy; nil means this field is absent.
 	Observations []PPPObservation
@@ -85,7 +85,7 @@ type PPPEpoch struct {
 
 // PPPFloatMapEntry is one ambiguity identifier/value pair.
 type PPPFloatMapEntry struct {
-	// ID identifies or counts this record.
+	// ID identifies the ambiguity represented by Value.
 	ID string
 	// Value is the value stored in this record.
 	Value float64
@@ -114,7 +114,7 @@ type PPPMeasurementWeights struct {
 	Code float64
 	// Phase is the phase observable.
 	Phase float64
-	// ElevationWeighting is the elevation weighting value for PPPMeasurementWeights.
+	// ElevationWeighting enables native elevation-dependent measurement weighting.
 	ElevationWeighting bool
 }
 
@@ -122,9 +122,9 @@ type PPPMeasurementWeights struct {
 type PPPVmfSiteSample struct {
 	// MJD is the mjd in modified Julian days.
 	MJD float64
-	// AH is the ah value for PPPVmfSiteSample.
+	// AH is the VMF1 hydrostatic mapping coefficient.
 	AH float64
-	// AW is the aw value for PPPVmfSiteSample.
+	// AW is the VMF1 wet mapping coefficient.
 	AW float64
 }
 
@@ -132,17 +132,17 @@ type PPPVmfSiteSample struct {
 type PPPTroposphereOptions struct {
 	// Enabled reports whether the option is enabled.
 	Enabled bool
-	// EstimateZTD is the estimate ztd value for PPPTroposphereOptions.
+	// EstimateZTD enables estimation of the zenith total delay state.
 	EstimateZTD bool
-	// EstimateTropoGradient is the estimate tropo gradient value for PPPTroposphereOptions.
+	// EstimateTropoGradient enables estimation of north/east tropospheric gradients.
 	EstimateTropoGradient bool
-	// PressureHPA is the pressure hpa in hectopascals.
+	// PressureHPA is the atmospheric pressure in hectopascals.
 	PressureHPA float64
 	// TemperatureK is the temperature k in kelvin.
 	TemperatureK float64
 	// RelativeHumidity is the relative humidity fraction.
 	RelativeHumidity float64
-	// Mapping is the mapping value for PPPTroposphereOptions.
+	// Mapping selects the Niell or VMF1 tropospheric mapping model.
 	Mapping PPPTropoMapping
 	// VMFSamples contains a detached copy; nil means this field is absent.
 	VMFSamples []PPPVmfSiteSample
@@ -181,13 +181,13 @@ type PPPReceiverAntennaCalibration struct {
 // PPPReceiverAntennaOptions describes the two-frequency receiver antenna
 // correction.
 type PPPReceiverAntennaOptions struct {
-	// Frequency1Label is the frequency1 label value for PPPReceiverAntennaOptions.
+	// Frequency1Label is the receiver antenna calibration label for the first frequency.
 	Frequency1Label string
 	// Frequency1Hz is the frequency1 hz in hertz.
 	Frequency1Hz float64
 	// Frequency1 is the first carrier frequency.
 	Frequency1 PPPReceiverAntennaCalibration
-	// Frequency2Label is the frequency2 label value for PPPReceiverAntennaOptions.
+	// Frequency2Label is the receiver antenna calibration label for the second frequency.
 	Frequency2Label string
 	// Frequency2Hz is the frequency2 hz in hertz.
 	Frequency2Hz float64
@@ -197,7 +197,7 @@ type PPPReceiverAntennaOptions struct {
 
 // PPPSatelliteClockRecord is one precise satellite clock sample in seconds.
 type PPPSatelliteClockRecord struct {
-	// SatelliteID identifies or counts this record.
+	// SatelliteID is the GNSS satellite identifier for the clock record.
 	SatelliteID string
 	// GPSSeconds is the gps seconds in seconds.
 	GPSSeconds float64
@@ -209,21 +209,21 @@ type PPPSatelliteClockRecord struct {
 type PPPRangeCorrections struct {
 	// ReceiverAntenna contains a detached copy; nil means this field is absent.
 	ReceiverAntenna *PPPReceiverAntennaOptions
-	// SatClockRelativity is the sat clock relativity value for PPPRangeCorrections.
+	// SatClockRelativity enables the satellite-clock relativistic correction.
 	SatClockRelativity bool
 	// SatelliteClockRecords contains a detached copy; nil means this field is absent.
 	SatelliteClockRecords []PPPSatelliteClockRecord
-	// SolidEarthTide is the solid earth tide value for PPPRangeCorrections.
+	// SolidEarthTide enables solid-Earth tide correction.
 	SolidEarthTide bool
-	// PhaseWindup is the phase windup value for PPPRangeCorrections.
+	// PhaseWindup enables carrier phase-windup correction.
 	PhaseWindup bool
-	// SatelliteAntenna is the satellite antenna value for PPPRangeCorrections.
+	// SatelliteAntenna enables satellite antenna phase-center correction.
 	SatelliteAntenna bool
 }
 
 // PPPFloatOptions contains float-solve iteration and convergence controls.
 type PPPFloatOptions struct {
-	// MaxIterations is the max iterations value for PPPFloatOptions.
+	// MaxIterations is the maximum number of nonlinear float-solver iterations.
 	MaxIterations int
 	// PositionToleranceM is the position tolerance m in metres.
 	PositionToleranceM float64
@@ -239,7 +239,7 @@ type PPPFloatOptions struct {
 type PPPFloatConfig struct {
 	// Epochs contains a detached copy; nil means this field is absent.
 	Epochs []PPPEpoch
-	// InitialState is the initial state value for PPPFloatConfig.
+	// InitialState supplies the ECEF position, clock, ambiguity, and troposphere seed states.
 	InitialState PPPFloatState
 	// Weights is the observation weights.
 	Weights PPPMeasurementWeights
@@ -249,11 +249,11 @@ type PPPFloatConfig struct {
 	Corrections PPPRangeCorrections
 	// Options is the processing options for this record.
 	Options PPPFloatOptions
-	// HasElevationCutoff reports whether the has elevation cutoff field is present.
+	// HasElevationCutoff reports whether ElevationCutoffDeg is enforced.
 	HasElevationCutoff bool
 	// ElevationCutoffDeg is the elevation cutoff deg in degrees.
 	ElevationCutoffDeg float64
-	// ResidualScreen is the residual screen value for PPPFloatConfig.
+	// ResidualScreen enables native residual screening during the float solve.
 	ResidualScreen bool
 }
 
@@ -263,7 +263,7 @@ type PPPFixedAmbiguityOptions struct {
 	WavelengthsM []PPPFloatMapEntry
 	// OffsetsM is the offsets m in metres.
 	OffsetsM []PPPFloatMapEntry
-	// RatioThreshold is the ratio threshold value for PPPFixedAmbiguityOptions.
+	// RatioThreshold is the integer-ambiguity acceptance ratio threshold.
 	RatioThreshold float64
 }
 
@@ -279,11 +279,11 @@ type PPPFixedConfig struct {
 	Corrections PPPRangeCorrections
 	// Options is the processing options for this record.
 	Options PPPFloatOptions
-	// HasElevationCutoff reports whether the has elevation cutoff field is present.
+	// HasElevationCutoff reports whether ElevationCutoffDeg is enforced.
 	HasElevationCutoff bool
 	// ElevationCutoffDeg is the elevation cutoff deg in degrees.
 	ElevationCutoffDeg float64
-	// Ambiguity is the ambiguity value for PPPFixedConfig.
+	// Ambiguity contains wavelength, offset, and ratio settings for integer fixing.
 	Ambiguity PPPFixedAmbiguityOptions
 }
 
@@ -297,23 +297,23 @@ type PPPPoleTideOptions struct {
 
 // PPPObservationCorrection is one correction-precompute satellite row.
 type PPPObservationCorrection struct {
-	// SatelliteID identifies or counts this record.
+	// SatelliteID is the GNSS satellite identifier for the correction row.
 	SatelliteID string
 	// Frequency1Hz is the frequency1 hz in hertz.
 	Frequency1Hz float64
 	// Frequency2Hz is the frequency2 hz in hertz.
 	Frequency2Hz float64
-	// HasGLONASSChannel reports whether the has glonass channel field is present.
+	// HasGLONASSChannel reports whether GLONASSChannel supplies the FDMA channel for this observation.
 	HasGLONASSChannel bool
-	// GLONASSChannel is the glonasschannel value for PPPObservationCorrection.
+	// GLONASSChannel is the FDMA frequency channel used when HasGLONASSChannel is true.
 	GLONASSChannel int8
 }
 
 // PPPCorrectionEpoch is one correction-precompute epoch.
 type PPPCorrectionEpoch struct {
-	// Epoch is the epoch value for PPPCorrectionEpoch.
+	// Epoch is the UTC civil epoch associated with the correction rows.
 	Epoch CivilDateTime
-	// TRxJ2000S is the t rx j2000 s in seconds.
+	// TRxJ2000S is the receiver epoch in seconds from J2000.
 	TRxJ2000S float64
 	// Observations contains a detached copy; nil means this field is absent.
 	Observations []PPPObservationCorrection
@@ -323,25 +323,25 @@ type PPPCorrectionEpoch struct {
 type PPPCodeBiasSystemPair struct {
 	// System is the GNSS system identifier.
 	System GNSSSystem
-	// Obs1 is the obs1 value for PPPCodeBiasSystemPair.
+	// Obs1 is the first code-observable label for the system.
 	Obs1 string
-	// Obs2 is the obs2 value for PPPCodeBiasSystemPair.
+	// Obs2 is the second code-observable label for the system.
 	Obs2 string
 }
 
 // PPPCodeBiasSatellitePair overrides observables for one satellite.
 type PPPCodeBiasSatellitePair struct {
-	// SatelliteID identifies or counts this record.
+	// SatelliteID is the GNSS satellite whose code-bias labels are overridden.
 	SatelliteID string
-	// Obs1 is the obs1 value for PPPCodeBiasSatellitePair.
+	// Obs1 is the first code-observable label for the satellite.
 	Obs1 string
-	// Obs2 is the obs2 value for PPPCodeBiasSatellitePair.
+	// Obs2 is the second code-observable label for the satellite.
 	Obs2 string
 }
 
 // PPPSatelliteAntennaFrequency contains one satellite antenna calibration.
 type PPPSatelliteAntennaFrequency struct {
-	// Label is the label value for PPPSatelliteAntennaFrequency.
+	// Label is the calibrated carrier label for this antenna-frequency block.
 	Label string
 	// PCOM is the pcom in metres.
 	PCOM [3]float64
@@ -351,23 +351,23 @@ type PPPSatelliteAntennaFrequency struct {
 
 // PPPNoaziPCVSample is one satellite antenna PCV pair.
 type PPPNoaziPCVSample struct {
-	// A is the a value for PPPNoaziPCVSample.
+	// A is the no-azimuth PCV polynomial coefficient for the sample.
 	A float64
-	// B is the b value for PPPNoaziPCVSample.
+	// B is the no-azimuth PCV polynomial coefficient paired with A.
 	B float64
 }
 
 // PPPSatelliteAntenna contains one satellite antenna validity block.
 type PPPSatelliteAntenna struct {
-	// SatelliteID identifies or counts this record.
+	// SatelliteID is the GNSS satellite covered by the validity block.
 	SatelliteID string
-	// HasValidFrom reports whether the has valid from field is present.
+	// HasValidFrom reports whether ValidFrom bounds the start of antenna calibration validity.
 	HasValidFrom bool
-	// ValidFrom is the valid from value for PPPSatelliteAntenna.
+	// ValidFrom is the UTC start of antenna calibration validity when HasValidFrom is true.
 	ValidFrom CivilDateTime
-	// HasValidUntil reports whether the has valid until field is present.
+	// HasValidUntil reports whether ValidUntil bounds the end of antenna calibration validity.
 	HasValidUntil bool
-	// ValidUntil is the valid until value for PPPSatelliteAntenna.
+	// ValidUntil is the UTC end of antenna calibration validity when HasValidUntil is true.
 	ValidUntil CivilDateTime
 	// Frequencies contains a detached copy; nil means this field is absent.
 	Frequencies []PPPSatelliteAntennaFrequency
@@ -375,11 +375,11 @@ type PPPSatelliteAntenna struct {
 
 // PPPSatelliteAntennaOptions selects satellite antenna calibrations.
 type PPPSatelliteAntennaOptions struct {
-	// Frequency1Label is the frequency1 label value for PPPSatelliteAntennaOptions.
+	// Frequency1Label is the calibrated satellite-antenna label for the first frequency.
 	Frequency1Label string
 	// Frequency1Hz is the frequency1 hz in hertz.
 	Frequency1Hz float64
-	// Frequency2Label is the frequency2 label value for PPPSatelliteAntennaOptions.
+	// Frequency2Label is the calibrated satellite-antenna label for the second frequency.
 	Frequency2Label string
 	// Frequency2Hz is the frequency2 hz in hertz.
 	Frequency2Hz float64
@@ -389,13 +389,13 @@ type PPPSatelliteAntennaOptions struct {
 
 // PPPCorrectionsOptions controls PPP correction-table construction.
 type PPPCorrectionsOptions struct {
-	// SolidEarthTide is the solid earth tide value for PPPCorrectionsOptions.
+	// SolidEarthTide enables solid-Earth tide correction-table construction.
 	SolidEarthTide bool
 	// PoleTide contains a detached copy; nil means this field is absent.
 	PoleTide *PPPPoleTideOptions
 	// OceanLoading contains a detached copy; nil means this field is absent.
 	OceanLoading *OceanLoadingBLQ
-	// PhaseWindup is the phase windup value for PPPCorrectionsOptions.
+	// PhaseWindup enables phase-windup correction-table construction.
 	PhaseWindup bool
 	// SatelliteAntenna contains a detached copy; nil means this field is absent.
 	SatelliteAntenna *PPPSatelliteAntennaOptions
@@ -407,53 +407,53 @@ type PPPCorrectionsOptions struct {
 	CodeBiasSatellitePairs []PPPCodeBiasSatellitePair
 	// CodeBiasClockReference contains a detached copy; nil means this field is absent.
 	CodeBiasClockReference []PPPCodeBiasSystemPair
-	// HasCodeBiasClockReference reports whether the has code bias clock reference field is present.
+	// HasCodeBiasClockReference reports whether CodeBiasClockReference selects a clock-reference observable pair.
 	HasCodeBiasClockReference bool
 }
 
-// PPPSatScalarCorrection is one copied per-satellite scalar correction in
+// PPPSatScalarCorrection is one detached per-satellite scalar correction in
 // metres.
 type PPPSatScalarCorrection struct {
-	// SatelliteID identifies or counts this record.
+	// SatelliteID is the GNSS satellite identifier for the scalar correction.
 	SatelliteID string
-	// EpochIndex identifies or counts this record.
+	// EpochIndex is the zero-based epoch index owning the correction.
 	EpochIndex int
 	// ValueM is the value m in metres.
 	ValueM float64
 }
 
-// PPPSatVectorCorrection is one copied per-satellite vector correction in
+// PPPSatVectorCorrection is one detached per-satellite vector correction in
 // metres.
 type PPPSatVectorCorrection struct {
-	// SatelliteID identifies or counts this record.
+	// SatelliteID is the GNSS satellite identifier for the vector correction.
 	SatelliteID string
-	// EpochIndex identifies or counts this record.
+	// EpochIndex is the zero-based epoch index owning the correction.
 	EpochIndex int
 	// ValueM is the value m in metres.
 	ValueM [3]float64
 }
 
-// PPPEpochVectorCorrection is one copied epoch vector correction in metres.
+// PPPEpochVectorCorrection is one detached epoch vector correction in metres.
 type PPPEpochVectorCorrection struct {
-	// EpochIndex identifies or counts this record.
+	// EpochIndex is the zero-based epoch index owning the correction.
 	EpochIndex int
 	// ValueM is the value m in metres.
 	ValueM [3]float64
 }
 
-// PPPFloatAmbiguity is one copied float ambiguity estimate in metres.
+// PPPFloatAmbiguity is one detached float ambiguity estimate in metres.
 type PPPFloatAmbiguity struct {
-	// ID identifies or counts this record.
+	// ID identifies the float ambiguity represented by ValueM.
 	ID string
 	// ValueM is the value m in metres.
 	ValueM float64
 }
 
-// PPPFixedAmbiguity is one copied fixed ambiguity estimate.
+// PPPFixedAmbiguity is one detached fixed ambiguity estimate.
 type PPPFixedAmbiguity struct {
-	// ID identifies or counts this record.
+	// ID identifies the fixed ambiguity represented by Cycles and ValueM.
 	ID string
-	// Cycles is the cycles value for PPPFixedAmbiguity.
+	// Cycles is the integer ambiguity estimate in carrier cycles.
 	Cycles int64
 	// ValueM is the value m in metres.
 	ValueM float64
@@ -470,58 +470,58 @@ type PPPPositionCovariance struct {
 
 // PPPPositionCovariances contains the three native PPP covariance products.
 type PPPPositionCovariances struct {
-	// Posterior is the posterior value for PPPPositionCovariances.
+	// Posterior is the posterior ECEF/ENU position covariance.
 	Posterior PPPPositionCovariance
-	// Formal is the formal value for PPPPositionCovariances.
+	// Formal is the formal ECEF/ENU position covariance from the measurement model.
 	Formal PPPPositionCovariance
-	// Temporal is the temporal value for PPPPositionCovariances.
+	// Temporal is the covariance product including temporal-correlation effects.
 	Temporal PPPPositionCovariance
-	// PosteriorScale is the posterior scale value for PPPPositionCovariances.
+	// PosteriorScale is the dimensionless posterior covariance scale factor.
 	PosteriorScale float64
-	// TemporalScale is the temporal scale value for PPPPositionCovariances.
+	// TemporalScale is the dimensionless temporal-correlation scale factor.
 	TemporalScale float64
 }
 
 // PPPTemporalCorrelation contains residual autocorrelation diagnostics.
 type PPPTemporalCorrelation struct {
-	// HasLag1 reports whether the has lag1 field is present.
+	// HasLag1 reports whether Lag1 is a valid residual autocorrelation estimate.
 	HasLag1 bool
-	// Lag1 is the lag1 value for PPPTemporalCorrelation.
+	// Lag1 is the lag-one residual autocorrelation when HasLag1 is true.
 	Lag1 float64
-	// HasDecorrelation reports whether the has decorrelation field is present.
+	// HasDecorrelation reports whether DecorrelationTimeS is valid.
 	HasDecorrelation bool
 	// DecorrelationTimeS is the decorrelation time s in seconds.
 	DecorrelationTimeS float64
-	// NominalSamples is the nominal samples value for PPPTemporalCorrelation.
+	// NominalSamples is the number of samples used by the nominal correlation estimate.
 	NominalSamples int
-	// EffectiveSamples is the effective samples value for PPPTemporalCorrelation.
+	// EffectiveSamples is the correlation-adjusted effective sample count.
 	EffectiveSamples float64
-	// VarianceInflation is the variance inflation value for PPPTemporalCorrelation.
+	// VarianceInflation is the dimensionless variance inflation factor.
 	VarianceInflation float64
-	// ArcsUsed is the arcs used value for PPPTemporalCorrelation.
+	// ArcsUsed is the number of independent arcs contributing to the correlation estimate.
 	ArcsUsed int
 }
 
-// PPPTropoGradient contains copied north/east gradient estimates and
+// PPPTropoGradient contains detached north/east gradient estimates and
 // covariance products.
 type PPPTropoGradient struct {
-	// HasGradient reports whether the has gradient field is present.
+	// HasGradient reports whether NorthM and EastM contain estimated gradients.
 	HasGradient bool
 	// NorthM is the north m in metres.
 	NorthM float64
 	// EastM is the east m in metres.
 	EastM float64
-	// HasCovariance reports whether the has covariance field is present.
+	// HasCovariance reports whether CovarianceM2 contains a valid gradient covariance.
 	HasCovariance bool
-	// CovarianceM2 is the covariance m2 in square metres.
+	// CovarianceM2 is the north/east gradient covariance in square metres.
 	CovarianceM2 [2][2]float64
-	// HasFormalCovariance reports whether the has formal covariance field is present.
+	// HasFormalCovariance reports whether FormalCovarianceM2 contains a valid formal covariance.
 	HasFormalCovariance bool
-	// FormalCovarianceM2 is the formal covariance m2 in square metres.
+	// FormalCovarianceM2 is the formal north/east gradient covariance in square metres.
 	FormalCovarianceM2 [2][2]float64
 }
 
-// PPPFloatMetadata contains copied float-solver summary values.
+// PPPFloatMetadata contains detached float-solver summary values.
 type PPPFloatMetadata struct {
 	// Iterations is the native solver iteration count.
 	Iterations int
@@ -529,25 +529,25 @@ type PPPFloatMetadata struct {
 	Converged bool
 	// Status is the native status code.
 	Status PPPSolveStatus
-	// HasZTDResidual reports whether the has ztd residual field is present.
+	// HasZTDResidual reports whether ZTDResidualM contains a valid zenith-delay residual.
 	HasZTDResidual bool
 	// ZTDResidualM is the ztd residual m in metres.
 	ZTDResidualM float64
-	// CodeRMSM is the code rmsm in metres.
+	// CodeRMSM is the code residual RMS in metres.
 	CodeRMSM float64
-	// PhaseRMSM is the phase rmsm in metres.
+	// PhaseRMSM is the carrier-phase residual RMS in metres.
 	PhaseRMSM float64
-	// WeightedRMSM is the weighted rmsm in metres.
+	// WeightedRMSM is the weighted residual RMS in metres.
 	WeightedRMSM float64
-	// AmbiguityCount identifies or counts this record.
+	// AmbiguityCount is the number of ambiguity states in the float solution.
 	AmbiguityCount int
-	// ResidualCount identifies or counts this record.
+	// ResidualCount is the number of residual observations in the float solve.
 	ResidualCount int
-	// UsedSatCount identifies or counts this record.
+	// UsedSatCount is the number of satellites contributing to the float solution.
 	UsedSatCount int
 }
 
-// PPPFixedMetadata contains copied fixed-solver and integer-search summary
+// PPPFixedMetadata contains detached fixed-solver and integer-search summary
 // values.
 type PPPFixedMetadata struct {
 	// Iterations is the native solver iteration count.
@@ -556,31 +556,31 @@ type PPPFixedMetadata struct {
 	Converged bool
 	// Status is the native status code.
 	Status PPPSolveStatus
-	// HasZTDResidual reports whether the has ztd residual field is present.
+	// HasZTDResidual reports whether ZTDResidualM contains a valid zenith-delay residual.
 	HasZTDResidual bool
 	// ZTDResidualM is the ztd residual m in metres.
 	ZTDResidualM float64
-	// CodeRMSM is the code rmsm in metres.
+	// CodeRMSM is the code residual RMS in metres.
 	CodeRMSM float64
-	// PhaseRMSM is the phase rmsm in metres.
+	// PhaseRMSM is the carrier-phase residual RMS in metres.
 	PhaseRMSM float64
-	// WeightedRMSM is the weighted rmsm in metres.
+	// WeightedRMSM is the weighted residual RMS in metres.
 	WeightedRMSM float64
-	// FixedAmbiguityCount identifies or counts this record.
+	// FixedAmbiguityCount is the number of ambiguities accepted as integers.
 	FixedAmbiguityCount int
-	// ResidualCount identifies or counts this record.
+	// ResidualCount is the number of residual observations in the fixed solve.
 	ResidualCount int
-	// UsedSatCount identifies or counts this record.
+	// UsedSatCount is the number of satellites contributing to the fixed solution.
 	UsedSatCount int
 	// IntegerStatus is the integer-solution status.
 	IntegerStatus PPPIntegerStatus
 	// IntegerRatio is the integer ambiguity ratio.
 	IntegerRatio float64
-	// IntegerBestScore is the integer best score value for PPPFixedMetadata.
+	// IntegerBestScore is the best integer-search objective score.
 	IntegerBestScore float64
-	// HasIntegerSecondBest reports whether the has integer second best field is present.
+	// HasIntegerSecondBest reports whether IntegerSecondBestScore is valid.
 	HasIntegerSecondBest bool
-	// IntegerSecondBestScore is the integer second best score value for PPPFixedMetadata.
+	// IntegerSecondBestScore is the second-best integer-search objective score when HasIntegerSecondBest is true.
 	IntegerSecondBestScore float64
 	// IntegerCandidates is the integer candidate count.
 	IntegerCandidates int
@@ -900,7 +900,7 @@ func (s *PPPFixedSolution) Close() error {
 	return publicError(s.handle.Close())
 }
 
-// CodeBias returns copied per-satellite code-bias corrections in metres.
+// CodeBias returns detached per-satellite code-bias corrections in metres.
 func (c *PPPCorrections) CodeBias() ([]PPPSatScalarCorrection, error) {
 	if c == nil || c.handle == nil {
 		return nil, ErrClosed
@@ -913,7 +913,7 @@ func (c *PPPCorrections) CodeBias() ([]PPPSatScalarCorrection, error) {
 	return out, publicError(err)
 }
 
-// OceanLoading returns copied epoch-indexed ocean-loading vectors in metres.
+// OceanLoading returns detached epoch-indexed ocean-loading vectors in metres.
 func (c *PPPCorrections) OceanLoading() ([]PPPEpochVectorCorrection, error) {
 	if c == nil || c.handle == nil {
 		return nil, ErrClosed
@@ -922,7 +922,7 @@ func (c *PPPCorrections) OceanLoading() ([]PPPEpochVectorCorrection, error) {
 	return nativePPPEpochVectorCorrections(values), publicError(err)
 }
 
-// PoleTide returns copied epoch-indexed pole-tide vectors in metres.
+// PoleTide returns detached epoch-indexed pole-tide vectors in metres.
 func (c *PPPCorrections) PoleTide() ([]PPPEpochVectorCorrection, error) {
 	if c == nil || c.handle == nil {
 		return nil, ErrClosed
@@ -931,7 +931,7 @@ func (c *PPPCorrections) PoleTide() ([]PPPEpochVectorCorrection, error) {
 	return nativePPPEpochVectorCorrections(values), publicError(err)
 }
 
-// SatPCOECEF returns copied satellite phase-center offsets in ECEF metres.
+// SatPCOECEF returns detached satellite phase-center offsets in ECEF metres.
 func (c *PPPCorrections) SatPCOECEF() ([]PPPSatVectorCorrection, error) {
 	if c == nil || c.handle == nil {
 		return nil, ErrClosed
@@ -944,7 +944,7 @@ func (c *PPPCorrections) SatPCOECEF() ([]PPPSatVectorCorrection, error) {
 	return out, publicError(err)
 }
 
-// SatPCV returns copied satellite phase-center variations in metres.
+// SatPCV returns detached satellite phase-center variations in metres.
 func (c *PPPCorrections) SatPCV() ([]PPPSatScalarCorrection, error) {
 	if c == nil || c.handle == nil {
 		return nil, ErrClosed
@@ -957,7 +957,7 @@ func (c *PPPCorrections) SatPCV() ([]PPPSatScalarCorrection, error) {
 	return out, publicError(err)
 }
 
-// Tide returns copied epoch-indexed solid-Earth tide vectors in metres.
+// Tide returns detached epoch-indexed solid-Earth tide vectors in metres.
 func (c *PPPCorrections) Tide() ([]PPPEpochVectorCorrection, error) {
 	if c == nil || c.handle == nil {
 		return nil, ErrClosed
@@ -966,7 +966,7 @@ func (c *PPPCorrections) Tide() ([]PPPEpochVectorCorrection, error) {
 	return nativePPPEpochVectorCorrections(values), publicError(err)
 }
 
-// Windup returns copied satellite phase-windup corrections in metres.
+// Windup returns detached satellite phase-windup corrections in metres.
 func (c *PPPCorrections) Windup() ([]PPPSatScalarCorrection, error) {
 	if c == nil || c.handle == nil {
 		return nil, ErrClosed
@@ -987,7 +987,7 @@ func nativePPPEpochVectorCorrections(values []native.PppEpochVectorCorrection) [
 	return out
 }
 
-// FixedAmbiguities returns copied integer ambiguity estimates.
+// FixedAmbiguities returns detached integer ambiguity estimates.
 func (s *PPPFixedSolution) FixedAmbiguities() ([]PPPFixedAmbiguity, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -1000,7 +1000,7 @@ func (s *PPPFixedSolution) FixedAmbiguities() ([]PPPFixedAmbiguity, error) {
 	return out, publicError(err)
 }
 
-// Ambiguities returns copied float ambiguity estimates in metres.
+// Ambiguities returns detached float ambiguity estimates in metres.
 func (s *PPPFloatSolution) Ambiguities() ([]PPPFloatAmbiguity, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -1013,7 +1013,7 @@ func (s *PPPFloatSolution) Ambiguities() ([]PPPFloatAmbiguity, error) {
 	return out, publicError(err)
 }
 
-// UsedIDs returns copied full-width ambiguity identifiers from a fixed solve.
+// UsedIDs returns detached full-width ambiguity identifiers from a fixed solve.
 func (s *PPPFixedSolution) UsedIDs() ([]string, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -1022,7 +1022,7 @@ func (s *PPPFixedSolution) UsedIDs() ([]string, error) {
 	return values, publicError(err)
 }
 
-// UsedIDs returns copied full-width ambiguity identifiers from a float solve.
+// UsedIDs returns detached full-width ambiguity identifiers from a float solve.
 func (s *PPPFloatSolution) UsedIDs() ([]string, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
@@ -1031,7 +1031,7 @@ func (s *PPPFloatSolution) UsedIDs() ([]string, error) {
 	return values, publicError(err)
 }
 
-// UsedSatelliteIDs returns copied legacy satellite identifiers from a fixed
+// UsedSatelliteIDs returns detached legacy satellite identifiers from a fixed
 // solve. Use UsedIDs when ambiguity identifiers may contain split-arc suffixes.
 func (s *PPPFixedSolution) UsedSatelliteIDs() ([]string, error) {
 	if s == nil || s.handle == nil {
@@ -1041,7 +1041,7 @@ func (s *PPPFixedSolution) UsedSatelliteIDs() ([]string, error) {
 	return values, publicError(err)
 }
 
-// UsedSatelliteIDs returns copied legacy satellite identifiers from a float
+// UsedSatelliteIDs returns detached legacy satellite identifiers from a float
 // solve. Use UsedIDs when ambiguity identifiers may contain split-arc suffixes.
 func (s *PPPFloatSolution) UsedSatelliteIDs() ([]string, error) {
 	if s == nil || s.handle == nil {
@@ -1051,7 +1051,7 @@ func (s *PPPFloatSolution) UsedSatelliteIDs() ([]string, error) {
 	return values, publicError(err)
 }
 
-// Position returns the copied float-solution ECEF position in metres.
+// Position returns the detached float-solution ECEF position in metres.
 func (s *PPPFloatSolution) Position() ([3]float64, error) {
 	if s == nil || s.handle == nil {
 		return [3]float64{}, ErrClosed
@@ -1060,7 +1060,7 @@ func (s *PPPFloatSolution) Position() ([3]float64, error) {
 	return value, publicError(err)
 }
 
-// Position returns the copied fixed-solution ECEF position in metres.
+// Position returns the detached fixed-solution ECEF position in metres.
 func (s *PPPFixedSolution) Position() ([3]float64, error) {
 	if s == nil || s.handle == nil {
 		return [3]float64{}, ErrClosed
@@ -1079,7 +1079,7 @@ func (s *PPPFixedSolution) FloatPosition() ([3]float64, error) {
 	return value, publicError(err)
 }
 
-// Metadata returns copied float-solver summary values.
+// Metadata returns detached float-solver summary values.
 func (s *PPPFloatSolution) Metadata() (PPPFloatMetadata, error) {
 	if s == nil || s.handle == nil {
 		return PPPFloatMetadata{}, ErrClosed
@@ -1088,7 +1088,7 @@ func (s *PPPFloatSolution) Metadata() (PPPFloatMetadata, error) {
 	return PPPFloatMetadata{Iterations: value.Iterations, Converged: value.Converged, Status: PPPSolveStatus(value.Status), HasZTDResidual: value.HasZTDResidual, ZTDResidualM: value.ZTDResidualM, CodeRMSM: value.CodeRMSM, PhaseRMSM: value.PhaseRMSM, WeightedRMSM: value.WeightedRMSM, AmbiguityCount: value.AmbiguityCount, ResidualCount: value.ResidualCount, UsedSatCount: value.UsedSatCount}, publicError(err)
 }
 
-// Metadata returns copied fixed-solver and integer-search summary values.
+// Metadata returns detached fixed-solver and integer-search summary values.
 func (s *PPPFixedSolution) Metadata() (PPPFixedMetadata, error) {
 	if s == nil || s.handle == nil {
 		return PPPFixedMetadata{}, ErrClosed
@@ -1097,7 +1097,7 @@ func (s *PPPFixedSolution) Metadata() (PPPFixedMetadata, error) {
 	return PPPFixedMetadata{Iterations: value.Iterations, Converged: value.Converged, Status: PPPSolveStatus(value.Status), HasZTDResidual: value.HasZTDResidual, ZTDResidualM: value.ZTDResidualM, CodeRMSM: value.CodeRMSM, PhaseRMSM: value.PhaseRMSM, WeightedRMSM: value.WeightedRMSM, FixedAmbiguityCount: value.FixedAmbiguityCount, ResidualCount: value.ResidualCount, UsedSatCount: value.UsedSatCount, IntegerStatus: PPPIntegerStatus(value.IntegerStatus), IntegerRatio: value.IntegerRatio, IntegerBestScore: value.IntegerBestScore, HasIntegerSecondBest: value.HasIntegerSecondBest, IntegerSecondBestScore: value.IntegerSecondBestScore, IntegerCandidates: value.IntegerCandidates}, publicError(err)
 }
 
-// PositionCovariances returns copied ECEF/ENU covariance products in square
+// PositionCovariances returns detached ECEF/ENU covariance products in square
 // metres.
 func (s *PPPFloatSolution) PositionCovariances() (PPPPositionCovariances, error) {
 	if s == nil || s.handle == nil {
@@ -1107,7 +1107,7 @@ func (s *PPPFloatSolution) PositionCovariances() (PPPPositionCovariances, error)
 	return nativePPPPositionCovariances(value), publicError(err)
 }
 
-// PositionCovariances returns copied ECEF/ENU covariance products in square
+// PositionCovariances returns detached ECEF/ENU covariance products in square
 // metres.
 func (s *PPPFixedSolution) PositionCovariances() (PPPPositionCovariances, error) {
 	if s == nil || s.handle == nil {
@@ -1125,7 +1125,7 @@ func nativePPPPositionCovariance(value native.PppPositionCovariance) PPPPosition
 	return PPPPositionCovariance{ECEFM2: value.ECEFM2, ENUM2: value.ENUM2}
 }
 
-// TemporalCorrelation returns copied residual-correlation diagnostics.
+// TemporalCorrelation returns detached residual-correlation diagnostics.
 func (s *PPPFloatSolution) TemporalCorrelation() (PPPTemporalCorrelation, error) {
 	if s == nil || s.handle == nil {
 		return PPPTemporalCorrelation{}, ErrClosed
@@ -1134,7 +1134,7 @@ func (s *PPPFloatSolution) TemporalCorrelation() (PPPTemporalCorrelation, error)
 	return nativePPPTemporalCorrelation(value), publicError(err)
 }
 
-// TemporalCorrelation returns copied residual-correlation diagnostics.
+// TemporalCorrelation returns detached residual-correlation diagnostics.
 func (s *PPPFixedSolution) TemporalCorrelation() (PPPTemporalCorrelation, error) {
 	if s == nil || s.handle == nil {
 		return PPPTemporalCorrelation{}, ErrClosed
@@ -1147,7 +1147,7 @@ func nativePPPTemporalCorrelation(value native.PppTemporalCorrelation) PPPTempor
 	return PPPTemporalCorrelation{HasLag1: value.HasLag1, Lag1: value.Lag1, HasDecorrelation: value.HasDecorrelation, DecorrelationTimeS: value.DecorrelationTimeS, NominalSamples: value.NominalSamples, EffectiveSamples: value.EffectiveSamples, VarianceInflation: value.VarianceInflation, ArcsUsed: value.ArcsUsed}
 }
 
-// TropoGradient returns copied north/east troposphere estimates and
+// TropoGradient returns detached north/east troposphere estimates and
 // covariance products.
 func (s *PPPFloatSolution) TropoGradient() (PPPTropoGradient, error) {
 	if s == nil || s.handle == nil {
@@ -1157,7 +1157,7 @@ func (s *PPPFloatSolution) TropoGradient() (PPPTropoGradient, error) {
 	return nativePPPTropoGradient(value), publicError(err)
 }
 
-// TropoGradient returns copied north/east troposphere estimates and
+// TropoGradient returns detached north/east troposphere estimates and
 // covariance products.
 func (s *PPPFixedSolution) TropoGradient() (PPPTropoGradient, error) {
 	if s == nil || s.handle == nil {

@@ -154,17 +154,17 @@ func DefaultSpaceWeather() (SpaceWeather, error) {
 
 // SpaceWeatherCoverage describes observed and predicted coverage boundaries.
 type SpaceWeatherCoverage struct {
-	// FirstJ2000S is the first j2000 s in seconds.
+	// FirstJ2000S is the earliest table epoch in seconds from J2000.
 	FirstJ2000S float64
-	// HasLastObservedJ2000S reports whether the has last observed j2000 s field is present.
+	// HasLastObservedJ2000S reports whether LastObservedJ2000S contains an observed epoch.
 	HasLastObservedJ2000S bool
-	// LastObservedJ2000S is the last observed j2000 s in seconds.
+	// LastObservedJ2000S is the last observed sample epoch in seconds from J2000 when HasLastObservedJ2000S is true.
 	LastObservedJ2000S float64
-	// HasLastDailyPredictedJ2000S reports whether the has last daily predicted j2000 s field is present.
+	// HasLastDailyPredictedJ2000S reports whether LastDailyPredictedJ2000S contains a daily-predicted epoch.
 	HasLastDailyPredictedJ2000S bool
-	// LastDailyPredictedJ2000S is the last daily predicted j2000 s in seconds.
+	// LastDailyPredictedJ2000S is the last daily-predicted sample epoch in seconds from J2000 when HasLastDailyPredictedJ2000S is true.
 	LastDailyPredictedJ2000S float64
-	// EndJ2000S is the end j2000 s in seconds.
+	// EndJ2000S is the end of table coverage in seconds from J2000.
 	EndJ2000S float64
 }
 
@@ -189,7 +189,7 @@ type SpaceWeatherDay struct {
 	ND uint8
 	// HasKp reports whether the has kp field is present.
 	HasKp [8]bool
-	// Kp10 contains the fixed-size array for this record.
+	// Kp10 is the eight-slot 3-hour Kp index array, ordered from 00:00 through 21:00 UTC.
 	Kp10 [8]uint16
 	// HasKpSum10 reports whether the has kp sum10 field is present.
 	HasKpSum10 bool
@@ -197,7 +197,7 @@ type SpaceWeatherDay struct {
 	KpSum10 uint16
 	// HasAp reports whether the has ap field is present.
 	HasAp [8]bool
-	// Ap8 contains the fixed-size array for this record.
+	// Ap8 is the eight-slot 3-hour Ap index array, ordered from 00:00 through 21:00 UTC.
 	Ap8 [8]uint16
 	// HasApAvg reports whether the has ap avg field is present.
 	HasApAvg bool
@@ -221,27 +221,27 @@ type SpaceWeatherDay struct {
 	FluxQualifier uint8
 	// HasF107Obs reports whether the has f107 obs field is present.
 	HasF107Obs bool
-	// F107Obs is the f107 obs value for SpaceWeatherDay.
+	// F107Obs is the observed daily 10.7 cm solar flux in solar flux units (SFU), when HasF107Obs is true.
 	F107Obs float64
 	// HasF107Adj reports whether the has f107 adj field is present.
 	HasF107Adj bool
-	// F107Adj is the f107 adj value for SpaceWeatherDay.
+	// F107Adj is the adjusted daily 10.7 cm solar flux in SFU, when HasF107Adj is true.
 	F107Adj float64
 	// HasF107ObsCenter81 reports whether the has f107 obs center81 field is present.
 	HasF107ObsCenter81 bool
-	// F107ObsCenter81 is the f107 obs center81 value for SpaceWeatherDay.
+	// F107ObsCenter81 is the 81-day centered mean of observed 10.7 cm flux in SFU, when HasF107ObsCenter81 is true.
 	F107ObsCenter81 float64
 	// HasF107ObsLast81 reports whether the has f107 obs last81 field is present.
 	HasF107ObsLast81 bool
-	// F107ObsLast81 is the f107 obs last81 value for SpaceWeatherDay.
+	// F107ObsLast81 is the preceding 81-day mean of observed 10.7 cm flux in SFU, when HasF107ObsLast81 is true.
 	F107ObsLast81 float64
 	// HasF107AdjCenter81 reports whether the has f107 adj center81 field is present.
 	HasF107AdjCenter81 bool
-	// F107AdjCenter81 is the f107 adj center81 value for SpaceWeatherDay.
+	// F107AdjCenter81 is the 81-day centered mean of adjusted 10.7 cm flux in SFU, when HasF107AdjCenter81 is true.
 	F107AdjCenter81 float64
 	// HasF107AdjLast81 reports whether the has f107 adj last81 field is present.
 	HasF107AdjLast81 bool
-	// F107AdjLast81 is the f107 adj last81 value for SpaceWeatherDay.
+	// F107AdjLast81 is the preceding 81-day mean of adjusted 10.7 cm flux in SFU, when HasF107AdjLast81 is true.
 	F107AdjLast81 float64
 }
 
@@ -251,32 +251,32 @@ type SpaceWeatherSample struct {
 	Weather SpaceWeather
 	// Class is the product or solution class.
 	Class SpaceWeatherObservationClass
-	// ApDefaulted is the ap defaulted value for SpaceWeatherSample.
+	// ApDefaulted reports that the native parser supplied a default Ap value.
 	ApDefaulted bool
 }
 
 // SpaceWeatherPolicy controls whether interpolated and predicted records are
 // acceptable to a sample query.
 type SpaceWeatherPolicy struct {
-	// AllowInterpolated is the allow interpolated value for SpaceWeatherPolicy.
+	// AllowInterpolated permits interpolation between observed daily samples.
 	AllowInterpolated bool
-	// AllowDailyPredicted is the allow daily predicted value for SpaceWeatherPolicy.
+	// AllowDailyPredicted permits daily predicted samples when observed data are unavailable.
 	AllowDailyPredicted bool
-	// AllowMonthlyPredicted is the allow monthly predicted value for SpaceWeatherPolicy.
+	// AllowMonthlyPredicted permits monthly predicted samples when observed and daily predicted data are unavailable.
 	AllowMonthlyPredicted bool
-	// RequireGeomagnetic is the require geomagnetic value for SpaceWeatherPolicy.
+	// RequireGeomagnetic requires a geomagnetic index for a successful sample query.
 	RequireGeomagnetic bool
 }
 
 // SpaceWeatherTableSummary contains parser record and diagnostic counts.
 type SpaceWeatherTableSummary struct {
-	// DayCount identifies or counts this record.
+	// DayCount is the number of daily records loaded.
 	DayCount int
-	// MonthlyCount identifies or counts this record.
+	// MonthlyCount is the number of monthly records loaded.
 	MonthlyCount int
-	// SkipCount identifies or counts this record.
+	// SkipCount is the number of records skipped by the parser.
 	SkipCount int
-	// WarningCount identifies or counts this record.
+	// WarningCount is the number of parser warnings recorded.
 	WarningCount int
 }
 
@@ -441,7 +441,7 @@ const (
 	GeofenceErrorInvalidInput GeofenceErrorKind = GeofenceErrorKind(native.GeofenceErrorInvalidInputValue)
 	// GeofenceErrorGeodesic identifies the geofence error geodesic case.
 	GeofenceErrorGeodesic GeofenceErrorKind = GeofenceErrorKind(native.GeofenceErrorGeodesicValue)
-	// GeofenceErrorDOP identifies the geofence error dop case.
+	// GeofenceErrorDOP identifies a DOP calculation error.
 	GeofenceErrorDOP GeofenceErrorKind = GeofenceErrorKind(native.GeofenceErrorDOPValue)
 	// GeofenceErrorMetrics identifies the geofence error metrics case.
 	GeofenceErrorMetrics GeofenceErrorKind = GeofenceErrorKind(native.GeofenceErrorMetricsValue)
@@ -451,11 +451,11 @@ const (
 type GeofenceUncertaintyKind uint32
 
 const (
-	// GeofenceENUCovarianceM2 identifies the geofence enu covariance m2 case.
+	// GeofenceENUCovarianceM2 identifies covariance in the local ENU frame, in square metres.
 	GeofenceENUCovarianceM2 GeofenceUncertaintyKind = GeofenceUncertaintyKind(native.GeofenceENUCovarianceM2Value)
-	// GeofenceECEFCovarianceM2 identifies the geofence ecef covariance m2 case.
+	// GeofenceECEFCovarianceM2 identifies covariance in the ECEF frame, in square metres.
 	GeofenceECEFCovarianceM2 GeofenceUncertaintyKind = GeofenceUncertaintyKind(native.GeofenceECEFCovarianceM2Value)
-	// GeofenceCEPRadiusM identifies the geofence cep radius m case.
+	// GeofenceCEPRadiusM identifies a circular error probable (CEP) radius in metres.
 	GeofenceCEPRadiusM GeofenceUncertaintyKind = GeofenceUncertaintyKind(native.GeofenceCEPRadiusMValue)
 )
 
@@ -499,29 +499,29 @@ type GeofenceProbabilityOptions struct {
 type GeofencePositionEstimate struct {
 	// Position is the position value in the containing frame.
 	Position Geodetic
-	// Uncertainty is the uncertainty value for GeofencePositionEstimate.
+	// Uncertainty contains the position uncertainty representation for this geofence sample.
 	Uncertainty GeofenceUncertainty
 }
 
 // GeofenceHysteresis contains entered and left confidence thresholds.
 type GeofenceHysteresis struct {
-	// EnterConfidence is the enter confidence value for GeofenceHysteresis.
+	// EnterConfidence is the probability threshold for declaring entry.
 	EnterConfidence float64
-	// LeaveConfidence is the leave confidence value for GeofenceHysteresis.
+	// LeaveConfidence is the probability threshold for declaring exit.
 	LeaveConfidence float64
 }
 
 // GeofenceCrossingEvent is one copied native crossing event.
 type GeofenceCrossingEvent struct {
-	// SampleIndex identifies or counts this record.
+	// SampleIndex is the zero-based sample index associated with this crossing.
 	SampleIndex int
 	// Kind is the event or record kind.
 	Kind GeofenceCrossingKind
-	// InsideProbability is the inside probability value for GeofenceCrossingEvent.
+	// InsideProbability is the probability that the sampled position is inside the geofence.
 	InsideProbability float64
 }
 
-// Geofence owns a native WGS84 geodesic polygon. Read calls may run
+// Geofence owns a native WGS 84 geodesic polygon. Read calls may run
 // concurrently; Close waits for active calls and is idempotent. The value
 // must not be copied after first use.
 type Geofence struct {

@@ -35,6 +35,7 @@ func main() {
 	fset := token.NewFileSet()
 	var findings []finding
 	total := 0
+	documentedFields := 0
 	packageOverview := ""
 	for _, entry := range entries {
 		name := entry.Name()
@@ -69,6 +70,7 @@ func main() {
 						}
 						findings = checkComment(findings, fset, name, spec.Pos(), "type", spec.Name.Name, doc)
 						total, findings = checkInterfaceMethods(total, findings, fset, name, spec)
+						documentedFields, findings = checkStructFields(documentedFields, findings, fset, name, spec)
 					case *ast.ValueSpec:
 						for _, identifier := range spec.Names {
 							if !identifier.IsExported() {
@@ -107,10 +109,10 @@ func main() {
 		for _, item := range findings {
 			fmt.Fprintf(os.Stderr, "%s:%d: %s %s: %s\n", item.file, item.line, item.kind, item.name, item.text)
 		}
-		fmt.Fprintf(os.Stderr, "documentation: %d failures across %d exported declarations and fields\n", len(findings), total)
+		fmt.Fprintf(os.Stderr, "documentation: %d failures across %d exported declarations and interface methods plus %d documented exported struct fields\n", len(findings), total, documentedFields)
 		os.Exit(1)
 	}
-	fmt.Printf("documentation: %d exported declarations and fields have conventional comments\n", total)
+	fmt.Printf("documentation: %d exported declarations and interface methods plus %d documented exported struct fields have conventional comments\n", total, documentedFields)
 }
 
 func checkInterfaceMethods(total int, findings []finding, fset *token.FileSet, filename string, spec *ast.TypeSpec) (int, []finding) {
@@ -130,6 +132,27 @@ func checkInterfaceMethods(total int, findings []finding, fset *token.FileSet, f
 	return total, findings
 }
 
+func checkStructFields(total int, findings []finding, fset *token.FileSet, filename string, spec *ast.TypeSpec) (int, []finding) {
+	value, ok := spec.Type.(*ast.StructType)
+	if !ok {
+		return total, findings
+	}
+	for _, field := range value.Fields.List {
+		for _, identifier := range field.Names {
+			if !identifier.IsExported() {
+				continue
+			}
+			if field.Doc == nil || strings.TrimSpace(field.Doc.Text()) == "" {
+				continue
+			}
+			total++
+			line := fset.Position(identifier.Pos()).Line
+			findings = checkCommentQuality(findings, filename, line, "struct field", identifier.Name, field.Doc.Text())
+		}
+	}
+	return total, findings
+}
+
 func checkComment(findings []finding, fset *token.FileSet, filename string, pos token.Pos, kind, name string, doc *ast.CommentGroup) []finding {
 	line := fset.Position(pos).Line
 	if doc == nil || strings.TrimSpace(doc.Text()) == "" {
@@ -144,7 +167,21 @@ func checkComment(findings []finding, fset *token.FileSet, filename string, pos 
 	if !startsWithName {
 		return append(findings, finding{file: filename, line: line, kind: kind, name: name, text: fmt.Sprintf("comment must start with %q", name)})
 	}
-	return findings
+	return checkCommentQuality(findings, filename, line, kind, name, text)
+}
+
+func checkCommentQuality(findings []finding, filename string, line int, kind, name, text string) []finding {
+	normalized := strings.ToLower(strings.Join(strings.Fields(text), " "))
+	switch {
+	case strings.Contains(normalized, "identifies or counts this record"):
+		return append(findings, finding{file: filename, line: line, kind: kind, name: name, text: "comment must state the identifier or count semantics"})
+	case strings.Contains(normalized, " is the ") && strings.Contains(normalized, " value for "):
+		return append(findings, finding{file: filename, line: line, kind: kind, name: name, text: "comment must state units, guards, frame, or semantic role"})
+	case strings.Contains(normalized, "fixed-size array"):
+		return append(findings, finding{file: filename, line: line, kind: kind, name: name, text: "comment must state the array shape or element order"})
+	default:
+		return findings
+	}
 }
 
 func fatal(err error) {

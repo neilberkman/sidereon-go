@@ -237,27 +237,34 @@ func BroadcastEccentricAnomaly(meanAnomalyRad, eccentricity float64) (float64, i
 }
 
 // ConstellationConstants contains native physical constants used for broadcast
-// orbit and clock evaluation. Values use SI units.
-// ConstellationConstants contains orbital and signal constants for one GNSS constellation.
-type ConstellationConstants struct{ GMM3PerS2, OmegaERadPerS, DTRF float64 }
+// orbit and clock evaluation for one GNSS constellation.
+type ConstellationConstants struct {
+	// GMM3PerS2 is the gravitational constant in cubic metres per square second; OmegaERadPerS is Earth rotation in radians per second; DTRF is the relativistic clock constant in seconds per square-root metre.
+	GMM3PerS2, OmegaERadPerS, DTRF float64
+}
 
-// ClockOffset is a broadcast satellite-clock correction in seconds with its validity metadata.
-type ClockOffset struct{ ClockPolynomialS, RelativisticS, GroupDelayS, TotalS float64 }
+// ClockOffset contains the broadcast clock-polynomial, relativistic, group-delay, and total corrections, all in seconds.
+type ClockOffset struct {
+	// ClockPolynomialS, RelativisticS, and GroupDelayS are the component corrections; TotalS is their combined clock offset, all in seconds.
+	ClockPolynomialS, RelativisticS, GroupDelayS, TotalS float64
+}
 
 // OrbitState contains the complete native broadcast orbit evaluation, including
 // intermediate Kepler and corrected-orbit values.
-// OrbitState contains propagated satellite orbital parameters and derived state values.
 type OrbitState struct {
 	// A is the semi-major axis in metres; N0 and N are mean motions in radians per second; TK is seconds from the reference epoch; MK and EccentricAnomaly are angles in radians.
 	A, N0, N, TK, MK, EccentricAnomaly float64
-	KeplerIterations                   int
+	// KeplerIterations is the number of iterations used to solve eccentric anomaly.
+	KeplerIterations int
 	// SinE and CosE, S2 and C2 are dimensionless; Nu, Phi, DU, DI, U, I, and OmegaK are radians; DR, R, XP, YP, and XM/YM/ZM are metres.
 	SinE, CosE, Nu, Phi, S2, C2, DU, DR, DI, U, R, I, XP, YP, OmegaK, XM, YM, ZM float64
 }
 
 // SatelliteState combines an OrbitState and ClockOffset from one C call.
 type SatelliteState struct {
+	// Orbit is the propagated broadcast orbit state.
 	Orbit OrbitState
+	// Clock is the clock correction evaluated for the same state.
 	Clock ClockOffset
 }
 
@@ -316,7 +323,8 @@ func SelectSP3OverRange(products []*SP3, startEpochJ2000S, endEpochJ2000S float6
 // SPPDopplerObservation is one Doppler row in hertz and carrier frequency.
 type SPPDopplerObservation struct {
 	// SatelliteID is the GNSS satellite identifier.
-	SatelliteID                                    string
+	SatelliteID string
+	// DopplerHz is the measured shift in hertz; CarrierHz is the nominal carrier in hertz; SatelliteClockDriftSPerS is the satellite clock drift in seconds per second.
 	DopplerHz, CarrierHz, SatelliteClockDriftSPerS float64
 }
 
@@ -346,9 +354,11 @@ const (
 
 // SPPDopplerSolution is a detached receiver SPP result plus Doppler status.
 type SPPDopplerSolution struct {
+	// Receiver is the detached SPP position and clock solution.
 	Receiver SPPSolution
 	// HasVelocity reports whether Velocity contains a solution.
-	HasVelocity       bool
+	HasVelocity bool
+	// VelocityErrorKind identifies why velocity is unavailable when HasVelocity is false.
 	VelocityErrorKind SPPDopplerVelocityErrorKind
 	// Velocity refers to an optional value; nil means it is unavailable.
 	Velocity *SPPDopplerVelocitySolution
@@ -356,17 +366,19 @@ type SPPDopplerSolution struct {
 
 // SPPDopplerVelocitySolution is the detached native velocity result. Velocity
 // and residuals use metres per second; ClockDriftSPerS uses seconds per second.
-// StateCovariance is the row-major 4x4 covariance for [vx, vy, vz, clock drift], with products of m/s and s/s units.
-// SPPDopplerVelocitySolution contains Doppler-derived SPP velocity, clock drift, and residual metadata.
 type SPPDopplerVelocitySolution struct {
-	// VelocityMPerS contains metres per second.
-	VelocityMPerS   [3]float64
+	// VelocityMPerS is the receiver ECEF velocity [x, y, z] in metres per second.
+	VelocityMPerS [3]float64
+	// ClockDriftSPerS is the receiver clock drift in seconds per second.
 	ClockDriftSPerS float64
-	// SpeedMPerS contains metres per second.
-	SpeedMPerS         float64
-	StateCovariance    [16]float64
+	// SpeedMPerS is the receiver velocity norm in metres per second.
+	SpeedMPerS float64
+	// StateCovariance is row-major 4x4 covariance for [vx, vy, vz, clock drift], with products of m/s and s/s units.
+	StateCovariance [16]float64
+	// UsedSatelliteCount is the number of Doppler rows retained in the velocity solution.
 	UsedSatelliteCount int
-	UsedSatelliteIDs   []string
+	// UsedSatelliteIDs identifies the retained Doppler satellites in native solution order.
+	UsedSatelliteIDs []string
 	// ResidualsMPerS contains metres per second.
 	ResidualsMPerS []float64
 }
@@ -381,8 +393,7 @@ func SolveBroadcast(broadcast *BroadcastEphemeris, config SPPConfig) (SPPSolutio
 }
 
 // SolveBroadcastWithDopplerVelocity solves broadcast SPP and its native Doppler
-// velocity extension. The returned receiver solution is always detached.
-// SolveBroadcastWithDopplerVelocity solves SPP position and velocity from broadcast Doppler observations.
+// velocity extension. The returned receiver and optional velocity are detached.
 func SolveBroadcastWithDopplerVelocity(broadcast *BroadcastEphemeris, config SPPConfig, observations []SPPDopplerObservation) (SPPDopplerSolution, error) {
 	if broadcast == nil || broadcast.handle == nil {
 		return SPPDopplerSolution{}, ErrClosed

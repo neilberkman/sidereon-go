@@ -40,11 +40,11 @@ const (
 	SBASMessageLongTermCorrections SBASMessageKind = SBASMessageKind(native.SBASMessageLongTermCorrectionsValue)
 	// SBASMessageIONODelays classifies an SBAS message carrying ionospheric delays.
 	SBASMessageIONODelays SBASMessageKind = SBASMessageKind(native.SBASMessageIONODelaysValue)
-	// SBASMessageUnsupported classifies an SBAS message carrying unsupported.
+	// SBASMessageUnsupported classifies an SBAS message whose payload type is unsupported.
 	SBASMessageUnsupported SBASMessageKind = SBASMessageKind(native.SBASMessageUnsupportedValue)
 )
 
-// SBASMessageInfo is the copied classification and record-count summary.
+// SBASMessageInfo is the detached classification and payload-count summary.
 type SBASMessageInfo struct {
 	// Form selects the SBAS wire representation used by the message block.
 	Form SBASWireForm
@@ -52,10 +52,13 @@ type SBASMessageInfo struct {
 	Kind SBASMessageKind
 	// MessageType is the SBAS message type.
 	MessageType uint8
-	// Preamble is the SBAS preamble.
-	Preamble       uint8
-	FastCount      int
-	LongTermCount  int
+	// Preamble is the SBAS preamble byte.
+	Preamble uint8
+	// FastCount is the number of fast-correction records in the decoded block.
+	FastCount int
+	// LongTermCount is the number of long-term-correction records reported by C.
+	LongTermCount int
+	// IONODelayCount is the number of decoded ionospheric-delay records.
 	IONODelayCount int
 }
 
@@ -130,12 +133,14 @@ type SBASLongTermHalfInfo struct {
 	// VelocityCode reports whether the long-term correction uses velocity coding.
 	VelocityCode bool
 	// IODP is the issue-of-data processing index.
-	IODP        uint8
+	IODP uint8
+	// RecordCount is the number of long-term records in this half.
 	RecordCount int
 }
 
 // SBASLongTermRecord contains one SBAS long-term satellite correction record.
 type SBASLongTermRecord struct {
+	// MonitoredIndex is the zero-based monitored-satellite index in the active PRN mask.
 	MonitoredIndex uint8
 	// IODE is the ephemeris issue-of-data index.
 	IODE uint8
@@ -396,7 +401,7 @@ func (block *SBASBlock) RawData() ([]byte, error) {
 	return value, publicError(err)
 }
 
-// SBASLogBlock is copied metadata for one text-log row. Payload bytes are
+// SBASLogBlock is detached metadata for one text-log row. Payload bytes are
 // obtained separately so callers never retain native memory.
 type SBASLogBlock struct {
 	// SatelliteID is the GNSS satellite identifier.

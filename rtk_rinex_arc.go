@@ -7,7 +7,7 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 type RTKRINEXSignalPair struct {
 	// System is the GNSS system identifier.
 	System GNSSSystem
-	// CodeObservable is the code observable value for RTKRINEXSignalPair; PhaseObservable is the phase observable value for RTKRINEXSignalPair.
+	// CodeObservable and PhaseObservable are the RINEX code and carrier-phase labels selected for the system.
 	CodeObservable, PhaseObservable string
 }
 
@@ -16,7 +16,7 @@ type RTKRINEXSignalPair struct {
 type RTKRINEXDualSignalPair struct {
 	// System is the GNSS system identifier.
 	System GNSSSystem
-	// Code1Observable is the code1 observable value for RTKRINEXDualSignalPair; Phase1Observable is the phase1 observable value for RTKRINEXDualSignalPair; Code2Observable is the code2 observable value for RTKRINEXDualSignalPair; Phase2Observable is the phase2 observable value for RTKRINEXDualSignalPair.
+	// Code1Observable/Phase1Observable and Code2Observable/Phase2Observable are the two RINEX code/carrier label pairs.
 	Code1Observable, Phase1Observable, Code2Observable, Phase2Observable string
 }
 
@@ -24,13 +24,13 @@ type RTKRINEXDualSignalPair struct {
 type RTKRINEXArcOptions struct {
 	// SignalPairs contains a detached copy; nil means this field is absent.
 	SignalPairs []RTKRINEXSignalPair
-	// HasMaxEpochs reports whether the has max epochs field is present.
+	// HasMaxEpochs reports whether MaxEpochs bounds the number of epochs.
 	HasMaxEpochs bool
-	// MaxEpochs is the max epochs value for RTKRINEXArcOptions.
+	// MaxEpochs caps the number of epochs when HasMaxEpochs is true.
 	MaxEpochs int
-	// MinCommonSatellites is the min common satellites value for RTKRINEXArcOptions.
+	// MinCommonSatellites is the minimum number of common satellites required in an epoch.
 	MinCommonSatellites int
-	// IncludePredictionTime is the include prediction time value for RTKRINEXArcOptions.
+	// IncludePredictionTime requests the epoch time used for prediction in each output metadata row.
 	IncludePredictionTime bool
 }
 
@@ -38,108 +38,108 @@ type RTKRINEXArcOptions struct {
 type RTKRINEXDualArcOptions struct {
 	// SignalPairs contains a detached copy; nil means this field is absent.
 	SignalPairs []RTKRINEXDualSignalPair
-	// HasMaxEpochs reports whether the has max epochs field is present.
+	// HasMaxEpochs reports whether MaxEpochs bounds the number of epochs.
 	HasMaxEpochs bool
-	// MaxEpochs is the max epochs value for RTKRINEXDualArcOptions.
+	// MaxEpochs caps the number of epochs when HasMaxEpochs is true.
 	MaxEpochs int
-	// MinCommonSatellites is the min common satellites value for RTKRINEXDualArcOptions.
+	// MinCommonSatellites is the minimum number of common satellites required in an epoch.
 	MinCommonSatellites int
-	// IncludePredictionTime is the include prediction time value for RTKRINEXDualArcOptions.
+	// IncludePredictionTime requests the epoch time used for prediction in each output metadata row.
 	IncludePredictionTime bool
 }
 
-// RTKRINEXArcObservation is one copied single-frequency epoch observation.
+// RTKRINEXArcObservation is one detached single-frequency epoch observation.
 type RTKRINEXArcObservation struct {
-	// SatelliteID identifies or counts this record; AmbiguityID identifies or counts this record.
+	// SatelliteID identifies the observed GNSS satellite; AmbiguityID identifies its carrier-phase ambiguity.
 	SatelliteID, AmbiguityID string
 	// CodeM is the code m in metres; PhaseM is the phase m in metres.
 	CodeM, PhaseM float64
-	// HasLLI reports whether the has lli field is present.
+	// HasLLI reports whether LLI contains a loss-of-lock indicator.
 	HasLLI bool
 	// LLI is the loss-of-lock indicator.
 	LLI int64
 }
 
-// RTKRINEXArcPosition is one copied satellite ECEF position.
+// RTKRINEXArcPosition is one detached satellite ECEF position.
 type RTKRINEXArcPosition struct {
-	// SatelliteID identifies or counts this record.
+	// SatelliteID is the GNSS satellite whose ECEF position was sampled.
 	SatelliteID string
 	// PositionM is the position m in metres.
 	PositionM [3]float64
 }
 
-// RTKRINEXArcEpochMetadata contains copied single-frequency epoch shape and
+// RTKRINEXArcEpochMetadata contains detached single-frequency epoch shape and
 // optional prediction fields.
 type RTKRINEXArcEpochMetadata struct {
-	// BaseCount identifies or counts this record; RoverCount identifies or counts this record; SatellitePositionCount identifies or counts this record.
+	// BaseCount, RoverCount, and SatellitePositionCount are the base-observation, rover-observation, and satellite-position row counts.
 	BaseCount, RoverCount, SatellitePositionCount int
-	// BaseSatellitePositionCount identifies or counts this record; RoverSatellitePositionCount identifies or counts this record.
+	// BaseSatellitePositionCount and RoverSatellitePositionCount are the receiver-specific satellite-position row counts.
 	BaseSatellitePositionCount, RoverSatellitePositionCount int
-	// HasVelocityMPS reports whether the has velocity mps field is present.
+	// HasVelocityMPS reports whether VelocityMPS contains a velocity estimate.
 	HasVelocityMPS bool
-	// VelocityMPS is the velocity mps in metres per second.
+	// VelocityMPS is the receiver velocity in metres per second.
 	VelocityMPS [3]float64
-	// HasPredictionTime reports whether the has prediction time field is present.
+	// HasPredictionTime reports whether PredictionTimeS contains an epoch coordinate.
 	HasPredictionTime bool
-	// PredictionTimeS is the prediction time s in seconds.
+	// PredictionTimeS is the epoch time coordinate in seconds when HasPredictionTime is true.
 	PredictionTimeS float64
 }
 
-// RTKRINEXMapValue is one copied ambiguity-keyed wavelength or offset. It is
+// RTKRINEXMapValue is one detached ambiguity-keyed wavelength or offset. It is
 // the same shape as the existing RTKFloatMapEntry input type.
 type RTKRINEXMapValue = RTKFloatMapEntry
 
 // RTKRINEXDualFrequencyObservation contains one receiver's two-frequency
 // observation values.
 type RTKRINEXDualFrequencyObservation struct {
-	// AmbiguityID identifies or counts this record.
+	// AmbiguityID identifies the carrier-phase ambiguity for this receiver observation.
 	AmbiguityID string
-	// P1M is the p1 m in metres; P2M is the p2 m in metres; Phi1Cycles is the phi1 cycles in cycles; Phi2Cycles is the phi2 cycles in cycles; F1Hz is the f1 hz in hertz; F2Hz is the f2 hz in hertz.
+	// P1M and P2M are code measurements in metres; Phi1Cycles and Phi2Cycles are carrier phases in cycles; F1Hz and F2Hz are carrier frequencies in hertz.
 	P1M, P2M, Phi1Cycles, Phi2Cycles, F1Hz, F2Hz float64
-	// HasLLI1 reports whether the has lli1 field is present; HasLLI2 reports whether the has lli2 field is present.
+	// HasLLI1 and HasLLI2 report whether the corresponding loss-of-lock indicators are valid.
 	HasLLI1, HasLLI2 bool
-	// LLI1 is the lli1 value for RTKRINEXDualFrequencyObservation; LLI2 is the lli2 value for RTKRINEXDualFrequencyObservation.
+	// LLI1 and LLI2 are the loss-of-lock indicators for the first and second carrier bands.
 	LLI1, LLI2 int64
 }
 
 // RTKRINEXDualFrequencySatelliteObservation contains both receivers' values
 // for one satellite.
 type RTKRINEXDualFrequencySatelliteObservation struct {
-	// SatelliteID identifies or counts this record.
+	// SatelliteID identifies the GNSS satellite observed by both receivers.
 	SatelliteID string
-	// Base is the base value for RTKRINEXDualFrequencySatelliteObservation; Rover is the rover value for RTKRINEXDualFrequencySatelliteObservation.
+	// Base and Rover contain the two-frequency observations from the base and rover receivers.
 	Base, Rover RTKRINEXDualFrequencyObservation
 }
 
-// RTKRINEXDualFrequencyArcEpochMetadata contains copied dual-frequency epoch
+// RTKRINEXDualFrequencyArcEpochMetadata contains detached dual-frequency epoch
 // time, shape, and optional fields.
 type RTKRINEXDualFrequencyArcEpochMetadata struct {
-	// JDWhole is the Julian-date value; JDFraction is the Julian-date value; GapTimeS is the gap time s in seconds; PredictionTimeS is the prediction time s in seconds.
+	// JDWhole and JDFraction are the split Julian date in days; GapTimeS is the inter-epoch gap in seconds; PredictionTimeS is the epoch time coordinate in seconds when present.
 	JDWhole, JDFraction, GapTimeS, PredictionTimeS float64
-	// HasGapTimeS reports whether the has gap time s field is present; HasVelocityMPS reports whether the has velocity mps field is present; HasPredictionTime reports whether the has prediction time field is present.
+	// HasGapTimeS, HasVelocityMPS, and HasPredictionTime report validity of the corresponding optional arc metadata.
 	HasGapTimeS, HasVelocityMPS, HasPredictionTime bool
-	// ObservationCount identifies or counts this record; SatellitePositionCount identifies or counts this record.
+	// ObservationCount and SatellitePositionCount are the dual-frequency observation and satellite-position row counts.
 	ObservationCount, SatellitePositionCount int
-	// BaseSatellitePositionCount identifies or counts this record.
+	// BaseSatellitePositionCount is the number of base satellite-position rows.
 	BaseSatellitePositionCount int
-	// RoverSatellitePositionCount identifies or counts this record.
+	// RoverSatellitePositionCount is the number of rover satellite-position rows.
 	RoverSatellitePositionCount int
-	// VelocityMPS is the velocity mps in metres per second.
+	// VelocityMPS is the receiver velocity in metres per second.
 	VelocityMPS [3]float64
 }
 
-// RTKArcObservation is the shared shape of a copied single-frequency RTK
+// RTKArcObservation is the shared shape of a detached single-frequency RTK
 // observation.
 type RTKArcObservation = RTKRINEXArcObservation
 
-// RTKArcPosition is the shared shape of a copied RTK satellite position.
+// RTKArcPosition is the shared shape of a detached RTK satellite position.
 type RTKArcPosition = RTKRINEXArcPosition
 
-// RTKDualFrequencyObservation is the shared shape of one receiver's copied
+// RTKDualFrequencyObservation is the shared shape of one receiver's detached
 // dual-frequency observation.
 type RTKDualFrequencyObservation = RTKRINEXDualFrequencyObservation
 
-// RTKDualFrequencySatelliteObservation is the shared shape of copied dual
+// RTKDualFrequencySatelliteObservation is the shared shape of detached dual
 // frequency observations for both receivers.
 type RTKDualFrequencySatelliteObservation = RTKRINEXDualFrequencySatelliteObservation
 

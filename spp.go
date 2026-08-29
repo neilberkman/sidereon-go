@@ -4,7 +4,7 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 
 // SPPObservation is one measured pseudorange in meters.
 type SPPObservation struct {
-	// SatelliteID identifies or counts this record.
+	// SatelliteID is the GNSS satellite identifier for the measured pseudorange.
 	SatelliteID string
 	// PseudorangeM is the pseudorange m in metres.
 	PseudorangeM float64
@@ -15,25 +15,25 @@ type SPPObservation struct {
 type SPPConfig struct {
 	// Observations contains a detached copy; nil means this field is absent.
 	Observations []SPPObservation
-	// TRxJ2000S is the t rx j2000 s in seconds.
+	// TRxJ2000S is the receiver epoch in seconds from J2000.
 	TRxJ2000S float64
-	// TRxSecondOfDayS is the t rx second of day s value for SPPConfig.
+	// TRxSecondOfDayS is the receiver UTC seconds since midnight.
 	TRxSecondOfDayS float64
-	// DayOfYear is the day of year value for SPPConfig.
+	// DayOfYear is the one-based fractional day of year used by atmospheric models.
 	DayOfYear float64
-	// InitialGuess contains the fixed-size array for this record.
+	// InitialGuess is [ECEF x, y, z, receiver clock range bias], all in metres.
 	InitialGuess [4]float64
-	// Ionosphere is the ionosphere model.
+	// Ionosphere requests the Klobuchar ionosphere correction.
 	Ionosphere bool
-	// Troposphere is the troposphere model.
+	// Troposphere requests the configured troposphere correction.
 	Troposphere bool
-	// WithGeodetic is the with geodetic value for SPPConfig.
+	// WithGeodetic requests latitude, longitude, and height alongside the ECEF result.
 	WithGeodetic bool
-	// KlobucharAlpha contains the fixed-size array for this record.
+	// KlobucharAlpha contains the four Klobuchar alpha coefficients [a0, a1, a2, a3].
 	KlobucharAlpha [4]float64
-	// KlobucharBeta contains the fixed-size array for this record.
+	// KlobucharBeta contains the four Klobuchar beta coefficients [b0, b1, b2, b3].
 	KlobucharBeta [4]float64
-	// PressureHPA is the pressure hpa in hectopascals.
+	// PressureHPA is the atmospheric pressure in hectopascals.
 	PressureHPA float64
 	// TemperatureK is the temperature k in kelvin.
 	TemperatureK float64
@@ -48,21 +48,21 @@ type SPPConfig struct {
 type SPPGeometryQuality struct {
 	// Tier is the geometry-quality tier.
 	Tier uint32
-	// Redundancy is the redundancy value.
+	// Redundancy is the residual degrees of freedom.
 	Redundancy int32
 	// Rank is the matrix rank.
 	Rank int
-	// ConditionNumber identifies or counts this record.
+	// ConditionNumber is the dimensionless geometry-matrix condition number.
 	ConditionNumber float64
-	// GDOP is the gdop value for SPPGeometryQuality.
+	// GDOP is the dimensionless geometric dilution of precision.
 	GDOP float64
-	// RAIMCheckable is the raimcheckable value for SPPGeometryQuality.
+	// RAIMCheckable reports whether the available redundancy supports a RAIM check.
 	RAIMCheckable bool
-	// CovarianceValidated is the covariance validated value for SPPGeometryQuality.
+	// CovarianceValidated reports whether the native covariance passed validation.
 	CovarianceValidated bool
 }
 
-// SPPMetadata contains copied C solver and geometry metadata.
+// SPPMetadata contains detached C solver and geometry metadata.
 type SPPMetadata struct {
 	// Iterations is the native solver iteration count.
 	Iterations int
@@ -70,23 +70,23 @@ type SPPMetadata struct {
 	Converged bool
 	// Status is the native status code.
 	Status uint32
-	// IonosphereApplied is the ionosphere applied value for SPPMetadata.
+	// IonosphereApplied reports whether the ionosphere correction was applied.
 	IonosphereApplied bool
-	// TroposphereApplied is the troposphere applied value for SPPMetadata.
+	// TroposphereApplied reports whether the troposphere correction was applied.
 	TroposphereApplied bool
-	// OuterIterations is the outer iterations value for SPPMetadata.
+	// OuterIterations is the number of robust outer-loop iterations.
 	OuterIterations int
-	// HasFinalRobustScale reports whether the has final robust scale field is present.
+	// HasFinalRobustScale reports whether FinalRobustScale is valid for the solve.
 	HasFinalRobustScale bool
 	// FinalRobustScaleM is the final robust scale m in metres.
 	FinalRobustScaleM float64
-	// UsedCount identifies or counts this record.
+	// UsedCount is the number of observations retained in the solution.
 	UsedCount int
-	// SystemCount identifies or counts this record.
+	// SystemCount is the number of GNSS systems represented by retained observations.
 	SystemCount int
 	// Redundancy is the redundancy value.
 	Redundancy int64
-	// RAIMCheckable is the raimcheckable value for SPPMetadata.
+	// RAIMCheckable reports whether the solution has enough redundancy for RAIM.
 	RAIMCheckable bool
 	// GeometryQuality is the geometry-quality diagnostics.
 	GeometryQuality SPPGeometryQuality
@@ -99,7 +99,7 @@ type SPPSolution struct {
 	PositionM [3]float64
 	// ReceiverClockS is the receiver clock s in seconds.
 	ReceiverClockS float64
-	// UsedSatelliteCount identifies or counts this record.
+	// UsedSatelliteCount is the number of GNSS satellites contributing to the solution.
 	UsedSatelliteCount int
 	// UsedSatelliteIDs contains a detached copy; nil means this field is absent.
 	UsedSatelliteIDs []string

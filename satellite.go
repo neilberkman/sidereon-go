@@ -30,9 +30,9 @@ type ConstellationGroundTracks struct {
 
 // FleetPass associates a pass with its fleet-order satellite index.
 type FleetPass struct {
-	// SatelliteIndex identifies or counts this record.
+	// SatelliteIndex is the zero-based index of the satellite in the fleet input.
 	SatelliteIndex int
-	// Pass is the pass value for FleetPass.
+	// Pass contains the visibility interval and peak look-angle data.
 	Pass SatellitePass
 }
 

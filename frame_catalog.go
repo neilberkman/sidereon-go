@@ -6,13 +6,13 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 type TerrestrialFrame uint32
 
 const (
-	// TerrestrialFrameITRF2020 identifies the terrestrial frame itrf2020 case.
+	// TerrestrialFrameITRF2020 identifies the ITRF 2020 terrestrial frame realization.
 	TerrestrialFrameITRF2020 TerrestrialFrame = TerrestrialFrame(native.TerrestrialFrameITRF2020Value)
-	// TerrestrialFrameITRF2014 identifies the terrestrial frame itrf2014 case.
+	// TerrestrialFrameITRF2014 identifies the ITRF 2014 terrestrial frame realization.
 	TerrestrialFrameITRF2014 TerrestrialFrame = TerrestrialFrame(native.TerrestrialFrameITRF2014Value)
-	// TerrestrialFrameITRF2008 identifies the terrestrial frame itrf2008 case.
+	// TerrestrialFrameITRF2008 identifies the ITRF 2008 terrestrial frame realization.
 	TerrestrialFrameITRF2008 TerrestrialFrame = TerrestrialFrame(native.TerrestrialFrameITRF2008Value)
-	// TerrestrialFrameETRF2020 identifies the terrestrial frame etrf2020 case.
+	// TerrestrialFrameETRF2020 identifies the ETRF 2020 terrestrial frame realization.
 	TerrestrialFrameETRF2020 TerrestrialFrame = TerrestrialFrame(native.TerrestrialFrameETRF2020Value)
 )
 
@@ -30,26 +30,26 @@ type HelmertParameters struct {
 type HelmertRates struct {
 	// TranslationMmPerYear is the translation mm per year in millimetres per year.
 	TranslationMmPerYear [3]float64
-	// ScalePPBPerYear is the scale ppb per year value for HelmertRates.
+	// ScalePPBPerYear is the Helmert scale rate in parts per billion per year.
 	ScalePPBPerYear float64
-	// RotationMASPerYear contains the fixed-size array for this record.
+	// RotationMASPerYear contains the X, Y, and Z rotation rates in milliarcseconds per year.
 	RotationMASPerYear [3]float64
 }
 
 // HelmertTransform is one catalog entry. Translations are mm, rotations are
 // mas, scale is ppb, and rates use the corresponding per-year units.
 type HelmertTransform struct {
-	// From is the from value for HelmertTransform.
+	// From is the source terrestrial frame realization.
 	From TerrestrialFrame
-	// To is the to value for HelmertTransform.
+	// To is the target terrestrial frame realization.
 	To TerrestrialFrame
-	// ReferenceYear is the reference year value for HelmertTransform.
+	// ReferenceYear is the decimal epoch at which Parameters apply.
 	ReferenceYear float64
-	// Parameters is the parameters value for HelmertTransform.
+	// Parameters contains the translation, rotation, and scale offsets at ReferenceYear.
 	Parameters HelmertParameters
-	// Rates is the rates value for HelmertTransform.
+	// Rates contains the per-year translation, rotation, and scale changes.
 	Rates HelmertRates
-	// Provenance is the provenance value for HelmertTransform.
+	// Provenance identifies the catalog source or convention for this transform.
 	Provenance string
 }
 

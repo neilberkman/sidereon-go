@@ -8,13 +8,13 @@ import "fmt"
 type SelectionError struct {
 	// Status is the native status code.
 	Status SelectionStatus
-	// Text is the text value for SelectionError.
+	// Text is the stable human-readable name for Status.
 	Text string
-	// Detail is the detail value for SelectionError.
+	// Detail is the same-call native thread-local diagnostic, when available.
 	Detail string
 }
 
-// Error returns the error detail string.
+// Error formats the selection status code, stable name, and optional native detail.
 func (e *SelectionError) Error() string {
 	if e == nil {
 		return "sidereon: selection error"

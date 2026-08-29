@@ -141,7 +141,7 @@ func FrameGeodeticFromECEFProj(ecefM [3]float64) (FrameGeodeticFromECEF, error) 
 	return FrameGeodeticFromECEF{LongitudeDeg: value.LongitudeDeg, LatitudeDeg: value.LatitudeDeg, AltitudeM: value.AltitudeM}, publicError(err)
 }
 
-// FrameGeodeticToITRS converts WGS84 latitude/longitude degrees and altitude
+// FrameGeodeticToITRS converts WGS 84 latitude/longitude degrees and altitude
 // kilometres to ITRS/ECEF kilometres.
 func FrameGeodeticToITRS(latitudeDeg, longitudeDeg, altitudeKm float64) ([3]float64, error) {
 	value, err := native.FrameGeodeticToITRS(latitudeDeg, longitudeDeg, altitudeKm)
@@ -223,20 +223,20 @@ func FrameTEMEToGCRS(positionKm, velocityKmPerS [3]float64, scales TimeScales, s
 
 // DopplerRangeRate is the C range-rate and dimensionless Doppler-ratio record.
 type DopplerRangeRate struct {
-	// RangeRateKmS is the range rate km s value for DopplerRangeRate.
+	// RangeRateKmS is the relative line-of-sight range rate in kilometres per second.
 	RangeRateKmS float64
-	// DopplerRatio is the doppler ratio value for DopplerRangeRate.
+	// DopplerRatio is the dimensionless received-to-transmitted frequency ratio.
 	DopplerRatio float64
 }
 
 // DopplerShift is the C range-rate, carrier Doppler shift, and dimensionless
 // Doppler-ratio result.
 type DopplerShift struct {
-	// RangeRateKmS is the range rate km s value for DopplerShift.
+	// RangeRateKmS is the relative line-of-sight range rate in kilometres per second.
 	RangeRateKmS float64
 	// DopplerHz is the doppler hz in hertz.
 	DopplerHz float64
-	// DopplerRatio is the doppler ratio value for DopplerShift.
+	// DopplerRatio is the dimensionless received-to-transmitted frequency ratio.
 	DopplerRatio float64
 }
 

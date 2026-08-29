@@ -34,21 +34,21 @@ type CDMObject struct {
 	PositionKm [3]float64
 	// VelocityKmPerS is the velocity km per s in kilometres per second.
 	VelocityKmPerS [3]float64
-	// CovarianceRTN contains the fixed-size array for this record.
+	// CovarianceRTN is the six-element lower-triangular position covariance in RTN order (CR_R, CT_R, CT_T, CN_R, CN_T, CN_N), in square metres.
 	CovarianceRTN [6]float64
-	// VelocityCovarianceRTN contains the fixed-size array for this record.
+	// VelocityCovarianceRTN is the fixed 15-element lower triangle in the C header's RTN order; entries use the CDM's mixed square-metre-per-second and square-metre-per-second-squared units.
 	VelocityCovarianceRTN [15]float64
 	// HasVelocityCovariance reports whether the has velocity covariance field is present.
 	HasVelocityCovariance bool
-	// ObjectDesignator is the object designator value for CDMObject.
+	// ObjectDesignator is the CDM-designated identifier for this object.
 	ObjectDesignator string
-	// CatalogName is the catalog name value for CDMObject.
+	// CatalogName is the catalog or catalog-source name for this object.
 	CatalogName string
-	// ObjectName is the object name value for CDMObject.
+	// ObjectName is the human-readable name for this object.
 	ObjectName string
-	// InternationalDesignator is the international designator value for CDMObject.
+	// InternationalDesignator is the international designator assigned to this object.
 	InternationalDesignator string
-	// ObjectType is the object type value for CDMObject.
+	// ObjectType is the provider's classification of this object.
 	ObjectType string
 	// RefFrame identifies the reference frame used by this CDM object.
 	RefFrame string

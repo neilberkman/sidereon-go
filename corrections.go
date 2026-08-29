@@ -20,28 +20,28 @@ type AirborneModel struct {
 	SigmaNoiseDivergenceM float64
 }
 
-// DegradationParams contains SBAS fast-correction degradation terms. Distance
-// terms are metres and rate terms are metres per second.
+// DegradationParams contains SBAS fast-correction degradation terms. DeltaUDRE
+// is dimensionless; the Eps fields are degradation distances in metres.
 type DegradationParams struct {
-	// DeltaUDRE is the delta udre value for DegradationParams; EpsFCM is the eps fcm value for DegradationParams; EpsRRCM is the eps rrcm value for DegradationParams; EpsLTCM is the eps ltcm value for DegradationParams; EpsERM is the eps erm value for DegradationParams; EpsIonoM is the eps iono m value for DegradationParams.
+	// DeltaUDRE is the dimensionless UDRE variance multiplier; EpsFCM, EpsRRCM, EpsLTCM, EpsERM, and EpsIonoM are fast, range-rate, long-term, en-route, and ionospheric degradation terms in metres.
 	DeltaUDRE, EpsFCM, EpsRRCM, EpsLTCM, EpsERM, EpsIonoM float64
-	// RSSUDRE is the rssudre value for DegradationParams.
+	// RSSUDRE reports whether UDRE degradation terms are combined by root-sum-square.
 	RSSUDRE bool
 }
 
 // SBASKMultipliers contains horizontal and vertical protection-level factors.
 type SBASKMultipliers struct {
-	// KH is the kh value for SBASKMultipliers.
+	// KH is the horizontal protection-level multiplier applied to the horizontal semi-major axis.
 	KH float64
-	// KV is the kv value for SBASKMultipliers.
+	// KV is the vertical protection-level multiplier applied to the vertical one-sigma standard deviation.
 	KV float64
 }
 
-// SBASProtectionRow is one satellite geometry row in the local ENU frame.
+// SBASProtectionRow is one satellite geometry row with an ECEF line-of-sight vector.
 type SBASProtectionRow struct {
-	// SatelliteID identifies or counts this record.
+	// SatelliteID is the GNSS satellite token for this protection row.
 	SatelliteID string
-	// LineOfSight is the line of sight value for SBASProtectionRow.
+	// LineOfSight is the receiver-to-satellite ECEF unit vector.
 	LineOfSight LineOfSight
 	// System is the GNSS system identifier.
 	System GNSSSystem
@@ -51,7 +51,7 @@ type SBASProtectionRow struct {
 
 // SBASSISError contains one satellite-in-space error model in metres.
 type SBASSISError struct {
-	// SatelliteID identifies or counts this record.
+	// SatelliteID is the GNSS satellite token for this SIS error.
 	SatelliteID string
 	// SigmaFLTM is the sigma fltm in metres; SigmaUIREM is the sigma uirem in metres; SigmaAirM is the sigma air m in metres; SigmaTropoM is the sigma tropo m in metres.
 	SigmaFLTM, SigmaUIREM, SigmaAirM, SigmaTropoM float64
@@ -249,31 +249,31 @@ func (b *BroadcastEphemeris) LeapSeconds() (float64, bool, error) {
 type SBASFastCorrection struct {
 	// PRCM is the prcm in metres; RRCMPerS is the rrcm per s in metres per second.
 	PRCM, RRCMPerS float64
-	// UDREI is the udrei value for SBASFastCorrection.
+	// UDREI is the broadcast user differential range error indicator.
 	UDREI uint8
-	// TOfJ2000S is the t of j2000 s in seconds.
+	// TOfJ2000S is the fast-correction time of applicability in seconds from J2000.
 	TOfJ2000S float64
-	// IODF is the iodf value for SBASFastCorrection.
+	// IODF is the SBAS fast-correction issue-of-data flag.
 	IODF uint8
 }
 
 // SBASLongTermCorrection contains ECEF metre corrections and rates in metres
 // per second; T0J2000S is the J2000 reference epoch.
 type SBASLongTermCorrection struct {
-	// IODE is the iode value for SBASLongTermCorrection.
+	// IODE is the issue-of-data ephemeris identifier.
 	IODE uint8
-	// DeltaECEFM is the delta ecefm in metres; DeltaECEFRateMPerS is the delta ecef rate m per s in metres per second.
+	// DeltaECEFM contains ECEF [X, Y, Z] position corrections in metres; DeltaECEFRateMPerS contains the corresponding ECEF rates in metres per second.
 	DeltaECEFM, DeltaECEFRateMPerS [3]float64
-	// DeltaAF0S is the delta af0 s value for SBASLongTermCorrection; DeltaAF1SPerS is the delta af1 s per s value for SBASLongTermCorrection; T0J2000S is the t0 j2000 s value for SBASLongTermCorrection.
+	// DeltaAF0S is the clock-bias correction in seconds; DeltaAF1SPerS is the clock-drift correction in seconds per second; T0J2000S is the correction reference epoch in J2000 seconds.
 	DeltaAF0S, DeltaAF1SPerS, T0J2000S float64
 }
 
 // SBASGeoState contains a GEO ECEF state in metres, metres per second, and
 // metres per second squared; clock fields are seconds-based.
 type SBASGeoState struct {
-	// PositionECEFM is the position ecefm in metres; VelocityECEFMPerS is the velocity ecefm per s in metres per second; AccelerationECEFMPerS2 is the acceleration ecefm per s2 in metres per second squared.
+	// PositionECEFM, VelocityECEFMPerS, and AccelerationECEFMPerS2 contain ECEF [X, Y, Z] position in metres, velocity in metres per second, and acceleration in metres per second squared.
 	PositionECEFM, VelocityECEFMPerS, AccelerationECEFMPerS2 [3]float64
-	// ClockOffsetS is the clock offset s in seconds; ClockDriftSS is the clock drift ss in seconds per second; T0J2000S is the t0 j2000 s in seconds.
+	// ClockOffsetS is the GEO clock offset in seconds; ClockDriftSS is its drift in seconds per second; T0J2000S is the GEO navigation reference epoch in seconds from J2000.
 	ClockOffsetS, ClockDriftSS, T0J2000S float64
 }
 
@@ -454,15 +454,15 @@ const (
 type SSRClockCorrection struct {
 	// Source is the source classification.
 	Source SSRSource
-	// ProviderID identifies or counts this record.
+	// ProviderID identifies the SSR correction provider.
 	ProviderID uint16
-	// SolutionID identifies or counts this record; IODSSR is the iodssr value for SSRClockCorrection.
+	// SolutionID identifies the provider solution; IODSSR identifies the SSR issue of data.
 	SolutionID, IODSSR uint8
-	// C0M is the c0 m in metres; C1MPerS is the c1 m per s in metres per second; C2MPerS2 is the c2 m per s2 in metres per second squared; RefEpochJ2000S is the ref epoch j2000 s in seconds; UpdateIntervalS is the update interval s in seconds.
+	// C0M is the clock-polynomial bias in metres; C1MPerS is its drift in metres per second; C2MPerS2 is its drift rate in metres per second squared; RefEpochJ2000S is the polynomial reference epoch in seconds from J2000; UpdateIntervalS is the update interval in seconds.
 	C0M, C1MPerS, C2MPerS2, RefEpochJ2000S, UpdateIntervalS float64
 	// HasHighRate reports whether the has high rate field is present.
 	HasHighRate bool
-	// HighRateC0M is the high rate c0 m in metres; HighRateRefEpochJ2000S is the high rate ref epoch j2000 s in seconds; HighRateUpdateIntervalS is the high rate update interval s in seconds.
+	// HighRateC0M is the high-rate clock bias in metres; HighRateRefEpochJ2000S is its reference epoch in seconds from J2000; HighRateUpdateIntervalS is its update interval in seconds.
 	HighRateC0M, HighRateRefEpochJ2000S, HighRateUpdateIntervalS float64
 }
 
@@ -472,19 +472,19 @@ type SSRClockCorrection struct {
 type SSROrbitCorrection struct {
 	// Source is the source classification.
 	Source SSRSource
-	// ProviderID identifies or counts this record.
+	// ProviderID identifies the SSR correction provider.
 	ProviderID uint16
-	// SolutionID identifies or counts this record.
+	// SolutionID identifies the provider solution.
 	SolutionID uint8
-	// IODE is the iode value for SSROrbitCorrection.
+	// IODE identifies the orbit ephemeris issue of data.
 	IODE uint32
-	// IODSSR is the iodssr value for SSROrbitCorrection.
+	// IODSSR identifies the SSR issue of data.
 	IODSSR uint8
-	// CRSRegional is the crsregional value for SSROrbitCorrection.
+	// CRSRegional reports whether the correction uses a regional coordinate reference system.
 	CRSRegional bool
-	// ReferencePoint is the reference point value for SSROrbitCorrection.
+	// ReferencePoint identifies whether orbit corrections reference the antenna phase centre or centre of mass.
 	ReferencePoint SSRReferencePoint
-	// RadialM is the radial m in metres; AlongM is the along m in metres; CrossM is the cross m in metres; RadialRateMPerS is the radial rate m per s in metres per second; AlongRateMPerS is the along rate m per s in metres per second; CrossRateMPerS is the cross rate m per s in metres per second; RefEpochJ2000S is the ref epoch j2000 s in seconds; UpdateIntervalS is the update interval s in seconds.
+	// RadialM, AlongM, and CrossM are orbit corrections in the radial, along-track, and cross-track frame, in metres; RadialRateMPerS, AlongRateMPerS, and CrossRateMPerS are their rates in metres per second; RefEpochJ2000S is the correction reference epoch in seconds from J2000; UpdateIntervalS is the update interval in seconds.
 	RadialM, AlongM, CrossM, RadialRateMPerS, AlongRateMPerS, CrossRateMPerS, RefEpochJ2000S, UpdateIntervalS float64
 }
 

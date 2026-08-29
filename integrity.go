@@ -52,7 +52,7 @@ type ARAIMConstellationISM struct {
 
 // ARAIMSatelliteISM contains satellite-specific integrity support data.
 type ARAIMSatelliteISM struct {
-	// SatelliteID identifies or counts this record.
+	// SatelliteID is the GNSS satellite token for this integrity model row.
 	SatelliteID string
 	// Model is the selected model.
 	Model ARAIMSatelliteModel
@@ -102,7 +102,7 @@ type ARAIMSummary struct {
 	// Available reports whether protection-level output is available; Availability
 	// is the resulting availability probability or fraction.
 	Available, Availability bool
-	// FaultModeCount identifies or counts this record.
+	// FaultModeCount is the number of fault modes evaluated for this result.
 	FaultModeCount int
 }
 
@@ -218,17 +218,17 @@ func (r *ARAIMResult) ExcludedSatellites(mode int) ([]string, error) {
 // ReliabilityOptions contains dimensionless false-alarm/missed-detection
 // probabilities and the optional noncentrality override.
 type ReliabilityOptions struct {
-	// Alpha is the alpha value for ReliabilityOptions; Beta is the beta value for ReliabilityOptions.
+	// Alpha and Beta are the false-alarm and missed-detection probability thresholds.
 	Alpha, Beta float64
 	// HasLambda0Override reports whether the has lambda0 override field is present.
 	HasLambda0Override bool
-	// Lambda0Override is the lambda0 override value for ReliabilityOptions; MinRedundancy is the min redundancy value for ReliabilityOptions.
+	// Lambda0Override is the optional noncentrality threshold when HasLambda0Override is true; MinRedundancy is the minimum redundancy required for testing.
 	Lambda0Override, MinRedundancy float64
 }
 
 // ReliabilityRow contains one reliability-test row and its residual statistics.
 type ReliabilityRow struct {
-	// SatelliteID identifies or counts this record.
+	// SatelliteID is the satellite token for this reliability row.
 	SatelliteID string
 	// DesignRow contains a detached copy; nil means this field is absent.
 	DesignRow []float64
@@ -238,7 +238,7 @@ type ReliabilityRow struct {
 
 // ReliabilityObservation contains one observation reliability and minimum-detectable-bias result.
 type ReliabilityObservation struct {
-	// SatelliteID identifies or counts this record.
+	// SatelliteID is the satellite token for this observation.
 	SatelliteID string
 	// Redundancy is the redundancy value.
 	Redundancy float64
@@ -252,7 +252,7 @@ type ReliabilityObservation struct {
 	ExternalENUM [3]float64
 	// HasBiasToNoise reports whether the has bias to noise field is present.
 	HasBiasToNoise bool
-	// BiasToNoise is the bias to noise value for ReliabilityObservation.
+	// BiasToNoise is the dimensionless bias-to-noise ratio when HasBiasToNoise is true.
 	BiasToNoise float64
 	// Uncheckable reports whether this record is uncheckable.
 	Uncheckable bool
@@ -260,21 +260,21 @@ type ReliabilityObservation struct {
 
 // ReliabilitySummary contains aggregate reliability counts and test statistics.
 type ReliabilitySummary struct {
-	// ObservationCount identifies or counts this record; ParameterCount identifies or counts this record; DOF is the degrees of freedom.
+	// ObservationCount and ParameterCount are the numbers of observations and estimated parameters; DOF is the resulting degrees of freedom.
 	ObservationCount, ParameterCount, DOF int
-	// SumRedundancy is the summed redundancy; Lambda0 is the lambda0 value for ReliabilitySummary.
+	// SumRedundancy is the total redundancy; Lambda0 is the noncentrality parameter used by the reliability test.
 	SumRedundancy, Lambda0 float64
 	// HasMaxMDB reports whether the has max mdb field is present.
 	HasMaxMDB bool
-	// MaxMDBSatelliteID identifies or counts this record.
+	// MaxMDBSatelliteID is the satellite token attaining the maximum minimum-detectable bias when HasMaxMDB is true.
 	MaxMDBSatelliteID string
 	// MaxMDBM is the max mdbm in metres.
 	MaxMDBM float64
-	// MinRedundancySatelliteID identifies or counts this record.
+	// MinRedundancySatelliteID is the satellite token with the minimum redundancy.
 	MinRedundancySatelliteID string
 	// MinRedundancy is the minimum redundancy.
 	MinRedundancy float64
-	// UncheckableCount identifies or counts this record.
+	// UncheckableCount is the number of observations that could not be tested.
 	UncheckableCount int
 }
 
@@ -381,13 +381,13 @@ func (r *ReliabilityReport) Observations() ([]ReliabilityObservation, error) {
 type RangeFDEOptions struct {
 	// PFA is the probability of false alarm.
 	PFA float64
-	// MaxExclusions is the max exclusions value for RangeFDEOptions; MinRedundancy is the min redundancy value for RangeFDEOptions.
+	// MaxExclusions is the maximum number of exclusions allowed; MinRedundancy is the minimum redundancy required by RangeFDEOptions.
 	MaxExclusions, MinRedundancy int
 }
 
 // RangeFDERow contains one range fault-detection and exclusion row.
 type RangeFDERow struct {
-	// ID identifies or counts this record.
+	// ID identifies the range observation represented by this diagnostic row.
 	ID string
 	// ResidualM is the residual m in metres.
 	ResidualM float64
@@ -413,7 +413,7 @@ type RangeFDEGlobalTest struct {
 
 // RangeFDEDiagnostic contains one range FDE diagnostic and residual.
 type RangeFDEDiagnostic struct {
-	// ID identifies or counts this record.
+	// ID identifies the range observation represented by this diagnostic row.
 	ID string
 	// Excluded reports whether this record was excluded.
 	Excluded bool

@@ -16,19 +16,19 @@ type SolarRadiationPressure struct {
 type ForceModelComponents struct {
 	// HasTwoBody reports whether the has two body field is present.
 	HasTwoBody bool
-	// TwoBodyMuKm3PerS2Enabled is the two body mu km3 per s2 enabled value for ForceModelComponents.
+	// TwoBodyMuKm3PerS2Enabled reports whether MuKm3PerS2 overrides the native gravitational parameter.
 	TwoBodyMuKm3PerS2Enabled bool
 	// TwoBodyMuKm3PerS2 is the two body mu km3 per s2 in cubic kilometres per second squared.
 	TwoBodyMuKm3PerS2 float64
 	// HasZonal reports whether the has zonal field is present.
 	HasZonal bool
-	// ZonalMaxDegree is the zonal max degree value for ForceModelComponents.
+	// ZonalMaxDegree is the maximum zonal-harmonic degree used when HasZonal is true.
 	ZonalMaxDegree uint32
 	// HasSphericalHarmonic reports whether the has spherical harmonic field is present.
 	HasSphericalHarmonic bool
-	// SphericalHarmonicMaxDegree is the spherical harmonic max degree value for ForceModelComponents.
+	// SphericalHarmonicMaxDegree is the maximum spherical-harmonic degree when HasSphericalHarmonic is true.
 	SphericalHarmonicMaxDegree uint32
-	// SphericalHarmonicMaxOrder is the spherical harmonic max order value for ForceModelComponents.
+	// SphericalHarmonicMaxOrder is the maximum spherical-harmonic order when HasSphericalHarmonic is true.
 	SphericalHarmonicMaxOrder uint32
 	// HasSolidEarthTide reports whether the has solid earth tide field is present.
 	HasSolidEarthTide bool
@@ -42,7 +42,7 @@ type ForceModelComponents struct {
 	ThirdBodyMoon bool
 	// HasSolarRadiationPressure reports whether the has solar radiation pressure field is present.
 	HasSolarRadiationPressure bool
-	// SolarRadiationPressure is the solar radiation pressure value for ForceModelComponents.
+	// SolarRadiationPressure contains the coefficient and area-to-mass ratio used when HasSolarRadiationPressure is true.
 	SolarRadiationPressure SolarRadiationPressure
 	// HasRelativity reports whether the has relativity field is present.
 	HasRelativity bool
@@ -138,15 +138,15 @@ type DecayConfig struct {
 	AbsTol float64
 	// RelTol is the relative solver tolerance.
 	RelTol float64
-	// InitialStepS is the initial step s value for DecayConfig.
+	// InitialStepS is the initial integration step in seconds.
 	InitialStepS float64
-	// MinStepS is the min step s value for DecayConfig.
+	// MinStepS is the minimum integration step in seconds.
 	MinStepS float64
-	// MaxStepS is the max step s value for DecayConfig.
+	// MaxStepS is the maximum integration step in seconds.
 	MaxStepS float64
 	// MaxSteps is the maximum solver step count.
 	MaxSteps uint32
-	// MuKm3PerS2Enabled is the mu km3 per s2 enabled value for DecayConfig.
+	// MuKm3PerS2Enabled reports whether MuKm3PerS2 overrides the default gravitational parameter.
 	MuKm3PerS2Enabled bool
 	// MuKm3PerS2 is the mu km3 per s2 in cubic kilometres per second squared.
 	MuKm3PerS2 float64
@@ -154,19 +154,19 @@ type DecayConfig struct {
 	Drag DragParameters
 	// ReentryAltitudeKm is the reentry altitude km in kilometres.
 	ReentryAltitudeKm float64
-	// ScanStepS is the scan step s value for DecayConfig.
+	// ScanStepS is the interval between re-entry crossing samples in seconds.
 	ScanStepS float64
 	// CrossingToleranceS is the crossing tolerance s in seconds.
 	CrossingToleranceS float64
 	// MaxDurationS is the max duration s in seconds.
 	MaxDurationS float64
-	// MaxScanSamples is the max scan samples value for DecayConfig.
+	// MaxScanSamples is the maximum number of samples used to bracket a re-entry crossing.
 	MaxScanSamples uint32
 }
 
 // DecayEstimate contains the C-computed reentry duration and state.
 type DecayEstimate struct {
-	// TimeToDecayS is the time to decay s value for DecayEstimate.
+	// TimeToDecayS is the estimated time to re-entry in seconds.
 	TimeToDecayS float64
 	// ReentryState is the re-entry state classification.
 	ReentryState CartesianState

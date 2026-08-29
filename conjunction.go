@@ -52,11 +52,11 @@ type CollisionPC struct {
 type PCMethod uint32
 
 const (
-	// PCMethodFosterEqualArea identifies the pc method foster equal area case.
+	// PCMethodFosterEqualArea selects the Foster equal-area PC method.
 	PCMethodFosterEqualArea PCMethod = PCMethod(native.PCMethodFosterEqualAreaValue)
-	// PCMethodFosterNumerical identifies the pc method foster numerical case.
+	// PCMethodFosterNumerical selects the Foster numerical PC method.
 	PCMethodFosterNumerical PCMethod = PCMethod(native.PCMethodFosterNumericalValue)
-	// PCMethodAlfano2005 identifies the pc method alfano2005 case.
+	// PCMethodAlfano2005 selects the Alfano 2005 PC method.
 	PCMethodAlfano2005 PCMethod = PCMethod(native.PCMethodAlfano2005Value)
 )
 
@@ -65,15 +65,15 @@ const (
 type PropagationForceModel uint32
 
 const (
-	// PropagationForceModelTwoBody identifies the propagation force model two body case.
+	// PropagationForceModelTwoBody selects the two-body force model.
 	PropagationForceModelTwoBody PropagationForceModel = PropagationForceModel(native.PropagationForceModelTwoBodyValue)
-	// PropagationForceModelTwoBodyJ2 identifies the propagation force model two body j2 case.
+	// PropagationForceModelTwoBodyJ2 selects the two-body plus J2 force model.
 	PropagationForceModelTwoBodyJ2 PropagationForceModel = PropagationForceModel(native.PropagationForceModelTwoBodyJ2Value)
-	// PropagationForceModelComposite identifies the propagation force model composite case.
+	// PropagationForceModelComposite selects the composite force model.
 	PropagationForceModelComposite PropagationForceModel = PropagationForceModel(native.PropagationForceModelCompositeValue)
-	// PropagationForceModelEarthPhaseA identifies the propagation force model earth phase a case.
+	// PropagationForceModelEarthPhaseA selects the Earth Phase A force model.
 	PropagationForceModelEarthPhaseA PropagationForceModel = PropagationForceModel(native.PropagationForceModelEarthPhaseAValue)
-	// PropagationForceModelEarthPhaseB identifies the propagation force model earth phase b case.
+	// PropagationForceModelEarthPhaseB selects the Earth Phase B force model.
 	PropagationForceModelEarthPhaseB PropagationForceModel = PropagationForceModel(native.PropagationForceModelEarthPhaseBValue)
 )
 
@@ -81,9 +81,9 @@ const (
 type PropagationIntegrator uint32
 
 const (
-	// PropagationIntegratorDP54 identifies the propagation integrator dp54 case.
+	// PropagationIntegratorDP54 selects the Dormand-Prince DP54 integrator.
 	PropagationIntegratorDP54 PropagationIntegrator = PropagationIntegrator(native.PropagationIntegratorDP54Value)
-	// PropagationIntegratorRK4 identifies the propagation integrator rk4 case.
+	// PropagationIntegratorRK4 selects the classical fourth-order RK4 integrator.
 	PropagationIntegratorRK4 PropagationIntegrator = PropagationIntegrator(native.PropagationIntegratorRK4Value)
 )
 
@@ -258,7 +258,7 @@ type TCATLEPair struct {
 // TCAScreeningHit identifies a threshold TCA candidate by its original
 // secondary catalog index. Results retain C's screening order.
 type TCAScreeningHit struct {
-	// SecondaryIndex identifies or counts this record.
+	// SecondaryIndex is the zero-based index of the secondary TLE in the input catalog.
 	SecondaryIndex int
 	// Candidate is the candidate record.
 	Candidate TCACandidate
@@ -267,7 +267,7 @@ type TCAScreeningHit struct {
 // TCAScreeningConjunctionHit identifies a threshold TCA conjunction by its
 // original secondary catalog index. Results retain C's screening order.
 type TCAScreeningConjunctionHit struct {
-	// SecondaryIndex identifies or counts this record.
+	// SecondaryIndex is the zero-based index of the secondary TLE in the input catalog.
 	SecondaryIndex int
 	// Conjunction is the conjunction record.
 	Conjunction TCAConjunction

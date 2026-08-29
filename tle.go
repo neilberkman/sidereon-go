@@ -6,11 +6,11 @@ import (
 	"github.com/neilberkman/sidereon-go/internal/native"
 )
 
-// TEMEState is one TEME state copied from C TLE propagation. Position is
+// TEMEState is one TEME state detached from C TLE propagation. Position is
 // in kilometers, velocity is in kilometers per second, and EpochJ2000S is the
 // corresponding UTC epoch in seconds since J2000 computed by C.
 type TEMEState struct {
-	// EpochJ2000S is the epoch j2000 s in seconds.
+	// EpochJ2000S is the corresponding UTC epoch in seconds from J2000.
 	EpochJ2000S float64
 	// PositionKm is the position km in kilometres.
 	PositionKm [3]float64
@@ -18,23 +18,23 @@ type TEMEState struct {
 	VelocityKmPerS [3]float64
 }
 
-// TLEMetadata contains read-only parsed element fields copied from C.
+// TLEMetadata contains read-only parsed element fields detached from C.
 type TLEMetadata struct {
-	// CatalogNumber identifies or counts this record.
+	// CatalogNumber is the NORAD catalog identifier.
 	CatalogNumber string
-	// Classification is the classification value for TLEMetadata.
+	// Classification is the one-character TLE object classification.
 	Classification string
-	// InternationalDesignator is the international designator value for TLEMetadata.
+	// InternationalDesignator is the launch-year, launch-piece international designator.
 	InternationalDesignator string
-	// EpochYear is the epoch year value for TLEMetadata.
+	// EpochYear is the two-digit TLE epoch year resolved by the native parser.
 	EpochYear int
-	// EpochDayOfYear is the epoch day of year value for TLEMetadata.
+	// EpochDayOfYear is the fractional day of year at the TLE epoch.
 	EpochDayOfYear float64
 	// InclinationDeg is the inclination deg in degrees.
 	InclinationDeg float64
 	// RAANDeg is the raan deg in degrees.
 	RAANDeg float64
-	// Eccentricity is the eccentricity value for TLEMetadata.
+	// Eccentricity is the dimensionless TLE eccentricity.
 	Eccentricity float64
 	// ArgumentOfPerigeeDeg is the argument of perigee deg in degrees.
 	ArgumentOfPerigeeDeg float64
@@ -42,25 +42,25 @@ type TLEMetadata struct {
 	MeanAnomalyDeg float64
 	// MeanMotionRevPerDay is the mean motion rev per day in revolutions per day.
 	MeanMotionRevPerDay float64
-	// MeanMotionDot is the mean motion dot value for TLEMetadata.
+	// MeanMotionDot is the first mean-motion derivative in revolutions per day squared.
 	MeanMotionDot float64
-	// MeanMotionDoubleDot is the mean motion double dot value for TLEMetadata.
+	// MeanMotionDoubleDot is the second mean-motion derivative in revolutions per day cubed.
 	MeanMotionDoubleDot float64
-	// BStar is the bstar value for TLEMetadata.
+	// BStar is the parsed SGP4 B* drag term.
 	BStar float64
-	// EphemerisType is the ephemeris type value for TLEMetadata.
+	// EphemerisType is the TLE ephemeris-type code.
 	EphemerisType int
-	// ElementSetNumber identifies or counts this record.
+	// ElementSetNumber is the TLE element-set sequence number.
 	ElementSetNumber int
-	// RevolutionNumber identifies or counts this record.
+	// RevolutionNumber is the revolution number at the TLE epoch.
 	RevolutionNumber int
 }
 
 // TLELines contains C's re-encoded TLE lines.
 type TLELines struct {
-	// Line1 is the line1 value for TLELines.
+	// Line1 is the reconstructed first TLE line, including its checksum.
 	Line1 string
-	// Line2 is the line2 value for TLELines.
+	// Line2 is the reconstructed second TLE line, including its checksum.
 	Line2 string
 }
 
@@ -111,7 +111,7 @@ func (t *TLE) Close() error {
 	return publicError(t.handle.Close())
 }
 
-// Metadata returns copied parsed TLE metadata.
+// Metadata returns detached parsed TLE metadata.
 func (t *TLE) Metadata() (TLEMetadata, error) {
 	if t == nil || t.handle == nil {
 		return TLEMetadata{}, ErrClosed
@@ -153,7 +153,7 @@ func (t *TLE) Lines() (TLELines, error) {
 	return TLELines{Line1: lines.Line1, Line2: lines.Line2}, nil
 }
 
-// Propagate returns copied TEME Cartesian states for the supplied UTC times.
+// Propagate returns detached TEME Cartesian states for the supplied UTC times.
 // C performs the civil-to-J2000 conversion and all propagation mathematics.
 // The C propagation input is UTC Unix microseconds, so sub-microsecond input
 // precision is not represented in the returned state epoch.

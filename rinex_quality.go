@@ -16,44 +16,44 @@ const (
 	RINEXLintInfo
 )
 
-// RINEXLintSummary contains copied finding counts and CRINEX provenance.
+// RINEXLintSummary contains detached finding counts and CRINEX provenance.
 type RINEXLintSummary struct {
-	// FindingCount identifies or counts this record.
+	// FindingCount is the total number of lint findings.
 	FindingCount int
-	// FatalCount identifies or counts this record.
+	// FatalCount is the number of fatal findings.
 	FatalCount int
-	// ErrorCount identifies or counts this record.
+	// ErrorCount is the number of error-severity findings.
 	ErrorCount int
-	// WarningCount identifies or counts this record.
+	// WarningCount is the number of warning-severity findings.
 	WarningCount int
-	// InfoCount identifies or counts this record.
+	// InfoCount is the number of informational findings.
 	InfoCount int
-	// IsClean is the is clean value for RINEXLintSummary.
+	// IsClean reports whether the native linter found no fatal or error finding.
 	IsClean bool
-	// DecodedFromCRINEX is the decoded from crinex value for RINEXLintSummary.
+	// DecodedFromCRINEX reports whether the input was decoded from CRINEX compression.
 	DecodedFromCRINEX bool
 }
 
-// RINEXLintFinding is one copied lint finding. Optional fields are guarded by
+// RINEXLintFinding is one detached lint finding. Optional fields are guarded by
 // their Has* values; EpochIndex is an epoch ordinal, not a time in seconds.
 type RINEXLintFinding struct {
 	// Code is the observable code.
 	Code string
-	// Severity is the severity value for RINEXLintFinding.
+	// Severity classifies the finding as fatal, error, warning, or informational.
 	Severity RINEXLintSeverity
 	// Repairable reports whether the finding can be repaired.
 	Repairable bool
-	// HasEpochIndex reports whether the has epoch index field is present.
+	// HasEpochIndex reports whether EpochIndex identifies the affected epoch.
 	HasEpochIndex bool
-	// EpochIndex identifies or counts this record.
+	// EpochIndex is the zero-based RINEX epoch ordinal when HasEpochIndex is true.
 	EpochIndex int
-	// HasSatellite reports whether the has satellite field is present.
+	// HasSatellite reports whether Satellite identifies the affected GNSS satellite.
 	HasSatellite bool
-	// Satellite is the satellite value for RINEXLintFinding.
+	// Satellite is the GNSS satellite identifier when HasSatellite is true.
 	Satellite string
-	// HasField reports whether the has field field is present.
+	// HasField reports whether Field identifies the affected observation field.
 	HasField bool
-	// Field is the field value for RINEXLintFinding.
+	// Field names the RINEX header or observation field when HasField is true.
 	Field string
 }
 
@@ -117,25 +117,25 @@ func (r *RINEXLintReport) Findings() ([]RINEXLintFinding, error) {
 // RINEXRepairOptions controls native RINEX repair transforms. File-stamp
 // strings are optional and remain owned by the caller.
 type RINEXRepairOptions struct {
-	// HasFileStamp reports whether the has file stamp field is present.
+	// HasFileStamp reports whether FileStamp identifies the affected file location.
 	HasFileStamp bool
-	// Program is the program value for RINEXRepairOptions.
+	// Program is the program name written to the RINEX header when HasFileStamp is true.
 	Program string
-	// RunBy is the run by value for RINEXRepairOptions.
+	// RunBy is the operator or agency written to the RINEX header when HasFileStamp is true.
 	RunBy string
-	// Date is the date value for RINEXRepairOptions.
+	// Date is the file-stamp date written to the RINEX header when HasFileStamp is true.
 	Date string
-	// SetInterval is the set interval value for RINEXRepairOptions.
+	// SetInterval enables replacement of the observation interval header.
 	SetInterval bool
-	// SetTimeOfLastObs is the set time of last obs value for RINEXRepairOptions.
+	// SetTimeOfLastObs enables replacement of the time-of-last-observation header.
 	SetTimeOfLastObs bool
-	// SetObservationCounts is the set observation counts value for RINEXRepairOptions.
+	// SetObservationCounts enables recomputation of RINEX observation counts.
 	SetObservationCounts bool
-	// DropEmptyRecords is the drop empty records value for RINEXRepairOptions.
+	// DropEmptyRecords enables removal of records with no usable observations.
 	DropEmptyRecords bool
-	// SortRecords is the sort records value for RINEXRepairOptions.
+	// SortRecords enables chronological sorting of repaired records.
 	SortRecords bool
-	// DropUnsupported is the drop unsupported value for RINEXRepairOptions.
+	// DropUnsupported enables removal of unsupported observation records.
 	DropUnsupported bool
 }
 
@@ -145,11 +145,11 @@ func NewRINEXRepairOptions() (RINEXRepairOptions, error) {
 	return RINEXRepairOptions{HasFileStamp: v.HasFileStamp, Program: v.Program, RunBy: v.RunBy, Date: v.Date, SetInterval: v.SetInterval, SetTimeOfLastObs: v.SetTimeOfLastObs, SetObservationCounts: v.SetObservationCounts, DropEmptyRecords: v.DropEmptyRecords, SortRecords: v.SortRecords, DropUnsupported: v.DropUnsupported}, publicError(e)
 }
 
-// RINEXRepairAction describes one copied repair operation.
+// RINEXRepairAction describes one detached repair operation.
 type RINEXRepairAction struct {
-	// ID identifies or counts this record.
+	// ID identifies the repair action in the native action log.
 	ID string
-	// Message is the message value for RINEXRepairAction.
+	// Message is the diagnostic text describing the repair action.
 	Message string
 }
 
@@ -218,7 +218,7 @@ func (r *RINEXRepair) Actions() ([]RINEXRepairAction, error) {
 	return out, nil
 }
 
-// RINEXText returns a copied repaired RINEX representation.
+// RINEXText returns detached repaired RINEX representation.
 func (r *RINEXRepair) RINEXText() ([]byte, error) {
 	if r == nil || r.handle == nil {
 		return nil, ErrClosed
@@ -227,7 +227,7 @@ func (r *RINEXRepair) RINEXText() ([]byte, error) {
 	return v, publicError(e)
 }
 
-// CRINEXText returns a copied repaired CRINEX representation.
+// CRINEXText returns detached repaired CRINEX representation.
 func (r *RINEXRepair) CRINEXText() ([]byte, error) {
 	if r == nil || r.handle == nil {
 		return nil, ErrClosed

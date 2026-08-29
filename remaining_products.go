@@ -80,13 +80,13 @@ func (s *PreciseEphemerisSamples) Sample(satellites []string, start, stop, step 
 type RangePrediction struct {
 	// GeometricRangeM is the geometric range m in metres.
 	GeometricRangeM float64
-	// HasSatelliteClock reports whether the has satellite clock field is present.
+	// HasSatelliteClock reports whether SatelliteClockS is valid.
 	HasSatelliteClock bool
 	// SatelliteClockS is the satellite clock s in seconds.
 	SatelliteClockS float64
-	// TransmitTimeJ2000S is the transmit time j2000 s in seconds.
+	// TransmitTimeJ2000S is the transmit epoch in seconds from J2000.
 	TransmitTimeJ2000S float64
-	// SatellitePositionECEF contains the fixed-size array for this record.
+	// SatellitePositionECEF is the satellite's ECEF position vector in metres.
 	SatellitePositionECEF [3]float64
 }
 
@@ -208,7 +208,7 @@ func OpenPreciseInterpolantArtifact(data []byte) (*PreciseInterpolantArtifact, P
 
 // OpenPreciseInterpolantArtifactBorrowed has the C ABI's borrowed spelling,
 // but safely composes it onto the owned byte route because a Go slice cannot
-// be retained by an owning native handle.
+// be retained by an owning native source handle.
 func OpenPreciseInterpolantArtifactBorrowed(data []byte) (*PreciseInterpolantArtifact, PreciseInterpolantArtifactError, error) {
 	return OpenPreciseInterpolantArtifact(data)
 }
@@ -351,11 +351,11 @@ func (s *SP3) EpochPrediction(index int) (SP3EpochPrediction, error) {
 
 // SP3Continuity contains native continuity-check counts.
 type SP3Continuity struct {
-	// Defects is the defects value for SP3Continuity.
+	// Defects is the number of continuity defects detected.
 	Defects int
-	// ResidualsChecked is the residuals checked value for SP3Continuity.
+	// ResidualsChecked is the number of residual rows checked.
 	ResidualsChecked int
-	// ResidualsSkipped is the residuals skipped value for SP3Continuity.
+	// ResidualsSkipped is the number of residual rows skipped.
 	ResidualsSkipped int
 }
 
@@ -373,11 +373,11 @@ func (s *SP3) Continuity(orbitClass int, residualToleranceM float64) (SP3Continu
 
 // SP3ClockReferenceOffset contains one J2000 clock-datum offset estimate.
 type SP3ClockReferenceOffset struct {
-	// EpochJ2000S is the epoch j2000 s in seconds.
+	// EpochJ2000S is the epoch in seconds from J2000.
 	EpochJ2000S float64
 	// OffsetS is the offset s in seconds.
 	OffsetS float64
-	// Satellites is the satellites value for SP3ClockReferenceOffset.
+	// Satellites is the number of satellites contributing to the clock-reference offset.
 	Satellites int
 }
 
@@ -480,13 +480,13 @@ func (s *SP3) ArtifactBytes() ([]byte, PreciseInterpolantArtifactError, error) {
 
 // SP3EpochPrediction contains one epoch's observed/predicted metadata.
 type SP3EpochPrediction struct {
-	// EpochJ2000S is the epoch j2000 s in seconds.
+	// EpochJ2000S is the epoch in seconds from J2000.
 	EpochJ2000S float64
-	// Observed is the observed value for SP3EpochPrediction.
+	// Observed is the observed epoch value in the product time scale.
 	Observed bool
-	// OrbitPredictedSatelliteCount identifies or counts this record.
+	// OrbitPredictedSatelliteCount is the number of satellites with predicted orbit values.
 	OrbitPredictedSatelliteCount int
-	// ClockPredictedSatelliteCount identifies or counts this record.
+	// ClockPredictedSatelliteCount is the number of satellites with predicted clock values.
 	ClockPredictedSatelliteCount int
 }
 

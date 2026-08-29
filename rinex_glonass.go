@@ -4,17 +4,17 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 
 // FrequencyChannel maps a GLONASS slot to its FDMA channel number.
 type FrequencyChannel struct {
-	// Slot is the slot value for FrequencyChannel.
+	// Slot is the GLONASS satellite slot number.
 	Slot uint8
-	// Channel is the channel value for FrequencyChannel.
+	// Channel is the GLONASS FDMA frequency channel number.
 	Channel int8
 }
 
-// GLONASSRecord is one copied RINEX GLONASS state-vector record. Position is
+// GLONASSRecord is one detached RINEX GLONASS state-vector record. Position is
 // in metres, velocity in metres per second, acceleration in metres per second
 // squared, and ToeUTCJ2000S is UTC J2000 seconds.
 type GLONASSRecord struct {
-	// SatelliteID identifies or counts this record.
+	// SatelliteID is the GLONASS satellite identifier.
 	SatelliteID string
 	// ToeUTCJ2000S is the toe utcj2000 s in seconds.
 	ToeUTCJ2000S float64
@@ -22,22 +22,22 @@ type GLONASSRecord struct {
 	PositionM [3]float64
 	// VelocityMPerS is the velocity m per s in metres per second.
 	VelocityMPerS [3]float64
-	// AccelerationMPerS2 is the acceleration m per s2 in metres per second squared.
+	// AccelerationMPerS2 is the acceleration in metres per second squared.
 	AccelerationMPerS2 [3]float64
-	// ClockBiasS is the clock bias s value for GLONASSRecord.
+	// ClockBiasS is the broadcast satellite-clock bias in seconds.
 	ClockBiasS float64
-	// GammaN is the gamma n value for GLONASSRecord.
+	// GammaN is the dimensionless relative-frequency correction.
 	GammaN float64
-	// SVHealth is the svhealth value for GLONASSRecord.
+	// SVHealth is the broadcast satellite-health indicator.
 	SVHealth float64
-	// FrequencyChannel is the frequency channel value for GLONASSRecord.
+	// FrequencyChannel is the GLONASS FDMA channel number.
 	FrequencyChannel int32
 }
 
 // SkippedGLONASSRecord preserves the raw token of an extended GLONASS slot
 // that the core satellite identifier cannot represent.
 type SkippedGLONASSRecord struct {
-	// SatelliteID identifies or counts this record.
+	// SatelliteID is the GLONASS satellite identifier for the record.
 	SatelliteID string
 }
 
@@ -65,7 +65,7 @@ func (r *RINEXGLONASSRecords) Close() error {
 	return publicError(r.handle.Close())
 }
 
-// Count returns the number of copied GLONASS records.
+// Count returns the number of detached GLONASS records available.
 func (r *RINEXGLONASSRecords) Count() (int, error) {
 	if r == nil || r.handle == nil {
 		return 0, ErrClosed
@@ -121,7 +121,7 @@ func (b *BroadcastEphemeris) GLONASSFrequencyChannels() ([]FrequencyChannel, err
 	return out, nil
 }
 
-// GLONASSRecords returns copied broadcast GLONASS state-vector records.
+// GLONASSRecords returns detached broadcast GLONASS state-vector records.
 func (b *BroadcastEphemeris) GLONASSRecords() ([]GLONASSRecord, error) {
 	if b == nil || b.handle == nil {
 		return nil, ErrClosed
