@@ -6,13 +6,13 @@ import "github.com/neilberkman/sidereon-go/internal/native"
 type GNSSSystem uint32
 
 const (
-	GNSSSystemGPS     GNSSSystem = 0
-	GNSSSystemGLONASS GNSSSystem = 1
-	GNSSSystemGalileo GNSSSystem = 2
-	GNSSSystemBeiDou  GNSSSystem = 3
-	GNSSSystemQZSS    GNSSSystem = 4
-	GNSSSystemNavIC   GNSSSystem = 5
-	GNSSSystemSBAS    GNSSSystem = 6
+	GNSSSystemGPS     GNSSSystem = GNSSSystem(native.GNSSSystemGPS)
+	GNSSSystemGLONASS GNSSSystem = GNSSSystem(native.GNSSSystemGLONASS)
+	GNSSSystemGalileo GNSSSystem = GNSSSystem(native.GNSSSystemGalileo)
+	GNSSSystemBeiDou  GNSSSystem = GNSSSystem(native.GNSSSystemBeiDou)
+	GNSSSystemQZSS    GNSSSystem = GNSSSystem(native.GNSSSystemQZSS)
+	GNSSSystemNavIC   GNSSSystem = GNSSSystem(native.GNSSSystemNavIC)
+	GNSSSystemSBAS    GNSSSystem = GNSSSystem(native.GNSSSystemSBAS)
 )
 
 // CarrierBand identifies a constellation carrier band in the C frequency
@@ -20,22 +20,22 @@ const (
 type CarrierBand uint32
 
 const (
-	CarrierBandL1  CarrierBand = 0
-	CarrierBandL2  CarrierBand = 1
-	CarrierBandL5  CarrierBand = 2
-	CarrierBandE1  CarrierBand = 3
-	CarrierBandE5A CarrierBand = 4
-	CarrierBandE5B CarrierBand = 5
-	CarrierBandE5  CarrierBand = 6
-	CarrierBandE6  CarrierBand = 7
-	CarrierBandB1C CarrierBand = 8
-	CarrierBandB1I CarrierBand = 9
-	CarrierBandB2A CarrierBand = 10
-	CarrierBandB2B CarrierBand = 11
-	CarrierBandB2  CarrierBand = 12
-	CarrierBandB3I CarrierBand = 13
-	CarrierBandG1  CarrierBand = 14
-	CarrierBandG2  CarrierBand = 15
+	CarrierBandL1  CarrierBand = CarrierBand(native.CarrierBandL1)
+	CarrierBandL2  CarrierBand = CarrierBand(native.CarrierBandL2)
+	CarrierBandL5  CarrierBand = CarrierBand(native.CarrierBandL5)
+	CarrierBandE1  CarrierBand = CarrierBand(native.CarrierBandE1)
+	CarrierBandE5A CarrierBand = CarrierBand(native.CarrierBandE5A)
+	CarrierBandE5B CarrierBand = CarrierBand(native.CarrierBandE5B)
+	CarrierBandE5  CarrierBand = CarrierBand(native.CarrierBandE5)
+	CarrierBandE6  CarrierBand = CarrierBand(native.CarrierBandE6)
+	CarrierBandB1C CarrierBand = CarrierBand(native.CarrierBandB1C)
+	CarrierBandB1I CarrierBand = CarrierBand(native.CarrierBandB1I)
+	CarrierBandB2A CarrierBand = CarrierBand(native.CarrierBandB2A)
+	CarrierBandB2B CarrierBand = CarrierBand(native.CarrierBandB2B)
+	CarrierBandB2  CarrierBand = CarrierBand(native.CarrierBandB2)
+	CarrierBandB3I CarrierBand = CarrierBand(native.CarrierBandB3I)
+	CarrierBandG1  CarrierBand = CarrierBand(native.CarrierBandG1)
+	CarrierBandG2  CarrierBand = CarrierBand(native.CarrierBandG2)
 )
 
 // CarrierPair is a standard two-band ionosphere-free pair.

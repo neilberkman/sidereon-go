@@ -42,17 +42,17 @@ type GNSSWeekSeconds struct {
 type TimeScale uint32
 
 const (
-	UTC      TimeScale = 0
-	TAI      TimeScale = 1
-	TT       TimeScale = 2
-	TDB      TimeScale = 3
-	GPST     TimeScale = 4
-	GST      TimeScale = 5
-	BDT      TimeScale = 6
-	GLONASST TimeScale = 7
-	QZSST    TimeScale = 8
-	TCG      TimeScale = 9
-	TCB      TimeScale = 10
+	UTC      TimeScale = TimeScale(native.TimeScaleUTC)
+	TAI      TimeScale = TimeScale(native.TimeScaleTAI)
+	TT       TimeScale = TimeScale(native.TimeScaleTT)
+	TDB      TimeScale = TimeScale(native.TimeScaleTDB)
+	GPST     TimeScale = TimeScale(native.TimeScaleGPST)
+	GST      TimeScale = TimeScale(native.TimeScaleGST)
+	BDT      TimeScale = TimeScale(native.TimeScaleBDT)
+	GLONASST TimeScale = TimeScale(native.TimeScaleGLONASST)
+	QZSST    TimeScale = TimeScale(native.TimeScaleQZSST)
+	TCG      TimeScale = TimeScale(native.TimeScaleTCG)
+	TCB      TimeScale = TimeScale(native.TimeScaleTCB)
 )
 
 // CivilToJ2000Seconds returns continuous UTC-like seconds past J2000.

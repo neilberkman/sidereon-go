@@ -304,11 +304,12 @@ func (s *SPK) Close() error {
 }
 
 type SPKState struct {
-	Target, Center int32
-	PositionKm     [3]float64
-	HasVelocity    bool
-	VelocityKmPerS [3]float64
-	Frame          int32
+	Target, Center    int32
+	PositionKm        [3]float64
+	HasVelocity       bool
+	HasVelocityKmPerS bool
+	VelocityKmPerS    [3]float64
+	Frame             int32
 }
 
 func (s *SPK) State(target, center int32, etSecondsTDB float64) (SPKState, error) {
@@ -321,7 +322,8 @@ func (s *SPK) State(target, center int32, etSecondsTDB float64) (SPKState, error
 			return C.sidereon_spk_state((*C.SidereonSpk)(pointer), C.int32_t(target), C.int32_t(center), C.double(etSecondsTDB), &out)
 		})
 	})
-	result := SPKState{Target: int32(out.target), Center: int32(out.center), HasVelocity: bool(out.has_velocity_km_s), Frame: int32(out.frame)}
+	hasVelocity := bool(out.has_velocity_km_s)
+	result := SPKState{Target: int32(out.target), Center: int32(out.center), HasVelocity: hasVelocity, HasVelocityKmPerS: hasVelocity, Frame: int32(out.frame)}
 	for i := 0; i < 3; i++ {
 		result.PositionKm[i], result.VelocityKmPerS[i] = float64(out.position_km[i]), float64(out.velocity_km_s[i])
 	}

@@ -161,12 +161,15 @@ func TestValidateTwoPassCounts(t *testing.T) {
 }
 
 func TestValidateNativeCopyShapes(t *testing.T) {
-	if _, err := validateNativeQuery("test query", 1, 2); err == nil {
-		t.Fatal("validateNativeQuery accepted a count mismatch")
+	if count, err := validateNativeQuery("test query", 0, 4); err != nil || count != 4 {
+		t.Fatalf("validateNativeQuery(0, 4) = %d, %v; want 4, nil", count, err)
+	}
+	if _, err := validateNativeQuery("test query", 1, 4); err == nil || !strings.Contains(err.Error(), "query wrote") {
+		t.Fatalf("validateNativeQuery accepted a non-empty written count: %v", err)
 	}
 	tooLarge := uint64(^uint(0)>>1) + 1
-	if _, err := validateNativeQuery("test query", 0, tooLarge); err == nil {
-		t.Fatal("validateNativeQuery accepted an overflowing required count")
+	if _, err := validateNativeQuery("test query", 0, tooLarge); err == nil || !strings.Contains(err.Error(), "required count") {
+		t.Fatalf("validateNativeQuery accepted an overflowing required count: %v", err)
 	}
 	if _, err := validateNativeOutput("test copy", 2, 1, 2); err == nil {
 		t.Fatal("validateNativeOutput accepted a count mismatch")

@@ -27,12 +27,14 @@ func (s *SPK) Close() error {
 }
 
 type SPKState struct {
-	Target         int32
-	Center         int32
-	PositionKm     [3]float64
-	HasVelocity    bool
-	VelocityKmPerS [3]float64
-	Frame          int32
+	Target      int32
+	Center      int32
+	PositionKm  [3]float64
+	HasVelocity bool
+	// HasVelocityKmPerS is an explicit unit-bearing alias of HasVelocity.
+	HasVelocityKmPerS bool
+	VelocityKmPerS    [3]float64
+	Frame             int32
 }
 
 // State evaluates one target-center path at ET/TDB seconds past J2000.
@@ -41,5 +43,5 @@ func (s *SPK) State(target, center int32, etSecondsTDB float64) (SPKState, error
 		return SPKState{}, ErrClosed
 	}
 	value, err := s.handle.State(target, center, etSecondsTDB)
-	return SPKState{Target: value.Target, Center: value.Center, PositionKm: value.PositionKm, HasVelocity: value.HasVelocity, VelocityKmPerS: value.VelocityKmPerS, Frame: value.Frame}, publicError(err)
+	return SPKState{Target: value.Target, Center: value.Center, PositionKm: value.PositionKm, HasVelocity: value.HasVelocity, HasVelocityKmPerS: value.HasVelocityKmPerS, VelocityKmPerS: value.VelocityKmPerS, Frame: value.Frame}, publicError(err)
 }
