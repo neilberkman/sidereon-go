@@ -42,6 +42,140 @@ type SPPGeometryQuality struct{}
 type SPPMetadata struct{}
 type SPPSolution struct{}
 
+type StaticPositionEpochInput struct {
+	Inputs  SppInputsV2
+	Weights []float64
+}
+type NativeSolutionValidationOptions struct {
+	HasMaxPDOP                                                                  bool
+	MaxPDOP, MinPlausibleRadiusM, MaxPlausibleRadiusM, MaxConvergedResidualRMSM float64
+}
+type NativeGlonassChannel struct {
+	Slot    uint8
+	Channel int8
+}
+type NativeSPPValidationOptions struct {
+	MaxPDOPEnabled                                                              bool
+	MaxPDOP, MinPlausibleRadiusM, MaxPlausibleRadiusM, MaxConvergedResidualRMSM float64
+}
+type NativeSPPSolvePolicy struct {
+	UseValidationOptions bool
+	Validation           NativeSPPValidationOptions
+	CoarseSearchEnabled  bool
+	CoarseSearchSeeds    int
+}
+type SppInputsV2 struct {
+	Base                    SPPConfig
+	BeidouEnabled           bool
+	BeidouAlpha, BeidouBeta [4]float64
+	RobustEnabled           bool
+	Robust                  NativeSPPRobustConfig
+	Policy                  NativeSPPSolvePolicy
+	GlonassChannels         []NativeGlonassChannel
+}
+type NativeSPPRobustConfig struct {
+	HuberK, ScaleFloorM float64
+	MaxOuter            uint64
+	OuterToleranceM     float64
+}
+type StaticPositionOptionsInput struct {
+	InitialPositionM [3]float64
+	WithGeodetic     bool
+	RobustEnabled    bool
+	Robust           NativeSPPRobustConfig
+}
+type RtkRinexStaticBaselineConfig struct{}
+type StaticReferenceStationRinexConfigInput struct {
+	ReferencePositionM [3]float64
+	EnableCodeDGNSS    bool
+	EnableCarrierRTK   bool
+	WithGeodetic       bool
+	Carrier            RtkRinexStaticBaselineConfig
+}
+type StaticPositionClockBias struct{}
+type StaticPositionEpochInfluence struct{}
+type StaticPositionMetadata struct{}
+type StaticPositionResidual struct{}
+type StaticPositionRejectedSat struct{}
+type StaticPositionSatelliteBatchInfluence struct{}
+type StaticPositionSatelliteInfluence struct{}
+type StaticReferenceEpochDiagnostic struct{}
+type StaticReferenceStationMetadata struct{}
+type StaticReferenceModeReport struct{}
+type StaticPositionSolution struct{}
+type StaticReferenceStationSolution struct{}
+
+func StaticPositionOptionsInit() (StaticPositionOptionsInput, error) {
+	return StaticPositionOptionsInput{}, unavailable()
+}
+func SolveStaticPositionBroadcast(*BroadcastEphemeris, []StaticPositionEpochInput, *StaticPositionOptionsInput) (*StaticPositionSolution, uint32, error) {
+	return nil, 0, unavailable()
+}
+func SolveStaticPositionSP3(*SP3, []StaticPositionEpochInput, *StaticPositionOptionsInput) (*StaticPositionSolution, uint32, error) {
+	return nil, 0, unavailable()
+}
+func (s *StaticPositionSolution) Close() error                  { return nil }
+func (s *StaticPositionSolution) Position() ([3]float64, error) { return [3]float64{}, unavailable() }
+func (s *StaticPositionSolution) PositionCovarianceECEFM2() ([9]float64, error) {
+	return [9]float64{}, unavailable()
+}
+func (s *StaticPositionSolution) PositionCovarianceENUM2() ([9]float64, error) {
+	return [9]float64{}, unavailable()
+}
+func (s *StaticPositionSolution) ClockBiases() ([]StaticPositionClockBias, error) {
+	return nil, unavailable()
+}
+func (s *StaticPositionSolution) EpochInfluence() ([]StaticPositionEpochInfluence, error) {
+	return nil, unavailable()
+}
+func (s *StaticPositionSolution) Geodetic() (Geodetic, bool, error) {
+	return Geodetic{}, false, unavailable()
+}
+func (s *StaticPositionSolution) Metadata() (StaticPositionMetadata, error) {
+	return StaticPositionMetadata{}, unavailable()
+}
+func (s *StaticPositionSolution) RejectedSats(int) ([]StaticPositionRejectedSat, error) {
+	return nil, unavailable()
+}
+func (s *StaticPositionSolution) Residuals() ([]StaticPositionResidual, error) {
+	return nil, unavailable()
+}
+func (s *StaticPositionSolution) SatelliteBatchInfluence() ([]StaticPositionSatelliteBatchInfluence, error) {
+	return nil, unavailable()
+}
+func (s *StaticPositionSolution) SatelliteInfluence() ([]StaticPositionSatelliteInfluence, error) {
+	return nil, unavailable()
+}
+func (s *StaticPositionSolution) StateCovarianceM2() ([]float64, error) { return nil, unavailable() }
+func StaticReferenceStationRinexConfigInit() (StaticReferenceStationRinexConfigInput, error) {
+	return StaticReferenceStationRinexConfigInput{}, unavailable()
+}
+func SolveStaticReferenceStationRinex(*SP3, *RinexObs, *RinexObs, StaticReferenceStationRinexConfigInput) (*StaticReferenceStationSolution, error) {
+	return nil, unavailable()
+}
+func (s *StaticReferenceStationSolution) Close() error { return nil }
+func (s *StaticReferenceStationSolution) BaselineECEF() ([3]float64, error) {
+	return [3]float64{}, unavailable()
+}
+func (s *StaticReferenceStationSolution) PositionECEF() ([3]float64, error) {
+	return [3]float64{}, unavailable()
+}
+func (s *StaticReferenceStationSolution) CovarianceECEF() ([9]float64, error) {
+	return [9]float64{}, unavailable()
+}
+func (s *StaticReferenceStationSolution) CovarianceENU() ([9]float64, error) {
+	return [9]float64{}, unavailable()
+}
+func (s *StaticReferenceStationSolution) Diagnostics() ([]StaticReferenceEpochDiagnostic, error) {
+	return nil, unavailable()
+}
+func (s *StaticReferenceStationSolution) Metadata() (StaticReferenceStationMetadata, error) {
+	return StaticReferenceStationMetadata{}, unavailable()
+}
+func (s *StaticReferenceStationSolution) ModeReports() ([]StaticReferenceModeReport, error) {
+	return nil, unavailable()
+}
+
 func (*SP3) Solve(SPPConfig) (SPPSolution, error) { return SPPSolution{}, unavailable() }
 
 type TLEMetadata struct{}
