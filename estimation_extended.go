@@ -6,22 +6,12 @@ import (
 	"github.com/neilberkman/sidereon-go/internal/native"
 )
 
-// AlphaBetaState is a scalar level/rate state. Level and rate use caller-chosen
-// units; rate is those units per second.
-type AlphaBetaState struct {
-	// Level is the scalar state in caller-chosen units.
-	Level float64
-	// Rate is the state rate in those units per second.
-	Rate float64
-}
+// AlphaBetaState is a scalar level/rate state. Level uses caller-chosen units;
+// Rate uses those units per second.
+type AlphaBetaState struct{ Level, Rate float64 }
 
-// AlphaBetaGains contains the dimensionless alpha and beta gains computed by C.
-type AlphaBetaGains struct {
-	// Alpha is the dimensionless level gain.
-	Alpha float64
-	// Beta is the dimensionless rate gain.
-	Beta float64
-}
+// AlphaBetaGains contains the dimensionless Alpha level and Beta rate gains computed by C.
+type AlphaBetaGains struct{ Alpha, Beta float64 }
 
 // AlphaBetaStep contains C's prediction, innovation, and update.
 type AlphaBetaStep struct {
@@ -44,13 +34,9 @@ func AlphaBetaFilterStep(state AlphaBetaState, measurement, dt float64, gains Al
 	return AlphaBetaStep{Predicted: AlphaBetaState(value.Predicted), Updated: AlphaBetaState(value.Updated), Innovation: value.Innovation}, publicError(err)
 }
 
-// ScalarKalmanGains are steady-state constant-velocity Kalman gains.
-type ScalarKalmanGains struct {
-	// PositionGain is the dimensionless position gain.
-	PositionGain float64
-	// RateGain is the rate gain in inverse seconds.
-	RateGain float64
-}
+// ScalarKalmanGains are steady-state constant-velocity Kalman gains. PositionGain
+// is dimensionless; RateGain is in inverse seconds.
+type ScalarKalmanGains struct{ PositionGain, RateGain float64 }
 
 // ScalarKalmanSteadyStateGains computes C's constant-velocity gains. RateGain
 // is expressed in inverse seconds when applied to a position innovation.
@@ -66,17 +52,10 @@ func NormalizedInnovation(innovation, innovationVariance float64) (float64, erro
 	return value, publicError(err)
 }
 
-// ResidualMoments contains the C-computed first four residual moments.
-type ResidualMoments struct {
-	// Mean is the residual mean in input units.
-	Mean float64
-	// Variance is the residual variance in squared input units.
-	Variance float64
-	// Skewness is dimensionless.
-	Skewness float64
-	// KurtosisExcess is dimensionless excess kurtosis.
-	KurtosisExcess float64
-}
+// ResidualMoments contains the C-computed first four residual moments: Mean in
+// input units, Variance in squared input units, and dimensionless Skewness and
+// KurtosisExcess.
+type ResidualMoments struct{ Mean, Variance, Skewness, KurtosisExcess float64 }
 
 // JarqueBera contains a Jarque-Bera statistic and its p-value.
 type JarqueBera struct{ Statistic, PValue float64 }
