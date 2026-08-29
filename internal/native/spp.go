@@ -29,6 +29,7 @@ type SPPConfig struct {
 	Ionosphere      bool
 	Troposphere     bool
 	WithGeodetic    bool
+	Validation      *NativeSolutionValidationOptions
 }
 
 type SPPGeometryQuality struct {
@@ -149,6 +150,13 @@ func (s *SP3) Solve(config SPPConfig) (SPPSolution, error) {
 			if solution == nil {
 				operationErr = errors.New("sidereon: native SPP solve returned no solution")
 				return
+			}
+			if config.Validation != nil {
+				if err := validateReceiverSolutionLocked(solution, *config.Validation); err != nil {
+					operationErr = err
+					C.sidereon_spp_solution_free(solution)
+					return
+				}
 			}
 			defer C.sidereon_spp_solution_free(solution)
 

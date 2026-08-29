@@ -19,6 +19,9 @@ type SPPConfig struct {
 	Ionosphere      bool
 	Troposphere     bool
 	WithGeodetic    bool
+	// Validation optionally applies C's receiver plausibility gates before the
+	// detached solution is returned.
+	Validation *SolutionValidationOptions
 }
 
 // SPPGeometryQuality contains C's geometry diagnostics.
@@ -106,6 +109,10 @@ func SolveSPP(sp3 *SP3, config SPPConfig) (SPPSolution, error) {
 		Troposphere:     config.Troposphere,
 		WithGeodetic:    config.WithGeodetic,
 	}
+	if config.Validation != nil {
+		value := native.NativeSolutionValidationOptions{HasMaxPDOP: config.Validation.HasMaxPDOP, MaxPDOP: config.Validation.MaxPDOP, MinPlausibleRadiusM: config.Validation.MinPlausibleRadiusM, MaxPlausibleRadiusM: config.Validation.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: config.Validation.MaxConvergedResidualRMSM}
+		nativeConfig.Validation = &value
+	}
 	nativeConfig.Observations = make([]native.SPPObservation, len(config.Observations))
 	for i, observation := range config.Observations {
 		nativeConfig.Observations[i] = native.SPPObservation{
@@ -129,6 +136,10 @@ func nativeSPPConfig(config SPPConfig) native.SPPConfig {
 		Ionosphere:      config.Ionosphere,
 		Troposphere:     config.Troposphere,
 		WithGeodetic:    config.WithGeodetic,
+	}
+	if config.Validation != nil {
+		value := native.NativeSolutionValidationOptions{HasMaxPDOP: config.Validation.HasMaxPDOP, MaxPDOP: config.Validation.MaxPDOP, MinPlausibleRadiusM: config.Validation.MinPlausibleRadiusM, MaxPlausibleRadiusM: config.Validation.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: config.Validation.MaxConvergedResidualRMSM}
+		out.Validation = &value
 	}
 	out.Observations = make([]native.SPPObservation, len(config.Observations))
 	for i, observation := range config.Observations {
