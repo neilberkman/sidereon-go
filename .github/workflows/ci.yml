@@ -9,6 +9,8 @@ permissions:
 
 env:
   CGO_ENABLED: "1"
+  # The hosted Linux runners use glibc. This tag is inert on other targets.
+  GOFLAGS: "-tags=sidereon_linux_glibc"
 
 jobs:
   ordinary:

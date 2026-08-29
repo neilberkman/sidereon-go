@@ -24,13 +24,18 @@ PACKED=$TEMP_ROOT/module
 CONSUMER=$TEMP_ROOT/consumer
 mkdir -p "$PACKED" "$CONSUMER"
 
+PACKED_GOFLAGS=${GOFLAGS:-}
+if [ "$(go env GOOS)" = linux ]; then
+	PACKED_GOFLAGS="${PACKED_GOFLAGS:+$PACKED_GOFLAGS }-tags=sidereon_linux_glibc"
+fi
+
 # git archive contains only committed/tracked module content and has no .git
 # directory or untracked build output.
 git archive --format=tar HEAD | tar -xf - -C "$PACKED"
 
 go -C "$CONSUMER" mod init example.com/sidereon-consumer
 go -C "$CONSUMER" mod edit -replace github.com/neilberkman/sidereon-go="$PACKED"
-GOTOOLCHAIN=local GOPROXY=off CGO_ENABLED=1 \
+GOTOOLCHAIN=local GOPROXY=off CGO_ENABLED=1 GOFLAGS="$PACKED_GOFLAGS" \
 	go -C "$CONSUMER" get github.com/neilberkman/sidereon-go@v0.0.0
 
 cat > "$CONSUMER/main.go" <<'EOF'
@@ -118,6 +123,6 @@ PG18   6670.210753  13729.937789  21723.310519    228.892428
 PG20  17932.623680  14929.762015  12814.016152    527.447354
 PG21  16999.913180   4708.560403  20550.418405     15.546299
 EOF
-EOF
 
-GOTOOLCHAIN=local GOPROXY=off CGO_ENABLED=1 go -C "$CONSUMER" run .
+GOTOOLCHAIN=local GOPROXY=off CGO_ENABLED=1 GOFLAGS="$PACKED_GOFLAGS" \
+	go -C "$CONSUMER" run .

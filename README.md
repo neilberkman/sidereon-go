@@ -34,6 +34,16 @@ enabled:
 CGO_ENABLED=1 go get github.com/neilberkman/sidereon-go@main
 ```
 
+On Linux, select the matching bundled libc explicitly. For the usual glibc
+distribution:
+
+```sh
+CGO_ENABLED=1 GOFLAGS='-tags=sidereon_linux_glibc' \
+  go get github.com/neilberkman/sidereon-go@main
+```
+
+Use `sidereon_linux_musl` instead when building with a musl C toolchain.
+
 The command above names a Git reference, not an already-published release. In
 a local checkout, `go get ./...` and `go test ./...` use the files in that
 checkout.
@@ -79,9 +89,8 @@ does not make an archive for a different libc usable.
 ### Using a system library
 
 The `sidereon_use_system_lib` build tag disables the bundled-archive path. It
-is intended for users who provide their own compatible `libsidereon` and
-header. Supply the library search and link flags yourself through
-`CGO_LDFLAGS`:
+is intended for users who provide their own compatible `libsidereon`. Supply
+the library search and link flags yourself through `CGO_LDFLAGS`:
 
 ```sh
 CGO_ENABLED=1 \
