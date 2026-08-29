@@ -113,6 +113,10 @@ func TestSPPV2AndBatchFixture(t *testing.T) {
 		if err != nil || !ok {
 			t.Fatalf("%s epoch ok = %v, %v", name, ok, err)
 		}
+		message, err := batch.Error(0)
+		if err != nil || message != "" {
+			t.Fatalf("%s epoch error = %q, %v", name, message, err)
+		}
 		item, err := batch.Solution(0)
 		if err != nil {
 			t.Fatalf("%s solution: %v", name, err)

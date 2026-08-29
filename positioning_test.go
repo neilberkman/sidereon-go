@@ -122,6 +122,38 @@ func TestDeterministicSPPFixture(t *testing.T) {
 	}
 }
 
+func TestLegacySPPExtendedAtmosphereFixture(t *testing.T) {
+	sp3, err := LoadSP3(readPositioningFixture(t, "trimmed.sp3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sp3.Close() })
+	config := usedSPPConfig()
+	config.Ionosphere = true
+	config.Troposphere = true
+	config.KlobucharAlpha = [4]float64{1e-8, 1e-8, -1e-7, 0}
+	config.KlobucharBeta = [4]float64{90000, 0, -100000, 0}
+	config.PressureHPA = 900
+	config.TemperatureK = 280
+	config.RelativeHumidity = 0.2
+	solution, err := SolveSPP(sp3, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantPosition := [3]uint64{0x41511b067925e57d, 0x4120cd6993456913, 0x41511e607e84895e}
+	for axis, bits := range wantPosition {
+		if math.Float64bits(solution.PositionM[axis]) != bits {
+			t.Fatalf("extended position[%d] bits = %#x, want %#x", axis, math.Float64bits(solution.PositionM[axis]), bits)
+		}
+	}
+	if math.Float64bits(solution.ReceiverClockS) != 0x3f1a38751a0c0e58 {
+		t.Fatalf("extended receiver clock bits = %#x", math.Float64bits(solution.ReceiverClockS))
+	}
+	if !solution.Metadata.IonosphereApplied || !solution.Metadata.TroposphereApplied || solution.Metadata.Iterations != 11 || solution.Metadata.UsedCount != 8 {
+		t.Fatalf("extended metadata = %+v", solution.Metadata)
+	}
+}
+
 func TestSPPErrorPreservesTypedDetail(t *testing.T) {
 	sp3, err := LoadSP3(readPositioningFixture(t, "trimmed.sp3"))
 	if err != nil {

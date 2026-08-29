@@ -139,6 +139,13 @@ func (s *SP3) Solve(config SPPConfig) (SPPSolution, error) {
 			}
 			inputs.ionosphere = C.bool(config.Ionosphere)
 			inputs.troposphere = C.bool(config.Troposphere)
+			for i := range config.KlobucharAlpha {
+				inputs.klobuchar_alpha[i] = C.double(config.KlobucharAlpha[i])
+				inputs.klobuchar_beta[i] = C.double(config.KlobucharBeta[i])
+			}
+			inputs.pressure_hpa = C.double(config.PressureHPA)
+			inputs.temperature_k = C.double(config.TemperatureK)
+			inputs.relative_humidity = C.double(config.RelativeHumidity)
 			inputs.with_geodetic = C.bool(config.WithGeodetic)
 
 			var solution *C.SidereonSppSolution

@@ -484,6 +484,9 @@ func sppBaseFromC(value C.SidereonSppInputs) (SPPConfig, error) {
 	if count > 0 && value.observations == nil {
 		return SPPConfig{}, errors.New("sidereon: native SPP observations pointer is null")
 	}
+	if _, err := checkedNativeAllocationSize(count, unsafe.Sizeof(C.SidereonObservation{})); err != nil {
+		return SPPConfig{}, err
+	}
 	out := SPPConfig{TRxJ2000S: float64(value.t_rx_j2000_s), TRxSecondOfDayS: float64(value.t_rx_second_of_day_s), DayOfYear: float64(value.day_of_year), Ionosphere: bool(value.ionosphere), Troposphere: bool(value.troposphere), WithGeodetic: bool(value.with_geodetic)}
 	for i := 0; i < 4; i++ {
 		out.InitialGuess[i] = float64(value.initial_guess[i])
@@ -555,6 +558,9 @@ func sppInputsV2FromC(out C.SidereonSppInputsV2) (SppInputsV2, error) {
 	}
 	if channelCount > 0 && out.glonass_channels == nil {
 		return SppInputsV2{}, errors.New("sidereon: native GLONASS channels pointer is null")
+	}
+	if _, err := checkedNativeAllocationSize(channelCount, unsafe.Sizeof(C.SidereonGlonassChannel{})); err != nil {
+		return SppInputsV2{}, err
 	}
 	if channelCount != 0 {
 		rows := unsafe.Slice(out.glonass_channels, channelCount)
@@ -642,6 +648,10 @@ func (r *RinexSPPSolutions) SolutionError(index int) (string, error) {
 			}
 			n, e := validateNativeQuery("RINEX SPP solution error", uint64(w), uint64(req))
 			if e != nil {
+				op = e
+				return
+			}
+			if _, e = checkedNativeAllocationSize(n, unsafe.Sizeof(byte(0))); e != nil {
 				op = e
 				return
 			}
@@ -753,6 +763,10 @@ func (b *SPPBatch) Error(index int) (string, error) {
 				op = e
 				return
 			}
+			if _, e = checkedNativeAllocationSize(n, unsafe.Sizeof(byte(0))); e != nil {
+				op = e
+				return
+			}
 			buf := make([]byte, n)
 			var ptr *C.uint8_t
 			if n > 0 {
@@ -857,6 +871,10 @@ func (s *SppSolutionHandle) RejectedSatellites() ([]NativeSPPRejectedSatellite, 
 				op = e
 				return
 			}
+			if _, e = checkedNativeAllocationSize(n, unsafe.Sizeof(C.SidereonSppRejectedSat{})); e != nil {
+				op = e
+				return
+			}
 			rows := make([]C.SidereonSppRejectedSat, n)
 			var ptr *C.SidereonSppRejectedSat
 			if n > 0 {
@@ -920,6 +938,10 @@ func (s *SppSolutionHandle) SystemClocks() ([]NativeSPPSystemClock, error) {
 				op = e
 				return
 			}
+			if _, e = checkedNativeAllocationSize(n, unsafe.Sizeof(C.SidereonSppSystemClock{})); e != nil {
+				op = e
+				return
+			}
 			rows := make([]C.SidereonSppSystemClock, n)
 			var ptr *C.SidereonSppSystemClock
 			if n > 0 {
@@ -965,6 +987,10 @@ func (s *SppSolutionHandle) SystemTDOPs() ([]NativeSPPSystemTDOP, error) {
 			}
 			n, e := validateNativeQuery("SPP system TDOPs", uint64(w), uint64(req))
 			if e != nil {
+				op = e
+				return
+			}
+			if _, e = checkedNativeAllocationSize(n, unsafe.Sizeof(C.SidereonSppSystemTdop{})); e != nil {
 				op = e
 				return
 			}
