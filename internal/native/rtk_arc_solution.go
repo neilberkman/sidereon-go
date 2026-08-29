@@ -394,7 +394,11 @@ func copyRtkArcConfig(value RtkArcConfigInput, alloc *cRtkAlloc) (*C.SidereonRtk
 	if err != nil {
 		return nil, err
 	}
-	antenna, err := copyRtkReceiverAntenna(value.ReceiverAntenna, alloc)
+	antennaValue := value.ReceiverAntenna
+	if antennaValue == nil {
+		antennaValue = value.UpdateOptions.ReceiverAntenna
+	}
+	antenna, err := copyRtkReceiverAntenna(antennaValue, alloc)
 	if err != nil {
 		return nil, err
 	}

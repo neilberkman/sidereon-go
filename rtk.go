@@ -40,6 +40,7 @@ type RTKArcUpdateOptions struct {
 	HasARArmingSigmaM                       bool
 	ARArmingSigmaM                          float64
 	RatioThreshold                          float64
+	ReceiverAntenna                         *RTKReceiverAntennaCorrections
 }
 
 func DefaultRTKMeasurementModel() (RTKMeasurementModel, error) {
@@ -103,6 +104,7 @@ type RTKFloatMetadata struct {
 	Converged                                                              bool
 	Status                                                                 uint32
 	CodeRMSM, PhaseRMSM, WeightedRMSM                                      float64
+	GeometryQuality                                                        SPPGeometryQuality
 }
 
 type RTKFloatSolution struct {
@@ -160,7 +162,7 @@ func (s *RTKFloatSolution) Metadata() (RTKFloatMetadata, error) {
 		return RTKFloatMetadata{}, ErrClosed
 	}
 	v, err := s.handle.Metadata()
-	return RTKFloatMetadata{Iterations: v.Iterations, NObservations: v.NObservations, AmbiguityCount: v.AmbiguityCount, ResidualCount: v.ResidualCount, UsedSatCount: v.UsedSatCount, Converged: v.Converged, Status: v.Status, CodeRMSM: v.CodeRMSM, PhaseRMSM: v.PhaseRMSM, WeightedRMSM: v.WeightedRMSM}, publicError(err)
+	return RTKFloatMetadata{Iterations: v.Iterations, NObservations: v.NObservations, AmbiguityCount: v.AmbiguityCount, ResidualCount: v.ResidualCount, UsedSatCount: v.UsedSatCount, Converged: v.Converged, Status: v.Status, CodeRMSM: v.CodeRMSM, PhaseRMSM: v.PhaseRMSM, WeightedRMSM: v.WeightedRMSM, GeometryQuality: SPPGeometryQuality{Tier: v.GeometryQuality.Tier, Redundancy: v.GeometryQuality.Redundancy, Rank: v.GeometryQuality.Rank, ConditionNumber: v.GeometryQuality.ConditionNumber, GDOP: v.GeometryQuality.GDOP, RAIMCheckable: v.GeometryQuality.RAIMCheckable, CovarianceValidated: v.GeometryQuality.CovarianceValidated}}, publicError(err)
 }
 func (s *RTKFloatSolution) Ambiguities() ([]RTKAmbiguity, error) {
 	if s == nil || s.handle == nil {

@@ -47,6 +47,7 @@ type RtkFloatMetadata struct {
 	Converged                                                              bool
 	Status                                                                 uint32
 	CodeRMSM, PhaseRMSM, WeightedRMSM                                      float64
+	GeometryQuality                                                        GeometryQuality
 }
 
 type RtkAmbiguity struct {
@@ -321,7 +322,11 @@ func (s *RtkFloatSolution) Metadata() (RtkFloatMetadata, error) {
 	if err != nil {
 		return RtkFloatMetadata{}, err
 	}
-	return RtkFloatMetadata{Iterations: iterations, NObservations: nObservations, AmbiguityCount: ambiguityCount, ResidualCount: residualCount, UsedSatCount: usedSatCount, Converged: bool(value.converged), Status: uint32(value.status), CodeRMSM: float64(value.code_rms_m), PhaseRMSM: float64(value.phase_rms_m), WeightedRMSM: float64(value.weighted_rms_m)}, nil
+	geometry, err := geometryFromC(value.geometry_quality)
+	if err != nil {
+		return RtkFloatMetadata{}, err
+	}
+	return RtkFloatMetadata{Iterations: iterations, NObservations: nObservations, AmbiguityCount: ambiguityCount, ResidualCount: residualCount, UsedSatCount: usedSatCount, Converged: bool(value.converged), Status: uint32(value.status), CodeRMSM: float64(value.code_rms_m), PhaseRMSM: float64(value.phase_rms_m), WeightedRMSM: float64(value.weighted_rms_m), GeometryQuality: geometry}, nil
 }
 
 func (s *RtkFloatSolution) Ambiguities() ([]RtkAmbiguity, error) {

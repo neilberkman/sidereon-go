@@ -44,6 +44,7 @@ type RtkArcUpdateOptions struct {
 	HasARArmingSigmaM                       bool
 	ARArmingSigmaM                          float64
 	RatioThreshold                          float64
+	ReceiverAntenna                         *RtkReceiverAntennaCorrections
 }
 
 type RtkRinexSignalPair struct {
