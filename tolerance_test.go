@@ -21,12 +21,15 @@ import "math"
 const (
 	relTol = 1e-9
 
-	toleranceM     = 1e-6  // meters: position, velocity(m/s), baseline, residual, delta, height
-	toleranceKm    = 1e-9  // kilometers: SGP4 position/velocity
-	toleranceM2    = 1e-9  // meters^2 (or (m/s)^2): covariance with near-zero entries (velocity module)
-	toleranceRad   = 1e-12 // radians: geodetic latitude/longitude
-	toleranceS     = 1e-12 // seconds: clock bias, time-of-flight
-	toleranceRatio = 1e-9  // dimensionless: GDOP, condition number, weights, RMS
+	toleranceM   = 1e-6  // meters: position, velocity(m/s), baseline, residual, delta, height
+	toleranceKm  = 1e-9  // kilometers: SGP4 position/velocity
+	toleranceM2  = 1e-9  // meters^2 (or (m/s)^2): covariance with near-zero entries (velocity module)
+	toleranceRad = 1e-12 // radians: geodetic latitude/longitude
+	toleranceS   = 1e-12 // seconds: clock bias, time-of-flight
+	// GDOP/condition number are matrix-derived like covariance and show the
+	// same inversion-amplified divergence (observed ~1.6e-6 absolute on a
+	// ~10.7 magnitude condition number).
+	toleranceRatio = 1e-4 // dimensionless: GDOP, condition number, weights, RMS
 
 	// Position-solve covariance matrices (O(0.01-2) magnitude entries) amplify
 	// cross-arch ULP divergence through matrix inversion far more than the

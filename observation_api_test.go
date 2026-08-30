@@ -510,10 +510,14 @@ func TestObservablesRoutesWithCommittedProducts(t *testing.T) {
 	if missing.HasPosition || !math.IsNaN(missing.PositionECEFM[0]) || !math.IsNaN(missing.PositionECEFM[1]) || !math.IsNaN(missing.PositionECEFM[2]) || missing.Status != EmissionMediaGap || missing.ResultStatus != StatusSolve {
 		t.Fatalf("missing emission sentinel/status = %+v", missing)
 	}
+	// Comparison is tolerance-based, not bit-exact: the engine documents only
+	// same-machine bit reproducibility, and this observable-prediction path
+	// diverges by a few ULP cross-arch (observed on the elevation angle).
 	assertBits := func(label string, actual float64, expected uint64) {
 		t.Helper()
-		if bits := math.Float64bits(actual); bits != expected {
-			t.Fatalf("%s bits = %016x, want %016x", label, bits, expected)
+		want := math.Float64frombits(expected)
+		if !closeTol(actual, want, 1e-6) {
+			t.Fatalf("%s = %.17g (%016x), want %.17g (%016x)", label, actual, math.Float64bits(actual), want, expected)
 		}
 	}
 	assertMedia := func(label string, row EmissionMediaRow, expected [4]uint64) {

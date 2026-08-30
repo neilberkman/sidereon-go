@@ -7,3 +7,8 @@ LICENSES/IERS-Conventions-Software-License.txt whitespace=-trailing-space
 # conversion to these files, corrupting the committed bytes and failing
 # every fixture-integrity hash check.
 testdata/** binary
+
+# The vendored C header is hash-pinned bit-for-bit against the public
+# sidereon-c release (see sidereon_test.go); same CRLF-corruption risk as
+# testdata on Windows checkouts.
+internal/native/include/sidereon.h binary
