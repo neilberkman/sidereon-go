@@ -206,6 +206,6 @@ C interfaces unless a specific Go route and its tests establish that parity.
 
 ## License
 
-The Go module is Apache-2.0; see [LICENSE](LICENSE). The statically linked C
+The Go module is MIT licensed; see [LICENSE](LICENSE). The statically linked C
 library and its dependencies have additional attributions in
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

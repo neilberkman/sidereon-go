@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-The Go binding is licensed under Apache-2.0 (see LICENSE). Its committed
+The Go binding is licensed under the MIT License (see LICENSE). Its committed
 `libsidereon` static library contains the C binding and the locked Rust engine
 dependencies listed below. License choices shown for dual-licensed components
 use a permitted Apache-2.0 or MIT option. No copyleft (GPL/LGPL/AGPL/MPL/EUPL/
@@ -8,7 +8,8 @@ CDDL) code or dependency is included.
 
 The package also carries the exact license texts needed by the algorithm and
 dependency attributions in `LICENSES/`. The Apache-2.0 text is reproduced in
-the root `LICENSE` and applies to the Apache-licensed dependency choices.
+`LICENSES/Apache-2.0.txt` and applies to the Apache-licensed dependency
+choices.
 
 --------------------------------------------------------------------------------
 ## RTKLIB (BSD 2-Clause)
