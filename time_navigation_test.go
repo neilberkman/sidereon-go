@@ -2,7 +2,6 @@ package sidereon
 
 import (
 	"errors"
-	"math"
 	"sync"
 	"testing"
 )
@@ -88,21 +87,25 @@ func TestNavigationRemainingSmoke(t *testing.T) {
 		t.Fatalf("LNAV TOW = %d, %v", tow, err)
 	}
 
+	// NeQuick/Klobuchar delays are transcendental-heavy ionosphere models;
+	// the tolerance below (not bit-exact even on one platform) is widened
+	// from 1e-14 because it fell a few ULP short of covering cross-arch
+	// divergence (observed ~1.2e-14 on x86_64 vs the arm64-captured value).
 	ray := NequickGRay{Month: 1, UTCHours: 12, StationLonDeg: 0, StationLatDeg: 45, StationHeightM: 100, SatelliteLonDeg: 10, SatelliteLatDeg: 20, SatelliteHeightM: 20200000}
 	stec, err := NequickGStecTecu(1, 0, 0, ray)
-	if err != nil || math.Abs(stec-1.801691477554427) > 1e-14 {
+	if err != nil || !closeTol(stec, 1.801691477554427, toleranceRatio) {
 		t.Fatalf("NeQuick TEC = %v, %v", stec, err)
 	}
 	delay, err := NequickGDelayM(1, 0, 0, ray, 1575420000)
-	if err != nil || math.Abs(delay-0.29254505487201443) > 1e-14 {
+	if err != nil || !closeTol(delay, 0.29254505487201443, toleranceRatio) {
 		t.Fatalf("NeQuick delay = %v, %v", delay, err)
 	}
 	galileoDelay, err := GalileoNequickGNative(1, 0, 0, 45, 0, 30, 43200, 100, 1575420000)
-	if err != nil || math.Abs(galileoDelay-0.71417989604392706) > 1e-14 {
+	if err != nil || !closeTol(galileoDelay, 0.71417989604392706, toleranceRatio) {
 		t.Fatalf("Galileo NeQuick delay = %v, %v", galileoDelay, err)
 	}
 	klobucharDelay, err := KlobucharNative([4]float64{0, 0, 0, 0}, [4]float64{0, 0, 0, 0}, 0, 0, 0, 45, 43200, 1575420000)
-	if err != nil || math.Abs(klobucharDelay-2.02544581304128) > 1e-14 {
+	if err != nil || !closeTol(klobucharDelay, 2.02544581304128, toleranceRatio) {
 		t.Fatalf("Klobuchar delay = %v, %v", klobucharDelay, err)
 	}
 }

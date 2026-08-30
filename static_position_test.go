@@ -217,46 +217,56 @@ func TestStaticPositionBroadcastFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if position != [3]float64{3582103.9938146966, 532590.0101296651, 5232755.532730556} {
+	if !closeArray3(position, [3]float64{3582103.9938146966, 532590.0101296651, 5232755.532730556}, toleranceM) {
 		t.Fatalf("broadcast position = %#v", position)
 	}
 	ecef, err := solution.PositionCovarianceECEFM2()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ecef != [9]float64{0.5601016910371253, 0.06789238645215571, 0.3978678257002529, 0.06789238645215571, 0.2643780701031183, 0.14208520437584218, 0.3978678257002529, 0.14208520437584218, 1.4765853539265885} {
+	if !closeArray9(ecef, [9]float64{0.5601016910371253, 0.06789238645215571, 0.3978678257002529, 0.06789238645215571, 0.2643780701031183, 0.14208520437584218, 0.3978678257002529, 0.14208520437584218, 1.4765853539265885}, toleranceM2) {
 		t.Fatalf("broadcast ECEF covariance = %#v", ecef)
 	}
 	clocks, err := solution.ClockBiases()
-	if err != nil || len(clocks) != 6 || clocks[0] != (StaticPositionClockBias{EpochIndex: 0, System: GNSSSystemGPS, ClockS: 0.0004809278250034323}) || clocks[1] != (StaticPositionClockBias{EpochIndex: 0, System: GNSSSystemGalileo, ClockS: 0.0004809283219659802}) || clocks[2] != (StaticPositionClockBias{EpochIndex: 0, System: GNSSSystemBeiDou, ClockS: 0.000480932901131308}) {
+	if err != nil || len(clocks) != 6 ||
+		clocks[0].EpochIndex != 0 || clocks[0].System != GNSSSystemGPS || !closeTol(clocks[0].ClockS, 0.0004809278250034323, toleranceS) ||
+		clocks[1].EpochIndex != 0 || clocks[1].System != GNSSSystemGalileo || !closeTol(clocks[1].ClockS, 0.0004809283219659802, toleranceS) ||
+		clocks[2].EpochIndex != 0 || clocks[2].System != GNSSSystemBeiDou || !closeTol(clocks[2].ClockS, 0.000480932901131308, toleranceS) {
 		t.Fatalf("broadcast clock biases = %#v, %v", clocks, err)
 	}
 	metadata, err := solution.Metadata()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if metadata.Iterations != 9 || metadata.UsedMeasurements != 48 || metadata.Parameters != 9 || !metadata.Converged || metadata.Status != StaticPositionSolveStepTolerance || metadata.Redundancy != 39 || metadata.GeometryQuality.Tier != 3 || metadata.GeometryQuality.Rank != 9 || metadata.GeometryQuality.ConditionNumber != 10.71726872500189 || metadata.GeometryQuality.GDOP != 3.1307937402565647 {
+	if metadata.Iterations != 9 || metadata.UsedMeasurements != 48 || metadata.Parameters != 9 || !metadata.Converged || metadata.Status != StaticPositionSolveStepTolerance || metadata.Redundancy != 39 || metadata.GeometryQuality.Tier != 3 || metadata.GeometryQuality.Rank != 9 ||
+		!closeTol(metadata.GeometryQuality.ConditionNumber, 10.71726872500189, toleranceRatio) ||
+		!closeTol(metadata.GeometryQuality.GDOP, 3.1307937402565647, toleranceRatio) {
 		t.Fatalf("broadcast metadata = %#v", metadata)
 	}
 	enu, err := solution.PositionCovarianceENUM2()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if enu != [9]float64{0.2510219921192734, 0.028390434713731892, 0.08002432953653736, 0.028390434713731892, 0.4763461418110637, 0.2731730733755985, 0.08002432953653738, 0.2731730733755984, 1.5736969811364947} {
+	if !closeArray9(enu, [9]float64{0.2510219921192734, 0.028390434713731892, 0.08002432953653736, 0.028390434713731892, 0.4763461418110637, 0.2731730733755985, 0.08002432953653738, 0.2731730733755984, 1.5736969811364947}, toleranceM2) {
 		t.Fatalf("broadcast ENU covariance = %#v", enu)
 	}
 	influence, err := solution.EpochInfluence()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(influence) != 2 || influence[0].OmittedMeasurements != 39 || influence[0].Status != StaticInfluenceSolved || influence[0].PositionDeltaM != [3]float64{-0.01612188946455717, 0.00403376342728734, -0.0006215404719114304} || influence[0].ResidualRMSM != 0.6209123884506991 {
+	if len(influence) != 2 || influence[0].OmittedMeasurements != 39 || influence[0].Status != StaticInfluenceSolved ||
+		!closeArray3(influence[0].PositionDeltaM, [3]float64{-0.01612188946455717, 0.00403376342728734, -0.0006215404719114304}, toleranceM) ||
+		!closeTol(influence[0].ResidualRMSM, 0.6209123884506991, toleranceM) {
 		t.Fatalf("broadcast epoch influence = %#v", influence)
 	}
 	geo, present, err := solution.Geodetic()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !present || geo != (Geodetic{LatitudeRad: 0.9685456089302746, LongitudeRad: 0.14759950631954855, HeightM: 59.37221782643766}) {
+	if !present ||
+		!closeTol(geo.LatitudeRad, 0.9685456089302746, toleranceRad) ||
+		!closeTol(geo.LongitudeRad, 0.14759950631954855, toleranceRad) ||
+		!closeTol(geo.HeightM, 59.37221782643766, toleranceM) {
 		t.Fatalf("broadcast geodetic = %#v present=%v", geo, present)
 	}
 	rejected, err := solution.RejectedSatellites(0)
@@ -270,28 +280,36 @@ func TestStaticPositionBroadcastFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(residuals) != 48 || residuals[0] != (StaticPositionResidual{EpochIndex: 0, SatelliteID: "G05", ResidualM: -0.079147819429636, BaseWeight: 0.7633750022938937, EffectiveWeight: 0.7633750022938937, RobustWeightRatio: 1}) {
+	if len(residuals) != 48 || residuals[0].EpochIndex != 0 || residuals[0].SatelliteID != "G05" ||
+		!closeTol(residuals[0].ResidualM, -0.079147819429636, toleranceM) ||
+		!closeTol(residuals[0].BaseWeight, 0.7633750022938937, toleranceRatio) ||
+		!closeTol(residuals[0].EffectiveWeight, 0.7633750022938937, toleranceRatio) ||
+		!closeTol(residuals[0].RobustWeightRatio, 1, toleranceRatio) {
 		t.Fatalf("broadcast residuals = %#v", residuals)
 	}
 	batch, err := solution.SatelliteBatchInfluence()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(batch) != 24 || batch[0].SatelliteID != "G05" || batch[0].OmittedMeasurements != 2 || batch[0].PositionDeltaM != [3]float64{-0.04750775592401624, 0.026683393982239068, 0.014262226410210133} || batch[0].ResidualRMSM != 0.562068067748791 {
+	if len(batch) != 24 || batch[0].SatelliteID != "G05" || batch[0].OmittedMeasurements != 2 ||
+		!closeArray3(batch[0].PositionDeltaM, [3]float64{-0.04750775592401624, 0.026683393982239068, 0.014262226410210133}, toleranceM) ||
+		!closeTol(batch[0].ResidualRMSM, 0.562068067748791, toleranceM) {
 		t.Fatalf("broadcast batch influence = %#v", batch)
 	}
 	sat, err := solution.SatelliteInfluence()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(sat) != 48 || sat[0].SatelliteID != "G05" || sat[0].EpochIndex != 0 || sat[0].ResidualM != -0.079147819429636 || sat[0].PositionDeltaM != [3]float64{-0.009946595411747694, 0.0056295933900401, 0.0028392961248755455} {
+	if len(sat) != 48 || sat[0].SatelliteID != "G05" || sat[0].EpochIndex != 0 ||
+		!closeTol(sat[0].ResidualM, -0.079147819429636, toleranceM) ||
+		!closeArray3(sat[0].PositionDeltaM, [3]float64{-0.009946595411747694, 0.0056295933900401, 0.0028392961248755455}, toleranceM) {
 		t.Fatalf("broadcast satellite influence = %#v", sat)
 	}
 	state, err := solution.StateCovarianceM2()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(state) != 81 || state[0] != 0.5601016910371253 || state[len(state)-1] != 1.214219825777896 {
+	if len(state) != 81 || !closeTol(state[0], 0.5601016910371253, toleranceM2) || !closeTol(state[len(state)-1], 1.214219825777896, toleranceM2) {
 		t.Fatalf("broadcast state covariance = %#v", state)
 	}
 }

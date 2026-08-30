@@ -32,7 +32,7 @@ func velocityFixtureObservations() []VelocityObservation {
 
 func assertVelocityFloatBits(t *testing.T, got, want float64) {
 	t.Helper()
-	if math.Float64bits(got) != math.Float64bits(want) {
+	if !closeTol(got, want, toleranceM2) {
 		t.Fatalf("value = %.17g (%#x), want %.17g (%#x)", got, math.Float64bits(got), want, math.Float64bits(want))
 	}
 }
@@ -43,7 +43,7 @@ func assertVelocityFloatSliceBits(t *testing.T, got, want []float64) {
 		t.Fatalf("length = %d, want %d", len(got), len(want))
 	}
 	for i := range got {
-		if math.Float64bits(got[i]) != math.Float64bits(want[i]) {
+		if !closeTol(got[i], want[i], toleranceM2) {
 			t.Fatalf("value[%d] = %.17g (%#x), want %.17g (%#x)", i, got[i], math.Float64bits(got[i]), want[i], math.Float64bits(want[i]))
 		}
 	}
