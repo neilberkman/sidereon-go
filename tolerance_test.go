@@ -40,24 +40,7 @@ func closeArray3(got, want [3]float64, absTol float64) bool {
 	return closeTol(got[0], want[0], absTol) && closeTol(got[1], want[1], absTol) && closeTol(got[2], want[2], absTol)
 }
 
-func closeArray4(got, want [4]float64, absTol float64) bool {
-	return closeTol(got[0], want[0], absTol) && closeTol(got[1], want[1], absTol) &&
-		closeTol(got[2], want[2], absTol) && closeTol(got[3], want[3], absTol)
-}
-
 func closeArray9(got, want [9]float64, absTol float64) bool {
-	for i := range got {
-		if !closeTol(got[i], want[i], absTol) {
-			return false
-		}
-	}
-	return true
-}
-
-func closeSlice(got, want []float64, absTol float64) bool {
-	if len(got) != len(want) {
-		return false
-	}
 	for i := range got {
 		if !closeTol(got[i], want[i], absTol) {
 			return false
