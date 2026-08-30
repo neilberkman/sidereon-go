@@ -1,3 +1,9 @@
 # Preserve the public IERS notice exactly as distributed; its two comment
 # lines intentionally end with a space.
 LICENSES/IERS-Conventions-Software-License.txt whitespace=-trailing-space
+
+# Hash-pinned test fixtures must be byte-identical on every checkout
+# platform. Without this, Windows runners apply core.autocrlf text
+# conversion to these files, corrupting the committed bytes and failing
+# every fixture-integrity hash check.
+testdata/** binary

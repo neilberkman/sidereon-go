@@ -224,7 +224,7 @@ func TestStaticPositionBroadcastFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !closeArray9(ecef, [9]float64{0.5601016910371253, 0.06789238645215571, 0.3978678257002529, 0.06789238645215571, 0.2643780701031183, 0.14208520437584218, 0.3978678257002529, 0.14208520437584218, 1.4765853539265885}, toleranceM2) {
+	if !closeArray9(ecef, [9]float64{0.5601016910371253, 0.06789238645215571, 0.3978678257002529, 0.06789238645215571, 0.2643780701031183, 0.14208520437584218, 0.3978678257002529, 0.14208520437584218, 1.4765853539265885}, tolerancePositionCovM2) {
 		t.Fatalf("broadcast ECEF covariance = %#v", ecef)
 	}
 	clocks, err := solution.ClockBiases()
@@ -247,7 +247,7 @@ func TestStaticPositionBroadcastFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !closeArray9(enu, [9]float64{0.2510219921192734, 0.028390434713731892, 0.08002432953653736, 0.028390434713731892, 0.4763461418110637, 0.2731730733755985, 0.08002432953653738, 0.2731730733755984, 1.5736969811364947}, toleranceM2) {
+	if !closeArray9(enu, [9]float64{0.2510219921192734, 0.028390434713731892, 0.08002432953653736, 0.028390434713731892, 0.4763461418110637, 0.2731730733755985, 0.08002432953653738, 0.2731730733755984, 1.5736969811364947}, tolerancePositionCovM2) {
 		t.Fatalf("broadcast ENU covariance = %#v", enu)
 	}
 	influence, err := solution.EpochInfluence()
@@ -309,7 +309,7 @@ func TestStaticPositionBroadcastFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(state) != 81 || !closeTol(state[0], 0.5601016910371253, toleranceM2) || !closeTol(state[len(state)-1], 1.214219825777896, toleranceM2) {
+	if len(state) != 81 || !closeTol(state[0], 0.5601016910371253, tolerancePositionCovM2) || !closeTol(state[len(state)-1], 1.214219825777896, tolerancePositionCovM2) {
 		t.Fatalf("broadcast state covariance = %#v", state)
 	}
 }

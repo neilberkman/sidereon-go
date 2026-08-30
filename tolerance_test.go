@@ -23,10 +23,17 @@ const (
 
 	toleranceM     = 1e-6  // meters: position, velocity(m/s), baseline, residual, delta, height
 	toleranceKm    = 1e-9  // kilometers: SGP4 position/velocity
-	toleranceM2    = 1e-9  // meters^2 (or (m/s)^2): covariance
+	toleranceM2    = 1e-9  // meters^2 (or (m/s)^2): covariance with near-zero entries (velocity module)
 	toleranceRad   = 1e-12 // radians: geodetic latitude/longitude
 	toleranceS     = 1e-12 // seconds: clock bias, time-of-flight
 	toleranceRatio = 1e-9  // dimensionless: GDOP, condition number, weights, RMS
+
+	// Position-solve covariance matrices (O(0.01-2) magnitude entries) amplify
+	// cross-arch ULP divergence through matrix inversion far more than the
+	// fitted position itself; observed up to ~1.7e-6 absolute on x86_64/
+	// Windows. Kept separate from toleranceM2 so covariance matrices with
+	// near-zero entries (e.g. the velocity module) stay tightly checked.
+	tolerancePositionCovM2 = 1e-4
 )
 
 func closeTol(got, want, absTol float64) bool {

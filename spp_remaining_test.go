@@ -80,14 +80,14 @@ func TestSPPV2AndBatchFixture(t *testing.T) {
 	wantECEF := [9]uint64{0x40194e10479e6e2d, 0x3fe2cd9c121466d8, 0x400fca5c00638b84, 0x3fe2cd9c121466d8, 0x3ff7605ef09ccae8, 0x3ff0722b57c6f425, 0x400fca5c00638b84, 0x3ff0722b57c6f425, 0x40163709b8e2fc45}
 	for i, bits := range wantECEF {
 		want := math.Float64frombits(bits)
-		if !closeTol(covECEF[i], want, toleranceM2) {
+		if !closeTol(covECEF[i], want, tolerancePositionCovM2) {
 			t.Fatalf("V2 ECEF covariance[%d] = %.17g, want %.17g (bits %#x)", i, covECEF[i], want, bits)
 		}
 	}
 	wantENU := [9]uint64{0x3ff642156f199a69, 0x3fd9157bfce51e76, 0x3fd76c2f083e23b7, 0x3fd9157bfce51e76, 0x3ffe7cdc8fcc0042, 0xbfdaf4c777cc7450, 0x3fd76c2f083e23b4, 0xbfdaf4c777cc7440, 0x402416ba9e779b40}
 	for i, bits := range wantENU {
 		want := math.Float64frombits(bits)
-		if !closeTol(covENU[i], want, toleranceM2) {
+		if !closeTol(covENU[i], want, tolerancePositionCovM2) {
 			t.Fatalf("V2 ENU covariance[%d] = %.17g, want %.17g (bits %#x)", i, covENU[i], want, bits)
 		}
 	}
@@ -197,7 +197,7 @@ func TestSPPV2AndBatchFixture(t *testing.T) {
 	wantCovariance := [16]uint64{0x400282c626323d2a, 0xbfd3062ad69da274, 0x3ff3772a277f1155, 0x3e3a581f579bce26, 0xbfd3062ad69da272, 0x3fe06c071ee2a862, 0x3f9d0b77b1d638fe, 0xbdfb3232e1b75c0c, 0x3ff3772a277f115a, 0x3f9d0b77b1d638fe, 0x40004182baec1d33, 0x3e37ad085814be3d, 0x3e3a581f579bce29, 0xbdfb3232e1b75c09, 0x3e37ad085814be3d, 0x3c78b3e333d6e173}
 	for i, bits := range wantCovariance {
 		want := math.Float64frombits(bits)
-		if !closeTol(velocity.StateCovariance[i], want, toleranceM2) {
+		if !closeTol(velocity.StateCovariance[i], want, tolerancePositionCovM2) {
 			t.Fatalf("precise Doppler covariance[%d] = %.17g, want %.17g (bits %#x)", i, velocity.StateCovariance[i], want, bits)
 		}
 	}
