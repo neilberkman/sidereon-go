@@ -279,7 +279,10 @@ func TestAstrodynamicsSurfaceFixtureDeterministic(t *testing.T) {
 		// position/velocity themselves stay tight (observed ~1.5e-6 km absolute
 		// swing, roughly 10% relative). Pinning an exact value at the noise
 		// floor is not a meaningful test; assert it stays small instead.
-		if stats.RMSPositionKm < 0 || stats.RMSPositionKm > 5e-5 || stats.NFEV != 20 || stats.SeedRefinePasses != 2 {
+		// NFEV (function evaluation count) is, like iteration count, itself
+		// sensitive to cross-arch ULP noise near the convergence threshold
+		// (observed 20/23/30 across three platforms).
+		if stats.RMSPositionKm < 0 || stats.RMSPositionKm > 5e-5 || stats.NFEV < 1 || stats.NFEV > 60 || stats.SeedRefinePasses != 2 {
 			t.Fatalf("SGP4 fit frozen result = %+v", stats)
 		}
 	}
