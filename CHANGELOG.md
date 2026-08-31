@@ -2,6 +2,14 @@
 
 All notable changes to this module are documented here.
 
+## 1.3.3 - 2026-08-30
+
+- Engine update: sidereon-c 1.3.3 (sidereon-core 1.3.3). Archive-listing
+  parsing in the engine is no longer quadratic, and transcendental math is
+  bit-identical across x86_64 and arm64. 1.3.2 is skipped: its Moon
+  ephemeris lost the parallax sine and placed the Moon ~17 km off; 1.3.3
+  restores it. No Go API changes.
+
 ## 1.3.1 - 2026-08-29
 
 - Relicense the module from Apache-2.0 to the MIT License, matching the engine

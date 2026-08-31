@@ -1,6 +1,6 @@
 # Current C ABI implementation map
 
-This map is generated from the vendored header and production cgo calls for pinned public `sidereon-c` commit `v1.3.1`. Run `./scripts/check-abi-coverage.sh` to prove that every declaration has exactly one disposition.
+This map is generated from the vendored header and production cgo calls for pinned public `sidereon-c` commit `v1.3.3`. Run `./scripts/check-abi-coverage.sh` to prove that every declaration has exactly one disposition.
 
 Summary: **1,503 total = 1,492 direct + 10 composed + 1 excluded**. Direct rows name a production cgo source. Composed rows keep filesystem acquisition or persistence in Go and delegate bytes to an implemented ABI route.
 
