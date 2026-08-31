@@ -44,9 +44,7 @@ func TestValueRoutesDeterministic(t *testing.T) {
 			VDOP: math.Float64frombits(0x400251acf780e6a6),
 			TDOP: math.Float64frombits(0x3ff73cdc1aa52898),
 		}
-		if !closeTol(dop.GDOP, want.GDOP, toleranceRatio) || !closeTol(dop.PDOP, want.PDOP, toleranceRatio) ||
-			!closeTol(dop.HDOP, want.HDOP, toleranceRatio) || !closeTol(dop.VDOP, want.VDOP, toleranceRatio) ||
-			!closeTol(dop.TDOP, want.TDOP, toleranceRatio) {
+		if dop != want {
 			t.Fatalf("DOP = %#v, want %#v", dop, want)
 		}
 	})

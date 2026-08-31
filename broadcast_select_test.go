@@ -118,10 +118,7 @@ func TestBroadcastSelectAndComparisonRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BroadcastSatelliteState: %v", err)
 	}
-	if orbitState.KeplerIterations != 4 ||
-		!closeTol(orbitState.XM, math.Float64frombits(0x4174e5f05f72e43c), toleranceM) ||
-		!closeTol(clockOffset.TotalS, math.Float64frombits(0xbf40e4000004de97), toleranceS) ||
-		!closeTol(satelliteState.Clock.TotalS, math.Float64frombits(0xbf40e3fde214ad05), toleranceS) {
+	if orbitState.KeplerIterations != 4 || math.Float64bits(orbitState.XM) != 0x4174e5f05f72e43c || math.Float64bits(clockOffset.TotalS) != 0xbf40e4000004de97 || math.Float64bits(satelliteState.Clock.TotalS) != 0xbf40e3fde214ad05 {
 		t.Fatalf("broadcast frozen values changed: orbit=%+v clock=%+v stateClock=%+v", orbitState, clockOffset, satelliteState.Clock)
 	}
 	if selected.SatelliteID != "G01" || selected.Issue != 58 || selected.Message != 0 || selected.FitIntervalS != 14400 {
@@ -206,9 +203,7 @@ func TestBroadcastSelectAndComparisonRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("comparison overall: %v", err)
 	}
-	if comparisonStats.Count != 1 ||
-		!closeTol(comparisonStats.Orbit3DRMSM, math.Float64frombits(0x41859b4b8bd6624f), toleranceM) ||
-		!closeTol(comparisonStats.ClockRMSM, math.Float64frombits(0x4035c57ba756fc79), toleranceM) {
+	if comparisonStats.Count != 1 || math.Float64bits(comparisonStats.Orbit3DRMSM) != 0x41859b4b8bd6624f || math.Float64bits(comparisonStats.ClockRMSM) != 0x4035c57ba756fc79 {
 		t.Fatalf("comparison frozen stats changed: %+v", comparisonStats)
 	}
 	satelliteCount, err := comparison.SatelliteCount()

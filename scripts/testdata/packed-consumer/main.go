@@ -60,20 +60,14 @@ func runSolve() (err error) {
 	if err != nil {
 		return err
 	}
-	// The engine documents only same-machine bit reproducibility; this
-	// iterative least-squares solve diverges by a few ULP cross-arch, so the
-	// comparison below is tolerance-based rather than bit-exact.
-	const positionToleranceM = 1e-6
-	const clockToleranceS = 1e-12
-	wantPosition := [3]uint64{0x41511b07ff83c7f1, 0x4120cd6b5ee8cafe, 0x41511e62229db724}
+	wantPosition := [3]uint64{0x41511b07ff83c7e9, 0x4120cd6b5ee8caf6, 0x41511e62229db722}
 	for axis, bits := range wantPosition {
-		want := math.Float64frombits(bits)
-		if math.Abs(solution.PositionM[axis]-want) > positionToleranceM {
-			return fmt.Errorf("position[%d] = %.17g, want %.17g (frozen C value)", axis, solution.PositionM[axis], want)
+		if math.Float64bits(solution.PositionM[axis]) != bits {
+			return fmt.Errorf("position[%d] = %.17g, want frozen C value", axis, solution.PositionM[axis])
 		}
 	}
-	if want := math.Float64frombits(0x3f1a3b88360a8d78); math.Abs(solution.ReceiverClockS-want) > clockToleranceS {
-		return fmt.Errorf("receiver clock = %.17g, want %.17g (frozen C value)", solution.ReceiverClockS, want)
+	if math.Float64bits(solution.ReceiverClockS) != 0x3f1a3b88360a8950 {
+		return fmt.Errorf("receiver clock = %.17g, want frozen C value", solution.ReceiverClockS)
 	}
 	if solution.UsedSatelliteCount != len(observations) {
 		return fmt.Errorf("used satellite count = %d, want %d", solution.UsedSatelliteCount, len(observations))

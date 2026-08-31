@@ -90,20 +90,14 @@ func TestDeterministicSPPFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Frozen bit patterns are the arm64-captured reference; the comparison
-	// itself is tolerance-based since the engine only documents same-machine
-	// bit reproducibility (README: "cross-platform bit identity holds only
-	// where a test pins it") and this iterative least-squares solve diverges
-	// by a few ULP on x86_64.
-	wantPosition := [3]uint64{0x41511b07ff83c7f1, 0x4120cd6b5ee8cafe, 0x41511e62229db724}
+	wantPosition := [3]uint64{0x41511b07ff83c7e9, 0x4120cd6b5ee8caf6, 0x41511e62229db722}
 	for axis := range wantPosition {
-		want := math.Float64frombits(wantPosition[axis])
-		if !closeTol(solution.PositionM[axis], want, toleranceM) {
-			t.Fatalf("position[%d] = %.17g, want %.17g (frozen bits %#x)", axis, solution.PositionM[axis], want, wantPosition[axis])
+		if math.Float64bits(solution.PositionM[axis]) != wantPosition[axis] {
+			t.Fatalf("position[%d] = %.17g, want bits %#x", axis, solution.PositionM[axis], wantPosition[axis])
 		}
 	}
-	if want := math.Float64frombits(0x3f1a3b88360a8d78); !closeTol(solution.ReceiverClockS, want, toleranceS) {
-		t.Fatalf("receiver clock = %.17g, want %.17g (frozen C value)", solution.ReceiverClockS, want)
+	if math.Float64bits(solution.ReceiverClockS) != 0x3f1a3b88360a8950 {
+		t.Fatalf("receiver clock = %.17g, want frozen C value", solution.ReceiverClockS)
 	}
 	wantIDs := []string{"G08", "G10", "G16", "G18", "G20", "G21", "G26", "G27"}
 	if solution.UsedSatelliteCount != len(wantIDs) || len(solution.UsedSatelliteIDs) != len(wantIDs) || len(solution.ResidualsM) != len(wantIDs) {
@@ -115,13 +109,12 @@ func TestDeterministicSPPFixture(t *testing.T) {
 		}
 	}
 	wantResiduals := []uint64{
-		0xbe95400000000000, 0xbf46fc0000000000, 0xbf1c068000000000, 0x3f378df000000000,
-		0xbf1deac000000000, 0xbf24d52000000000, 0x3f43165000000000, 0xbf00f98000000000,
+		0xbe95000000000000, 0xbf46fc0800000000, 0xbf1c068000000000, 0x3f378df000000000,
+		0xbf1deb0000000000, 0xbf24d54000000000, 0x3f43164800000000, 0xbf00fa0000000000,
 	}
 	for i, bits := range wantResiduals {
-		want := math.Float64frombits(bits)
-		if !closeTol(solution.ResidualsM[i], want, toleranceM) {
-			t.Fatalf("residual[%d] = %.17g, want %.17g (frozen bits %#x)", i, solution.ResidualsM[i], want, bits)
+		if math.Float64bits(solution.ResidualsM[i]) != bits {
+			t.Fatalf("residual[%d] = %.17g, want bits %#x", i, solution.ResidualsM[i], bits)
 		}
 	}
 	if solution.DOP == nil || solution.Geodetic == nil || !solution.Metadata.Converged {
@@ -147,22 +140,16 @@ func TestLegacySPPExtendedAtmosphereFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantPosition := [3]uint64{0x41511b067925e57d, 0x4120cd6993456913, 0x41511e607e84895e}
+	wantPosition := [3]uint64{0x41511b067925e539, 0x4120cd69934568aa, 0x41511e607e848914}
 	for axis, bits := range wantPosition {
-		want := math.Float64frombits(bits)
-		if !closeTol(solution.PositionM[axis], want, toleranceM) {
-			t.Fatalf("extended position[%d] = %.17g, want %.17g (bits %#x)", axis, solution.PositionM[axis], want, bits)
+		if math.Float64bits(solution.PositionM[axis]) != bits {
+			t.Fatalf("extended position[%d] bits = %#x, want %#x", axis, math.Float64bits(solution.PositionM[axis]), bits)
 		}
 	}
-	if want := math.Float64frombits(0x3f1a38751a0c0e58); !closeTol(solution.ReceiverClockS, want, toleranceS) {
-		t.Fatalf("extended receiver clock = %.17g, want %.17g (bits %#x)", solution.ReceiverClockS, want, uint64(0x3f1a38751a0c0e58))
+	if math.Float64bits(solution.ReceiverClockS) != 0x3f1a38751a0bc5d4 {
+		t.Fatalf("extended receiver clock bits = %#x", math.Float64bits(solution.ReceiverClockS))
 	}
-	// The exact iteration count an iterative solver takes to cross its
-	// convergence threshold is itself sensitive to cross-arch ULP noise
-	// (observed 8/9/11 across three platforms for this identical input);
-	// what matters is that it converged in a bounded number of steps.
-	if !solution.Metadata.IonosphereApplied || !solution.Metadata.TroposphereApplied ||
-		solution.Metadata.Iterations < 1 || solution.Metadata.Iterations > 20 || solution.Metadata.UsedCount != 8 {
+	if !solution.Metadata.IonosphereApplied || !solution.Metadata.TroposphereApplied || solution.Metadata.Iterations != 9 || solution.Metadata.UsedCount != 8 {
 		t.Fatalf("extended metadata = %+v", solution.Metadata)
 	}
 }
@@ -388,13 +375,11 @@ func TestTLEFixtureDeterministicPropagationAndMetadata(t *testing.T) {
 	wantPosition := [3]uint64{0x4098ea1be4cb4974, 0x40b2e5565b1d73e0, 0x40b17a14ef3fa337}
 	wantVelocity := [3]uint64{0xc0147e8d3aa3fa34, 0x4012c73c3e761c93, 0xc009f3378fdc48e0}
 	for axis := 0; axis < 3; axis++ {
-		wantPos := math.Float64frombits(wantPosition[axis])
-		if !closeTol(states[0].PositionKm[axis], wantPos, toleranceKm) {
-			t.Fatalf("first position[%d] = %.17g, want %.17g (bits %#x)", axis, states[0].PositionKm[axis], wantPos, wantPosition[axis])
+		if math.Float64bits(states[0].PositionKm[axis]) != wantPosition[axis] {
+			t.Fatalf("first position[%d] = %.17g, bits %#x", axis, states[0].PositionKm[axis], math.Float64bits(states[0].PositionKm[axis]))
 		}
-		wantVel := math.Float64frombits(wantVelocity[axis])
-		if !closeTol(states[0].VelocityKmPerS[axis], wantVel, toleranceKm) {
-			t.Fatalf("first velocity[%d] = %.17g, want %.17g (bits %#x)", axis, states[0].VelocityKmPerS[axis], wantVel, wantVelocity[axis])
+		if math.Float64bits(states[0].VelocityKmPerS[axis]) != wantVelocity[axis] {
+			t.Fatalf("first velocity[%d] = %.17g, bits %#x", axis, states[0].VelocityKmPerS[axis], math.Float64bits(states[0].VelocityKmPerS[axis]))
 		}
 	}
 	if math.IsNaN(states[0].EpochJ2000S) || math.IsInf(states[0].EpochJ2000S, 0) || states[0].EpochJ2000S == 0 {

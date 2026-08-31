@@ -218,12 +218,7 @@ func TestAstrodynamicsSurfaceFixtureDeterministic(t *testing.T) {
 	if solutions, err := fit.Fits(); err != nil || len(solutions) != 1 {
 		t.Fatalf("orbit fit solutions = %d, %v", len(solutions), err)
 	} else {
-		// A least-squares orbit fit compounds per-iteration cross-arch ULP
-		// divergence further than a single solve; observed up to ~1.3e-6 km
-		// across platforms, so this bound (still ~1cm) is widened from 1e-9.
-		// The exact iteration count is itself sensitive to that same noise near
-		// the convergence threshold (observed 4/6/8 across three platforms).
-		if math.Abs(solutions[0].InitialState.PositionKm[0]-22430.09371997231) > 1e-5 || solutions[0].GeometryQuality.Rank != 6 || solutions[0].Iterations < 1 || solutions[0].Iterations > 20 {
+		if math.Float64bits(solutions[0].InitialState.PositionKm[0]) != 0x40d5e785ff86e02c || solutions[0].GeometryQuality.Rank != 6 || solutions[0].Iterations != 9 {
 			t.Fatalf("orbit fit frozen result = %+v", solutions[0])
 		}
 	}
@@ -273,16 +268,7 @@ func TestAstrodynamicsSurfaceFixtureDeterministic(t *testing.T) {
 	if stats, err := sgp4Fit.Statistics(); err != nil || stats.NFEV < 1 {
 		t.Fatalf("SGP4 fit statistics = %+v, %v", stats, err)
 	} else {
-		// RMSPositionKm is a residual-noise-floor quantity (already ~1e-5 km,
-		// i.e. sub-centimeter) from an iterative fit; cross-arch ULP divergence
-		// compounds into a large *relative* swing here even though the fitted
-		// position/velocity themselves stay tight (observed ~1.5e-6 km absolute
-		// swing, roughly 10% relative). Pinning an exact value at the noise
-		// floor is not a meaningful test; assert it stays small instead.
-		// NFEV (function evaluation count) is, like iteration count, itself
-		// sensitive to cross-arch ULP noise near the convergence threshold
-		// (observed 20/23/30 across three platforms).
-		if stats.RMSPositionKm < 0 || stats.RMSPositionKm > 5e-5 || stats.NFEV < 1 || stats.NFEV > 60 || stats.SeedRefinePasses != 2 {
+		if math.Float64bits(stats.RMSPositionKm) != 0x3eecb8a0a8c9ce26 || stats.NFEV != 20 || stats.NJEV != 10 || math.Float64bits(stats.Cost) != 0x3e032b78d2c8d5f5 || stats.SeedRefinePasses != 2 {
 			t.Fatalf("SGP4 fit frozen result = %+v", stats)
 		}
 	}

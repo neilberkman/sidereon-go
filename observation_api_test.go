@@ -510,14 +510,10 @@ func TestObservablesRoutesWithCommittedProducts(t *testing.T) {
 	if missing.HasPosition || !math.IsNaN(missing.PositionECEFM[0]) || !math.IsNaN(missing.PositionECEFM[1]) || !math.IsNaN(missing.PositionECEFM[2]) || missing.Status != EmissionMediaGap || missing.ResultStatus != StatusSolve {
 		t.Fatalf("missing emission sentinel/status = %+v", missing)
 	}
-	// Comparison is tolerance-based, not bit-exact: the engine documents only
-	// same-machine bit reproducibility, and this observable-prediction path
-	// diverges by a few ULP cross-arch (observed on the elevation angle).
 	assertBits := func(label string, actual float64, expected uint64) {
 		t.Helper()
-		want := math.Float64frombits(expected)
-		if !closeTol(actual, want, 1e-6) {
-			t.Fatalf("%s = %.17g (%016x), want %.17g (%016x)", label, actual, math.Float64bits(actual), want, expected)
+		if bits := math.Float64bits(actual); bits != expected {
+			t.Fatalf("%s bits = %016x, want %016x", label, bits, expected)
 		}
 	}
 	assertMedia := func(label string, row EmissionMediaRow, expected [4]uint64) {
@@ -562,7 +558,7 @@ func TestObservablesRoutesWithCommittedProducts(t *testing.T) {
 		t.Fatalf("predicted/batch = %+v, %+v, accepted=%v", predicted, batch[0], accepted)
 	}
 	for index, value := range []float64{predicted.GeometricRangeM, predicted.RangeRateMPerS, predicted.DopplerHz, predicted.SatelliteClockS, predicted.ElevationDeg, predicted.AzimuthDeg, predicted.TransmitTimeJ2000S} {
-		assertBits(fmt.Sprintf("predicted scalar[%d]", index), value, [...]uint64{0x41841a04123953f0, 0xbff125202b8c08b6, 0x40168640b4ecfa6a, 0xbf40e3fc0f4a41e9, 0x403f5203b2874415, 0x4056dd79f47ba28e, 0x41c342f04fee003b}[index])
+		assertBits(fmt.Sprintf("predicted scalar[%d]", index), value, [...]uint64{0x41841a04123953f0, 0xbff125202b8c08b6, 0x40168640b4ecfa6a, 0xbf40e3fc0f4a41e9, 0x403f5203b2874418, 0x4056dd79f47ba28e, 0x41c342f04fee003b}[index])
 	}
 	for index, expected := range [][3]uint64{{0x3fe0a26383e1be53, 0x3feb53f08a085920, 0xbf964c12613259d1}, {0x4174e608821ba770, 0x41812aae03c39c3e, 0xc12c035843c6f30c}} {
 		for coordinate := range expected {

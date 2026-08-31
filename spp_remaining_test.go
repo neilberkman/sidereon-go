@@ -67,34 +67,28 @@ func TestSPPV2AndBatchFixture(t *testing.T) {
 	rejected, _ := solution.RejectedSatellites()
 	clocks, _ := solution.SystemClocks()
 	tdops, _ := solution.SystemTDOPs()
-	wantPosition := [3]uint64{0x41511b07ff83c7f1, 0x4120cd6b5ee8cafe, 0x41511e62229db724}
+	wantPosition := [3]uint64{0x41511b07ff83c7e9, 0x4120cd6b5ee8caf6, 0x41511e62229db722}
 	for i, bits := range wantPosition {
-		want := math.Float64frombits(bits)
-		if !closeTol(detached.PositionM[i], want, toleranceM) {
-			t.Fatalf("V2 position[%d] = %.17g, want %.17g (bits %#x)", i, detached.PositionM[i], want, bits)
+		if math.Float64bits(detached.PositionM[i]) != bits {
+			t.Fatalf("V2 position[%d] bits = %#x, want %#x", i, math.Float64bits(detached.PositionM[i]), bits)
 		}
 	}
-	if want := math.Float64frombits(0x3f1a3b88360a8d78); !closeTol(detached.ReceiverClockS, want, toleranceS) {
-		t.Fatalf("V2 clock = %.17g, want %.17g", detached.ReceiverClockS, want)
+	if math.Float64bits(detached.ReceiverClockS) != 0x3f1a3b88360a8950 {
+		t.Fatalf("V2 clock bits = %#x", math.Float64bits(detached.ReceiverClockS))
 	}
-	wantECEF := [9]uint64{0x40194e10479e6e2d, 0x3fe2cd9c121466d8, 0x400fca5c00638b84, 0x3fe2cd9c121466d8, 0x3ff7605ef09ccae8, 0x3ff0722b57c6f425, 0x400fca5c00638b84, 0x3ff0722b57c6f425, 0x40163709b8e2fc45}
+	wantECEF := [9]uint64{0x40194e10479e6e37, 0x3fe2cd9c121466f2, 0x400fca5c00638b93, 0x3fe2cd9c121466f2, 0x3ff7605ef09ccaee, 0x3ff0722b57c6f42e, 0x400fca5c00638b93, 0x3ff0722b57c6f42e, 0x40163709b8e2fc4a}
 	for i, bits := range wantECEF {
-		want := math.Float64frombits(bits)
-		if !closeTol(covECEF[i], want, tolerancePositionCovM2) {
-			t.Fatalf("V2 ECEF covariance[%d] = %.17g, want %.17g (bits %#x)", i, covECEF[i], want, bits)
+		if math.Float64bits(covECEF[i]) != bits {
+			t.Fatalf("V2 ECEF covariance[%d] bits = %#x, want %#x", i, math.Float64bits(covECEF[i]), bits)
 		}
 	}
-	wantENU := [9]uint64{0x3ff642156f199a69, 0x3fd9157bfce51e76, 0x3fd76c2f083e23b7, 0x3fd9157bfce51e76, 0x3ffe7cdc8fcc0042, 0xbfdaf4c777cc7450, 0x3fd76c2f083e23b4, 0xbfdaf4c777cc7440, 0x402416ba9e779b40}
+	wantENU := [9]uint64{0x3ff642156f199a6c, 0x3fd9157bfce51e64, 0x3fd76c2f083e2413, 0x3fd9157bfce51e64, 0x3ffe7cdc8fcc0048, 0xbfdaf4c777cc74dc, 0x3fd76c2f083e2414, 0xbfdaf4c777cc74e0, 0x402416ba9e779b48}
 	for i, bits := range wantENU {
-		want := math.Float64frombits(bits)
-		if !closeTol(covENU[i], want, tolerancePositionCovM2) {
-			t.Fatalf("V2 ENU covariance[%d] = %.17g, want %.17g (bits %#x)", i, covENU[i], want, bits)
+		if math.Float64bits(covENU[i]) != bits {
+			t.Fatalf("V2 ENU covariance[%d] bits = %#x, want %#x", i, math.Float64bits(covENU[i]), bits)
 		}
 	}
-	if len(rejected) != 0 || len(clocks) != 1 || clocks[0].System != 0 ||
-		!closeTol(clocks[0].ReceiverClockS, math.Float64frombits(0x3f1a3b88360a8d78), toleranceS) ||
-		len(tdops) != 1 || tdops[0].System != 0 ||
-		!closeTol(tdops[0].TDOP, math.Float64frombits(0x4005615e49801311), toleranceRatio) {
+	if len(rejected) != 0 || len(clocks) != 1 || clocks[0].System != 0 || math.Float64bits(clocks[0].ReceiverClockS) != 0x3f1a3b88360a8950 || len(tdops) != 1 || tdops[0].System != 0 || math.Float64bits(tdops[0].TDOP) != 0x4005615e498012f4 {
 		t.Fatalf("unexpected V2 per-system outputs: rejected=%#v clocks=%#v tdops=%#v", rejected, clocks, tdops)
 	}
 
@@ -131,16 +125,13 @@ func TestSPPV2AndBatchFixture(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s detached solution: %v", name, err)
 		}
-		if !closeArray3(batchDetached.PositionM, detached.PositionM, toleranceM) ||
-			!closeTol(batchDetached.ReceiverClockS, math.Float64frombits(0x3f1a3b88360a8d78), toleranceS) ||
-			!reflect.DeepEqual(batchDetached.UsedSatelliteIDs, wantIDs) || len(batchDetached.ResidualsM) != len(wantIDs) {
+		if batchDetached.PositionM != detached.PositionM || math.Float64bits(batchDetached.ReceiverClockS) != 0x3f1a3b88360a8950 || !reflect.DeepEqual(batchDetached.UsedSatelliteIDs, wantIDs) || len(batchDetached.ResidualsM) != len(wantIDs) {
 			t.Fatalf("%s batch differs from frozen fixture: %+v", name, batchDetached)
 		}
-		wantResiduals := []uint64{0xbe95400000000000, 0xbf46fc0000000000, 0xbf1c068000000000, 0x3f378df000000000, 0xbf1deac000000000, 0xbf24d52000000000, 0x3f43165000000000, 0xbf00f98000000000}
+		wantResiduals := []uint64{0xbe95000000000000, 0xbf46fc0800000000, 0xbf1c068000000000, 0x3f378df000000000, 0xbf1deb0000000000, 0xbf24d54000000000, 0x3f43164800000000, 0xbf00fa0000000000}
 		for i, bits := range wantResiduals {
-			want := math.Float64frombits(bits)
-			if !closeTol(batchDetached.ResidualsM[i], want, toleranceM) {
-				t.Fatalf("%s batch residual[%d] = %.17g, want %.17g (bits %#x)", name, i, batchDetached.ResidualsM[i], want, bits)
+			if math.Float64bits(batchDetached.ResidualsM[i]) != bits {
+				t.Fatalf("%s batch residual[%d] bits = %#x, want %#x", name, i, math.Float64bits(batchDetached.ResidualsM[i]), bits)
 			}
 		}
 		_ = item.Close()
@@ -176,36 +167,29 @@ func TestSPPV2AndBatchFixture(t *testing.T) {
 	if withVelocity.Velocity == nil || withVelocity.Velocity.UsedSatelliteCount == 0 {
 		t.Fatalf("fixture Doppler velocity is empty: %#v", withVelocity.Velocity)
 	}
-	if !closeArray3(withVelocity.Receiver.PositionM, detached.PositionM, toleranceM) ||
-		!closeTol(withVelocity.Receiver.ReceiverClockS, math.Float64frombits(0x3f1a3b88360a8d78), toleranceS) ||
-		!reflect.DeepEqual(withVelocity.Receiver.UsedSatelliteIDs, wantIDs) {
+	if withVelocity.Receiver.PositionM != detached.PositionM || math.Float64bits(withVelocity.Receiver.ReceiverClockS) != 0x3f1a3b88360a8950 || !reflect.DeepEqual(withVelocity.Receiver.UsedSatelliteIDs, wantIDs) {
 		t.Fatalf("precise Doppler receiver = %#v", withVelocity.Receiver)
 	}
 	velocity := withVelocity.Velocity
-	wantVelocity := [3]uint64{0x407762816c3433ee, 0x407653b0906d6edc, 0x40897f68a2ed638c}
+	wantVelocity := [3]uint64{0x407762816c3433cc, 0x407653b0906d6eaf, 0x40897f68a2ed6352}
 	for i, bits := range wantVelocity {
-		want := math.Float64frombits(bits)
-		if !closeTol(velocity.VelocityMPerS[i], want, toleranceM) {
-			t.Fatalf("precise Doppler velocity[%d] = %.17g, want %.17g (bits %#x)", i, velocity.VelocityMPerS[i], want, bits)
+		if math.Float64bits(velocity.VelocityMPerS[i]) != bits {
+			t.Fatalf("precise Doppler velocity[%d] bits = %#x, want %#x", i, math.Float64bits(velocity.VelocityMPerS[i]), bits)
 		}
 	}
-	if !closeTol(velocity.ClockDriftSPerS, math.Float64frombits(0x3ec3a73928b414da), toleranceS) ||
-		!closeTol(velocity.SpeedMPerS, math.Float64frombits(0x408e30c56d1c1ecc), toleranceM) ||
-		velocity.UsedSatelliteCount != 8 || !reflect.DeepEqual(velocity.UsedSatelliteIDs, wantIDs) || len(velocity.ResidualsMPerS) != 8 {
+	if math.Float64bits(velocity.ClockDriftSPerS) != 0x3ec3a73928b414b5 || math.Float64bits(velocity.SpeedMPerS) != 0x408e30c56d1c1e8d || velocity.UsedSatelliteCount != 8 || !reflect.DeepEqual(velocity.UsedSatelliteIDs, wantIDs) || len(velocity.ResidualsMPerS) != 8 {
 		t.Fatalf("precise Doppler velocity metadata = %#v", velocity)
 	}
-	wantCovariance := [16]uint64{0x400282c626323d2a, 0xbfd3062ad69da274, 0x3ff3772a277f1155, 0x3e3a581f579bce26, 0xbfd3062ad69da272, 0x3fe06c071ee2a862, 0x3f9d0b77b1d638fe, 0xbdfb3232e1b75c0c, 0x3ff3772a277f115a, 0x3f9d0b77b1d638fe, 0x40004182baec1d33, 0x3e37ad085814be3d, 0x3e3a581f579bce29, 0xbdfb3232e1b75c09, 0x3e37ad085814be3d, 0x3c78b3e333d6e173}
+	wantCovariance := [16]uint64{0x400282c626323d1c, 0xbfd3062ad69da265, 0x3ff3772a277f1137, 0x3e3a581f579bce0f, 0xbfd3062ad69da264, 0x3fe06c071ee2a850, 0x3f9d0b77b1d638de, 0xbdfb3232e1b75c0d, 0x3ff3772a277f1140, 0x3f9d0b77b1d638de, 0x40004182baec1d16, 0x3e37ad085814be14, 0x3e3a581f579bce0f, 0xbdfb3232e1b75c03, 0x3e37ad085814be14, 0x3c78b3e333d6e155}
 	for i, bits := range wantCovariance {
-		want := math.Float64frombits(bits)
-		if !closeTol(velocity.StateCovariance[i], want, tolerancePositionCovM2) {
-			t.Fatalf("precise Doppler covariance[%d] = %.17g, want %.17g (bits %#x)", i, velocity.StateCovariance[i], want, bits)
+		if math.Float64bits(velocity.StateCovariance[i]) != bits {
+			t.Fatalf("precise Doppler covariance[%d] bits = %#x, want %#x", i, math.Float64bits(velocity.StateCovariance[i]), bits)
 		}
 	}
-	wantVelocityResiduals := [8]uint64{0xc051210fe8017ce0, 0x407060d9c41d0ad0, 0x4052423516130ed8, 0xc07221aef275ca36, 0x4071bf47da516754, 0x40502e78233187a8, 0xc081a41144ab2b62, 0x406deb911219d100}
+	wantVelocityResiduals := [8]uint64{0xc051210fe8017bd8, 0x407060d9c41d0afc, 0x4052423516130e98, 0xc07221aef275ca50, 0x4071bf47da51674e, 0x40502e7823318750, 0xc081a41144ab2b57, 0x406deb911219d0fc}
 	for i, bits := range wantVelocityResiduals {
-		want := math.Float64frombits(bits)
-		if !closeTol(velocity.ResidualsMPerS[i], want, toleranceM) {
-			t.Fatalf("precise Doppler residual[%d] = %.17g, want %.17g (bits %#x)", i, velocity.ResidualsMPerS[i], want, bits)
+		if math.Float64bits(velocity.ResidualsMPerS[i]) != bits {
+			t.Fatalf("precise Doppler residual[%d] bits = %#x, want %#x", i, math.Float64bits(velocity.ResidualsMPerS[i]), bits)
 		}
 	}
 }
@@ -320,20 +304,16 @@ func TestSPPRINEXAssemblyFixture(t *testing.T) {
 	if itemValue.PositionM == [3]float64{} || len(itemValue.UsedSatelliteIDs) == 0 {
 		t.Fatalf("RINEX solution = %+v", itemValue)
 	}
-	if !closeTol(itemValue.PositionM[0], math.Float64frombits(0x414b544c18b32cbb), toleranceM) ||
-		!closeTol(itemValue.PositionM[1], math.Float64frombits(0x412040dc27ae50c4), toleranceM) ||
-		!closeTol(itemValue.PositionM[2], math.Float64frombits(0x4153f61cf5057880), toleranceM) ||
-		!closeTol(itemValue.ReceiverClockS, math.Float64frombits(0x3f3f84a55d21f01a), toleranceS) {
+	if math.Float64bits(itemValue.PositionM[0]) != 0x414b544c18b32fb9 || math.Float64bits(itemValue.PositionM[1]) != 0x412040dc27ae5161 || math.Float64bits(itemValue.PositionM[2]) != 0x4153f61cf5057bac || math.Float64bits(itemValue.ReceiverClockS) != 0x3f3f84a55d228a88 {
 		t.Fatalf("RINEX solution position/clock = %#v %.17g", itemValue.PositionM, itemValue.ReceiverClockS)
 	}
 	if !reflect.DeepEqual(itemValue.UsedSatelliteIDs, []string{"G05", "G07", "G09", "G13", "G15", "G18", "G27", "G28", "G30", "E01", "E03", "E05", "E09", "E15", "E24", "E31", "C05", "C07", "C10", "C19", "C20", "C23", "C32", "C37"}) || len(itemValue.ResidualsM) != 24 {
 		t.Fatalf("RINEX solution IDs = %#v", itemValue.UsedSatelliteIDs)
 	}
-	wantRINEXResiduals := [24]uint64{0xbfaf6afa60000000, 0x3f8fdc2780000000, 0xbfe73c2090000000, 0xbfc05a03f0000000, 0xbfb0ed9b30000000, 0xbfd30856dc000000, 0xbfc6d2d728000000, 0x3ffd24e4ec000000, 0xbfb11c87a0000000, 0x3fbcbcdb20000000, 0x3fd7b4cdec000000, 0x3fbe634800000000, 0xbfcd1324e8000000, 0x3fa60bb2a0000000, 0xbfd00548b4000000, 0x3fbd7b9cc0000000, 0xbfd9221388000000, 0x3fd3f9a628000000, 0x3fca434090000000, 0xbfa7c6c820000000, 0xbfc7f71090000000, 0xbfce425570000000, 0xbfe936faaa000000, 0x3fded539fc000000}
+	wantRINEXResiduals := [24]uint64{0xbfaf6af8e0000000, 0x3f8fdc2900000000, 0xbfe73c21a6000000, 0xbfc05a0420000000, 0xbfb0eda140000000, 0xbfd3085810000000, 0xbfc6d2da80000000, 0x3ffd24e46d000000, 0xbfb11c8580000000, 0x3fbcbcd620000000, 0x3fd7b4ccd8000000, 0x3fbe634b20000000, 0xbfcd132548000000, 0x3fa60ba9e0000000, 0xbfd0054984000000, 0x3fbd7b9d30000000, 0xbfd9221640000000, 0x3fd3f9a4d0000000, 0x3fca433f00000000, 0xbfa7c6cd80000000, 0xbfc7f71018000000, 0xbfce425670000000, 0xbfe936fb84000000, 0x3fded539dc000000}
 	for i, bits := range wantRINEXResiduals {
-		want := math.Float64frombits(bits)
-		if !closeTol(itemValue.ResidualsM[i], want, toleranceM) {
-			t.Fatalf("RINEX residual[%d] = %.17g, want %.17g (bits %#x)", i, itemValue.ResidualsM[i], want, bits)
+		if math.Float64bits(itemValue.ResidualsM[i]) != bits {
+			t.Fatalf("RINEX residual[%d] bits = %#x, want %#x", i, math.Float64bits(itemValue.ResidualsM[i]), bits)
 		}
 	}
 }
@@ -359,20 +339,16 @@ func TestSPPFallbackFixtureCall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !closeTol(detached.PositionM[0], math.Float64frombits(0x41511b07ff83c7f1), toleranceM) ||
-		!closeTol(detached.PositionM[1], math.Float64frombits(0x4120cd6b5ee8cafe), toleranceM) ||
-		!closeTol(detached.PositionM[2], math.Float64frombits(0x41511e62229db724), toleranceM) ||
-		!closeTol(detached.ReceiverClockS, math.Float64frombits(0x3f1a3b88360a8d78), toleranceS) {
+	if math.Float64bits(detached.PositionM[0]) != 0x41511b07ff83c7e9 || math.Float64bits(detached.PositionM[1]) != 0x4120cd6b5ee8caf6 || math.Float64bits(detached.PositionM[2]) != 0x41511e62229db722 || math.Float64bits(detached.ReceiverClockS) != 0x3f1a3b88360a8950 {
 		t.Fatalf("fallback position/clock = %#v %.17g", detached.PositionM, detached.ReceiverClockS)
 	}
 	if !reflect.DeepEqual(detached.UsedSatelliteIDs, []string{"G08", "G10", "G16", "G18", "G20", "G21", "G26", "G27"}) || len(detached.ResidualsM) != 8 {
 		t.Fatalf("fallback IDs/residuals = %#v %#v", detached.UsedSatelliteIDs, detached.ResidualsM)
 	}
-	wantResiduals := []uint64{0xbe95400000000000, 0xbf46fc0000000000, 0xbf1c068000000000, 0x3f378df000000000, 0xbf1deac000000000, 0xbf24d52000000000, 0x3f43165000000000, 0xbf00f98000000000}
+	wantResiduals := []uint64{0xbe95000000000000, 0xbf46fc0800000000, 0xbf1c068000000000, 0x3f378df000000000, 0xbf1deb0000000000, 0xbf24d54000000000, 0x3f43164800000000, 0xbf00fa0000000000}
 	for i, bits := range wantResiduals {
-		want := math.Float64frombits(bits)
-		if !closeTol(detached.ResidualsM[i], want, toleranceM) {
-			t.Fatalf("fallback residual[%d] = %.17g, want %.17g (bits %#x)", i, detached.ResidualsM[i], want, bits)
+		if math.Float64bits(detached.ResidualsM[i]) != bits {
+			t.Fatalf("fallback residual[%d] bits = %#x, want %#x", i, math.Float64bits(detached.ResidualsM[i]), bits)
 		}
 	}
 	_, err = SolveWithFallback(nil, broadcast, SPPConfig{}, StalenessPolicyDefault())
