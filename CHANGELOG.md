@@ -2,6 +2,13 @@
 
 All notable changes to this module are documented here.
 
+## 2.0.0 - 2026-09-03
+
+- Engine update: sidereon-c 2.0.0 (sidereon-core 2.0.0). The upstream engine
+  has breaking changes on its Rust API (public input structs are non_exhaustive;
+  terrain, IONEX TEC grid, and dense-output return typed error enums), but the C
+  ABI and this Go API are unchanged, so nothing a Go caller writes has to move.
+
 ## 1.4.1 - 2026-08-31
 
 - Engine update: sidereon-c 1.4.1 (sidereon-core 1.4.1; 1.4.0 is skipped, it
