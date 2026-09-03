@@ -18,7 +18,7 @@ jobs:
     # host OS, so the other five targets cross-compile the same way from here.
     runs-on: macos-15
     env:
-      SIDEREON_RELEASE_VERSION: 1.4.1
+      SIDEREON_RELEASE_VERSION: 2.0.0
       SIDEREON_GLIBC_FLOOR: 2.17
       CARGO_ZIGBUILD_VERSION: 0.23.3
       CARGO_HOME: ${{ github.workspace }}/.cargo-home
