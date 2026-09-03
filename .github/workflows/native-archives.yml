@@ -35,7 +35,7 @@ jobs:
         run: test "$(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' internal/native/lib/sidereon-c.ref)" = "$GITHUB_REF_NAME"
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.94.0
+        uses: dtolnay/rust-toolchain@1.98.0
 
       - name: Install Zig 0.15.2
         shell: bash
