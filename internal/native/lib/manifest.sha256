@@ -6,15 +6,15 @@
 # header_version=2.0.0
 # source_header_sha256=a661c78bb759ea9ffb986f2601687e76ead59812467f6995702c3df16d04aa43
 # glibc_floor=2.17
-# cargo=cargo 1.92.0 (344c4567c 2025-10-21)
-# rustc=rustc 1.92.0 (ded5c06cf 2025-12-08)
+# cargo=cargo 1.94.0 (85eff7c80 2026-01-15)
+# rustc=rustc 1.94.0 (4a4ef493e 2026-03-02)
 # cargo_zigbuild=cargo-zigbuild 0.23.3
 # zig=0.15.2
 # columns=sha256 bytes archive rust_target libc source_ref source_commit
-ef32b2e8ff68f8c976f06aff5dcb11f80ee218d19a69039a4f0f4899ef431f84	40949328	libsidereon_darwin_arm64.a	aarch64-apple-darwin	none	v2.0.0	4c0bf8fd0990516ea9057aedb9882e13a78f4a13
-30fba133966111998615291da9a529553b154f240ed9b20d44d9fd62504b6743	42128256	libsidereon_darwin_amd64.a	x86_64-apple-darwin	none	v2.0.0	4c0bf8fd0990516ea9057aedb9882e13a78f4a13
-c1eea505bcc4f083563ce6167982fdc8c4f18782fc7322363d48916be5e71979	57416646	libsidereon_linux_amd64_glibc.a	x86_64-unknown-linux-gnu	glibc	v2.0.0	4c0bf8fd0990516ea9057aedb9882e13a78f4a13
-ff37966347a7c36ddd3b472ce5a360a32536e1ddb25027edf35ac60dd6915e25	57198542	libsidereon_linux_arm64_glibc.a	aarch64-unknown-linux-gnu	glibc	v2.0.0	4c0bf8fd0990516ea9057aedb9882e13a78f4a13
-9acc5f6a4fa5356502fcfc00c6f8d7d17a66b41ca639cfa7b03140ff9ee1994d	57480276	libsidereon_linux_amd64_musl.a	x86_64-unknown-linux-musl	musl	v2.0.0	4c0bf8fd0990516ea9057aedb9882e13a78f4a13
-98afbb2c23f47486480121afddd349fc6c1a5562ece0828a4ed7f8364465fd17	57267606	libsidereon_linux_arm64_musl.a	aarch64-unknown-linux-musl	musl	v2.0.0	4c0bf8fd0990516ea9057aedb9882e13a78f4a13
-036e685a636a1342b79f60c35182bbc11661c3ce85a9856ece4a0050231db502	40730372	libsidereon_windows_amd64_gnu.a	x86_64-pc-windows-gnu	gnu	v2.0.0	4c0bf8fd0990516ea9057aedb9882e13a78f4a13
+73382b2dec3d667e7941f1459debb59083ef165dbe2c055c11452e09ea69bf4b	40259928	libsidereon_darwin_arm64.a	aarch64-apple-darwin	none	v2.0.0	4c0bf8fd0990516ea9057aedb9882e13a78f4a13
+9463fed47b64ff2a725a3cd0042b097beec5ece06e33004efea2e678677543e1	41175616	libsidereon_darwin_amd64.a	x86_64-apple-darwin	none	v2.0.0	4c0bf8fd0990516ea9057aedb9882e13a78f4a13
+b006104f2f394d7aadd83691e3139c07f0cec866da7ccb41f2f8c1f9595c45a1	55964652	libsidereon_linux_amd64_glibc.a	x86_64-unknown-linux-gnu	glibc	v2.0.0	4c0bf8fd0990516ea9057aedb9882e13a78f4a13
+4c460d429b415f9c8b193f6f1a7f4e0c38d6133e81ebe2f8f95ffd25ca8a1777	55845954	libsidereon_linux_arm64_glibc.a	aarch64-unknown-linux-gnu	glibc	v2.0.0	4c0bf8fd0990516ea9057aedb9882e13a78f4a13
+1136acccf6aae99f297bac0b6b3d14379dff978f0c7ed7a42f5299e868aa3273	56012766	libsidereon_linux_amd64_musl.a	x86_64-unknown-linux-musl	musl	v2.0.0	4c0bf8fd0990516ea9057aedb9882e13a78f4a13
+5aa10d84c5eee58efd3fb2ec1e01cc42f1020789a69ec498ac04632abb31132c	55915598	libsidereon_linux_arm64_musl.a	aarch64-unknown-linux-musl	musl	v2.0.0	4c0bf8fd0990516ea9057aedb9882e13a78f4a13
+ba6c566747af7c85b0f58b9c504d4fe2b9a38f27d25a7d35ec5301a9bf4be58d	39784686	libsidereon_windows_amd64_gnu.a	x86_64-pc-windows-gnu	gnu	v2.0.0	4c0bf8fd0990516ea9057aedb9882e13a78f4a13
