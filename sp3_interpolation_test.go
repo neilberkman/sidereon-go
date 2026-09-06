@@ -29,7 +29,7 @@ func loadGappedFixture(t *testing.T) []byte {
 	if err != nil {
 		t.Fatalf("decompress embedded fixture: %v", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 	decompressed, err := io.ReadAll(reader)
 	if err != nil {
 		t.Fatalf("read decompressed fixture: %v", err)

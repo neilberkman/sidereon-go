@@ -4,6 +4,9 @@ All notable changes to this module are documented here.
 
 ## 2.1.0 - 2026-09-06
 
+- Fixed: the ionosphere-free override band strings passed to the RTK surface
+  were never freed, because the deferred release captured the slice before
+  anything was appended to it.
 - Engine update: sidereon-c 2.1.0 (sidereon-core 2.1.0), additive. The SP3
   coverage-gap threshold is now a validated, product-carried policy with the
   1.5 default bit-identical to before; the window-scoped continuity reach
