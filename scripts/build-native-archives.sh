@@ -128,8 +128,19 @@ validate_archive() {
   [[ "$magic" == "213c617263683e0a" ]] || die "archive has no ar magic: $archive"
   members=$(ar -t "$archive" 2>/dev/null | wc -l | tr -d '[:space:]')
   [[ "$members" =~ ^[0-9]+$ && "$members" -gt 0 ]] || die "archive has no readable ar members: $archive"
-  if strings "$archive" | grep -Eq '(/Volumes/|/Users/|/private/var/|/home/[^/[:space:]]+/)'; then
-    die "archive contains an absolute host path: $archive"
+  # The point of this check is that no path from the machine that built the
+  # archive ends up in a published binary. Upstream Rust bakes its own builder
+  # paths into the precompiled standard library it ships (compiler-builtins
+  # carries /Users/runner/work/rust/rust/... from rust-lang's CI), and those
+  # cannot be remapped from here, so they are allowed by name. Anything else
+  # that looks like a home directory is a leak from this machine.
+  local leaked
+  leaked=$(strings "$archive" \
+    | grep -Eo '(/Volumes/[^[:space:]"]*|/private/var/[^[:space:]"]*|/home/[^/[:space:]]+/[^[:space:]"]*|/Users/[^/[:space:]]+/[^[:space:]"]*)' \
+    | grep -vE '^/Users/runner/work/rust/' \
+    | sort -u | head -5 || true)
+  if [[ -n "$leaked" ]]; then
+    die "archive contains an absolute host path: $archive: $(printf '%s' "$leaked" | tr '\n' ' ')"
   fi
 }
 
