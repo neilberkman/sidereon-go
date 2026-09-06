@@ -3,7 +3,7 @@ package sidereon
 import (
 	"errors"
 
-	"github.com/neilberkman/sidereon-go/internal/native"
+	"github.com/neilberkman/sidereon-go/v2/internal/native"
 )
 
 // NavMessagePreference returns the navigation-message preference selected by the broadcast ephemeris.

@@ -3,7 +3,7 @@ package sidereon
 import (
 	"time"
 
-	"github.com/neilberkman/sidereon-go/internal/native"
+	"github.com/neilberkman/sidereon-go/v2/internal/native"
 )
 
 // CoverageLookAngle is one satellite/station cell from a coverage grid. OK

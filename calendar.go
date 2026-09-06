@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // SecondOfDay returns the fractional seconds since midnight. Validation and
 // arithmetic are performed by the C library.

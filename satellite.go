@@ -3,7 +3,7 @@ package sidereon
 import (
 	"time"
 
-	"github.com/neilberkman/sidereon-go/internal/native"
+	"github.com/neilberkman/sidereon-go/v2/internal/native"
 )
 
 func satelliteUnixMicroseconds(value time.Time) (int64, error) {

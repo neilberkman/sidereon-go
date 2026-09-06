@@ -3,7 +3,7 @@ package sidereon
 import (
 	"errors"
 
-	"github.com/neilberkman/sidereon-go/internal/native"
+	"github.com/neilberkman/sidereon-go/v2/internal/native"
 )
 
 // FusionFilterKind selects the native nonlinear filter.

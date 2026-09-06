@@ -6,7 +6,7 @@ import (
 	"math"
 	"os"
 
-	"github.com/neilberkman/sidereon-go"
+	"github.com/neilberkman/sidereon-go/v2"
 )
 
 // This is the only implementation-dependent part of the packed consumer.

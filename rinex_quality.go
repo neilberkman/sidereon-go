@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // RINEXLintSeverity classifies a native RINEX lint finding.
 type RINEXLintSeverity uint32

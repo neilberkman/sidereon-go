@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/neilberkman/sidereon-go/internal/native"
+	"github.com/neilberkman/sidereon-go/v2/internal/native"
 )
 
 // ProductFamily identifies a catalog product family.

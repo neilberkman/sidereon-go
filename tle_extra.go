@@ -3,7 +3,7 @@ package sidereon
 import (
 	"time"
 
-	"github.com/neilberkman/sidereon-go/internal/native"
+	"github.com/neilberkman/sidereon-go/v2/internal/native"
 )
 
 // TLEFile owns a parsed multi-record TLE file. Its Satellite results are

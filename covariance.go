@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // Covariance6 is a value-owned row-major six-by-six covariance matrix.
 // Methods delegate validation and transformations to the C library.

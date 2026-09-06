@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // OEM owns a parsed CCSDS Orbit Ephemeris Message. The C handle retains all
 // parsed metadata, segments, state records, and covariance blocks; this Go

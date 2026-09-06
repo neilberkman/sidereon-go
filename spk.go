@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // SPK owns a parsed JPL/NAIF binary ephemeris kernel.
 type SPK struct {

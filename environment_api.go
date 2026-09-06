@@ -4,7 +4,7 @@ import (
 	"errors"
 	"unsafe"
 
-	"github.com/neilberkman/sidereon-go/internal/native"
+	"github.com/neilberkman/sidereon-go/v2/internal/native"
 )
 
 // AntennaPCO is a north/east/up phase-center offset in metres.

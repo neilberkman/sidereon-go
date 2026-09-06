@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // OrbitFitOptions controls precise-ephemeris initial-state fitting. Lengths
 // in residual diagnostics are metres; the fitted state uses km and km/s.

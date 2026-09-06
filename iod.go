@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // GibbsResult contains the middle-observation velocity in km/s and angular
 // diagnostics in radians.

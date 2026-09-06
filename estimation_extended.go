@@ -3,7 +3,7 @@ package sidereon
 import (
 	"sort"
 
-	"github.com/neilberkman/sidereon-go/internal/native"
+	"github.com/neilberkman/sidereon-go/v2/internal/native"
 )
 
 // AlphaBetaState is a scalar level/rate state. Level uses caller-chosen units;

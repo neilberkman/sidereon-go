@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // RTKRINEXSignalPair selects one RINEX code and carrier observable for a GNSS
 // system in a single-frequency RTK arc.

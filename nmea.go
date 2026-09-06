@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // NMEASummary contains aggregate counts detached from a parsed NMEA log.
 type NMEASummary struct {
