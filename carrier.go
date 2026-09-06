@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // GNSSSystem identifies a constellation in the C frequency tables.
 type GNSSSystem uint32

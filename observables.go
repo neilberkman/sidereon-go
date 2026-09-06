@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // ObservablesOptions controls satellite-state to observable prediction.
 // CarrierHz is in hertz; LightTime and Sagnac enable the corresponding

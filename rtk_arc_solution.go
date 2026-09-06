@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // RTKArcReferenceMode selects the reference satellite policy for sequential
 // RTK and its derived arc products.

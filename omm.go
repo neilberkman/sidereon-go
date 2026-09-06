@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // OMM owns a parsed CCSDS Orbit Mean-Elements Message and must not be copied
 // after use.

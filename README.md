@@ -6,7 +6,7 @@ verbatim `sidereon.h` interface. Go owns the surrounding I/O and transport
 work; the C library owns byte parsing and numerical evaluation.
 
 The package name is `sidereon` and the module path is
-`github.com/neilberkman/sidereon-go`.
+`github.com/neilberkman/sidereon-go/v2`.
 
 ## Install
 
@@ -15,11 +15,11 @@ Xcode Command Line Tools. On Linux, install GCC or Clang and the development
 headers for the selected libc. On Windows, use the GNU toolchain; the MSVC
 ABI is not a supported target for the bundled library.
 
-For a branch or commit that is available from Git, use `go get` with cgo
-enabled:
+Install a released version with `go get` and cgo enabled (a branch or commit
+reference such as `@main` works the same way):
 
 ```sh
-CGO_ENABLED=1 go get github.com/neilberkman/sidereon-go@main
+CGO_ENABLED=1 go get github.com/neilberkman/sidereon-go/v2@v2.1.0
 ```
 
 On Linux, select the matching bundled libc explicitly. For the usual glibc
@@ -27,13 +27,12 @@ distribution:
 
 ```sh
 CGO_ENABLED=1 GOFLAGS='-tags=sidereon_linux_glibc' \
-  go get github.com/neilberkman/sidereon-go@main
+  go get github.com/neilberkman/sidereon-go/v2@v2.1.0
 ```
 
 Use `sidereon_linux_musl` instead when building with a musl C toolchain.
 
-The command above names a Git reference, not an already-published release. In
-a local checkout, `go get ./...` and `go test ./...` use the files in that
+In a local checkout, `go get ./...` and `go test ./...` use the files in that
 checkout.
 
 ## Supported targets
@@ -104,7 +103,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/neilberkman/sidereon-go"
+	"github.com/neilberkman/sidereon-go/v2"
 )
 
 func main() {
@@ -134,7 +133,7 @@ package main
 import (
 	"os"
 
-	"github.com/neilberkman/sidereon-go"
+	"github.com/neilberkman/sidereon-go/v2"
 )
 
 func main() {
@@ -221,11 +220,13 @@ because the C error detail is thread-local.
 
 ## Versioning
 
-Go, C, and the canonical Sidereon engine release in lockstep. A published
-`v1.3.0` Go module must use the matching C header macros and static library for
-`1.3.0`. A future breaking Go API will use the module suffix
-`github.com/neilberkman/sidereon-go/v2`; the current major version has no
-suffix.
+Go, C, and the canonical Sidereon engine release in lockstep: a published
+`v2.1.0` Go module uses the matching C header macros and static library for
+`2.1.0`. Go semantic import versioning requires the module path to carry the
+major version from 2 onward, so the module path is
+`github.com/neilberkman/sidereon-go/v2` and each later major version moves
+the suffix with it (`/v3`, ...), whether or not the Go API itself changed.
+The package name stays `sidereon`.
 
 This module does not claim full parity with the Python, WebAssembly, Elixir, or
 C interfaces unless a specific Go route and its tests establish that parity.

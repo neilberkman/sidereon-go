@@ -3,7 +3,7 @@ package sidereon
 import (
 	"time"
 
-	"github.com/neilberkman/sidereon-go/internal/native"
+	"github.com/neilberkman/sidereon-go/v2/internal/native"
 )
 
 // TEMEState is one TEME state detached from C TLE propagation. Position is

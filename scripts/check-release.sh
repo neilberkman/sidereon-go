@@ -7,11 +7,17 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-TARGET_VERSION=1.3.0
 HEADER_REL=internal/native/include/sidereon.h
 C_HEADER_REL=bindings/c/include/sidereon.h
 C_REF_FILE=$ROOT/internal/native/lib/sidereon-c.ref
 ARCHIVE_MANIFEST=$ROOT/internal/native/lib/manifest.sha256
+# The version a pre-release build targets is the archive manifest release
+# target, so the README claim check follows each release instead of a constant.
+TARGET_VERSION=$(awk -F= '$1 == "# release_target" { print $2; exit }' "$ARCHIVE_MANIFEST" 2>/dev/null || true)
+[ -n "$TARGET_VERSION" ] || {
+	echo "check-release: $ARCHIVE_MANIFEST has no release_target" >&2
+	exit 2
+}
 ALLOW_PRERELEASE=0
 REQUESTED_REF=
 
@@ -174,8 +180,8 @@ for claim in $CLAIMS; do
 		exit 1
 	fi
 done
-if ! grep -Fq "$TARGET_VERSION" "$ROOT/README.md"; then
-	echo "check-release: README.md does not state the target version $TARGET_VERSION" >&2
+if ! grep -Fq "$EXPECTED_VERSION" "$ROOT/README.md"; then
+	echo "check-release: README.md does not state the expected version $EXPECTED_VERSION" >&2
 	exit 1
 fi
 

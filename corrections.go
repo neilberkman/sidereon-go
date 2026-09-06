@@ -3,7 +3,7 @@ package sidereon
 import (
 	"os"
 
-	"github.com/neilberkman/sidereon-go/internal/native"
+	"github.com/neilberkman/sidereon-go/v2/internal/native"
 )
 
 // BroadcastEphemeris owns a C-backed RINEX navigation source. The byte parser

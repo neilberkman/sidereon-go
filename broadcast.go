@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // SiderealOrbitRepeatLag returns the period of the selected broadcast orbit
 // in seconds near the supplied TDB/J2000 epoch.

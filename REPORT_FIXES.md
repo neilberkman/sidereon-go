@@ -172,26 +172,26 @@ ABI coverage: 1503 total; 1492 direct, 10 composed, 1 excluded; map exact
 ### `GOEXPERIMENT=cgocheck2 go test ./... -race -count=1`
 
 ```text
-ok  	github.com/neilberkman/sidereon-go	14.660s
-?   	github.com/neilberkman/sidereon-go/internal/checkdoc	[no test files]
-ok  	github.com/neilberkman/sidereon-go/internal/native	2.499s
+ok  	github.com/neilberkman/sidereon-go/v2	14.660s
+?   	github.com/neilberkman/sidereon-go/v2/internal/checkdoc	[no test files]
+ok  	github.com/neilberkman/sidereon-go/v2/internal/native	2.499s
 ```
 
 ### `./scripts/smoke-fixtures.sh`
 
 ```text
-ok  	github.com/neilberkman/sidereon-go	1.424s
-?   	github.com/neilberkman/sidereon-go/internal/checkdoc	[no test files]
-ok  	github.com/neilberkman/sidereon-go/internal/native	0.497s [no tests to run]
-ok  	github.com/neilberkman/sidereon-go	1.409s
-?   	github.com/neilberkman/sidereon-go/internal/checkdoc	[no test files]
-ok  	github.com/neilberkman/sidereon-go/internal/native	0.475s [no tests to run]
+ok  	github.com/neilberkman/sidereon-go/v2	1.424s
+?   	github.com/neilberkman/sidereon-go/v2/internal/checkdoc	[no test files]
+ok  	github.com/neilberkman/sidereon-go/v2/internal/native	0.497s [no tests to run]
+ok  	github.com/neilberkman/sidereon-go/v2	1.409s
+?   	github.com/neilberkman/sidereon-go/v2/internal/checkdoc	[no test files]
+ok  	github.com/neilberkman/sidereon-go/v2/internal/native	0.475s [no tests to run]
 ```
 
 ### `./scripts/test-packed-module.sh`
 
 ```text
 go: creating new go.mod: module example.com/sidereon-consumer
-go: added github.com/neilberkman/sidereon-go v0.0.0
+go: added github.com/neilberkman/sidereon-go/v2 v0.0.0
 numerical solve: {[4.484127992418275e+06 550581.6853698192 4.487560540876184e+06] 0.00010006922594612232 8 [G08 G10 G16 G18 G20 G21 G26 G27] [-3.166496753692627e-07 -0.0007014274597167969 -0.00010690838098526001 0.000359412282705307 -0.00011412426829338074 -0.00015893951058387756 0.0005824938416481018 -3.2376497983932495e-05] 0x4362f6fce240 0x4362f6fb2168 {7 true 2 false false 0 false 0 8 1 4 true {3 4 4 11.56425099674148 4.5258697252838935 true true}}}
 ```

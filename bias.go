@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/neilberkman/sidereon-go/internal/native"
+	"github.com/neilberkman/sidereon-go/v2/internal/native"
 )
 
 // BiasMode identifies whether a bias product is absolute, relative, or

@@ -3,7 +3,7 @@ package sidereon
 import (
 	"os"
 
-	"github.com/neilberkman/sidereon-go/internal/native"
+	"github.com/neilberkman/sidereon-go/v2/internal/native"
 )
 
 // RINEXObservationKind is the C observation classification.

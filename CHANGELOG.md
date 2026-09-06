@@ -4,6 +4,12 @@ All notable changes to this module are documented here.
 
 ## 2.1.0 - 2026-09-06
 
+- Module path is now `github.com/neilberkman/sidereon-go/v2`, as Go semantic
+  import versioning requires from major version 2 onward. The `v2.0.0` tag
+  was never resolvable as a module version for that reason; `v2.1.0` is the
+  first installable 2.x release (`go get github.com/neilberkman/sidereon-go/v2@v2.1.0`).
+  Import the package as `github.com/neilberkman/sidereon-go/v2`; the package
+  name is unchanged.
 - Fixed: the ionosphere-free override band strings passed to the RTK surface
   were never freed, because the deferred release captured the slice before
   anything was appended to it.

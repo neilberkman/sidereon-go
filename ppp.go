@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // PPPTropoMapping selects the tropospheric mapping model used by PPP.
 type PPPTropoMapping uint32

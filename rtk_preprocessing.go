@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // ArcEpoch is one dual-frequency carrier/code epoch. Missing scalar values
 // are represented by NaN, as in the native ABI.

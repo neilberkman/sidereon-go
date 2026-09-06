@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/neilberkman/sidereon-go/internal/native"
+	"github.com/neilberkman/sidereon-go/v2/internal/native"
 )
 
 // StatusCode is the numeric status returned by the C ABI.

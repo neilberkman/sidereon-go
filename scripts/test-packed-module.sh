@@ -34,9 +34,9 @@ fi
 git archive --format=tar HEAD | tar -xf - -C "$PACKED"
 
 go -C "$CONSUMER" mod init example.com/sidereon-consumer
-go -C "$CONSUMER" mod edit -replace github.com/neilberkman/sidereon-go="$PACKED"
+go -C "$CONSUMER" mod edit -replace github.com/neilberkman/sidereon-go/v2="$PACKED"
 GOTOOLCHAIN=local GOPROXY=off CGO_ENABLED=1 GOFLAGS="$PACKED_GOFLAGS" \
-	go -C "$CONSUMER" get github.com/neilberkman/sidereon-go@v0.0.0
+	go -C "$CONSUMER" get github.com/neilberkman/sidereon-go/v2@v2.0.0
 
 cp "$PACKED/scripts/testdata/packed-consumer/main.go" "$CONSUMER/main.go"
 cp "$PACKED/testdata/trimmed.sp3" "$CONSUMER/trimmed.sp3"

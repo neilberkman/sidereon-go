@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // StaticPositionEpoch is one pseudorange epoch in a static-position solve.
 // Weights, when present, are positive multipliers aligned with Observations.

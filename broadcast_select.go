@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // CompareEpoch is one broadcast/precise epoch pair for SISRE comparison.
 // Julian-date fields preserve the split representation required by the C ABI.

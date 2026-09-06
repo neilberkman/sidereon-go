@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // DGNSSObservation is one code-only pseudorange observation in meters.
 type DGNSSObservation struct {

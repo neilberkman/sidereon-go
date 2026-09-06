@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/internal/native"
+import "github.com/neilberkman/sidereon-go/v2/internal/native"
 
 // SGP4FitEpochKind selects how the fitted TLE epoch is chosen.
 type SGP4FitEpochKind uint32

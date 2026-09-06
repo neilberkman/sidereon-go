@@ -3,7 +3,7 @@ package sidereon
 import (
 	"time"
 
-	"github.com/neilberkman/sidereon-go/internal/native"
+	"github.com/neilberkman/sidereon-go/v2/internal/native"
 )
 
 // PassStation is a WGS84 station for TLE pass and look-angle operations.

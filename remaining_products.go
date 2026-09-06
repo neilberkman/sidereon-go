@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/neilberkman/sidereon-go/internal/native"
+	"github.com/neilberkman/sidereon-go/v2/internal/native"
 )
 
 // PreciseEphemerisSamples is a C-owned sample-backed ephemeris source.
