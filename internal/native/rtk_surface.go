@@ -391,7 +391,9 @@ func CombineIonosphereFreePseudoranges(band1, band2 []PseudorangeObservation, ov
 	defer C.free(overrideMemory)
 	cOverrides := unsafe.Slice((*C.SidereonIonoFreeOverride)(overrideMemory), len(overrides))
 	var overrideStrings []*C.char
-	defer freeCStrings(overrideStrings)
+	// Deferred through a closure: the slice is appended to below, and a direct
+	// defer would capture the empty slice and free nothing.
+	defer func() { freeCStrings(overrideStrings) }()
 	for i, value := range overrides {
 		if value.System == 0 {
 			return nil, invalidArgument("ionosphere-free override system must not be NUL")

@@ -14,16 +14,41 @@ type PreciseEphemerisSamples struct {
 }
 
 // BuildPreciseEphemerisSamples copies canonical samples into a native-owned source.
-func BuildPreciseEphemerisSamples(values []PreciseEphemerisSample) (*PreciseEphemerisSamples, error) {
+func BuildPreciseEphemerisSamples(values []PreciseEphemerisSample, opts ...SP3Option) (*PreciseEphemerisSamples, error) {
+	if len(opts) == 0 {
+		nativeValues := make([]native.PreciseEphemerisSample, len(values))
+		for i := range values {
+			nativeValues[i] = nativePreciseSample(values[i])
+		}
+		h, err := native.PreciseEphemerisSamplesFromSamples(nativeValues)
+		if err != nil {
+			return nil, publicError(err)
+		}
+		return &PreciseEphemerisSamples{handle: h}, nil
+	}
+	return BuildPreciseEphemerisSamplesWithOptions(values, resolveSP3Options(opts))
+}
+
+// BuildPreciseEphemerisSamplesWithOptions copies canonical samples into a native-owned source using explicit interpolation options.
+func BuildPreciseEphemerisSamplesWithOptions(values []PreciseEphemerisSample, options SP3InterpolationOptions) (*PreciseEphemerisSamples, error) {
 	nativeValues := make([]native.PreciseEphemerisSample, len(values))
 	for i := range values {
 		nativeValues[i] = nativePreciseSample(values[i])
 	}
-	h, err := native.PreciseEphemerisSamplesFromSamples(nativeValues)
+	h, err := native.PreciseEphemerisSamplesFromSamplesWithGapThresholdFactor(nativeValues, options.GapThresholdFactor)
 	if err != nil {
 		return nil, publicError(err)
 	}
 	return &PreciseEphemerisSamples{handle: h}, nil
+}
+
+// GapThresholdFactor returns the SP3 interpolation gap threshold factor carried by this sample source.
+func (s *PreciseEphemerisSamples) GapThresholdFactor() (float64, error) {
+	if s == nil || s.handle == nil {
+		return 0, ErrClosed
+	}
+	v, err := s.handle.GapThresholdFactor()
+	return v, publicError(err)
 }
 
 // Close releases the native sample source and is safe to call repeatedly.
@@ -146,16 +171,41 @@ func BuildPreciseEphemerisInterpolantFromSamples(samples *PreciseEphemerisSample
 }
 
 // BuildPreciseEphemerisInterpolant builds an interpolant from copied canonical samples.
-func BuildPreciseEphemerisInterpolant(values []PreciseEphemerisSample) (*PreciseEphemerisInterpolant, error) {
+func BuildPreciseEphemerisInterpolant(values []PreciseEphemerisSample, opts ...SP3Option) (*PreciseEphemerisInterpolant, error) {
+	if len(opts) == 0 {
+		nativeValues := make([]native.PreciseEphemerisSample, len(values))
+		for i := range values {
+			nativeValues[i] = nativePreciseSample(values[i])
+		}
+		h, err := native.PreciseInterpolantFromSamples(nativeValues)
+		if err != nil {
+			return nil, publicError(err)
+		}
+		return &PreciseEphemerisInterpolant{handle: h}, nil
+	}
+	return BuildPreciseEphemerisInterpolantWithOptions(values, resolveSP3Options(opts))
+}
+
+// BuildPreciseEphemerisInterpolantWithOptions builds an interpolant from copied canonical samples using explicit interpolation options.
+func BuildPreciseEphemerisInterpolantWithOptions(values []PreciseEphemerisSample, options SP3InterpolationOptions) (*PreciseEphemerisInterpolant, error) {
 	nativeValues := make([]native.PreciseEphemerisSample, len(values))
 	for i := range values {
 		nativeValues[i] = nativePreciseSample(values[i])
 	}
-	h, err := native.PreciseInterpolantFromSamples(nativeValues)
+	h, err := native.PreciseInterpolantFromSamplesWithGapThresholdFactor(nativeValues, options.GapThresholdFactor)
 	if err != nil {
 		return nil, publicError(err)
 	}
 	return &PreciseEphemerisInterpolant{handle: h}, nil
+}
+
+// GapThresholdFactor returns the SP3 interpolation gap threshold factor carried by this interpolant.
+func (i *PreciseEphemerisInterpolant) GapThresholdFactor() (float64, error) {
+	if i == nil || i.handle == nil {
+		return 0, ErrClosed
+	}
+	v, err := i.handle.GapThresholdFactor()
+	return v, publicError(err)
 }
 
 // Close releases the native interpolant and is safe to call repeatedly.
@@ -237,6 +287,15 @@ func (a *PreciseInterpolantArtifact) Checksum64() (uint64, error) {
 		return 0, ErrClosed
 	}
 	v, err := a.handle.Checksum64()
+	return v, publicError(err)
+}
+
+// GapThresholdFactor returns the SP3 interpolation gap threshold factor recorded in the artifact header.
+func (a *PreciseInterpolantArtifact) GapThresholdFactor() (float64, error) {
+	if a == nil || a.handle == nil {
+		return 0, ErrClosed
+	}
+	v, err := a.handle.GapThresholdFactor()
 	return v, publicError(err)
 }
 
@@ -360,15 +419,40 @@ type SP3Continuity struct {
 }
 
 // Continuity reports native physical-continuity and residual-check counts.
-func (s *SP3) Continuity(orbitClass int, residualToleranceM float64) (SP3Continuity, error) {
+func (s *SP3) Continuity(orbitClass int, residualToleranceM float64, opts ...SP3Option) (SP3Continuity, error) {
+	if len(opts) == 0 {
+		if s == nil || s.handle == nil {
+			return SP3Continuity{}, ErrClosed
+		}
+		v, err := s.handle.Continuity(orbitClass, residualToleranceM)
+		if err != nil {
+			return SP3Continuity{}, publicError(err)
+		}
+		return SP3Continuity{Defects: v.Defects, ResidualsChecked: v.ResidualsChecked, ResidualsSkipped: v.ResidualsSkipped}, nil
+	}
+	return s.ContinuityWithOptions(orbitClass, residualToleranceM, resolveSP3Options(opts))
+}
+
+// ContinuityWithOptions reports native physical-continuity and residual-check counts using explicit interpolation options.
+func (s *SP3) ContinuityWithOptions(orbitClass int, residualToleranceM float64, options SP3InterpolationOptions) (SP3Continuity, error) {
 	if s == nil || s.handle == nil {
 		return SP3Continuity{}, ErrClosed
 	}
-	v, err := s.handle.Continuity(orbitClass, residualToleranceM)
+	v, err := s.handle.ContinuityWithGapThresholdFactor(orbitClass, residualToleranceM, options.GapThresholdFactor)
 	if err != nil {
 		return SP3Continuity{}, publicError(err)
 	}
 	return SP3Continuity{Defects: v.Defects, ResidualsChecked: v.ResidualsChecked, ResidualsSkipped: v.ResidualsSkipped}, nil
+}
+
+// CheckContinuity reports native physical-continuity and residual-check counts.
+func (s *SP3) CheckContinuity(orbitClass int, residualToleranceM float64, opts ...SP3Option) (SP3Continuity, error) {
+	return s.Continuity(orbitClass, residualToleranceM, opts...)
+}
+
+// CheckContinuityWithOptions reports native physical-continuity and residual-check counts using explicit interpolation options.
+func (s *SP3) CheckContinuityWithOptions(orbitClass int, residualToleranceM float64, options SP3InterpolationOptions) (SP3Continuity, error) {
+	return s.ContinuityWithOptions(orbitClass, residualToleranceM, options)
 }
 
 // SP3ClockReferenceOffset contains one J2000 clock-datum offset estimate.
@@ -420,11 +504,23 @@ func (s *SP3) Interpolate(satellite string, epochs []float64) ([][3]float64, []f
 }
 
 // ContinuityVerdictJSON returns the native continuity-window decision as JSON bytes.
-func (s *SP3) ContinuityVerdictJSON(orbitClass int, residualToleranceM, fromJ2000S, throughJ2000S float64) ([]byte, error) {
+func (s *SP3) ContinuityVerdictJSON(orbitClass int, residualToleranceM, fromJ2000S, throughJ2000S float64, opts ...SP3Option) ([]byte, error) {
+	if len(opts) == 0 {
+		if s == nil || s.handle == nil {
+			return nil, ErrClosed
+		}
+		value, err := s.handle.ContinuityVerdictJSON(orbitClass, residualToleranceM, fromJ2000S, throughJ2000S)
+		return append([]byte(nil), value...), publicError(err)
+	}
+	return s.ContinuityVerdictJSONWithOptions(orbitClass, residualToleranceM, fromJ2000S, throughJ2000S, resolveSP3Options(opts))
+}
+
+// ContinuityVerdictJSONWithOptions returns the native continuity-window decision as JSON bytes using explicit interpolation options.
+func (s *SP3) ContinuityVerdictJSONWithOptions(orbitClass int, residualToleranceM, fromJ2000S, throughJ2000S float64, options SP3InterpolationOptions) ([]byte, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
 	}
-	value, err := s.handle.ContinuityVerdictJSON(orbitClass, residualToleranceM, fromJ2000S, throughJ2000S)
+	value, err := s.handle.ContinuityVerdictJSONWithGapThresholdFactor(orbitClass, residualToleranceM, options.GapThresholdFactor, fromJ2000S, throughJ2000S)
 	return append([]byte(nil), value...), publicError(err)
 }
 

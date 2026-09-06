@@ -128,6 +128,26 @@ func PreciseEphemerisSamplesFromSamples(values []PreciseEphemerisSample) (*Preci
 	return newPreciseSamples(out)
 }
 
+func PreciseEphemerisSamplesFromSamplesWithGapThresholdFactor(values []PreciseEphemerisSample, gapThresholdFactor float64) (*PreciseEphemerisSamples, error) {
+	p, count, err := cPreciseSamples(values)
+	if err != nil {
+		return nil, err
+	}
+	defer C.free(p)
+	var out *C.SidereonPreciseEphemerisSamples
+	withCThread(func() {
+		err = statusErrorLocked(uint32(C.sidereon_precise_ephemeris_samples_from_samples_with_gap_threshold_factor((*C.SidereonPreciseEphemerisSample)(p), count, C.double(gapThresholdFactor), &out)))
+		if err != nil && out != nil {
+			C.sidereon_precise_ephemeris_samples_free(out)
+			out = nil
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	return newPreciseSamples(out)
+}
+
 func (s *PreciseEphemerisSamples) Close() error {
 	if s == nil || s.handle == nil {
 		return nil
@@ -168,6 +188,26 @@ func PreciseInterpolantFromSamples(values []PreciseEphemerisSample) (*PreciseEph
 	var out *C.SidereonPreciseEphemerisInterpolant
 	withCThread(func() {
 		err = statusErrorLocked(uint32(C.sidereon_precise_ephemeris_interpolant_from_samples((*C.SidereonPreciseEphemerisSample)(p), count, &out)))
+		if err != nil && out != nil {
+			C.sidereon_precise_ephemeris_interpolant_free(out)
+			out = nil
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	return newPreciseInterpolant(out)
+}
+
+func PreciseInterpolantFromSamplesWithGapThresholdFactor(values []PreciseEphemerisSample, gapThresholdFactor float64) (*PreciseEphemerisInterpolant, error) {
+	p, count, err := cPreciseSamples(values)
+	if err != nil {
+		return nil, err
+	}
+	defer C.free(p)
+	var out *C.SidereonPreciseEphemerisInterpolant
+	withCThread(func() {
+		err = statusErrorLocked(uint32(C.sidereon_precise_ephemeris_interpolant_from_samples_with_gap_threshold_factor((*C.SidereonPreciseEphemerisSample)(p), count, C.double(gapThresholdFactor), &out)))
 		if err != nil && out != nil {
 			C.sidereon_precise_ephemeris_interpolant_free(out)
 			out = nil
@@ -384,11 +424,45 @@ func (i *PreciseEphemerisInterpolant) ObservableStatesShared(satellites []string
 	return preciseObservableStates(i.handle, satellites, nil, true, epoch)
 }
 
+func (i *PreciseEphemerisInterpolant) GapThresholdFactor() (float64, error) {
+	if i == nil || i.handle == nil {
+		return 0, ErrClosed
+	}
+	var out C.double
+	err := i.handle.with(func(p unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_precise_ephemeris_interpolant_gap_threshold_factor((*C.SidereonPreciseEphemerisInterpolant)(p), &out))
+		})
+	})
+	runtime.KeepAlive(i)
+	if err != nil {
+		return 0, err
+	}
+	return float64(out), nil
+}
+
 func (s *PreciseEphemerisSamples) Sample(satellites []string, start, stop, step float64) ([]NativeEphemerisSampleRow, error) {
 	if s == nil || s.handle == nil {
 		return nil, ErrClosed
 	}
 	return preciseSampleRows(s.handle, satellites, start, stop, step)
+}
+
+func (s *PreciseEphemerisSamples) GapThresholdFactor() (float64, error) {
+	if s == nil || s.handle == nil {
+		return 0, ErrClosed
+	}
+	var out C.double
+	err := s.handle.with(func(p unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_precise_ephemeris_samples_gap_threshold_factor((*C.SidereonPreciseEphemerisSamples)(p), &out))
+		})
+	})
+	runtime.KeepAlive(s)
+	if err != nil {
+		return 0, err
+	}
+	return float64(out), nil
 }
 
 type NativeRangePrediction struct {
@@ -604,6 +678,23 @@ func (a *PreciseInterpolantArtifact) Checksum64() (uint64, error) {
 	})
 	runtime.KeepAlive(a)
 	return uint64(out), err
+}
+
+func (a *PreciseInterpolantArtifact) GapThresholdFactor() (float64, error) {
+	if a == nil || a.handle == nil {
+		return 0, ErrClosed
+	}
+	var out C.double
+	err := a.handle.with(func(p unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_precise_interpolant_artifact_gap_threshold_factor((*C.SidereonPreciseInterpolantArtifact)(p), &out))
+		})
+	})
+	runtime.KeepAlive(a)
+	if err != nil {
+		return 0, err
+	}
+	return float64(out), nil
 }
 
 func PreciseArtifactChecksum64(data []byte) (uint64, error) {

@@ -48,6 +48,46 @@ type SP3PredictionSummary struct {
 	ObservedThroughJ2000S float64
 }
 
+// SP3InterpolationOptions configures the coverage-gap threshold factor for SP3 interpolation.
+type SP3InterpolationOptions struct {
+	// GapThresholdFactor is the multiple of nominal node spacing above which
+	// consecutive nodes are treated as a coverage gap. A non-positive value
+	// (<= 0.0) selects the engine default of 1.5. Values in (0.0, 1.0] or non-finite
+	// values are rejected by the engine with an invalid argument error.
+	GapThresholdFactor float64
+}
+
+// SP3LoadOptions configures SP3 product loading options.
+type SP3LoadOptions = SP3InterpolationOptions
+
+// SP3ContinuityOptions configures SP3 product continuity check options.
+type SP3ContinuityOptions = SP3InterpolationOptions
+
+// SP3Option configures optional SP3 loading, continuity, and ephemeris policy.
+type SP3Option func(*SP3InterpolationOptions)
+
+// WithGapThresholdFactor returns an SP3Option configuring the interpolation gap threshold factor.
+func WithGapThresholdFactor(factor float64) SP3Option {
+	return func(o *SP3InterpolationOptions) {
+		o.GapThresholdFactor = factor
+	}
+}
+
+// NewSP3InterpolationOptions builds an SP3InterpolationOptions struct from functional options.
+func NewSP3InterpolationOptions(opts ...SP3Option) SP3InterpolationOptions {
+	var options SP3InterpolationOptions
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&options)
+		}
+	}
+	return options
+}
+
+func resolveSP3Options(opts []SP3Option) SP3InterpolationOptions {
+	return NewSP3InterpolationOptions(opts...)
+}
+
 // SP3 owns a parsed C SP3 handle. It must not be copied after first use. Read
 // methods may be called concurrently with one another or with Close.
 type SP3 struct {
@@ -57,8 +97,23 @@ type SP3 struct {
 
 // LoadSP3 parses data through the C ABI. The input is copied for the duration
 // of the call and is not retained by the returned handle.
-func LoadSP3(data []byte) (*SP3, error) {
-	handle, err := native.LoadSP3(data)
+func LoadSP3(data []byte, opts ...SP3Option) (*SP3, error) {
+	if len(opts) == 0 {
+		handle, err := native.LoadSP3(data)
+		if err != nil {
+			return nil, publicError(err)
+		}
+		if handle == nil {
+			return nil, errNilNativeHandle
+		}
+		return &SP3{handle: handle}, nil
+	}
+	return LoadSP3WithOptions(data, resolveSP3Options(opts))
+}
+
+// LoadSP3WithOptions parses data through the C ABI using explicit interpolation options.
+func LoadSP3WithOptions(data []byte, options SP3InterpolationOptions) (*SP3, error) {
+	handle, err := native.LoadSP3WithGapThresholdFactor(data, options.GapThresholdFactor)
 	if err != nil {
 		return nil, publicError(err)
 	}
@@ -66,6 +121,15 @@ func LoadSP3(data []byte) (*SP3, error) {
 		return nil, errNilNativeHandle
 	}
 	return &SP3{handle: handle}, nil
+}
+
+// GapThresholdFactor returns the SP3 interpolation gap threshold factor carried by this product.
+func (s *SP3) GapThresholdFactor() (float64, error) {
+	if s == nil || s.handle == nil {
+		return 0, ErrClosed
+	}
+	v, err := s.handle.GapThresholdFactor()
+	return v, publicError(err)
 }
 
 // Close releases the native SP3 handle. It is idempotent and safe to call

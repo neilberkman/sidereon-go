@@ -85,12 +85,12 @@ direct_count=$(wc -l <"$work/direct" | tr -d ' ')
 composed_count=$(wc -l <"$work/composed" | tr -d ' ')
 excluded_count=$(wc -l <"$work/excluded" | tr -d ' ')
 
-[[ "$header_count" == 1503 ]] || {
-	printf 'ABI coverage: expected 1503 header declarations, found %s\n' "$header_count" >&2
+[[ "$header_count" == 1513 ]] || {
+	printf 'ABI coverage: expected 1513 header declarations, found %s\n' "$header_count" >&2
 	exit 1
 }
-[[ "$direct_count" == 1492 ]] || {
-	printf 'ABI coverage: expected 1492 production cgo routes, found %s\n' "$direct_count" >&2
+[[ "$direct_count" == 1502 ]] || {
+	printf 'ABI coverage: expected 1502 production cgo routes, found %s\n' "$direct_count" >&2
 	exit 1
 }
 [[ "$composed_count" == 10 && "$excluded_count" == 1 ]] || {
@@ -138,7 +138,7 @@ pin=$(tr -d '[:space:]' <internal/native/lib/sidereon-c.ref)
 {
 	printf '# Current C ABI implementation map\n\n'
 	printf 'This map is generated from the vendored header and production cgo calls for pinned public `sidereon-c` commit `%s`. Run `./scripts/check-abi-coverage.sh` to prove that every declaration has exactly one disposition.\n\n' "$pin"
-	printf 'Summary: **1,503 total = 1,492 direct + 10 composed + 1 excluded**. Direct rows name a production cgo source. Composed rows keep filesystem acquisition or persistence in Go and delegate bytes to an implemented ABI route.\n\n'
+	printf 'Summary: **1,513 total = 1,502 direct + 10 composed + 1 excluded**. Direct rows name a production cgo source. Composed rows keep filesystem acquisition or persistence in Go and delegate bytes to an implemented ABI route.\n\n'
 	printf '| # | C symbol | Disposition | Implementation proof |\n'
 	printf '|---:|---|---|---|\n'
 	awk -F '\t' '{ printf "| %d | `%s` | %s | %s |\n", NR, $1, $2, $3 }' "$work/dispositions"

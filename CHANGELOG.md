@@ -2,6 +2,30 @@
 
 All notable changes to this module are documented here.
 
+## 2.1.0 - 2026-09-06
+
+- Fixed: the ionosphere-free override band strings passed to the RTK surface
+  were never freed, because the deferred release captured the slice before
+  anything was appended to it.
+- Engine update: sidereon-c 2.1.0 (sidereon-core 2.1.0), additive. The SP3
+  coverage-gap threshold is now a validated, product-carried policy with the
+  1.5 default bit-identical to before; the window-scoped continuity reach
+  follows the interpolator's actual selectable node spans; RINEX 4 CNAV
+  week/TOW round trips are stable at the week boundary.
+- Native archives are built with Rust 1.98.0 (was 1.94.0); a
+  `rust-toolchain.toml` pins the same compiler for local rebuilds.
+- Expose the new sidereon-c 2.1.0 SP3 interpolation-policy entry points:
+  - Options types `SP3InterpolationOptions`, `SP3LoadOptions`, `SP3ContinuityOptions`,
+    and functional option `WithGapThresholdFactor`.
+  - Option-aware loaders `LoadSP3WithOptions` and `LoadExactSP3WithOptions`, with
+    backward-compatible variadic `opts ...SP3Option` on `LoadSP3` and `LoadExactSP3`.
+  - Gap threshold factor getters on `SP3`, `PreciseEphemerisSamples`,
+    `PreciseEphemerisInterpolant`, and `PreciseInterpolantArtifact`.
+  - Option-aware continuity check routes `ContinuityWithOptions`, `CheckContinuity`,
+    `CheckContinuityWithOptions`, and `ContinuityVerdictJSONWithOptions`.
+  - Option-aware ephemeris builders `BuildPreciseEphemerisSamplesWithOptions` and
+    `BuildPreciseEphemerisInterpolantWithOptions`.
+
 ## 2.0.0 - 2026-09-03
 
 - Engine update: sidereon-c 2.0.0 (sidereon-core 2.0.0). The upstream engine
