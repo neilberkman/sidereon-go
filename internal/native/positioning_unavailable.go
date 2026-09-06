@@ -10,8 +10,9 @@ type SP3PredictionSummary struct{}
 
 type SP3 struct{}
 
-func LoadSP3([]byte) (*SP3, error) { return nil, unavailable() }
-func (*SP3) Close() error          { return nil }
+func LoadSP3([]byte) (*SP3, error)                                { return nil, unavailable() }
+func LoadSP3WithGapThresholdFactor([]byte, float64) (*SP3, error) { return nil, unavailable() }
+func (*SP3) Close() error                                         { return nil }
 func (*SP3) EpochCount() (int, error) {
 	return 0, unavailable()
 }
@@ -21,6 +22,7 @@ func (*SP3) State(string, int) (SP3State, error) { return SP3State{}, unavailabl
 func (*SP3) PredictionSummary() (SP3PredictionSummary, error) {
 	return SP3PredictionSummary{}, unavailable()
 }
+func (*SP3) GapThresholdFactor() (float64, error) { return 0, unavailable() }
 
 type SPPObservation struct {
 	SatelliteID  string

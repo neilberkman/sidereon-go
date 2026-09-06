@@ -50,11 +50,26 @@ func (r *ExactSP3Request) Close() error {
 }
 
 // LoadExactSP3 parses and validates bytes against an exact request.
-func LoadExactSP3(data []byte, request *ExactSP3Request) (*SP3, ExactSP3Coverage, error) {
+func LoadExactSP3(data []byte, request *ExactSP3Request, opts ...SP3Option) (*SP3, ExactSP3Coverage, error) {
+	if len(opts) == 0 {
+		if request == nil || request.handle == nil {
+			return nil, 0, ErrClosed
+		}
+		h, coverage, err := native.LoadExactSP3(append([]byte(nil), data...), request.handle)
+		if err != nil {
+			return nil, 0, publicError(err)
+		}
+		return &SP3{handle: h}, ExactSP3Coverage(coverage), nil
+	}
+	return LoadExactSP3WithOptions(data, request, resolveSP3Options(opts))
+}
+
+// LoadExactSP3WithOptions parses and validates bytes against an exact request using explicit interpolation options.
+func LoadExactSP3WithOptions(data []byte, request *ExactSP3Request, options SP3InterpolationOptions) (*SP3, ExactSP3Coverage, error) {
 	if request == nil || request.handle == nil {
 		return nil, 0, ErrClosed
 	}
-	h, coverage, err := native.LoadExactSP3(append([]byte(nil), data...), request.handle)
+	h, coverage, err := native.LoadExactSP3WithGapThresholdFactor(append([]byte(nil), data...), request.handle, options.GapThresholdFactor)
 	if err != nil {
 		return nil, 0, publicError(err)
 	}

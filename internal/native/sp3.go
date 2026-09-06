@@ -80,6 +80,42 @@ func LoadSP3(data []byte) (*SP3, error) {
 	return &SP3{handle: newPositioningHandle(unsafe.Pointer(pointer), releaseSP3)}, nil
 }
 
+func LoadSP3WithGapThresholdFactor(data []byte, gapThresholdFactor float64) (*SP3, error) {
+	if _, err := checkedNativeSize(len(data)); err != nil {
+		return nil, err
+	}
+	var pointer *C.SidereonSp3
+	var err error
+	withCThread(func() {
+		var cdata unsafe.Pointer
+		if len(data) != 0 {
+			cdata = C.CBytes(data)
+			if cdata == nil {
+				err = errors.New("sidereon: unable to allocate native input buffer")
+				return
+			}
+			defer C.free(cdata)
+		}
+		err = statusErrorLocked(C.sidereon_sp3_load_with_gap_threshold_factor(
+			(*C.uint8_t)(cdata), C.size_t(len(data)), C.double(gapThresholdFactor), &pointer,
+		))
+		if err != nil && pointer != nil {
+			releaseSP3(unsafe.Pointer(pointer))
+			pointer = nil
+		}
+	})
+	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_sp3_free(pointer) })
+		}
+		return nil, err
+	}
+	if pointer == nil {
+		return nil, errors.New("sidereon: native SP3 load returned no handle")
+	}
+	return &SP3{handle: newPositioningHandle(unsafe.Pointer(pointer), releaseSP3)}, nil
+}
+
 func (s *SP3) Close() error {
 	if s == nil {
 		return nil
@@ -287,4 +323,21 @@ func (s *SP3) PredictionSummary() (SP3PredictionSummary, error) {
 		ObservedThroughPresent: bool(summary.observed_through_present),
 		ObservedThroughJ2000S:  float64(summary.observed_through_j2000_seconds),
 	}, nil
+}
+
+func (s *SP3) GapThresholdFactor() (float64, error) {
+	if s == nil || s.handle == nil {
+		return 0, ErrClosed
+	}
+	var factor C.double
+	err := s.handle.with(func(pointer unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return C.sidereon_sp3_gap_threshold_factor((*C.SidereonSp3)(pointer), &factor)
+		})
+	})
+	runtime.KeepAlive(s)
+	if err != nil {
+		return 0, err
+	}
+	return float64(factor), nil
 }

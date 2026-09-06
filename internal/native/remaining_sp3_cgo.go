@@ -198,6 +198,39 @@ func (s *SP3) Continuity(orbitClass int, residualTolerance float64) (NativeSp3Co
 	return NativeSp3Continuity{Defects: defectCount, ResidualsChecked: checkedCount, ResidualsSkipped: skippedCount}, nil
 }
 
+func (s *SP3) ContinuityWithGapThresholdFactor(orbitClass int, residualTolerance, gapThresholdFactor float64) (NativeSp3Continuity, error) {
+	if s == nil || s.handle == nil {
+		return NativeSp3Continuity{}, ErrClosed
+	}
+	class, err := checkedSp3OrbitClass(orbitClass)
+	if err != nil {
+		return NativeSp3Continuity{}, err
+	}
+	var defects, checked, skipped C.size_t
+	err = s.handle.with(func(p unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_sp3_check_continuity_with_gap_threshold_factor((*C.SidereonSp3)(p), class, C.double(residualTolerance), C.double(gapThresholdFactor), &defects, &checked, &skipped))
+		})
+	})
+	runtime.KeepAlive(s)
+	if err != nil {
+		return NativeSp3Continuity{}, err
+	}
+	defectCount, err := checkedNativeCount(uint64(defects))
+	if err != nil {
+		return NativeSp3Continuity{}, fmt.Errorf("sidereon: native continuity defects: %w", err)
+	}
+	checkedCount, err := checkedNativeCount(uint64(checked))
+	if err != nil {
+		return NativeSp3Continuity{}, fmt.Errorf("sidereon: native continuity checked count: %w", err)
+	}
+	skippedCount, err := checkedNativeCount(uint64(skipped))
+	if err != nil {
+		return NativeSp3Continuity{}, fmt.Errorf("sidereon: native continuity skipped count: %w", err)
+	}
+	return NativeSp3Continuity{Defects: defectCount, ResidualsChecked: checkedCount, ResidualsSkipped: skippedCount}, nil
+}
+
 func (s *SP3) ClockReferenceOffsets(other *SP3, minCommon int) ([]NativeSp3ClockReferenceOffset, error) {
 	if s == nil || s.handle == nil || other == nil || other.handle == nil {
 		return nil, ErrClosed
@@ -373,6 +406,28 @@ func (s *SP3) ContinuityVerdictJSON(orbitClass int, residualTolerance, from, thr
 			var err error
 			result, err = copyNativeBytesLocked("SP3 continuity verdict", func(out *C.uint8_t, n C.size_t, w, r *C.size_t) C.enum_SidereonStatus {
 				return C.sidereon_sp3_continuity_verdict_json((*C.SidereonSp3)(p), class, C.double(residualTolerance), C.double(from), C.double(through), out, n, w, r)
+			})
+			return err
+		})
+	})
+	runtime.KeepAlive(s)
+	return result, err
+}
+
+func (s *SP3) ContinuityVerdictJSONWithGapThresholdFactor(orbitClass int, residualTolerance, gapThresholdFactor, from, through float64) ([]byte, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	class, err := checkedSp3OrbitClass(orbitClass)
+	if err != nil {
+		return nil, err
+	}
+	var result []byte
+	err = s.handle.with(func(p unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var err error
+			result, err = copyNativeBytesLocked("SP3 continuity verdict", func(out *C.uint8_t, n C.size_t, w, r *C.size_t) C.enum_SidereonStatus {
+				return C.sidereon_sp3_continuity_verdict_json_with_gap_threshold_factor((*C.SidereonSp3)(p), class, C.double(residualTolerance), C.double(gapThresholdFactor), C.double(from), C.double(through), out, n, w, r)
 			})
 			return err
 		})

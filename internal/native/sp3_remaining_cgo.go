@@ -492,6 +492,42 @@ func LoadExactSP3(data []byte, request *ExactSp3Request) (*SP3, uint32, error) {
 	return &SP3{handle: newPositioningHandle(unsafe.Pointer(out), releaseSP3)}, uint32(coverage), nil
 }
 
+func LoadExactSP3WithGapThresholdFactor(data []byte, request *ExactSp3Request, gapThresholdFactor float64) (*SP3, uint32, error) {
+	if request == nil || request.handle == nil {
+		return nil, 0, ErrClosed
+	}
+	var out *C.SidereonSp3
+	var coverage C.enum_SidereonExactSp3Coverage
+	var operationErr error
+	err := request.handle.with(func(requestPointer unsafe.Pointer) error {
+		return withInputError(data, func(bytes *C.uint8_t, length C.size_t) error {
+			withCThread(func() {
+				operationErr = statusErrorLocked(uint32(C.sidereon_sp3_load_exact_with_gap_threshold_factor(bytes, length, (*C.SidereonExactSp3Request)(requestPointer), C.double(gapThresholdFactor), &out, &coverage)))
+				if operationErr != nil && out != nil {
+					C.sidereon_sp3_free(out)
+					out = nil
+				}
+			})
+			return operationErr
+		})
+	})
+	runtime.KeepAlive(request)
+	runtime.KeepAlive(data)
+	if err != nil {
+		return nil, 0, err
+	}
+	if err := validateExactSp3Coverage(uint32(coverage)); err != nil {
+		if out != nil {
+			withCThread(func() { C.sidereon_sp3_free(out) })
+		}
+		return nil, 0, err
+	}
+	if out == nil {
+		return nil, 0, missingNativeHandle("exact SP3")
+	}
+	return &SP3{handle: newPositioningHandle(unsafe.Pointer(out), releaseSP3)}, uint32(coverage), nil
+}
+
 func ValidateExactSP3(sp3 *SP3, request *ExactSp3Request) (uint32, error) {
 	if sp3 == nil || request == nil || sp3.handle == nil || request.handle == nil {
 		return 0, ErrClosed

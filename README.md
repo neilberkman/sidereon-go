@@ -172,6 +172,32 @@ func main() {
 }
 ```
 
+### SP3 interpolation options and continuity checks
+
+When loading SP3 products or evaluating continuity, interpolation policy can be
+configured using functional options like `WithGapThresholdFactor` or explicit
+options structs:
+
+```go
+// Load an SP3 product with a custom gap threshold factor (e.g. 13.0)
+sp3, err := sidereon.LoadSP3(sp3Bytes, sidereon.WithGapThresholdFactor(13.0))
+if err != nil {
+	panic(err)
+}
+defer sp3.Close()
+
+// Inspect the configured factor
+factor, err := sp3.GapThresholdFactor()
+
+// Evaluate physical continuity and holdout defects with custom options
+continuity, err := sp3.ContinuityWithOptions(1, 1.0, sidereon.SP3ContinuityOptions{
+	GapThresholdFactor: 13.0,
+})
+
+// Or obtain the continuity verdict JSON
+verdictJSON, err := sp3.ContinuityVerdictJSON(1, 1.0, fromJ2000S, throughJ2000S, sidereon.WithGapThresholdFactor(13.0))
+```
+
 These examples demonstrate the public operation and units; they do not imply
 that every sibling-language convenience name is present in Go. Consult the Go
 package documentation for the routes included in the current module.
