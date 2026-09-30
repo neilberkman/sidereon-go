@@ -101,6 +101,23 @@ func ParseTLEWithOpsMode(line1, line2 string, mode OpsMode) (*TLE, error) {
 	return &TLE{handle: handle}, nil
 }
 
+// ParseTLEWithPolicy parses two TLE lines using AFSPC mode and the selected checksum policy.
+func ParseTLEWithPolicy(line1, line2 string, policy TLEFilePolicy) (*TLE, error) {
+	return ParseTLEWithOpsModeAndPolicy(line1, line2, OpsModeAFSPC, policy)
+}
+
+// ParseTLEWithOpsModeAndPolicy parses two TLE lines with explicit SGP4 operations mode and checksum policy.
+func ParseTLEWithOpsModeAndPolicy(line1, line2 string, mode OpsMode, policy TLEFilePolicy) (*TLE, error) {
+	handle, err := native.LoadTLEWithPolicy(line1, line2, uint32(mode), uint32(policy))
+	if err != nil {
+		return nil, publicError(err)
+	}
+	if handle == nil {
+		return nil, errNilNativeHandle
+	}
+	return &TLE{handle: handle}, nil
+}
+
 // Close releases the native TLE handle. It waits for in-flight read operations,
 // clears the native state, is idempotent, and is safe to call concurrently with
 // read operations.

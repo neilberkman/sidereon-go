@@ -293,7 +293,7 @@ func TestBroadcastSelectAndComparisonRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CompareBroadcast outside precise coverage: %v", err)
 	}
-	defer unavailableComparison.Close()
+	closeAfterTest(t, unavailableComparison)
 	unavailableStats, err := unavailableComparison.Overall()
 	if err != nil || unavailableStats.Count != 0 {
 		t.Fatalf("comparison outside precise coverage stats=%+v err=%v", unavailableStats, err)

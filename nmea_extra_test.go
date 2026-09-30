@@ -199,7 +199,7 @@ func TestNMEAGSVPreservesSignedElevationAndWideOptionalCount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer log.Close()
+	closeAfterTest(t, log)
 	records, err := log.SentenceRecords()
 	if err != nil {
 		t.Fatal(err)
@@ -218,7 +218,7 @@ func TestNMEAGSVPreservesSignedElevationAndWideOptionalCount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer nullLog.Close()
+	closeAfterTest(t, nullLog)
 	nullRecords, err := nullLog.SentenceRecords()
 	if err != nil {
 		t.Fatal(err)

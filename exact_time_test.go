@@ -14,7 +14,7 @@ func TestExactEpochPreservesIntegerComponents(tester *testing.T) {
 	if err != nil {
 		tester.Fatal(err)
 	}
-	defer epoch.Close()
+	closeAfterTest(tester, epoch)
 	components, err := epoch.Components()
 	if err != nil {
 		tester.Fatal(err)
@@ -29,7 +29,7 @@ func TestExactEpochPreservesIntegerComponents(tester *testing.T) {
 	}
 	if invalid, err := NewExactEpoch(0, 1000000000000000000); err == nil {
 		if invalid != nil {
-			invalid.Close()
+			closeAfterTest(tester, invalid)
 		}
 		tester.Fatal("accepted an attosecond count of one second")
 	}
@@ -40,12 +40,12 @@ func TestExactEpochQueryRetainsBinaryOffsetDifference(tester *testing.T) {
 	if err != nil {
 		tester.Fatal(err)
 	}
-	defer decimal.Close()
+	closeAfterTest(tester, decimal)
 	binary, err := ExactEpochQueryFromBinaryJ2000Seconds(0.1)
 	if err != nil {
 		tester.Fatal(err)
 	}
-	defer binary.Close()
+	closeAfterTest(tester, binary)
 	rational := new(big.Rat).SetFloat64(0.1)
 	rational.Sub(rational, big.NewRat(1, 10))
 	want, _ := rational.Float64()
@@ -57,7 +57,7 @@ func TestExactEpochQueryRetainsBinaryOffsetDifference(tester *testing.T) {
 	if err != nil {
 		tester.Fatal(err)
 	}
-	defer decimalQuery.Close()
+	closeAfterTest(tester, decimalQuery)
 	difference, err = binary.SecondsSinceQuery(decimalQuery)
 	if err != nil || math.Float64bits(difference) != math.Float64bits(want) {
 		tester.Fatalf("query difference = %.17g, want %.17g, error %v", difference, want, err)
@@ -66,12 +66,12 @@ func TestExactEpochQueryRetainsBinaryOffsetDifference(tester *testing.T) {
 	if err != nil {
 		tester.Fatal(err)
 	}
-	defer shifted.Close()
+	closeAfterTest(tester, shifted)
 	restored, err := shifted.CheckedSubBinarySeconds(0.1)
 	if err != nil {
 		tester.Fatal(err)
 	}
-	defer restored.Close()
+	closeAfterTest(tester, restored)
 	difference, err = restored.SecondsSinceQuery(decimalQuery)
 	if err != nil || difference != 0 {
 		tester.Fatalf("exact offset cancellation = %g, %v", difference, err)
@@ -83,12 +83,12 @@ func TestExactEpochQueryOwnsItsValueAfterEpochClose(tester *testing.T) {
 	if err != nil {
 		tester.Fatal(err)
 	}
-	defer epoch.Close()
+	closeAfterTest(tester, epoch)
 	query, err := epoch.Query()
 	if err != nil {
 		tester.Fatal(err)
 	}
-	defer query.Close()
+	closeAfterTest(tester, query)
 	if err := epoch.Close(); err != nil {
 		tester.Fatal(err)
 	}

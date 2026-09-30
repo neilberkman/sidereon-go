@@ -651,12 +651,12 @@ func TestConstellationFleetErrorsOwnTypedDiagnostics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tle.Close()
+	closeAfterTest(t, tle)
 	constellation, err := NewSatelliteConstellation([]*TLE{tle})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer constellation.Close()
+	closeAfterTest(t, constellation)
 
 	epoch := time.Unix(1530619200, 0).UTC()
 	badStation := PassStation{LatitudeDeg: 91, LongitudeDeg: 0, AltitudeM: 0}

@@ -1,6 +1,10 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import (
+	"errors"
+
+	"sidereon.dev/go/v3/internal/native"
+)
 
 // SPPObservation is one measured pseudorange in meters.
 type SPPObservation struct {
@@ -14,7 +18,9 @@ type SPPObservation struct {
 type QZSSClock uint32
 
 const (
+	// QZSSClockGPS assigns QZSS pseudoranges to the GPS receiver clock.
 	QZSSClockGPS QZSSClock = iota
+	// QZSSClockSeparate estimates an independent receiver clock for QZSS pseudoranges.
 	QZSSClockSeparate
 )
 
@@ -22,14 +28,27 @@ const (
 type TroposphereModel uint32
 
 const (
+	// TroposphereRTKLIB uses the RTKLIB troposphere model.
 	TroposphereRTKLIB TroposphereModel = iota
+	// TroposphereSaastamoinenNiell uses Saastamoinen zenith delay with Niell mapping.
 	TroposphereSaastamoinenNiell
 )
 
 // SPPModelOptions selects model variants used by SPP, RINEX, and static solves.
 type SPPModelOptions struct {
-	QZSSClock        QZSSClock
+	// QZSSClock selects the GPS-shared or separate QZSS receiver clock.
+	QZSSClock QZSSClock
+	// TroposphereModel selects the RTKLIB or Saastamoinen-Niell mapping.
 	TroposphereModel TroposphereModel
+}
+
+// DefaultSPPModelOptions returns the native QZSS-clock and troposphere defaults.
+func DefaultSPPModelOptions() (SPPModelOptions, error) {
+	value, err := native.SPPModelOptionsInit()
+	if err != nil {
+		return SPPModelOptions{}, publicError(err)
+	}
+	return SPPModelOptions{QZSSClock: QZSSClock(value.QZSSClock), TroposphereModel: TroposphereModel(value.TroposphereModel)}, nil
 }
 
 // SPPConfig is the legacy C SPP input surface. Domain validation and all
@@ -190,8 +209,9 @@ func SolveSPP(sp3 *SP3, config SPPConfig) (SPPSolution, error) {
 		if err != nil {
 			return SPPSolution{}, err
 		}
-		defer handle.Close()
-		return handle.Solution()
+		solution, solveErr := handle.Solution()
+		closeErr := handle.Close()
+		return solution, errors.Join(solveErr, closeErr)
 	}
 	nativeConfig := native.SPPConfig{
 		TRxJ2000S:        config.TRxJ2000S,

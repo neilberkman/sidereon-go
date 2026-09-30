@@ -460,16 +460,11 @@ func (s *SP3) ArtifactBytes() ([]byte, uint32, error) {
 			result, err = copyNativeBytesLocked("SP3 precise artifact", func(out *C.uint8_t, n C.size_t, w, r *C.size_t) C.enum_SidereonStatus {
 				return C.sidereon_sp3_precise_interpolant_artifact_bytes((*C.SidereonSp3)(p), &artifactError, out, n, w, r)
 			})
-			return err
+			return attachPreciseArtifactErrorLocked(err)
 		})
 	})
 	runtime.KeepAlive(s)
-	if enumErr := validatePreciseInterpolantArtifactError(uint32(artifactError)); enumErr != nil {
-		artifactError = C.enum_SidereonPreciseInterpolantArtifactErrorKind(PreciseInterpolantArtifactErrorNoneValue)
-		if err == nil {
-			err = enumErr
-		}
-	}
+
 	return result, uint32(artifactError), err
 }
 

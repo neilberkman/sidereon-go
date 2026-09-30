@@ -437,6 +437,9 @@ func TestEnvironmentDTEDAndMMapFixtures(t *testing.T) {
 	if got, err := tile.Elevation(points[0].LongitudeDeg, points[0].LatitudeDeg); err != nil || got != -20 {
 		t.Fatalf("DTED tile elevation = %d, %v; want -20", got, err)
 	}
+	if datum, err := tile.HorizontalDatum(); err != nil || datum.Kind != 2 || datum.Text != "" || !datum.WGS84Compatible {
+		t.Fatalf("DTED fixture datum = %+v, %v; want blank/Unstated datum compatible with WGS84", datum, err)
+	}
 	runEnvironmentReads(t, 8, func() error {
 		_, err := tile.Elevation(points[0].LongitudeDeg, points[0].LatitudeDeg)
 		return err
@@ -668,6 +671,25 @@ func TestEnvironmentGeoidFixtures(t *testing.T) {
 		_, err := GeoidUndulationsDeg([]GeoidPointDeg{{LatitudeDeg: 0, LongitudeDeg: 0}})
 		return err
 	})
+}
+
+func TestEnvironmentSpaceWeatherPolicyInitializers(t *testing.T) {
+	strict, err := DefaultSpaceWeatherPolicy()
+	if err != nil {
+		t.Fatalf("default policy: %v", err)
+	}
+	wantStrict := SpaceWeatherPolicy{AllowInterpolated: true, AllowDailyPredicted: true, AllowMonthlyPredicted: true, RequireGeomagnetic: true}
+	if strict != wantStrict {
+		t.Fatalf("default policy = %+v, want %+v", strict, wantStrict)
+	}
+	lenient, err := LenientSpaceWeatherPolicy()
+	if err != nil {
+		t.Fatalf("lenient policy: %v", err)
+	}
+	wantLenient := SpaceWeatherPolicy{AllowNotObserved: true, AllowInterpolated: true, AllowDailyPredicted: true, AllowMonthlyPredicted: true}
+	if lenient != wantLenient {
+		t.Fatalf("lenient policy = %+v, want %+v", lenient, wantLenient)
+	}
 }
 
 func TestEnvironmentSpaceWeatherFixtures(t *testing.T) {

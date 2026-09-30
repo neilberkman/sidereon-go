@@ -31,6 +31,9 @@ const (
 	Sp3MergeFlagSingleSource                  = uint32(C.SIDEREON_SP3_MERGE_FLAG_KIND_SINGLE_SOURCE)
 	Sp3MergeFlagPositionOutlier               = uint32(C.SIDEREON_SP3_MERGE_FLAG_KIND_POSITION_OUTLIER)
 	Sp3MergeFlagClockOutlier                  = uint32(C.SIDEREON_SP3_MERGE_FLAG_KIND_CLOCK_OUTLIER)
+	Sp3ProvenanceModeOff                      = uint32(C.SIDEREON_SP3_PROVENANCE_MODE_OFF)
+	Sp3ProvenanceModeSummary                  = uint32(C.SIDEREON_SP3_PROVENANCE_MODE_SUMMARY)
+	Sp3ProvenanceModeFull                     = uint32(C.SIDEREON_SP3_PROVENANCE_MODE_FULL)
 )
 
 func validateExactSp3Coverage(value uint32) error {
@@ -279,6 +282,7 @@ type NativeSp3MergeOptions struct {
 	Systems                        []uint32
 	AssertedFrameLabelSets         [][]string
 	HelmertFrameReconciliation     bool
+	ProvenanceMode                 uint32
 }
 
 func cSp3MergeOptions(a *sp3Arena, value NativeSp3MergeOptions) (*C.SidereonSp3MergeOptions, error) {
@@ -287,6 +291,9 @@ func cSp3MergeOptions(a *sp3Arena, value NativeSp3MergeOptions) (*C.SidereonSp3M
 	}
 	if err := validateSp3MergePrecedenceScope(value.PrecedenceScope); err != nil {
 		return nil, err
+	}
+	if value.ProvenanceMode > Sp3ProvenanceModeFull {
+		return nil, invalidArgument("invalid SP3 merge provenance mode")
 	}
 	if value.MinAgree < 0 || value.ClockMinCommon < 0 {
 		return nil, invalidArgument("SP3 merge counts must not be negative")
@@ -326,6 +333,7 @@ func cSp3MergeOptions(a *sp3Arena, value NativeSp3MergeOptions) (*C.SidereonSp3M
 	out.target_epoch_interval_s_enabled = cBool(value.TargetEpochIntervalEnabled)
 	out.target_epoch_interval_s = C.double(value.TargetEpochIntervalS)
 	out.helmert_frame_reconciliation = cBool(value.HelmertFrameReconciliation)
+	out.provenance_mode = C.uint32_t(value.ProvenanceMode)
 	if len(value.Systems) != 0 {
 		systemsPointer, err := a.malloc(len(value.Systems), unsafe.Sizeof(C.uint32_t(0)))
 		if err != nil {
@@ -390,7 +398,7 @@ func Sp3MergeOptionsInit() (NativeSp3MergeOptions, error) {
 		return NativeSp3MergeOptions{}, invalidArgument("invalid SP3 merge option boolean returned by native code")
 	}
 	return NativeSp3MergeOptions{
-		PositionToleranceM: float64(value.position_tolerance_m), ClockToleranceS: float64(value.clock_tolerance_s), MinAgree: minAgree, ClockMinCommon: clockMinCommon, Combine: uint32(value.combine), PrecedenceScope: uint32(value.precedence_scope), OutlierRejectEnabled: value.outlier_reject_enabled != 0, OutlierRejectPositionTolerance: float64(value.outlier_reject_position_tolerance_m), OutlierRejectClockTolerance: float64(value.outlier_reject_clock_tolerance_s), TargetEpochIntervalEnabled: value.target_epoch_interval_s_enabled != 0, TargetEpochIntervalS: float64(value.target_epoch_interval_s), HelmertFrameReconciliation: value.helmert_frame_reconciliation != 0,
+		PositionToleranceM: float64(value.position_tolerance_m), ClockToleranceS: float64(value.clock_tolerance_s), MinAgree: minAgree, ClockMinCommon: clockMinCommon, Combine: uint32(value.combine), PrecedenceScope: uint32(value.precedence_scope), OutlierRejectEnabled: value.outlier_reject_enabled != 0, OutlierRejectPositionTolerance: float64(value.outlier_reject_position_tolerance_m), OutlierRejectClockTolerance: float64(value.outlier_reject_clock_tolerance_s), TargetEpochIntervalEnabled: value.target_epoch_interval_s_enabled != 0, TargetEpochIntervalS: float64(value.target_epoch_interval_s), HelmertFrameReconciliation: value.helmert_frame_reconciliation != 0, ProvenanceMode: uint32(value.provenance_mode),
 	}, nil
 }
 

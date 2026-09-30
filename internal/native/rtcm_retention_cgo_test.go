@@ -9,7 +9,7 @@ func TestUnsupportedBodyPropagatesNativeIndexFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer messages.Close()
+	closeNativeAfterTest(t, messages)
 
 	if body, err := messages.UnsupportedBody(1); err == nil {
 		t.Fatalf("positive out-of-range index returned body %x without error", body)

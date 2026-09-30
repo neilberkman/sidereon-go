@@ -241,12 +241,13 @@ const (
 	TLEOpsModeImprovedValue uint32 = 1
 )
 
-func ParseTLE(string, string) (*TLE, error)                  { return nil, unavailable() }
-func LoadTLE(string, string, uint32) (*TLE, error)           { return nil, unavailable() }
-func (*TLE) Close() error                                    { return nil }
-func (*TLE) Metadata() (TLEMetadata, error)                  { return TLEMetadata{}, unavailable() }
-func (*TLE) Lines() (TLELines, error)                        { return TLELines{}, unavailable() }
-func (*TLE) ChecksumWarnings() ([]TLEChecksumWarning, error) { return nil, unavailable() }
+func ParseTLE(string, string) (*TLE, error)                          { return nil, unavailable() }
+func LoadTLE(string, string, uint32) (*TLE, error)                   { return nil, unavailable() }
+func LoadTLEWithPolicy(string, string, uint32, uint32) (*TLE, error) { return nil, unavailable() }
+func (*TLE) Close() error                                            { return nil }
+func (*TLE) Metadata() (TLEMetadata, error)                          { return TLEMetadata{}, unavailable() }
+func (*TLE) Lines() (TLELines, error)                                { return TLELines{}, unavailable() }
+func (*TLE) ChecksumWarnings() ([]TLEChecksumWarning, error)         { return nil, unavailable() }
 func (*TLE) Propagate([]time.Time) ([]TEMEState, error) {
 	return nil, unavailable()
 }

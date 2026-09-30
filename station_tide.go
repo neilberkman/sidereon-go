@@ -6,28 +6,39 @@ import (
 	"sidereon.dev/go/v3/internal/native"
 )
 
+// StationTideConstants selects the diurnal-band coefficients for solid Earth tide displacement.
 type StationTideConstants uint32
 
 const (
+	// StationTideConventions uses the IERS Conventions (2010) coefficients with the corrected P1 sign.
 	StationTideConventions StationTideConstants = iota
+	// StationTideIERSRoutine uses the distributed DEHANTTIDEINEL diurnal-band coefficients.
 	StationTideIERSRoutine
 )
 
+// StationTideValidityMode selects strict validation or permitted degradation for tide calculations.
 type StationTideValidityMode uint32
 
 const (
+	// StationTideValidityStrict requires the requested epoch to satisfy model-coverage checks.
 	StationTideValidityStrict StationTideValidityMode = iota
+	// StationTideValidityPermissive allows supported degradation outside model coverage.
 	StationTideValidityPermissive
 )
 
+// StationTideDegradeReason records why a station-tide result used degraded inputs.
 type StationTideDegradeReason uint32
 
 const (
+	// StationTideNotDegraded means the tide calculation used full-coverage inputs.
 	StationTideNotDegraded StationTideDegradeReason = iota
+	// StationTideBeforeCoverage means the epoch precedes the available tide-model coverage.
 	StationTideBeforeCoverage
+	// StationTideAfterCoverage means the epoch follows the available tide-model coverage.
 	StationTideAfterCoverage
 )
 
+// StationTideEpoch identifies one tide-evaluation epoch and its time scale.
 type StationTideEpoch struct {
 	Year, Month, Day, Hour, Minute int
 	Second                         float64
@@ -35,6 +46,7 @@ type StationTideEpoch struct {
 	XPArcsec, YPArcsec             float64
 }
 
+// StationTideOptions configures station coordinates, conventions, and validity handling.
 type StationTideOptions struct {
 	SolidEarthTide, PoleTide bool
 	OceanLoading             *OceanLoadingBLQ
@@ -42,12 +54,14 @@ type StationTideOptions struct {
 	Validity                 StationTideValidityMode
 }
 
+// StationTideDisplacement contains the predicted three-component station displacement.
 type StationTideDisplacement struct {
 	ECEFM, SolidEarthTideECEFM, PoleTideECEFM, OceanLoadingECEFM [3]float64
 	HasSolidEarthTide, HasPoleTide, HasOceanLoading              bool
 	DegradeReason                                                StationTideDegradeReason
 }
 
+// StationTideError preserves a typed station-tide failure and its cause.
 type StationTideError struct {
 	Kind, NestedKind, SunMoonCause, InputKind uint32
 	DegradeReason                             StationTideDegradeReason
@@ -56,6 +70,7 @@ type StationTideError struct {
 	Cause                                     error
 }
 
+// Error returns the StationTideError message.
 func (err *StationTideError) Error() string {
 	if err == nil {
 		return "sidereon: station tide failed"
@@ -66,6 +81,7 @@ func (err *StationTideError) Error() string {
 	return fmt.Sprintf("sidereon: station tide failed (kind %d)", err.Kind)
 }
 
+// Unwrap returns the underlying cause when one is retained.
 func (err *StationTideError) Unwrap() error {
 	if err == nil {
 		return nil
@@ -123,10 +139,12 @@ func publicStationTideDisplacement(value native.NativeStationTideDisplacement) S
 	return StationTideDisplacement{ECEFM: value.ECEFM, SolidEarthTideECEFM: value.SolidEarthTideECEFM, PoleTideECEFM: value.PoleTideECEFM, OceanLoadingECEFM: value.OceanLoadingECEFM, HasSolidEarthTide: value.HasSolidEarthTide, HasPoleTide: value.HasPoleTide, HasOceanLoading: value.HasOceanLoading, DegradeReason: StationTideDegradeReason(value.DegradeReason)}
 }
 
+// StationTideConstantsDefault returns the default pinned tide coefficients and convention.
 func StationTideConstantsDefault() StationTideConstants {
 	return StationTideConstants(native.StationTideConstantsDefault())
 }
 
+// StationTideDisplace calculates solid Earth tide displacement for one station and epoch.
 func StationTideDisplace(positionECEFM [3]float64, epoch StationTideEpoch, options StationTideOptions) (StationTideDisplacement, error) {
 	nativeEpoch, err := nativeStationTideEpoch(epoch)
 	if err != nil {
@@ -136,12 +154,14 @@ func StationTideDisplace(positionECEFM [3]float64, epoch StationTideEpoch, optio
 	return publicStationTideDisplacement(value), stationTideError(typed, publicError(operationErr))
 }
 
+// StationTideBatchRow pairs a requested station/epoch with its calculated displacement.
 type StationTideBatchRow struct {
 	Status       uint32
 	Displacement StationTideDisplacement
 	Error        *StationTideError
 }
 
+// StationTideDisplaceBatch evaluates station displacement for a batch of requested epochs.
 func StationTideDisplaceBatch(positionECEFM [3]float64, epochs []StationTideEpoch, options StationTideOptions) ([]StationTideBatchRow, error) {
 	nativeEpochs := make([]native.NativeStationTideEpoch, len(epochs))
 	for index, epoch := range epochs {
@@ -165,6 +185,7 @@ func StationTideDisplaceBatch(positionECEFM [3]float64, epochs []StationTideEpoc
 	return rows, nil
 }
 
+// SolidEarthTideWithConstants calculates displacement using the supplied tide coefficients.
 func SolidEarthTideWithConstants(stationECEFM [3]float64, year, month, day int, fractionalHour float64, sunECEFM, moonECEFM [3]float64, constants StationTideConstants) ([3]float64, error) {
 	y, err := checkedStationTideInt32(year, "year")
 	if err != nil {

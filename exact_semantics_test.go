@@ -10,7 +10,7 @@ func TestExactEpochComparisonAndQueryEpoch(tester *testing.T) {
 	if err != nil {
 		tester.Fatal(err)
 	}
-	defer j2000.Close()
+	closeAfterTest(tester, j2000)
 	components, err := j2000.Components()
 	if err != nil || components != (ExactEpochComponents{}) {
 		tester.Fatalf("J2000 components = %+v, %v", components, err)
@@ -23,12 +23,12 @@ func TestExactEpochComparisonAndQueryEpoch(tester *testing.T) {
 	if err != nil {
 		tester.Fatal(err)
 	}
-	defer earlier.Close()
+	closeAfterTest(tester, earlier)
 	later, err := NewExactEpoch(1<<53, 2)
 	if err != nil {
 		tester.Fatal(err)
 	}
-	defer later.Close()
+	closeAfterTest(tester, later)
 	ordering, err := earlier.Compare(later)
 	if err != nil || ordering != ExactOrderingLess {
 		tester.Fatalf("exact comparison = %v, %v; want less", ordering, err)
@@ -41,12 +41,12 @@ func TestExactEpochComparisonAndQueryEpoch(tester *testing.T) {
 	if err != nil {
 		tester.Fatal(err)
 	}
-	defer query.Close()
+	closeAfterTest(tester, query)
 	queryEpoch, err := query.Epoch()
 	if err != nil {
 		tester.Fatal(err)
 	}
-	defer queryEpoch.Close()
+	closeAfterTest(tester, queryEpoch)
 	equal, err = queryEpoch.Equal(earlier)
 	if err != nil || !equal {
 		tester.Fatalf("query epoch equality = %t, %v", equal, err)

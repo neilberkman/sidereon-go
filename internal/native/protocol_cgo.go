@@ -869,8 +869,14 @@ type NativeClockEpoch struct {
 }
 
 type NativeClockPoint struct {
-	Epoch NativeClockEpoch
-	BiasS float64
+	Epoch            NativeClockEpoch
+	BiasS            float64
+	AdditionalValues []float64
+}
+
+type NativeClockSatellitePoint struct {
+	Satellite string
+	Point     NativeClockPoint
 }
 
 type RinexClock struct {
@@ -926,6 +932,65 @@ func ParseRinexClock(data []byte, lossy bool) (*RinexClock, error) {
 		withCThread(func() { C.sidereon_rinex_clock_free(pointer) })
 	}
 	return handle, err
+}
+
+// ParseRinexClockWithOutcome keeps the native parse-result failure alive long
+// enough to copy all typed fields and message before releasing its owner.
+func ParseRinexClockWithOutcome(data []byte) (*RinexClock, *NativeClockWriteFailure, error) {
+	var pointer *C.SidereonRinexClock
+	var result *C.SidereonRinexClockResult
+	err := withInput(data, func(input *C.uint8_t, length C.size_t) uint32 {
+		return C.sidereon_rinex_clock_parse_result(input, length, &pointer, &result)
+	})
+	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_rinex_clock_free(pointer) })
+		}
+		if result != nil {
+			withCThread(func() { C.sidereon_rinex_clock_result_free(result) })
+		}
+		return nil, nil, err
+	}
+	if result == nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_rinex_clock_free(pointer) })
+		}
+		return nil, nil, missingNativeHandle("RINEX clock parse outcome")
+	}
+	var outcome C.SidereonRinexClockOutcome
+	var failure *NativeClockWriteFailure
+	err = withCThreadError(func() error {
+		if err := callStatus(func() uint32 { return uint32(C.sidereon_rinex_clock_result_get_outcome(result, &outcome)) }); err != nil {
+			return err
+		}
+		failure, err = readClockWriteFailureLocked(result, outcome)
+		return err
+	})
+	withCThread(func() { C.sidereon_rinex_clock_result_free(result) })
+	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_rinex_clock_free(pointer) })
+		}
+		return nil, nil, err
+	}
+	if !bool(outcome.is_ok) {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_rinex_clock_free(pointer) })
+		}
+		if failure == nil {
+			return nil, nil, missingNativeHandle("RINEX clock parse failure details")
+		}
+		return nil, failure, nil
+	}
+	if pointer == nil {
+		return nil, nil, missingNativeHandle("RINEX clock")
+	}
+	handle, err := newRinexClock(pointer)
+	if err != nil {
+		withCThread(func() { C.sidereon_rinex_clock_free(pointer) })
+		return nil, nil, err
+	}
+	return handle, nil, nil
 }
 
 func (clock *RinexClock) Close() error {
@@ -1140,6 +1205,218 @@ func (clock *RinexClock) Text() ([]byte, error) {
 	})
 	runtime.KeepAlive(clock)
 	return out, err
+}
+
+// ClockDiagnostic is a copied lossy-read or header-time-system finding.
+type ClockDiagnostic struct {
+	// Kind is the native error-kind discriminant.
+	Kind uint32
+	// HasLine and Line preserve optional source-line attribution.
+	HasLine bool
+	Line    uint64
+	// HasErrorLine and ErrorLine preserve the nested typed error location.
+	HasErrorLine bool
+	ErrorLine    uint64
+	// HasTimeScale and TimeScale preserve an optional refused scale.
+	HasTimeScale bool
+	TimeScale    uint32
+	// These flags preserve which optional text parts are available.
+	HasField, HasReason, HasRecord, HasRecordType, HasValue bool
+	// Text values are detached copies of the matching native parts.
+	Message, Field, Reason, Record, RecordType, Value string
+}
+
+// ClockNotice retains one non-fatal parser finding.
+type ClockNotice struct {
+	// Kind is the native notice-kind discriminant.
+	Kind uint32
+	// HasTimeSystem reports whether TimeSystem is present.
+	HasTimeSystem bool
+	// TimeSystem is the native time-system discriminant.
+	TimeSystem uint32
+	// HasLine reports whether Line identifies a source line.
+	HasLine bool
+	// Line is a one-based source line when present.
+	Line uint64
+	// HasRecords reports whether Records and FirstLine are meaningful.
+	HasRecords bool
+	// Records and FirstLine identify the affected record range.
+	Records, FirstLine uint64
+	// Unknown variant fields preserve names introduced by newer native versions.
+	KindUnknownVariant, TimeSystemUnknownVariant string
+}
+
+// ClockSkip identifies a source record outside the satellite-series API.
+type ClockSkip struct {
+	// Line is the one-based source line.
+	Line uint64
+	// RecordType is the native clock-record discriminant.
+	RecordType uint32
+}
+
+// Diagnostics copies every retained parser diagnostic and its available text parts.
+func (clock *RinexClock) Diagnostics() ([]ClockDiagnostic, error) {
+	if clock == nil || clock.resource == nil {
+		return nil, ErrClosed
+	}
+	var out []ClockDiagnostic
+	err := clock.resource.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var written, required C.size_t
+			status := C.sidereon_rinex_clock_diagnostics((*C.SidereonRinexClock)(pointer), nil, 0, &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			n, err := validateNativeQuery("RINEX clock diagnostics", uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if _, err := checkedNativeAllocationSize(n, unsafe.Sizeof(C.SidereonClockDiagnostic{})); err != nil {
+				return err
+			}
+			values := make([]C.SidereonClockDiagnostic, n)
+			var output *C.SidereonClockDiagnostic
+			if n > 0 {
+				output = &values[0]
+			}
+			written, required = 0, 0
+			status = C.sidereon_rinex_clock_diagnostics((*C.SidereonRinexClock)(pointer), output, C.size_t(n), &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			if _, err := validateTwoPassCounts("RINEX clock diagnostics", n, n, uint64(written), uint64(required)); err != nil {
+				return err
+			}
+			out = make([]ClockDiagnostic, n)
+			for index, value := range values {
+				idx, err := cSize(index, "RINEX clock diagnostic index")
+				if err != nil {
+					return err
+				}
+				getText := func(part C.uint32_t) (string, error) {
+					bytes, err := copyNativeBytesLocked("RINEX clock diagnostic text", func(o *C.uint8_t, l C.size_t, w, r *C.size_t) C.enum_SidereonStatus {
+						return C.sidereon_rinex_clock_diagnostic_text((*C.SidereonRinexClock)(pointer), idx, part, o, l, w, r)
+					})
+					return string(bytes), err
+				}
+				row := ClockDiagnostic{Kind: uint32(value.error.kind), HasLine: true, Line: uint64(value.line), HasErrorLine: bool(value.error.has_line), ErrorLine: uint64(value.error.line), HasTimeScale: bool(value.error.has_time_scale), TimeScale: uint32(value.error.time_scale), HasField: bool(value.error.has_field), HasReason: bool(value.error.has_reason), HasRecord: bool(value.error.has_record), HasRecordType: bool(value.error.has_record_type), HasValue: bool(value.error.has_value)}
+				row.Message, err = getText(C.SIDEREON_RINEX_CLOCK_ERROR_TEXT_MESSAGE)
+				if err != nil {
+					return err
+				}
+				for _, field := range []struct {
+					present bool
+					part    C.uint32_t
+					dest    *string
+				}{{row.HasField, C.SIDEREON_RINEX_CLOCK_ERROR_TEXT_FIELD, &row.Field}, {row.HasReason, C.SIDEREON_RINEX_CLOCK_ERROR_TEXT_REASON, &row.Reason}, {row.HasRecord, C.SIDEREON_RINEX_CLOCK_ERROR_TEXT_RECORD, &row.Record}, {row.HasRecordType, C.SIDEREON_RINEX_CLOCK_ERROR_TEXT_RECORD_TYPE, &row.RecordType}, {row.HasValue, C.SIDEREON_RINEX_CLOCK_ERROR_TEXT_VALUE, &row.Value}} {
+					if field.present {
+						*field.dest, err = getText(field.part)
+						if err != nil {
+							return err
+						}
+					}
+				}
+				out[index] = row
+			}
+			return nil
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Notices copies every non-fatal parser finding, including future enum names.
+func (clock *RinexClock) Notices() ([]ClockNotice, error) {
+	if clock == nil || clock.resource == nil {
+		return nil, ErrClosed
+	}
+	var out []ClockNotice
+	err := clock.resource.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var written, required C.size_t
+			status := C.sidereon_rinex_clock_notices((*C.SidereonRinexClock)(pointer), nil, 0, &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			n, err := validateNativeQuery("RINEX clock notices", uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if _, err := checkedNativeAllocationSize(n, unsafe.Sizeof(C.SidereonClockNotice{})); err != nil {
+				return err
+			}
+			values := make([]C.SidereonClockNotice, n)
+			var output *C.SidereonClockNotice
+			if n > 0 {
+				output = &values[0]
+			}
+			written, required = 0, 0
+			status = C.sidereon_rinex_clock_notices((*C.SidereonRinexClock)(pointer), output, C.size_t(n), &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			if _, err := validateTwoPassCounts("RINEX clock notices", n, n, uint64(written), uint64(required)); err != nil {
+				return err
+			}
+			out = make([]ClockNotice, n)
+			for i, value := range values {
+				out[i] = ClockNotice{Kind: uint32(value.kind), HasTimeSystem: bool(value.has_time_system), TimeSystem: uint32(value.time_system), HasLine: bool(value.has_line), Line: uint64(value.line), HasRecords: bool(value.has_records), Records: uint64(value.records), FirstLine: uint64(value.first_line), KindUnknownVariant: C.GoString(&value.kind_unknown_variant[0]), TimeSystemUnknownVariant: C.GoString(&value.time_system_unknown_variant[0])}
+			}
+			return nil
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// SkippedRecords copies source records that do not form satellite clock series.
+func (clock *RinexClock) SkippedRecords() ([]ClockSkip, error) {
+	if clock == nil || clock.resource == nil {
+		return nil, ErrClosed
+	}
+	var out []ClockSkip
+	err := clock.resource.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var written, required C.size_t
+			status := C.sidereon_rinex_clock_skipped_records((*C.SidereonRinexClock)(pointer), nil, 0, &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			n, err := validateNativeQuery("RINEX clock skipped records", uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if _, err := checkedNativeAllocationSize(n, unsafe.Sizeof(C.SidereonClockSkip{})); err != nil {
+				return err
+			}
+			values := make([]C.SidereonClockSkip, n)
+			var output *C.SidereonClockSkip
+			if n > 0 {
+				output = &values[0]
+			}
+			written, required = 0, 0
+			status = C.sidereon_rinex_clock_skipped_records((*C.SidereonRinexClock)(pointer), output, C.size_t(n), &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			if _, err := validateTwoPassCounts("RINEX clock skipped records", n, n, uint64(written), uint64(required)); err != nil {
+				return err
+			}
+			out = make([]ClockSkip, n)
+			for i, value := range values {
+				out[i] = ClockSkip{Line: uint64(value.line), RecordType: uint32(value.record_type)}
+			}
+			return nil
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (series *ClockSeries) Close() error {
@@ -1876,6 +2153,21 @@ func SbasPRNToSatelliteID(prn uint16) (string, bool, error) {
 		out = string(bytes)
 	})
 	return out, out != "", result
+}
+
+func SatelliteIDToSbasPRN(satelliteID string) (uint16, bool, error) {
+	var prn uint16
+	var present bool
+	err := withStringError(satelliteID, func(token *C.char) error {
+		var nativePRN C.uint16_t
+		var nativePresent C.bool
+		if err := statusErrorLocked(uint32(C.sidereon_satellite_id_to_sbas_prn(token, &nativePRN, &nativePresent))); err != nil {
+			return err
+		}
+		prn, present = uint16(nativePRN), bool(nativePresent)
+		return nil
+	})
+	return prn, present, err
 }
 
 type NativeSsrClockRecord struct {

@@ -204,7 +204,7 @@ func dtedTileFromPointer(pointer *C.SidereonDtedTile) (*DtedTile, error) {
 
 func DtedTileLoad(path string) (*DtedTile, error) {
 	var pointer *C.SidereonDtedTile
-	err := withString(path, func(input *C.char) uint32 { return C.sidereon_dted_tile_load(input, &pointer) })
+	err := withStringStatus(path, func(input *C.char) uint32 { return C.sidereon_dted_tile_load(input, &pointer) }, statusDtedTileErrorLocked)
 	if err != nil {
 		if pointer != nil {
 			withCThread(func() { C.sidereon_dted_tile_free(pointer) })
@@ -227,12 +227,26 @@ func (t *DtedTile) Elevation(longitudeDeg, latitudeDeg float64) (int16, error) {
 	}
 	var output C.int16_t
 	err := t.handle.with(func(pointer unsafe.Pointer) error {
-		return callStatus(func() uint32 {
-			return C.sidereon_dted_tile_get_elevation((*C.SidereonDtedTile)(pointer), C.double(longitudeDeg), C.double(latitudeDeg), &output)
+		return withCThreadError(func() error {
+			return statusDtedTileErrorLocked(uint32(C.sidereon_dted_tile_get_elevation((*C.SidereonDtedTile)(pointer), C.double(longitudeDeg), C.double(latitudeDeg), &output)))
 		})
 	})
 	runtime.KeepAlive(t)
 	return int16(output), err
+}
+
+func (t *DtedTile) HorizontalDatum() (HorizontalDatum, error) {
+	if t == nil || t.handle == nil {
+		return HorizontalDatum{}, ErrClosed
+	}
+	var output C.SidereonDtedHorizontalDatumValue
+	err := t.handle.with(func(pointer unsafe.Pointer) error {
+		return callStatusWithTerrainDiagnostics(func() uint32 {
+			return uint32(C.sidereon_dted_tile_horizontal_datum((*C.SidereonDtedTile)(pointer), &output))
+		}, false, false)
+	})
+	runtime.KeepAlive(t)
+	return terrainHorizontalDatum(output), err
 }
 
 func dtedEntries(entries []DtedTileListEntry) ([]C.SidereonDtedTileListEntry, []unsafe.Pointer, error) {

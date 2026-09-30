@@ -234,13 +234,49 @@ type NativeClockEpoch struct {
 	NanosLow                    uint64
 }
 type NativeClockPoint struct {
-	Epoch NativeClockEpoch
-	BiasS float64
+	Epoch            NativeClockEpoch
+	BiasS            float64
+	AdditionalValues []float64
+}
+type NativeClockSatellitePoint struct {
+	Satellite string
+	Point     NativeClockPoint
 }
 type RinexClock struct{}
+type ClockDiagnostic struct {
+	Kind                                                    uint32
+	HasLine                                                 bool
+	Line                                                    uint64
+	HasErrorLine                                            bool
+	ErrorLine                                               uint64
+	HasTimeScale                                            bool
+	TimeScale                                               uint32
+	HasField, HasReason, HasRecord, HasRecordType, HasValue bool
+	Message, Field, Reason, Record, RecordType, Value       string
+}
+type ClockNotice struct {
+	Kind                                         uint32
+	HasTimeSystem                                bool
+	TimeSystem                                   uint32
+	HasLine                                      bool
+	Line                                         uint64
+	HasRecords                                   bool
+	Records, FirstLine                           uint64
+	KindUnknownVariant, TimeSystemUnknownVariant string
+}
+type ClockSkip struct {
+	Line       uint64
+	RecordType uint32
+}
 type ClockSeries struct{}
 
-func ParseRinexClock([]byte, bool) (*RinexClock, error)    { return nil, protocolUnavailable() }
+func ParseRinexClock([]byte, bool) (*RinexClock, error) { return nil, protocolUnavailable() }
+func ParseRinexClockWithOutcome([]byte) (*RinexClock, *NativeClockWriteFailure, error) {
+	return nil, nil, protocolUnavailable()
+}
+func NewRinexClockFromPoints(uint32, []NativeClockSatellitePoint) (*RinexClock, error) {
+	return nil, protocolUnavailable()
+}
 func (*RinexClock) Close() error                           { return nil }
 func (*RinexClock) Satellites() ([]string, error)          { return nil, protocolUnavailable() }
 func (*RinexClock) SatelliteCount() (int, error)           { return 0, protocolUnavailable() }
@@ -251,7 +287,45 @@ func (*RinexClock) SeriesFor(string) (*ClockSeries, error) { return nil, protoco
 func (*RinexClock) BiasAtGPSSeconds(string, float64) (float64, bool, error) {
 	return 0, false, protocolUnavailable()
 }
-func (*RinexClock) Text() ([]byte, error)                 { return nil, protocolUnavailable() }
+func (*RinexClock) BiasAtCivil(string, CivilDateTime) (float64, bool, error) {
+	return 0, false, protocolUnavailable()
+}
+func (*RinexClock) BiasAtEpoch(string, NativeClockEpoch) (float64, bool, error) {
+	return 0, false, protocolUnavailable()
+}
+func (*RinexClock) Text() ([]byte, error)                   { return nil, protocolUnavailable() }
+func (*RinexClock) Diagnostics() ([]ClockDiagnostic, error) { return nil, protocolUnavailable() }
+func (*RinexClock) Notices() ([]ClockNotice, error)         { return nil, protocolUnavailable() }
+func (*RinexClock) SkippedRecords() ([]ClockSkip, error)    { return nil, protocolUnavailable() }
+func (*RinexClock) Records() ([]NativeClockRecord, error)   { return nil, protocolUnavailable() }
+func (*RinexClock) RecordCount() (int, error)               { return 0, protocolUnavailable() }
+func (*RinexClock) Info() (NativeRinexClockInfo, error) {
+	return NativeRinexClockInfo{}, protocolUnavailable()
+}
+func (*RinexClock) SourceLine(uint64) (string, bool, error) { return "", false, protocolUnavailable() }
+func (*RinexClock) TimeSystemLabel(int) (string, error)     { return "", protocolUnavailable() }
+func CivilToClockEpoch(uint32, CivilDateTime) (NativeClockEpoch, bool, error) {
+	return NativeClockEpoch{}, false, protocolUnavailable()
+}
+func (*RinexClock) HeaderRecords() ([]NativeClockHeaderRecord, error) {
+	return nil, protocolUnavailable()
+}
+func (*RinexClock) InsertRecord(int, uint32, string, CivilDateTime, []float64) error {
+	return protocolUnavailable()
+}
+func (*RinexClock) SetRecordValues(int, []float64) error { return protocolUnavailable() }
+func (*RinexClock) RemoveRecords([]int) (int, error)     { return 0, protocolUnavailable() }
+func (*RinexClock) SetRecordsValues([]NativeClockRecordValuesEdit) (int, error) {
+	return 0, protocolUnavailable()
+}
+func (*RinexClock) RemoveRecord(int) error { return protocolUnavailable() }
+func (*RinexClock) RemoveRecordWithValue(int) (NativeClockRecord, bool, error) {
+	return NativeClockRecord{}, false, protocolUnavailable()
+}
+func (*RinexClock) SetTimeSystem(uint32) error { return protocolUnavailable() }
+func (*RinexClock) TextWithPolicy(bool) (NativeClockWriteResult, error) {
+	return NativeClockWriteResult{}, protocolUnavailable()
+}
 func (*ClockSeries) Close() error                         { return nil }
 func (*ClockSeries) Satellite() (string, error)           { return "", protocolUnavailable() }
 func (*ClockSeries) Samples() ([]NativeClockPoint, error) { return nil, protocolUnavailable() }
@@ -370,6 +444,7 @@ func (*SbasLogBlocks) Items() ([]NativeSbasLogBlock, error) { return nil, protoc
 func (*SbasLogBlocks) Bytes(int) ([]byte, error)            { return nil, protocolUnavailable() }
 func (*SbasLogBlocks) Count() (int, error)                  { return 0, protocolUnavailable() }
 func SbasPRNToSatelliteID(uint16) (string, bool, error)     { return "", false, protocolUnavailable() }
+func SatelliteIDToSbasPRN(string) (uint16, bool, error)     { return 0, false, protocolUnavailable() }
 
 type NativeSsrClockRecord struct {
 	SatelliteID uint8

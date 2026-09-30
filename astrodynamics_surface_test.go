@@ -259,6 +259,21 @@ func TestAstrodynamicsSurfaceFixtureDeterministic(t *testing.T) {
 	if _, err := tle.PropagateWithDecayLatch(0, latch); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := tle.PropagateWithDecayLatch(math.NaN(), latch); err == nil {
+		t.Fatal("non-finite propagation unexpectedly succeeded")
+	} else {
+		var statusErr *StatusError
+		if !errors.As(err, &statusErr) || statusErr.SGP4 == nil || statusErr.SGP4.Kind != SGP4ErrorInvalidInput {
+			t.Fatalf("SGP4 typed invalid-input detail = %#v, err=%v", statusErr, err)
+		}
+		detached := *statusErr.SGP4
+		if _, successErr := tle.PropagateWithDecayLatch(0, latch); successErr != nil {
+			t.Fatalf("subsequent successful propagation: %v", successErr)
+		}
+		if *statusErr.SGP4 != detached {
+			t.Fatalf("SGP4 error snapshot changed after a later native call: %+v", statusErr.SGP4)
+		}
+	}
 	visible, err := VisibleSatellites([]*TLE{tle}, []string{"25544"}, PassStation{LatitudeDeg: 51.5074, LongitudeDeg: -0.1278, AltitudeM: 80}, instant, -90)
 	if err != nil {
 		t.Fatal(err)
@@ -346,7 +361,7 @@ func TestTLEImprovedMatchesCommittedSkyfieldInstant(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer batch.Close()
+	closeAfterTest(t, batch)
 	states, err := batch.States()
 	if err != nil || len(states) != 1 {
 		t.Fatalf("Skyfield comparison states = %d, %v", len(states), err)

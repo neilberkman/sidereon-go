@@ -224,6 +224,114 @@ func TestRINEXObservationFixtureAndCRINEX(t *testing.T) {
 	}
 }
 
+func TestRINEXCarrierPhaseRetainsCorrectionStatusAndConflicts(t *testing.T) {
+	data := []byte("     3.05           OBSERVATION DATA    M (MIXED)           RINEX VERSION / TYPE\n" +
+		"G    2 C1C L1W                                              SYS / # / OBS TYPES\n" +
+		"G L1W  0.25000  01 G01                                      SYS / PHASE SHIFT\n" +
+		"G L1W  0.50000  02 G02 G01                                  SYS / PHASE SHIFT\n" +
+		"                                                            END OF HEADER\n" +
+		"> 2020 01 01 00 00  0.0000000  0  2\n" +
+		"G01  20000000.000   105000000.000\n" +
+		"G02  21000000.000   110000000.000\n")
+	obs, err := ParseRINEXObservation(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeAfterTest(t, obs)
+	rows, err := obs.CarrierPhase(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rowIndex := -1
+	for index, row := range rows {
+		if row.Code == "L1W" && row.SatelliteID == "G01" {
+			rowIndex = index
+			if row.PhaseShiftStatus != RINEXCorrectionAmbiguous || row.PhaseShiftConflictCount != 2 || !math.IsNaN(row.PhaseShiftCycles) {
+				t.Fatalf("ambiguous phase correction row = %+v", row)
+			}
+			break
+		}
+	}
+	if rowIndex < 0 {
+		t.Fatal("fixture epoch has no GPS L1C carrier row")
+	}
+	conflicts, err := obs.CarrierPhaseConflicts(0, rowIndex)
+	if err != nil || len(conflicts) != 2 || !conflicts[0].HasCycles || conflicts[0].Cycles != 0.25 || !conflicts[1].HasCycles || conflicts[1].Cycles != 0.5 {
+		t.Fatalf("phase-shift conflict records = %+v, %v", conflicts, err)
+	}
+	if err := obs.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if len(conflicts) != 2 || conflicts[1].Cycles != 0.5 {
+		t.Fatalf("detached phase-shift conflicts changed after close: %+v", conflicts)
+	}
+}
+
+func TestRINEXObservationWriteOutcomeRetainsTypedRefusal(t *testing.T) {
+	valid, err := ParseRINEXObservation(observationFixture(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeAfterTest(t, valid)
+	written, err := valid.RINEXTextWithOutcome()
+	if err != nil || !written.IsOK || written.Status != StatusOK || written.Error != nil || len(written.Text) == 0 {
+		t.Fatalf("valid write outcome=%+v err=%v", written, err)
+	}
+	legacyText, err := valid.RINEXText()
+	if err != nil || !bytes.Equal(written.Text, legacyText) {
+		t.Fatalf("outcome text differs from existing writer: %v", err)
+	}
+	if err := valid.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	refusalText := []byte("     2.11           OBSERVATION DATA    G (GPS)             RINEX VERSION / TYPE\n" +
+		"     1     Z                                                # / TYPES OF OBSERV\n" +
+		"G   10  0                                                   SYS / SCALE FACTOR\n" +
+		"                                                            END OF HEADER\n" +
+		" 15  1  1  0  0  0.0000000  0  1G 1\n" +
+		"      1234.567\n")
+	refused, err := ParseRINEXObservation(refusalText)
+	if err != nil {
+		t.Fatalf("parse writer-refusal fixture: %v", err)
+	}
+	closeAfterTest(t, refused)
+	outcome, err := refused.RINEXTextWithOutcome()
+	if err != nil || outcome.IsOK || outcome.Status != StatusInvalidArgument || outcome.Error == nil || outcome.Error.Kind != RINEXWriteErrorScaleFactorsInVersionTwo || !outcome.Error.HasCount || outcome.Error.Count != 1 || outcome.Error.Message == "" || outcome.Error.Error() != outcome.Error.Message {
+		t.Fatalf("typed write refusal=%+v err=%v", outcome, err)
+	}
+	message := outcome.Error.Message
+	if _, err := refused.RINEXText(); err == nil {
+		t.Fatal("existing convenience writer accepted a typed refusal")
+	}
+	if err := refused.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if outcome.Error.Message != message || outcome.Error.Error() != message {
+		t.Fatalf("write refusal snapshot changed after later native call and close: %+v", outcome.Error)
+	}
+
+	repaired, err := RepairRINEXObservation(refusalText, nil)
+	if err != nil {
+		t.Fatalf("repair writer-refusal fixture: %v", err)
+	}
+	closeAfterTest(t, repaired)
+	repairOutcome, err := repaired.RINEXTextWithOutcome()
+	if err != nil || repairOutcome.IsOK || repairOutcome.Status != StatusInvalidArgument || repairOutcome.Error == nil || repairOutcome.Error.Kind != RINEXWriteErrorScaleFactorsInVersionTwo || !repairOutcome.Error.HasCount || repairOutcome.Error.Count != 1 || repairOutcome.Error.Message == "" {
+		t.Fatalf("typed repair writer refusal=%+v err=%v", repairOutcome, err)
+	}
+	repairMessage := repairOutcome.Error.Message
+	if _, err := repaired.RINEXText(); err == nil {
+		t.Fatal("existing repair writer accepted a typed refusal")
+	}
+	if err := repaired.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if repairOutcome.Error.Message != repairMessage || repairOutcome.Error.Error() != repairMessage {
+		t.Fatalf("repair refusal snapshot changed after later call and close: %+v", repairOutcome.Error)
+	}
+}
+
 func TestRINEXObservationValidationAndConcurrentClose(t *testing.T) {
 	obs, e := ParseRINEXObservation(observationFixture(t))
 	if e != nil {

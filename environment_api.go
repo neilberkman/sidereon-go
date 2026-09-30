@@ -7,6 +7,295 @@ import (
 	"sidereon.dev/go/v3/internal/native"
 )
 
+// ANTEXErrorKind identifies a typed ANTEX parse or write refusal.
+type ANTEXErrorKind uint32
+
+const (
+	// ANTEXErrorNone means no failure was recorded.
+	ANTEXErrorNone ANTEXErrorKind = 0
+	// ANTEXErrorInvalidDateTime identifies an invalid ANTEX GPS calendar value.
+	ANTEXErrorInvalidDateTime ANTEXErrorKind = 1
+	// ANTEXErrorInvalidField identifies malformed record-field content.
+	ANTEXErrorInvalidField ANTEXErrorKind = 2
+	// ANTEXErrorRepeatedRecord identifies conflicting repeated record content.
+	ANTEXErrorRepeatedRecord ANTEXErrorKind = 3
+	// ANTEXErrorDegenerateGrid identifies PCV coordinates that cannot form a grid.
+	ANTEXErrorDegenerateGrid ANTEXErrorKind = 4
+	// ANTEXErrorInvalidInput identifies refused caller input.
+	ANTEXErrorInvalidInput ANTEXErrorKind = 5
+	// ANTEXErrorUnknownFrequency identifies a missing frequency section.
+	ANTEXErrorUnknownFrequency ANTEXErrorKind = 6
+	// ANTEXErrorAmbiguousFrequency identifies differing duplicate frequency sections.
+	ANTEXErrorAmbiguousFrequency ANTEXErrorKind = 7
+	// ANTEXErrorMissingPCO identifies a frequency section without its required PCO.
+	ANTEXErrorMissingPCO ANTEXErrorKind = 8
+	// ANTEXErrorEmptyPCVGrid identifies a PCV grid without samples.
+	ANTEXErrorEmptyPCVGrid ANTEXErrorKind = 9
+	// ANTEXErrorUnwritable identifies content that cannot be encoded exactly.
+	ANTEXErrorUnwritable ANTEXErrorKind = 10
+)
+
+// ANTEXError preserves the typed failure and each optional text detail.
+type ANTEXError struct {
+	// Kind identifies the native ANTEX refusal; unknown numeric values are retained.
+	Kind ANTEXErrorKind
+	// HasAntennaID reports whether AntennaID is present.
+	HasAntennaID bool
+	// HasRecord reports whether Record is present.
+	HasRecord bool
+	// HasField reports whether Field is present.
+	HasField bool
+	// HasValue reports whether Value is present.
+	HasValue bool
+	// HasFrequency reports whether Frequency is present.
+	HasFrequency bool
+	// HasReason reports whether Reason is present.
+	HasReason bool
+	// HasSections reports whether Sections is present.
+	HasSections bool
+	// Sections is the affected section count when HasSections is true.
+	Sections int
+	// AntennaID is the affected antenna identifier when HasAntennaID is true.
+	AntennaID string
+	// Record identifies the affected record when HasRecord is true.
+	Record string
+	// Field identifies the affected field when HasField is true.
+	Field string
+	// Value is the rejected field value when HasValue is true.
+	Value string
+	// Frequency identifies the affected frequency when HasFrequency is true.
+	Frequency string
+	// Reason contains the native refusal reason when HasReason is true.
+	Reason string
+	// Message contains the native human-readable summary.
+	Message string
+}
+
+// ANTEXOutcome records the status of one typed parse or encode attempt.
+type ANTEXOutcome struct {
+	// IsOK reports whether the native operation succeeded.
+	IsOK bool
+	// Status is the numeric C ABI status for the operation.
+	Status uint32
+	// Error contains detached typed failure details, even when IsOK is false.
+	Error ANTEXError
+}
+
+// ANTEXHeaderTextPart selects one retained reference-antenna header string.
+type ANTEXHeaderTextPart uint32
+
+const (
+	// ANTEXHeaderTextType selects the antenna type text.
+	ANTEXHeaderTextType ANTEXHeaderTextPart = iota
+	// ANTEXHeaderTextSerial selects the antenna serial text.
+	ANTEXHeaderTextSerial
+	// ANTEXHeaderTextReference selects the effective reference antenna text.
+	ANTEXHeaderTextReference
+)
+
+// ANTEXPCVType identifies absolute or relative calibration values.
+type ANTEXPCVType uint32
+
+const (
+	// ANTEXPCVAbsolute identifies absolute phase-center values.
+	ANTEXPCVAbsolute ANTEXPCVType = 0
+	// ANTEXPCVRelative identifies values relative to a reference antenna.
+	ANTEXPCVRelative ANTEXPCVType = 1
+)
+
+// ANTEXHeader contains the retained fixed-width product header fields.
+type ANTEXHeader struct {
+	// HasVersion reports whether ANTEX VERSION / SYST was present.
+	HasVersion bool
+	// Version is the version number when HasVersion is true.
+	Version float64
+	// HasSystem reports whether the system column was nonblank.
+	HasSystem bool
+	// System is the system code point when HasSystem is true.
+	System uint32
+	// HasPCVType reports whether PCV TYPE / REFANT was present.
+	HasPCVType bool
+	// PCVType is the absolute or relative type when HasPCVType is true.
+	PCVType ANTEXPCVType
+	// HasReferenceAntenna reports whether a reference antenna was retained.
+	HasReferenceAntenna bool
+	// HeaderCommentCount is the number of header COMMENT records.
+	HeaderCommentCount int
+	// EndOfHeader reports whether END OF HEADER was present.
+	EndOfHeader bool
+}
+
+// ANTEXDateTime is an exact GPS calendar instant used to select validity
+// intervals. FractionDigits/FractionScale represents FractionDigits divided
+// by 10^FractionScale seconds.
+type ANTEXDateTime struct {
+	// Year is the four-digit calendar year.
+	Year int32
+	// Month is the calendar month, 1 through 12.
+	Month uint8
+	// Day is the calendar day of month.
+	Day uint8
+	// Hour is the hour of day, 0 through 23.
+	Hour uint8
+	// Minute is the minute of hour, 0 through 59.
+	Minute uint8
+	// Second is the whole second, 0 through 59.
+	Second uint8
+	// FractionDigits are the significant fractional-second digits.
+	FractionDigits uint64
+	// FractionScale is the power of ten dividing FractionDigits.
+	FractionScale uint64
+}
+
+func publicANTEXOutcome(value native.AntexOutcome) ANTEXOutcome {
+	e := value.Error
+	return ANTEXOutcome{IsOK: value.IsOK, Status: value.Status, Error: ANTEXError{Kind: ANTEXErrorKind(e.Kind), HasAntennaID: e.HasAntennaID, HasRecord: e.HasRecord, HasField: e.HasField, HasValue: e.HasValue, HasFrequency: e.HasFrequency, HasReason: e.HasReason, HasSections: e.HasSections, Sections: e.Sections, AntennaID: e.AntennaID, Record: e.Record, Field: e.Field, Value: e.Value, Frequency: e.Frequency, Reason: e.Reason, Message: e.Message}}
+}
+
+// ParseANTEXWithOutcome parses bytes and returns a typed refusal as an outcome.
+// Structural call failures are returned as error; a refused ANTEX document
+// returns a nil product, a failed outcome, and a nil error.
+func ParseANTEXWithOutcome(data []byte) (*ANTEX, ANTEXOutcome, error) {
+	value, out, err := native.ParseANTEXWithOutcome(append([]byte(nil), data...))
+	if err != nil {
+		return nil, ANTEXOutcome{}, publicError(err)
+	}
+	var product *ANTEX
+	if value != nil {
+		product = &ANTEX{native: value}
+	}
+	return product, publicANTEXOutcome(out), nil
+}
+
+// EncodeWithOutcome serializes the product and retains any typed refusal.
+func (a *ANTEX) EncodeWithOutcome() ([]byte, ANTEXOutcome, error) {
+	if a == nil || a.native == nil {
+		return nil, ANTEXOutcome{}, ErrClosed
+	}
+	text, out, err := a.native.EncodeWithOutcome()
+	return text, publicANTEXOutcome(out), publicError(err)
+}
+
+// Header returns the typed header fields retained by the ANTEX parser.
+func (a *ANTEX) Header() (ANTEXHeader, error) {
+	if a == nil || a.native == nil {
+		return ANTEXHeader{}, ErrClosed
+	}
+	v, err := a.native.Header()
+	return ANTEXHeader{HasVersion: v.HasVersion, Version: v.Version, HasSystem: v.HasSystem, System: v.System, HasPCVType: v.HasPcvType, PCVType: ANTEXPCVType(v.PcvType), HasReferenceAntenna: v.HasReferenceAntenna, HeaderCommentCount: v.CommentCount, EndOfHeader: v.EndOfHeader}, publicError(err)
+}
+
+// HeaderText returns one retained reference-antenna text field: part 0 is the
+// type, part 1 is the serial, and part 2 is the effective reference antenna.
+func (a *ANTEX) HeaderText(part ANTEXHeaderTextPart) (string, error) {
+	if a == nil || a.native == nil {
+		return "", ErrClosed
+	}
+	value, err := a.native.HeaderText(uint32(part))
+	return value, publicError(err)
+}
+
+// HeaderComment returns one retained header COMMENT line in file order.
+func (a *ANTEX) HeaderComment(index int) (string, error) {
+	if a == nil || a.native == nil {
+		return "", ErrClosed
+	}
+	value, err := a.native.HeaderComment(index)
+	return value, publicError(err)
+}
+
+// OuterCommentCount returns the number of COMMENT lines outside antenna blocks.
+func (a *ANTEX) OuterCommentCount() (int, error) {
+	if a == nil || a.native == nil {
+		return 0, ErrClosed
+	}
+	value, err := a.native.OuterCommentCount()
+	return value, publicError(err)
+}
+
+// OuterComment returns one between-block COMMENT line and the number of blocks
+// before it in file order.
+func (a *ANTEX) OuterComment(index int) (string, int, error) {
+	if a == nil || a.native == nil {
+		return "", 0, ErrClosed
+	}
+	text, before, err := a.native.OuterComment(index)
+	return text, before, publicError(err)
+}
+
+// SkippedRecords returns the number of malformed or inconsistent records the
+// forgiving ANTEX parser skipped.
+func (a *ANTEX) SkippedRecords() (int, error) {
+	if a == nil || a.native == nil {
+		return 0, ErrClosed
+	}
+	value, err := a.native.SkippedRecords()
+	return value, publicError(err)
+}
+
+// BlockCount returns the number of antenna validity blocks, including repeated
+// ids with different validity intervals.
+func (a *ANTEX) BlockCount() (int, error) {
+	if a == nil || a.native == nil {
+		return 0, ErrClosed
+	}
+	value, err := a.native.BlockCount()
+	return value, publicError(err)
+}
+
+// Block returns an owned antenna handle for the zero-based block in file order.
+func (a *ANTEX) Block(index int) (*Antenna, error) {
+	if a == nil || a.native == nil {
+		return nil, ErrClosed
+	}
+	value, err := a.native.Block(index)
+	if err != nil {
+		return nil, publicError(err)
+	}
+	if value == nil {
+		return nil, errors.New("sidereon: native ANTEX block lookup returned no handle")
+	}
+	return &Antenna{native: value}, nil
+}
+
+// AntennaAt returns an owned block for the exact antenna id at epoch. found is
+// false when no validity interval covers epoch.
+func (a *ANTEX) AntennaAt(id string, epoch ANTEXDateTime) (*Antenna, bool, error) {
+	if a == nil || a.native == nil {
+		return nil, false, ErrClosed
+	}
+	value, found, err := a.native.AntennaAt(id, native.AntexDateTime{Year: epoch.Year, Month: epoch.Month, Day: epoch.Day, Hour: epoch.Hour, Minute: epoch.Minute, Second: epoch.Second, FractionDigits: epoch.FractionDigits, FractionScale: epoch.FractionScale})
+	if err != nil {
+		return nil, false, publicError(err)
+	}
+	if !found {
+		return nil, false, nil
+	}
+	if value == nil {
+		return nil, false, errors.New("sidereon: native ANTEX time lookup returned no handle")
+	}
+	return &Antenna{native: value}, true, nil
+}
+
+// SatelliteAntenna returns an owned satellite calibration block valid at epoch.
+// found is false when the ANTEX product has no matching validity interval.
+func (a *ANTEX) SatelliteAntenna(prn string, epoch ANTEXDateTime) (*Antenna, bool, error) {
+	if a == nil || a.native == nil {
+		return nil, false, ErrClosed
+	}
+	value, found, err := a.native.SatelliteAntenna(prn, native.AntexDateTime{Year: epoch.Year, Month: epoch.Month, Day: epoch.Day, Hour: epoch.Hour, Minute: epoch.Minute, Second: epoch.Second, FractionDigits: epoch.FractionDigits, FractionScale: epoch.FractionScale})
+	if err != nil {
+		return nil, false, publicError(err)
+	}
+	if !found {
+		return nil, false, nil
+	}
+	if value == nil {
+		return nil, false, errors.New("sidereon: native ANTEX satellite lookup returned no handle")
+	}
+	return &Antenna{native: value}, true, nil
+}
+
 // AntennaPCO is a north/east/up phase-center offset in metres.
 type AntennaPCO struct {
 	// NorthM is the north m in metres.
@@ -16,6 +305,140 @@ type AntennaPCO struct {
 	// UpM is the up m in metres.
 	UpM float64
 }
+
+// AntennaInfo retains fixed fields and presence/count metadata for one block.
+type AntennaInfo struct {
+	// Kind is the receiver or satellite role code.
+	Kind ANTEXAntennaKind
+	// HasDAZI reports whether the block declares an azimuth increment.
+	HasDAZI bool
+	// DAZIDeg is the declared azimuth increment in degrees.
+	DAZIDeg float64
+	// HasZenithGrid reports whether ZEN1/ZEN2/DZEN are present.
+	HasZenithGrid bool
+	// ZenithStartDeg is ZEN1 in degrees.
+	ZenithStartDeg float64
+	// ZenithEndDeg is ZEN2 in degrees.
+	ZenithEndDeg float64
+	// ZenithStepDeg is DZEN in degrees.
+	ZenithStepDeg float64
+	// HasFrequencyCountRecord reports whether # OF FREQUENCIES was present.
+	HasFrequencyCountRecord bool
+	// HasSINEXCode reports whether SINEX CODE was present.
+	HasSINEXCode bool
+	// HasValidFrom reports whether VALID FROM was present.
+	HasValidFrom bool
+	// ValidFrom is the exact lower validity bound when HasValidFrom is true.
+	ValidFrom ANTEXDateTime
+	// HasValidUntil reports whether VALID UNTIL was present.
+	HasValidUntil bool
+	// ValidUntil is the exact upper validity bound when HasValidUntil is true.
+	ValidUntil ANTEXDateTime
+	// CalibrationCount is the number of calibration records.
+	CalibrationCount int
+	// LeadingCommentCount counts comments before TYPE / SERIAL NO.
+	LeadingCommentCount int
+	// CommentCount counts comments after TYPE / SERIAL NO.
+	CommentCount int
+	// FrequencyCount counts all frequency sections in file order.
+	FrequencyCount int
+}
+
+// ANTEXAntennaKind identifies the role of an antenna block.
+type ANTEXAntennaKind uint32
+
+const (
+	// ANTEXAntennaReceiver identifies a receiver antenna.
+	ANTEXAntennaReceiver ANTEXAntennaKind = 0
+	// ANTEXAntennaSatellite identifies a satellite antenna.
+	ANTEXAntennaSatellite ANTEXAntennaKind = 1
+)
+
+// ANTEXAntennaText selects a retained antenna text field.
+type ANTEXAntennaText uint32
+
+const (
+	// ANTEXAntennaTextID selects the TYPE / SERIAL NO identifier.
+	ANTEXAntennaTextID ANTEXAntennaText = iota
+	// ANTEXAntennaTextType selects the antenna type field.
+	ANTEXAntennaTextType
+	// ANTEXAntennaTextSerial selects the serial number field.
+	ANTEXAntennaTextSerial
+	// ANTEXAntennaTextSINEX selects the SINEX code field.
+	ANTEXAntennaTextSINEX
+)
+
+// ANTEXAntennaCommentList selects a retained comment list.
+type ANTEXAntennaCommentList uint32
+
+const (
+	// ANTEXAntennaLeadingComments selects comments before TYPE / SERIAL NO.
+	ANTEXAntennaLeadingComments ANTEXAntennaCommentList = iota
+	// ANTEXAntennaBlockComments selects comments after TYPE / SERIAL NO.
+	ANTEXAntennaBlockComments
+)
+
+// ANTEXCalibrationText selects a field from METH / BY / # / DATE.
+type ANTEXCalibrationText uint32
+
+const (
+	// ANTEXCalibrationMethod selects the calibration method.
+	ANTEXCalibrationMethod ANTEXCalibrationText = iota
+	// ANTEXCalibrationAgency selects the calibration agency.
+	ANTEXCalibrationAgency
+	// ANTEXCalibrationDate selects the calibration date text.
+	ANTEXCalibrationDate
+)
+
+// ANTEXCalibration contains the typed count from one calibration record.
+type ANTEXCalibration struct {
+	// HasAntennasCalibrated reports whether the I6 count is present.
+	HasAntennasCalibrated bool
+	// AntennasCalibrated is the number of antennas calibrated when present.
+	AntennasCalibrated uint32
+}
+
+// ANTEXFrequencyInfo contains the numeric fields of one frequency section.
+type ANTEXFrequencyInfo struct {
+	// PCOM contains north, east, and up offsets for receiver antennas, or
+	// X, Y, and Z body-frame offsets for satellite antennas, in metres.
+	PCOM [3]float64
+	// PCVSampleCount is the number of ordinary PCV samples.
+	PCVSampleCount int
+	// HasRMS reports whether an RMS section exists.
+	HasRMS bool
+	// HasRMSPCOM reports whether that section has an RMS PCO row.
+	HasRMSPCOM bool
+	// RMSPCOM contains RMS north, east, and up offsets for receiver antennas,
+	// or X, Y, and Z body-frame offsets for satellite antennas, in metres.
+	RMSPCOM [3]float64
+	// RMSPCVSampleCount is the number of RMS PCV samples.
+	RMSPCVSampleCount int
+}
+
+// ANTEXPCVSample is one sample in the retained frequency pattern.
+type ANTEXPCVSample struct {
+	// Grid identifies NOAZI or azimuth-dependent row kind.
+	Grid ANTEXPCVGrid
+	// HasAzimuth reports whether AzimuthDeg is meaningful.
+	HasAzimuth bool
+	// AzimuthDeg is the row azimuth in degrees.
+	AzimuthDeg float64
+	// ZenithDeg is the receiver zenith or satellite nadir angle in degrees.
+	ZenithDeg float64
+	// ValueM is the PCV value in metres.
+	ValueM float64
+}
+
+// ANTEXPCVGrid identifies a retained PCV sample row form.
+type ANTEXPCVGrid uint32
+
+const (
+	// ANTEXPCVGridNoAzimuth identifies a NOAZI row.
+	ANTEXPCVGridNoAzimuth ANTEXPCVGrid = iota
+	// ANTEXPCVGridAzimuth identifies a numeric-azimuth row.
+	ANTEXPCVGridAzimuth
+)
 
 // Antenna owns one parsed ANTEX antenna block. Read calls may run
 // concurrently; Close waits for active calls and is idempotent. The value
@@ -96,6 +519,94 @@ func (a *Antenna) Close() error {
 		return nil
 	}
 	return publicError(a.native.Close())
+}
+
+// Info returns detached fixed fields and source-presence/count information.
+func (a *Antenna) Info() (AntennaInfo, error) {
+	if a == nil || a.native == nil {
+		return AntennaInfo{}, ErrClosed
+	}
+	v, err := a.native.Info()
+	return AntennaInfo{Kind: ANTEXAntennaKind(v.Kind), HasDAZI: v.HasDazi, DAZIDeg: v.DaziDeg, HasZenithGrid: v.HasZenithGrid, ZenithStartDeg: v.ZenithStartDeg, ZenithEndDeg: v.ZenithEndDeg, ZenithStepDeg: v.ZenithStepDeg, HasFrequencyCountRecord: v.HasFrequencyCountRecord, HasSINEXCode: v.HasSinexCode, HasValidFrom: v.HasValidFrom, ValidFrom: ANTEXDateTime(v.ValidFrom), HasValidUntil: v.HasValidUntil, ValidUntil: ANTEXDateTime(v.ValidUntil), CalibrationCount: v.CalibrationCount, LeadingCommentCount: v.LeadingCommentCount, CommentCount: v.CommentCount, FrequencyCount: v.FrequencyCount}, publicError(err)
+}
+
+// Text returns one retained antenna identifier, type, serial, or SINEX code.
+func (a *Antenna) Text(part ANTEXAntennaText) (string, error) {
+	if a == nil || a.native == nil {
+		return "", ErrClosed
+	}
+	v, e := a.native.Text(uint32(part))
+	return v, publicError(e)
+}
+
+// Comment returns one detached antenna comment from the selected ordered list.
+func (a *Antenna) Comment(list ANTEXAntennaCommentList, index int) (string, error) {
+	if a == nil || a.native == nil {
+		return "", ErrClosed
+	}
+	v, e := a.native.Comment(uint32(list), index)
+	return v, publicError(e)
+}
+
+// Calibration returns fixed numeric fields from a calibration record.
+func (a *Antenna) Calibration(index int) (ANTEXCalibration, error) {
+	if a == nil || a.native == nil {
+		return ANTEXCalibration{}, ErrClosed
+	}
+	v, e := a.native.Calibration(index)
+	return ANTEXCalibration{HasAntennasCalibrated: v.HasAntennasCalibrated, AntennasCalibrated: v.AntennasCalibrated}, publicError(e)
+}
+
+// CalibrationText returns method, agency, or date text from a calibration record.
+func (a *Antenna) CalibrationText(index int, part ANTEXCalibrationText) (string, error) {
+	if a == nil || a.native == nil {
+		return "", ErrClosed
+	}
+	v, e := a.native.CalibrationText(index, uint32(part))
+	return v, publicError(e)
+}
+
+// Frequency returns numeric PCO/RMS fields and sample counts for one section.
+func (a *Antenna) Frequency(index int) (ANTEXFrequencyInfo, error) {
+	if a == nil || a.native == nil {
+		return ANTEXFrequencyInfo{}, ErrClosed
+	}
+	v, e := a.native.Frequency(index)
+	return ANTEXFrequencyInfo{PCOM: v.PCOM, PCVSampleCount: v.PCVSampleCount, HasRMS: v.HasRMS, HasRMSPCOM: v.HasRMSPCOM, RMSPCOM: v.RMSPCOM, RMSPCVSampleCount: v.RMSPCVSampleCount}, publicError(e)
+}
+
+// FrequencyLabel returns the exact retained label for one frequency section.
+func (a *Antenna) FrequencyLabel(index int) (string, error) {
+	if a == nil || a.native == nil {
+		return "", ErrClosed
+	}
+	v, e := a.native.FrequencyLabel(index)
+	return v, publicError(e)
+}
+
+// FrequencyPCVSamples returns detached samples in source row and token order.
+func (a *Antenna) FrequencyPCVSamples(index int, rms bool) ([]ANTEXPCVSample, error) {
+	if a == nil || a.native == nil {
+		return nil, ErrClosed
+	}
+	v, e := a.native.FrequencyPCVSamples(index, rms)
+	if e != nil {
+		return nil, publicError(e)
+	}
+	out := make([]ANTEXPCVSample, len(v))
+	for i, s := range v {
+		out[i] = ANTEXPCVSample{Grid: ANTEXPCVGrid(s.Grid), HasAzimuth: s.HasAzimuth, AzimuthDeg: s.AzimuthDeg, ZenithDeg: s.ZenithDeg, ValueM: s.ValueM}
+	}
+	return out, nil
+}
+
+// ValidAt reports whether the exact GPS calendar instant is inside this block's validity interval.
+func (a *Antenna) ValidAt(epoch ANTEXDateTime) (bool, error) {
+	if a == nil || a.native == nil {
+		return false, ErrClosed
+	}
+	v, e := a.native.ValidAt(native.AntexDateTime(epoch))
+	return v, publicError(e)
 }
 
 // PCO returns the frequency-dependent phase-center offset in metres.
@@ -255,8 +766,8 @@ type SpaceWeatherSample struct {
 	ApDefaulted bool
 }
 
-// SpaceWeatherPolicy controls whether interpolated and predicted records are
-// acceptable to a sample query.
+// SpaceWeatherPolicy controls which observation classes a sample query accepts
+// and whether a missing geomagnetic index can be substituted.
 type SpaceWeatherPolicy struct {
 	// AllowInterpolated permits interpolation between observed daily samples.
 	AllowInterpolated bool
@@ -266,6 +777,20 @@ type SpaceWeatherPolicy struct {
 	AllowMonthlyPredicted bool
 	// RequireGeomagnetic requires a geomagnetic index for a successful sample query.
 	RequireGeomagnetic bool
+	// AllowNotObserved permits rows explicitly classified as having no observation.
+	AllowNotObserved bool
+}
+
+// DefaultSpaceWeatherPolicy returns the native strict policy, which rejects rows marked not observed.
+func DefaultSpaceWeatherPolicy() (SpaceWeatherPolicy, error) {
+	value, err := native.DefaultSpaceWeatherPolicy()
+	return SpaceWeatherPolicy{AllowNotObserved: value.AllowNotObserved, AllowInterpolated: value.AllowInterpolated, AllowDailyPredicted: value.AllowDailyPredicted, AllowMonthlyPredicted: value.AllowMonthlyPredicted, RequireGeomagnetic: value.RequireGeomagnetic}, publicError(err)
+}
+
+// LenientSpaceWeatherPolicy returns the native policy that accepts every row class and substitutes missing geomagnetic values.
+func LenientSpaceWeatherPolicy() (SpaceWeatherPolicy, error) {
+	value, err := native.LenientSpaceWeatherPolicy()
+	return SpaceWeatherPolicy{AllowNotObserved: value.AllowNotObserved, AllowInterpolated: value.AllowInterpolated, AllowDailyPredicted: value.AllowDailyPredicted, AllowMonthlyPredicted: value.AllowMonthlyPredicted, RequireGeomagnetic: value.RequireGeomagnetic}, publicError(err)
 }
 
 // SpaceWeatherTableSummary contains parser record and diagnostic counts.
@@ -397,7 +922,7 @@ func (t *SpaceWeatherTable) SampleAtWithPolicy(epochJ2000S float64, policy Space
 	if t == nil || t.native == nil {
 		return SpaceWeatherSample{}, ErrClosed
 	}
-	value, err := t.native.SampleAtWithPolicy(epochJ2000S, native.SpaceWeatherPolicy{AllowInterpolated: policy.AllowInterpolated, AllowDailyPredicted: policy.AllowDailyPredicted, AllowMonthlyPredicted: policy.AllowMonthlyPredicted, RequireGeomagnetic: policy.RequireGeomagnetic})
+	value, err := t.native.SampleAtWithPolicy(epochJ2000S, native.SpaceWeatherPolicy{AllowNotObserved: policy.AllowNotObserved, AllowInterpolated: policy.AllowInterpolated, AllowDailyPredicted: policy.AllowDailyPredicted, AllowMonthlyPredicted: policy.AllowMonthlyPredicted, RequireGeomagnetic: policy.RequireGeomagnetic})
 	return SpaceWeatherSample{Weather: SpaceWeather{F107: value.Weather.F107, F107A: value.Weather.F107A, Ap: value.Weather.Ap}, Class: SpaceWeatherObservationClass(value.Class), ApDefaulted: value.ApDefaulted}, publicError(err)
 }
 

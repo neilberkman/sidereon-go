@@ -79,10 +79,13 @@ const (
 	// StaticPositionSolveStepTolerance selects step-tolerance termination.
 	StaticPositionSolveStepTolerance StaticPositionSolveStatus = 2
 	// StaticPositionSolveMaxEvaluations selects maximum-evaluation termination.
-	StaticPositionSolveMaxEvaluations       StaticPositionSolveStatus = 3
-	StaticPositionSolveSelectionSettled     StaticPositionSolveStatus = 4
+	StaticPositionSolveMaxEvaluations StaticPositionSolveStatus = 3
+	// StaticPositionSolveSelectionSettled means the selected satellite set and solution have stabilized.
+	StaticPositionSolveSelectionSettled StaticPositionSolveStatus = 4
+	// StaticPositionSolveOuterBudgetExhausted means the outer satellite-selection budget was exhausted.
 	StaticPositionSolveOuterBudgetExhausted StaticPositionSolveStatus = 5
-	StaticPositionSolveOuterOscillation     StaticPositionSolveStatus = 6
+	// StaticPositionSolveOuterOscillation means successive outer selections oscillated without stabilizing.
+	StaticPositionSolveOuterOscillation StaticPositionSolveStatus = 6
 )
 
 // StaticPositionRejectionReason identifies why native SPP excluded a row.

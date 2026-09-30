@@ -345,9 +345,7 @@ func BuildRTCMResidualGrid(value NativeRTCMResidualGrid) (*RtcmMessages, error) 
 		tails[index] = C.bool(bit)
 	}
 	fields := C.SidereonRtcmResidualGrid{message_number: C.uint16_t(value.MessageNumber), system_id: C.uint8_t(value.SystemID), horizontal_shift: C.bool(value.HorizontalShift), vertical_shift: C.bool(value.VerticalShift), origin_1: C.int32_t(value.Origin1), origin_2: C.int32_t(value.Origin2), extension_1: C.uint16_t(value.Extension1), extension_2: C.uint16_t(value.Extension2), mean_offset_1: C.int16_t(value.MeanOffset1), mean_offset_2: C.int16_t(value.MeanOffset2), mean_height_offset: C.int16_t(value.MeanHeightOffset), horizontal_interpolation: C.uint8_t(value.HorizontalInterpolation), vertical_interpolation: C.uint8_t(value.VerticalInterpolation), horizontal_quality: C.uint8_t(value.HorizontalQuality), vertical_quality: C.uint8_t(value.VerticalQuality), mjd: C.uint16_t(value.MJD), trailing_bit_count: C.size_t(len(tails))}
-	for row, item := range residuals {
-		fields.residuals[row] = item
-	}
+	copy(fields.residuals[:], residuals[:])
 	return buildRTCMMessage(func(out **C.SidereonRtcmMessages) uint32 {
 		return uint32(C.sidereon_rtcm_build_residual_grid(&fields, (*C.bool)(unsafe.Pointer(unsafe.SliceData(tails))), C.size_t(len(tails)), out))
 	})

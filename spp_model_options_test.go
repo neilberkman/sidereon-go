@@ -3,6 +3,10 @@ package sidereon
 import "testing"
 
 func TestModelSelectorDefaultsAndVariants(t *testing.T) {
+	defaults, err := DefaultSPPModelOptions()
+	if err != nil || defaults != (SPPModelOptions{QZSSClock: QZSSClockGPS, TroposphereModel: TroposphereRTKLIB}) {
+		t.Fatalf("native SPP model defaults = %+v, err=%v", defaults, err)
+	}
 	if QZSSClockGPS != 0 || QZSSClockSeparate != 1 {
 		t.Fatalf("QZSS clock tags = %d,%d", QZSSClockGPS, QZSSClockSeparate)
 	}

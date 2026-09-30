@@ -319,6 +319,67 @@ func (r *RinexRepair) Text() ([]byte, error) {
 	})
 	return out, err
 }
+func (r *RinexRepair) TextWithOutcome() (NativeRinexObsWriteOutcome, error) {
+	var out NativeRinexObsWriteOutcome
+	err := r.resource.with(func(p unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var result *C.SidereonRinexObsWriteResult
+			if err := callStatus(func() uint32 { return C.sidereon_rinex_repair_text_result((*C.SidereonRinexRepair)(p), &result) }); err != nil {
+				return err
+			}
+			if result == nil {
+				return missingNativeHandle("RINEX repair write result")
+			}
+			defer C.sidereon_rinex_obs_write_result_free(result)
+			var raw C.SidereonRinexObsWriteOutcome
+			if err := callStatus(func() uint32 { return C.sidereon_rinex_obs_write_result_get_outcome(result, &raw) }); err != nil {
+				return err
+			}
+			e := raw.error
+			out = NativeRinexObsWriteOutcome{IsOK: bool(raw.is_ok), Status: uint32(raw.status), Error: NativeRinexObsWriteError{Kind: uint32(e.kind), HasSystem: bool(e.has_system), System: uint32(e.system), HasSatellite: bool(e.has_satellite), SatelliteID: tokenFromC(e.satellite), HasEpochIndex: bool(e.has_epoch_index), EpochIndex: uint64(e.epoch_index), HasPosition: bool(e.has_position), Position: uint64(e.position), HasFlag: bool(e.has_flag), Flag: uint8(e.flag), HasVersion: bool(e.has_version), Version: float64(e.version), HasCount: bool(e.has_count), Count: uint64(e.count), HasCodes: bool(e.has_codes), Codes: uint64(e.codes), HasValues: bool(e.has_values), Values: uint64(e.values), HasCode: bool(e.has_code), HasDetail: bool(e.has_detail)}}
+			copyText := func(label string, fn func(*C.uint8_t, C.size_t, *C.size_t, *C.size_t) C.enum_SidereonStatus) ([]byte, error) {
+				return copyNativeBytesLocked(label, fn)
+			}
+			var err error
+			if out.IsOK {
+				out.Text, err = copyText("RINEX repair text", func(b *C.uint8_t, n C.size_t, w, q *C.size_t) C.enum_SidereonStatus {
+					return C.sidereon_rinex_obs_write_result_get_text(result, b, n, w, q)
+				})
+				if err != nil {
+					return err
+				}
+			}
+			message, err := copyText("RINEX repair write message", func(b *C.uint8_t, n C.size_t, w, q *C.size_t) C.enum_SidereonStatus {
+				return C.sidereon_rinex_obs_write_result_get_message(result, b, n, w, q)
+			})
+			if err != nil {
+				return err
+			}
+			out.Message = string(message)
+			if out.Error.HasCode {
+				code, err := copyText("RINEX repair write code", func(b *C.uint8_t, n C.size_t, w, q *C.size_t) C.enum_SidereonStatus {
+					return C.sidereon_rinex_obs_write_result_get_code(result, b, n, w, q)
+				})
+				if err != nil {
+					return err
+				}
+				out.Code = string(code)
+			}
+			if out.Error.HasDetail {
+				detail, err := copyText("RINEX repair write detail", func(b *C.uint8_t, n C.size_t, w, q *C.size_t) C.enum_SidereonStatus {
+					return C.sidereon_rinex_obs_write_result_get_detail(result, b, n, w, q)
+				})
+				if err != nil {
+					return err
+				}
+				out.Detail = string(detail)
+			}
+			return nil
+		})
+	})
+	runtime.KeepAlive(r)
+	return out, err
+}
 func (r *RinexRepair) CRINEXText() ([]byte, error) {
 	var out []byte
 	err := r.resource.with(func(p unsafe.Pointer) error {

@@ -141,6 +141,20 @@ func TestPPPDeterministicSP3Fixture(t *testing.T) {
 	if err != nil || !metadata.Converged || metadata.Status != PPPSolveStateTolerance || metadata.AmbiguityCount != 6 || metadata.UsedSatCount != 6 {
 		t.Fatalf("float metadata = %+v, err=%v", metadata, err)
 	}
+	floatSolvedEpochs, err := floatSolution.SolvedEpochIndices()
+	if err != nil || len(floatSolvedEpochs) != 1 || floatSolvedEpochs[0] != 0 {
+		t.Fatalf("float solved epoch indices = %v, err=%v", floatSolvedEpochs, err)
+	}
+	floatEpochClocks, err := floatSolution.EpochClocksM()
+	if err != nil || len(floatEpochClocks) != len(floatSolvedEpochs) || math.IsNaN(floatEpochClocks[0]) || math.IsInf(floatEpochClocks[0], 0) {
+		t.Fatalf("float epoch clocks = %v, err=%v", floatEpochClocks, err)
+	}
+	if removals, err := floatSolution.ResidualScreenRemovals(); err != nil || len(removals) != 0 {
+		t.Fatalf("unexpected residual-screen removals = %+v, err=%v", removals, err)
+	}
+	if exclusions, err := floatSolution.SSRBiasExclusions(); err != nil || len(exclusions) != 0 {
+		t.Fatalf("unexpected float SSR-bias exclusions = %+v, err=%v", exclusions, err)
+	}
 	position, err := floatSolution.Position()
 	if err != nil {
 		t.Fatal(err)
@@ -188,6 +202,17 @@ func TestPPPDeterministicSP3Fixture(t *testing.T) {
 	// admissible integer solution under the configured ratio test.
 	if err != nil || fixedMetadata.Status != PPPSolveStateTolerance || fixedMetadata.IntegerStatus != PPPIntegerFixed || fixedMetadata.FixedAmbiguityCount != 6 {
 		t.Fatalf("fixed metadata = %+v, err=%v", fixedMetadata, err)
+	}
+	fixedSolvedEpochs, err := fixedSolution.SolvedEpochIndices()
+	if err != nil || len(fixedSolvedEpochs) != 1 || fixedSolvedEpochs[0] != 0 {
+		t.Fatalf("fixed solved epoch indices = %v, err=%v", fixedSolvedEpochs, err)
+	}
+	fixedEpochClocks, err := fixedSolution.EpochClocksM()
+	if err != nil || len(fixedEpochClocks) != len(fixedSolvedEpochs) || math.IsNaN(fixedEpochClocks[0]) || math.IsInf(fixedEpochClocks[0], 0) {
+		t.Fatalf("fixed epoch clocks = %v, err=%v", fixedEpochClocks, err)
+	}
+	if exclusions, err := fixedSolution.SSRBiasExclusions(); err != nil || len(exclusions) != 0 {
+		t.Fatalf("unexpected fixed SSR-bias exclusions = %+v, err=%v", exclusions, err)
 	}
 	if _, err := fixedSolution.Position(); err != nil {
 		t.Fatal(err)

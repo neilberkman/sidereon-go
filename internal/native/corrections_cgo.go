@@ -236,6 +236,10 @@ type NativeSBASIGP struct {
 	HasGIVEVariance                bool
 	GIVEVarianceM2                 float64
 }
+type NativeSBASUnassignedMaskCorrection struct {
+	MaskNumber uint8
+	Count      uint64
+}
 type SBASCorrectionStore struct {
 	_        noCopy
 	resource *resource
@@ -263,6 +267,44 @@ type SSRCorrectionStore struct {
 	_        noCopy
 	resource *resource
 	cleanup  runtime.Cleanup
+}
+type SSRIngestRefusals struct {
+	_        noCopy
+	resource *resource
+	cleanup  runtime.Cleanup
+}
+type NativeSSRIngestRefusal struct {
+	MessageNumber uint16
+	Text          string
+}
+
+// NativeSSRVtecQueryKind retains the C query disposition tags.
+type NativeSSRVtecQueryKind uint32
+
+const (
+	// SSRVtecQueryNoModelValue reports no stored model.
+	SSRVtecQueryNoModelValue NativeSSRVtecQueryKind = 0
+	// SSRVtecQueryBeforeModelValue reports a query before the model epoch.
+	SSRVtecQueryBeforeModelValue NativeSSRVtecQueryKind = 1
+	// SSRVtecQueryStaleValue reports a model past its maximum age.
+	SSRVtecQueryStaleValue NativeSSRVtecQueryKind = 2
+	// SSRVtecQueryEvaluatedValue reports a completed evaluation.
+	SSRVtecQueryEvaluatedValue NativeSSRVtecQueryKind = 3
+)
+
+// NativeSSRVtecQueryResult is the detached C VTEC query summary.
+type NativeSSRVtecQueryResult struct {
+	Kind                                  NativeSSRVtecQueryKind
+	AgeS, SecondsBeforeModel, MaxAgeS     float64
+	LayerCount                            int
+	STEC                                  float64
+	PseudorangeDelayM, PhaseRangeAdvanceM float64
+}
+
+// NativeSSRVtecLayerEvaluation is the detached C evaluation for one model layer.
+type NativeSSRVtecLayerEvaluation struct {
+	PierceLatitudeRad, PierceLongitudeRad, SunFixedLongitudeRad float64
+	VTECTECU, MappingFactor, STECTECU                           float64
 }
 
 func newSBASStore(p *C.SidereonSbasCorrectionStore) (*SBASCorrectionStore, error) {
@@ -337,7 +379,7 @@ func (s *SBASCorrectionStore) Ingest(block *SbasBlock, geo string, epoch NativeG
 		return ErrClosed
 	}
 	return block.resource.with(func(bp unsafe.Pointer) error {
-		return s.resource.with(func(sp unsafe.Pointer) error {
+		return s.resource.withExclusive(func(sp unsafe.Pointer) error {
 			return withTokenError(geo, "GEO satellite token", func(g *C.char) error {
 				memory, err := checkedNativeMalloc(1, unsafe.Sizeof(C.SidereonGnssWeekTow{}))
 				if err != nil {
@@ -398,6 +440,57 @@ func (s *SBASCorrectionStore) ReadyGeos(t float64) ([]string, error) {
 		return nil
 	})
 	return out, err
+}
+
+func (s *SBASCorrectionStore) UnassignedMaskCorrections(geo string) ([]NativeSBASUnassignedMaskCorrection, bool, error) {
+	if s == nil || s.resource == nil {
+		return nil, false, ErrClosed
+	}
+	var rows []NativeSBASUnassignedMaskCorrection
+	var present bool
+	err := s.resource.with(func(sp unsafe.Pointer) error {
+		return withStringError(geo, func(g *C.char) error {
+			var written, required C.size_t
+			var has C.bool
+			status := C.sidereon_sbas_store_unassigned_mask_corrections((*C.SidereonSbasCorrectionStore)(sp), g, &has, nil, 0, &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			count, err := validateNativeQuery("SBAS unassigned mask corrections", uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if _, err := checkedNativeAllocationSize(count, unsafe.Sizeof(C.SidereonSbasUnassignedMaskCorrections{})); err != nil {
+				return err
+			}
+			values := make([]C.SidereonSbasUnassignedMaskCorrections, count)
+			var out *C.SidereonSbasUnassignedMaskCorrections
+			if count > 0 {
+				out = &values[0]
+			}
+			written, required = 0, 0
+			firstHas := bool(has)
+			status = C.sidereon_sbas_store_unassigned_mask_corrections((*C.SidereonSbasCorrectionStore)(sp), g, &has, out, C.size_t(count), &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			n, err := validateTwoPassCounts("SBAS unassigned mask corrections", count, count, uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if bool(has) != firstHas {
+				return errors.New("sidereon: SBAS unassigned mask presence changed between query passes")
+			}
+			rows = make([]NativeSBASUnassignedMaskCorrection, n)
+			for i, value := range values[:n] {
+				rows[i] = NativeSBASUnassignedMaskCorrection{MaskNumber: uint8(value.mask_number), Count: uint64(value.count)}
+			}
+			present = bool(has)
+			return nil
+		})
+	})
+	runtime.KeepAlive(s)
+	return rows, present, err
 }
 func (s *SBASCorrectionStore) Fast(geo, sat string) (NativeSBASFastCorrection, bool, error) {
 	var p C.bool
@@ -563,6 +656,153 @@ func NewSSRStoreFromRTCM(data []byte, epoch NativeGnssWeekTow) (*SSRCorrectionSt
 	}
 	return handle, err
 }
+func NewSSRStoreFromRTCMReading(data []byte, epoch NativeGnssWeekTow) (*SSRCorrectionStore, *RtcmDiagnostics, int, *SSRIngestRefusals, error) {
+	if _, err := checkedNativeSize(len(data)); err != nil {
+		return nil, nil, 0, nil, err
+	}
+	week := cWeek(epoch)
+	var input unsafe.Pointer
+	if len(data) > 0 {
+		input = C.CBytes(data)
+		if input == nil {
+			return nil, nil, 0, nil, errors.New("sidereon: unable to allocate SSR RTCM input")
+		}
+		defer C.free(input)
+	}
+	var store *C.SidereonSsrCorrectionStore
+	var diagnostics *C.SidereonRtcmStreamDiagnostics
+	var refusals *C.SidereonSsrIngestRefusals
+	var trailing C.size_t
+	err := withCThreadError(func() error {
+		return statusErrorLocked(uint32(C.sidereon_ssr_store_from_rtcm_reading((*C.uint8_t)(input), C.size_t(len(data)), &week, &store, &diagnostics, &trailing, &refusals)))
+	})
+	if err != nil {
+		withCThread(func() {
+			if store != nil {
+				C.sidereon_ssr_store_free(store)
+			}
+			if diagnostics != nil {
+				C.sidereon_rtcm_stream_diagnostics_free(diagnostics)
+			}
+			if refusals != nil {
+				C.sidereon_ssr_ingest_refusals_free(refusals)
+			}
+		})
+		return nil, nil, 0, nil, err
+	}
+	storeHandle, err := newSSRStore(store)
+	if err != nil {
+		withCThread(func() {
+			C.sidereon_ssr_store_free(store)
+			if diagnostics != nil {
+				C.sidereon_rtcm_stream_diagnostics_free(diagnostics)
+			}
+			if refusals != nil {
+				C.sidereon_ssr_ingest_refusals_free(refusals)
+			}
+		})
+		return nil, nil, 0, nil, err
+	}
+	diagnosticHandle, err := newRtcmDiagnostics(diagnostics)
+	if err != nil {
+		_ = storeHandle.Close()
+		withCThread(func() {
+			if refusals != nil {
+				C.sidereon_ssr_ingest_refusals_free(refusals)
+			}
+		})
+		return nil, nil, 0, nil, err
+	}
+	if refusals == nil {
+		_ = storeHandle.Close()
+		_ = diagnosticHandle.Close()
+		return nil, nil, 0, nil, missingNativeHandle("SSR ingest refusals")
+	}
+	refusalHandle := &SSRIngestRefusals{resource: &resource{ptr: unsafe.Pointer(refusals), release: func(p unsafe.Pointer) { C.sidereon_ssr_ingest_refusals_free((*C.SidereonSsrIngestRefusals)(p)) }}}
+	refusalHandle.cleanup = runtime.AddCleanup(refusalHandle, cleanupResource, refusalHandle.resource)
+	count, err := checkedNativeCount(uint64(trailing))
+	if err != nil {
+		_ = storeHandle.Close()
+		_ = diagnosticHandle.Close()
+		_ = refusalHandle.Close()
+		return nil, nil, 0, nil, err
+	}
+	return storeHandle, diagnosticHandle, count, refusalHandle, nil
+}
+
+func (r *SSRIngestRefusals) Close() error {
+	if r == nil {
+		return nil
+	}
+	return closeProtocolResource(r, r.resource, &r.cleanup)
+}
+func (r *SSRIngestRefusals) Count() (int, error) {
+	if r == nil || r.resource == nil {
+		return 0, ErrClosed
+	}
+	var out C.size_t
+	err := r.resource.with(func(pointer unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_ssr_ingest_refusals_count((*C.SidereonSsrIngestRefusals)(pointer), &out))
+		})
+	})
+	if err != nil {
+		return 0, err
+	}
+	return checkedNativeCount(uint64(out))
+}
+func (r *SSRIngestRefusals) Refusal(index int) (NativeSSRIngestRefusal, error) {
+	if r == nil || r.resource == nil {
+		return NativeSSRIngestRefusal{}, ErrClosed
+	}
+	if index < 0 {
+		return NativeSSRIngestRefusal{}, invalidArgument("SSR ingest refusal index must not be negative")
+	}
+	if _, err := checkedNativeSize(index); err != nil {
+		return NativeSSRIngestRefusal{}, err
+	}
+	var result NativeSSRIngestRefusal
+	err := r.resource.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var message C.uint16_t
+			var written, required C.size_t
+			if err := statusErrorLocked(uint32(C.sidereon_ssr_ingest_refusal((*C.SidereonSsrIngestRefusals)(pointer), C.size_t(index), &message, nil, 0, &written, &required))); err != nil {
+				return err
+			}
+			count, err := validateNativeQuery("SSR ingest refusal", uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if _, err := checkedNativeAllocationSize(count, 1); err != nil {
+				return err
+			}
+			var buffer unsafe.Pointer
+			if count > 0 {
+				buffer = C.malloc(C.size_t(count))
+				if buffer == nil {
+					return errors.New("sidereon: unable to allocate SSR ingest refusal text")
+				}
+				defer C.free(buffer)
+			}
+			written, required = 0, 0
+			if err := statusErrorLocked(uint32(C.sidereon_ssr_ingest_refusal((*C.SidereonSsrIngestRefusals)(pointer), C.size_t(index), &message, (*C.uint8_t)(buffer), C.size_t(count), &written, &required))); err != nil {
+				return err
+			}
+			n, err := validateTwoPassCounts("SSR ingest refusal", count, count, uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			result.MessageNumber = uint16(message)
+			if n > 0 {
+				result.Text = string(unsafe.Slice((*byte)(buffer), n))
+			}
+			return nil
+		})
+	})
+	runtime.KeepAlive(r)
+	return result, err
+}
+
 func (s *SSRCorrectionStore) Close() error {
 	if s == nil {
 		return nil
@@ -574,7 +814,7 @@ func (s *SSRCorrectionStore) Ingest(messages *RtcmMessages, epoch NativeGnssWeek
 		return ErrClosed
 	}
 	return messages.resource.with(func(mp unsafe.Pointer) error {
-		return s.resource.with(func(sp unsafe.Pointer) error {
+		return s.resource.withExclusive(func(sp unsafe.Pointer) error {
 			memory, err := checkedNativeMalloc(1, unsafe.Sizeof(C.SidereonGnssWeekTow{}))
 			if err != nil {
 				return err
@@ -592,6 +832,76 @@ func (s *SSRCorrectionStore) Ingest(messages *RtcmMessages, epoch NativeGnssWeek
 		})
 	})
 }
+func (s *SSRCorrectionStore) SetVTECMaxAge(maxAgeS float64) error {
+	if s == nil || s.resource == nil {
+		return ErrClosed
+	}
+	return s.resource.withExclusive(func(pointer unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_ssr_store_set_vtec_max_age((*C.SidereonSsrCorrectionStore)(pointer), C.double(maxAgeS)))
+		})
+	})
+}
+
+func (s *SSRCorrectionStore) EvaluateVTEC(receiverECEFM, satelliteTransmitECEFM [3]float64, query NativeGnssWeekTow, frequencyHz float64) (NativeSSRVtecQueryResult, []NativeSSRVtecLayerEvaluation, error) {
+	var result NativeSSRVtecQueryResult
+	if s == nil || s.resource == nil {
+		return result, nil, ErrClosed
+	}
+	week := cWeek(query)
+	var receiver, satellite [3]C.double
+	for i := range receiver {
+		receiver[i], satellite[i] = C.double(receiverECEFM[i]), C.double(satelliteTransmitECEFM[i])
+	}
+	var layers []NativeSSRVtecLayerEvaluation
+	err := s.resource.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var summary C.SidereonSsrVtecQueryResult
+			var written, required C.size_t
+			status := C.sidereon_ssr_store_evaluate_vtec((*C.SidereonSsrCorrectionStore)(pointer), &receiver[0], &satellite[0], &week, C.double(frequencyHz), &summary, nil, 0, &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			count, err := validateNativeQuery("SSR VTEC layers", uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if summary.layer_count != C.size_t(count) {
+				return errors.New("sidereon: SSR VTEC layer query count disagrees with result")
+			}
+			if _, err := checkedNativeAllocationSize(count, unsafe.Sizeof(C.SidereonSsrVtecLayerEvaluation{})); err != nil {
+				return err
+			}
+			values := make([]C.SidereonSsrVtecLayerEvaluation, count)
+			var out *C.SidereonSsrVtecLayerEvaluation
+			if count > 0 {
+				out = &values[0]
+			}
+			var copied C.SidereonSsrVtecQueryResult
+			written, required = 0, 0
+			status = C.sidereon_ssr_store_evaluate_vtec((*C.SidereonSsrCorrectionStore)(pointer), &receiver[0], &satellite[0], &week, C.double(frequencyHz), &copied, out, C.size_t(count), &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			n, err := validateTwoPassCounts("SSR VTEC layers", count, count, uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if copied.layer_count != summary.layer_count {
+				return errors.New("sidereon: SSR VTEC layer count changed between query passes")
+			}
+			result = NativeSSRVtecQueryResult{Kind: NativeSSRVtecQueryKind(copied.kind), AgeS: float64(copied.age_s), SecondsBeforeModel: float64(copied.seconds_before_model), MaxAgeS: float64(copied.max_age_s), LayerCount: int(copied.layer_count), STEC: float64(copied.stec_tecu), PseudorangeDelayM: float64(copied.pseudorange_delay_m), PhaseRangeAdvanceM: float64(copied.phase_range_advance_m)}
+			layers = make([]NativeSSRVtecLayerEvaluation, n)
+			for i, value := range values[:n] {
+				layers[i] = NativeSSRVtecLayerEvaluation{PierceLatitudeRad: float64(value.pierce_latitude_rad), PierceLongitudeRad: float64(value.pierce_longitude_rad), SunFixedLongitudeRad: float64(value.sun_fixed_longitude_rad), VTECTECU: float64(value.vtec_tecu), MappingFactor: float64(value.mapping_factor), STECTECU: float64(value.stec_tecu)}
+			}
+			return nil
+		})
+	})
+	runtime.KeepAlive(s)
+	return result, layers, err
+}
+
 func (s *SSRCorrectionStore) Orbit(sat string) (NativeSSROrbitCorrection, bool, error) {
 	var p C.bool
 	var v C.SidereonSsrOrbitCorrection

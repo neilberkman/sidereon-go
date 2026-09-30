@@ -23,7 +23,7 @@ func TestRTCMExtendedLegacySystemTextAndRetentionRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer legacy.Close()
+	closeAfterTest(t, legacy)
 	legacyMessage, err := legacy.Message(0)
 	if err != nil {
 		t.Fatal(err)
@@ -38,7 +38,7 @@ func TestRTCMExtendedLegacySystemTextAndRetentionRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cloned.Close()
+	closeAfterTest(t, cloned)
 	if got, err := cloned.TrailingBits(0); err != nil || !bytes.Equal(boolBytes(got), []byte{0, 1}) {
 		t.Fatalf("replacement trailing bits = %v, %v", got, err)
 	}
@@ -48,7 +48,7 @@ func TestRTCMExtendedLegacySystemTextAndRetentionRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer parameters.Close()
+	closeAfterTest(t, parameters)
 	parameterMessage, err := parameters.Message(0)
 	if err != nil {
 		t.Fatal(err)
@@ -62,7 +62,7 @@ func TestRTCMExtendedLegacySystemTextAndRetentionRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer textMessages.Close()
+	closeAfterTest(t, textMessages)
 	textMessage, err := textMessages.Message(0)
 	if err != nil {
 		t.Fatal(err)
@@ -76,7 +76,7 @@ func TestRTCMExtendedLegacySystemTextAndRetentionRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer unsupported.Close()
+	closeAfterTest(t, unsupported)
 	unsupportedMessage, err := unsupported.Message(0)
 	if err != nil || unsupportedMessage.Unsupported == nil || !bytes.Equal(unsupportedMessage.Unsupported.Body, unsupportedInput.Body) {
 		t.Fatalf("unsupported RTCM payload = %+v, %v", unsupportedMessage.Unsupported, err)
@@ -89,7 +89,7 @@ func TestRTCMExtendedNetworkAndVTECTypedRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer auxiliary.Close()
+	closeAfterTest(t, auxiliary)
 	value, err := auxiliary.NetworkAuxiliaryStation(0)
 	if err != nil || value.DeltaLatitude != auxiliaryInput.DeltaLatitude || value.AuxiliaryStationID != auxiliaryInput.AuxiliaryStationID {
 		t.Fatalf("network auxiliary station = %+v, %v", value, err)
@@ -100,7 +100,7 @@ func TestRTCMExtendedNetworkAndVTECTypedRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer biases.Close()
+	closeAfterTest(t, biases)
 	bias, err := biases.GLONASSCodePhaseBiases(0)
 	if err != nil || !bias.HasL1CA || bias.L1CA != -12 || !bias.HasL2P || bias.L2P != 37 {
 		t.Fatalf("GLONASS code/phase biases = %+v, %v", bias, err)
@@ -111,7 +111,7 @@ func TestRTCMExtendedNetworkAndVTECTypedRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vtec.Close()
+	closeAfterTest(t, vtec)
 	decoded, err := vtec.SSRVTEC(0)
 	if err != nil || len(decoded.Layers) != 1 || decoded.Layers[0].Cosine[1] != -8 || decoded.Layers[0].Sine[0] != 9 {
 		t.Fatalf("SSR VTEC = %+v, %v", decoded, err)
@@ -124,7 +124,7 @@ func TestRTCMExtendedSSRRetentionAndNetworkBuilders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ssr.Close()
+	closeAfterTest(t, ssr)
 	retained, err := ssr.SSRInfoV2(0)
 	if err != nil || retained.HasIGSSSRVersion != ssrInfo.HasIGSSSRVersion || retained.PaddingBits[0] != true || retained.PaddingBits[1] != false {
 		t.Fatalf("SSR V2 metadata = %+v, %v", retained, err)
@@ -139,7 +139,7 @@ func TestRTCMExtendedSSRRetentionAndNetworkBuilders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer differences.Close()
+	closeAfterTest(t, differences)
 	decodedDifferences, err := differences.NetworkDifferences(0)
 	if err != nil || len(decodedDifferences.Satellites) != 1 || decodedDifferences.Satellites[0].Ionospheric != 17 {
 		t.Fatalf("network differences = %+v, %v", decodedDifferences, err)
@@ -150,7 +150,7 @@ func TestRTCMExtendedSSRRetentionAndNetworkBuilders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer residuals.Close()
+	closeAfterTest(t, residuals)
 	decodedResiduals, err := residuals.NetworkResiduals(0)
 	if err != nil || len(decodedResiduals.Satellites) != 1 || decodedResiduals.Satellites[0].SLD != 5 {
 		t.Fatalf("network residuals = %+v, %v", decodedResiduals, err)
@@ -163,7 +163,7 @@ func TestRTCMExtendedFKPGridAndTransformationRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer fkp.Close()
+	closeAfterTest(t, fkp)
 	fkpMessage, err := fkp.Message(0)
 	if err != nil || fkpMessage.FKPGradients == nil || fkpMessage.FKPGradients.Satellites[0].IonosphericEast != 10 {
 		t.Fatalf("FKP message = %+v, %v", fkpMessage.FKPGradients, err)
@@ -174,7 +174,7 @@ func TestRTCMExtendedFKPGridAndTransformationRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer grid.Close()
+	closeAfterTest(t, grid)
 	gridMessage, err := grid.Message(0)
 	if err != nil || gridMessage.ResidualGrid == nil || gridMessage.ResidualGrid.Residuals[0].Height != -16 {
 		t.Fatalf("residual grid = %+v, %v", gridMessage.ResidualGrid, err)
@@ -185,7 +185,7 @@ func TestRTCMExtendedFKPGridAndTransformationRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer projection.Close()
+	closeAfterTest(t, projection)
 	projectionMessage, err := projection.Message(0)
 	if err != nil || projectionMessage.Projection == nil || projectionMessage.Projection.Longitude != 18 {
 		t.Fatalf("projection = %+v, %v", projectionMessage.Projection, err)
@@ -196,7 +196,7 @@ func TestRTCMExtendedFKPGridAndTransformationRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer physical.Close()
+	closeAfterTest(t, physical)
 	physicalMessage, err := physical.Message(0)
 	if err != nil || physicalMessage.PhysicalReferenceStation == nil || physicalMessage.PhysicalReferenceStation.ECEFX != -10 {
 		t.Fatalf("physical reference station = %+v, %v", physicalMessage.PhysicalReferenceStation, err)
@@ -207,7 +207,7 @@ func TestRTCMExtendedFKPGridAndTransformationRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer helmert.Close()
+	closeAfterTest(t, helmert)
 	helmertMessage, err := helmert.Message(0)
 	if err != nil || helmertMessage.HelmertTransformation == nil || helmertMessage.HelmertTransformation.RotationPointY != -24 {
 		t.Fatalf("Helmert transformation = %+v, %v", helmertMessage.HelmertTransformation, err)

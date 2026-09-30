@@ -51,17 +51,22 @@ import (
 
 // StatusError is the internal form translated to the public package error.
 type StatusError struct {
-	Code          int
-	Text          string
-	Detail        string
-	QualityKind   uint32
-	Engine        *EngineError
-	SP3           *SP3Error
-	TerrainDatum  *TerrainDatumError
-	TerrainStore  *TerrainStoreError
-	TerrainLookup *TerrainLookupError
-	Bias          *BiasError
-	RTCM          *RTCMError
+	Code            int
+	Text            string
+	Detail          string
+	QualityKind     uint32
+	Engine          *EngineError
+	SP3             *SP3Error
+	TerrainDatum    *TerrainDatumError
+	TerrainStore    *TerrainStoreError
+	TerrainLookup   *TerrainLookupError
+	Bias            *BiasError
+	RTCM            *RTCMError
+	ANTEX           *AntexError
+	DtedTile        *DtedTileError
+	Geoid           *GeoidError
+	PreciseArtifact *PreciseArtifactError
+	SGP4            *SGP4ErrorInfo
 }
 
 func (e *StatusError) Error() string {
@@ -93,6 +98,18 @@ func (e *StatusError) Unwrap() error {
 	}
 	if e.RTCM != nil {
 		details = append(details, e.RTCM)
+	}
+	if e.ANTEX != nil {
+		details = append(details, e.ANTEX)
+	}
+	if e.DtedTile != nil {
+		details = append(details, e.DtedTile)
+	}
+	if e.Geoid != nil {
+		details = append(details, e.Geoid)
+	}
+	if e.PreciseArtifact != nil {
+		details = append(details, e.PreciseArtifact)
 	}
 	return errors.Join(details...)
 }
@@ -667,6 +684,15 @@ type resource struct {
 func (r *resource) with(fn func(unsafe.Pointer) error) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	if r.ptr == nil {
+		return ErrClosed
+	}
+	return fn(r.ptr)
+}
+
+func (r *resource) withExclusive(fn func(unsafe.Pointer) error) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.ptr == nil {
 		return ErrClosed
 	}

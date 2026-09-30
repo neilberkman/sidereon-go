@@ -66,6 +66,8 @@ type NativeClockPhaseSample struct {
 }
 type NativeRinexObsCarrierPhase struct {
 	SatelliteID, Code string
+	PhaseShiftStatus  uint32
+	ConflictCount     int
 	HasValueCycles    bool
 	ValueCycles       float64
 	LLI, SSI          int32
@@ -76,6 +78,42 @@ type NativeRinexObsCarrierPhase struct {
 	HasValueM         bool
 	ValueM            float64
 	PhaseShiftCycles  float64
+}
+type NativeRinexPhaseShiftCorrection struct {
+	HasCycles bool
+	Cycles    float64
+}
+type NativeRinexObsWriteError struct {
+	Kind          uint32
+	HasSystem     bool
+	System        uint32
+	HasSatellite  bool
+	SatelliteID   string
+	HasEpochIndex bool
+	EpochIndex    uint64
+	HasPosition   bool
+	Position      uint64
+	HasFlag       bool
+	Flag          uint8
+	HasVersion    bool
+	Version       float64
+	HasCount      bool
+	Count         uint64
+	HasCodes      bool
+	Codes         uint64
+	HasValues     bool
+	Values        uint64
+	HasCode       bool
+	HasDetail     bool
+}
+type NativeRinexObsWriteOutcome struct {
+	IsOK    bool
+	Status  uint32
+	Error   NativeRinexObsWriteError
+	Text    []byte
+	Message string
+	Code    string
+	Detail  string
 }
 type RinexObs struct{}
 
@@ -91,6 +129,12 @@ func (*RinexObs) Epochs() ([]NativeRinexObsEpoch, error)    { return nil, protoc
 func (*RinexObs) Values(int) ([]NativeRinexObsValue, error) { return nil, protocolUnavailable() }
 func (*RinexObs) CarrierPhase(int) ([]NativeRinexObsCarrierPhase, error) {
 	return nil, protocolUnavailable()
+}
+func (*RinexObs) CarrierPhaseConflicts(int, int) ([]NativeRinexPhaseShiftCorrection, error) {
+	return nil, protocolUnavailable()
+}
+func (*RinexObs) RINEXTextWithOutcome() (NativeRinexObsWriteOutcome, error) {
+	return NativeRinexObsWriteOutcome{}, protocolUnavailable()
 }
 func (*RinexObs) Pseudoranges(int) ([]NativeRinexObsPseudorange, error) {
 	return nil, protocolUnavailable()
@@ -208,9 +252,12 @@ func (*RinexRepair) Summary() (NativeRINEXLintSummary, error) {
 }
 func (*RinexRepair) Actions() ([]NativeRINEXRepairAction, error) { return nil, protocolUnavailable() }
 func (*RinexRepair) Text() ([]byte, error)                       { return nil, protocolUnavailable() }
-func (*RinexRepair) CRINEXText() ([]byte, error)                 { return nil, protocolUnavailable() }
-func DecodeCRINEX([]byte) ([]byte, error)                        { return nil, protocolUnavailable() }
-func EncodeCRINEX([]byte) ([]byte, error)                        { return nil, protocolUnavailable() }
+func (*RinexRepair) TextWithOutcome() (NativeRinexObsWriteOutcome, error) {
+	return NativeRinexObsWriteOutcome{}, protocolUnavailable()
+}
+func (*RinexRepair) CRINEXText() ([]byte, error) { return nil, protocolUnavailable() }
+func DecodeCRINEX([]byte) ([]byte, error)        { return nil, protocolUnavailable() }
+func EncodeCRINEX([]byte) ([]byte, error)        { return nil, protocolUnavailable() }
 func RINEXBandFrequency(uint32, string, bool, int8) (float64, error) {
 	return 0, protocolUnavailable()
 }
@@ -630,6 +677,9 @@ func DecodeRTCM([]byte) (*RtcmMessages, error) { return nil, protocolUnavailable
 func DecodeRTCMStream([]byte) (*RtcmMessages, *RtcmDiagnostics, error) {
 	return nil, nil, protocolUnavailable()
 }
+func DecodeRTCMStreamWithPolicy([]byte, uint32) (*RtcmMessages, *RtcmDiagnostics, error) {
+	return nil, nil, protocolUnavailable()
+}
 func ScanRTCMFrames([]byte) (*RtcmFrames, error) { return nil, protocolUnavailable() }
 func EncodeRTCMFrame([]byte) ([]byte, error)     { return nil, protocolUnavailable() }
 func (*RtcmMessages) Close() error               { return nil }
@@ -639,6 +689,12 @@ func (*RtcmMessages) Kind(int) (NativeRTCMMessageInfo, error) {
 }
 func (*RtcmMessages) Encode(int) ([]byte, error) { return nil, protocolUnavailable() }
 func (*RtcmMessages) Frame(int) ([]byte, error)  { return nil, protocolUnavailable() }
+func (*RtcmMessages) EncodeWithPolicy(int, uint32) ([]byte, []NativeRTCMDeparture, error) {
+	return nil, nil, protocolUnavailable()
+}
+func (*RtcmMessages) FrameWithPolicy(int, uint32) ([]byte, []NativeRTCMDeparture, error) {
+	return nil, nil, protocolUnavailable()
+}
 func (*RtcmMessages) MSMInfo(int) (NativeRTCMMSMInfo, error) {
 	return NativeRTCMMSMInfo{}, protocolUnavailable()
 }
@@ -760,9 +816,14 @@ func (*RtcmDiagnostics) Skipped(int) (NativeRTCMFrameSkip, error) {
 	return NativeRTCMFrameSkip{}, protocolUnavailable()
 }
 func (*RtcmDiagnostics) SkippedMessage(int) ([]byte, error) { return nil, protocolUnavailable() }
-func NewRTCMTracker() (*RtcmLockTimeTracker, error)         { return nil, protocolUnavailable() }
-func (*RtcmLockTimeTracker) Close() error                   { return nil }
-func (*RtcmLockTimeTracker) Reset() error                   { return protocolUnavailable() }
+func (*RtcmDiagnostics) CRCFailures() (int, error)          { return 0, protocolUnavailable() }
+func (*RtcmDiagnostics) DepartureCount() (int, error)       { return 0, protocolUnavailable() }
+func (*RtcmDiagnostics) Departure(int) (NativeRTCMStreamDeparture, error) {
+	return NativeRTCMStreamDeparture{}, protocolUnavailable()
+}
+func NewRTCMTracker() (*RtcmLockTimeTracker, error) { return nil, protocolUnavailable() }
+func (*RtcmLockTimeTracker) Close() error           { return nil }
+func (*RtcmLockTimeTracker) Reset() error           { return protocolUnavailable() }
 func (*RtcmLockTimeTracker) Observe(*RtcmMessages, int) ([]NativeRTCMCellLLI, error) {
 	return nil, protocolUnavailable()
 }

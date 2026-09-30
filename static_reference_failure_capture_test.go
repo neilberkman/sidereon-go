@@ -12,15 +12,15 @@ import (
 )
 
 type staticReferenceCapture struct {
-	SP3InputSHA256 string          `json:"sp3_input_sha256"`
-	ObsInputSHA256 string          `json:"obs_input_sha256"`
-	RetimedEpochs  []float64       `json:"retimed_sp3_epochs_j2000_s"`
-	ReferenceM     [3]float64      `json:"reference_position_m"`
-	Config         any             `json:"config"`
-	Success        bool            `json:"success"`
-	Error          string          `json:"error,omitempty"`
-	Status         *StatusError    `json:"status,omitempty"`
-	Solution       any             `json:"solution,omitempty"`
+	SP3InputSHA256 string       `json:"sp3_input_sha256"`
+	ObsInputSHA256 string       `json:"obs_input_sha256"`
+	RetimedEpochs  []float64    `json:"retimed_sp3_epochs_j2000_s"`
+	ReferenceM     [3]float64   `json:"reference_position_m"`
+	Config         any          `json:"config"`
+	Success        bool         `json:"success"`
+	Error          string       `json:"error,omitempty"`
+	Status         *StatusError `json:"status,omitempty"`
+	Solution       any          `json:"solution,omitempty"`
 }
 
 // TestCaptureStaticReferenceModeFailure is host-gate instrumentation for the
@@ -69,7 +69,7 @@ func TestCaptureStaticReferenceModeFailure(t *testing.T) {
 		}
 	} else {
 		capture.Success = true
-		defer solution.Close()
+		closeAfterTest(t, solution)
 		metadata, metadataErr := solution.Metadata()
 		if metadataErr != nil {
 			t.Fatal(metadataErr)

@@ -28,13 +28,6 @@ const (
 	PreciseInterpolantArtifactErrorAttestedChecksumMismatchValue   = uint32(C.SIDEREON_PRECISE_INTERPOLANT_ARTIFACT_ERROR_KIND_ATTESTED_CHECKSUM_MISMATCH)
 )
 
-func validatePreciseInterpolantArtifactError(value uint32) error {
-	if value > PreciseInterpolantArtifactErrorAttestedChecksumMismatchValue {
-		return invalidArgument("invalid precise-interpolant artifact error kind returned by native code")
-	}
-	return nil
-}
-
 func validateDigestProvenance(value uint32) error {
 	if value != DigestProvenanceVerifiedValue && value != DigestProvenanceAttestedValue {
 		return invalidArgument("invalid digest provenance returned by native code")
@@ -641,17 +634,7 @@ func OpenPreciseInterpolantArtifact(data []byte) (*PreciseInterpolantArtifact, u
 			}
 			defer C.free(input)
 		}
-		nativeErr := statusErrorLocked(uint32(C.sidereon_precise_interpolant_artifact_open_owned((*C.uint8_t)(input), C.size_t(len(data)), &artifactError, &out)))
-		if enumErr := validatePreciseInterpolantArtifactError(uint32(artifactError)); enumErr != nil {
-			artifactError = C.enum_SidereonPreciseInterpolantArtifactErrorKind(PreciseInterpolantArtifactErrorNoneValue)
-			if nativeErr == nil {
-				err = enumErr
-			} else {
-				err = nativeErr
-			}
-		} else {
-			err = nativeErr
-		}
+		err = statusPreciseArtifactErrorLocked(uint32(C.sidereon_precise_interpolant_artifact_open_owned((*C.uint8_t)(input), C.size_t(len(data)), &artifactError, &out)))
 		if err != nil && out != nil {
 			C.sidereon_precise_interpolant_artifact_free(out)
 			out = nil
@@ -739,17 +722,12 @@ func (a *PreciseInterpolantArtifact) Verify() (uint32, error) {
 	}
 	var out C.enum_SidereonPreciseInterpolantArtifactErrorKind
 	err := a.handle.withExclusive(func(p unsafe.Pointer) error {
-		return callStatus(func() uint32 {
-			return uint32(C.sidereon_precise_interpolant_artifact_verify((*C.SidereonPreciseInterpolantArtifact)(p), &out))
+		return withCThreadError(func() error {
+			return statusPreciseArtifactErrorLocked(uint32(C.sidereon_precise_interpolant_artifact_verify((*C.SidereonPreciseInterpolantArtifact)(p), &out)))
 		})
 	})
 	runtime.KeepAlive(a)
-	if enumErr := validatePreciseInterpolantArtifactError(uint32(out)); enumErr != nil {
-		out = 0
-		if err == nil {
-			err = enumErr
-		}
-	}
+
 	return uint32(out), err
 }
 

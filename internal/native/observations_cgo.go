@@ -72,6 +72,8 @@ type NativeClockPhaseSample struct {
 }
 type NativeRinexObsCarrierPhase struct {
 	SatelliteID, Code string
+	PhaseShiftStatus  uint32
+	ConflictCount     int
 	HasValueCycles    bool
 	ValueCycles       float64
 	LLI, SSI          int32
@@ -357,7 +359,156 @@ func (obs *RinexObs) CarrierPhase(epoch int) ([]NativeRinexObsCarrierPhase, erro
 		result = make([]NativeRinexObsCarrierPhase, w)
 		for i := range result {
 			v := values[i]
-			result[i] = NativeRinexObsCarrierPhase{SatelliteID: tokenFromC(v.sat_id), Code: observationFixedString(v.code[:]), HasValueCycles: bool(v.has_value_cycles), ValueCycles: float64(v.value_cycles), LLI: int32(v.lli), SSI: int32(v.ssi), HasFrequency: bool(v.has_frequency_hz), FrequencyHz: float64(v.frequency_hz), HasWavelength: bool(v.has_wavelength_m), WavelengthM: float64(v.wavelength_m), HasValueM: bool(v.has_value_m), ValueM: float64(v.value_m), PhaseShiftCycles: float64(v.phase_shift_cycles)}
+			conflictCount, err := checkedNativeCount(uint64(v.phase_shift_conflict_count))
+			if err != nil {
+				return err
+			}
+			result[i] = NativeRinexObsCarrierPhase{SatelliteID: tokenFromC(v.sat_id), Code: observationFixedString(v.code[:]), PhaseShiftStatus: uint32(v.phase_shift_status), ConflictCount: conflictCount, HasValueCycles: bool(v.has_value_cycles), ValueCycles: float64(v.value_cycles), LLI: int32(v.lli), SSI: int32(v.ssi), HasFrequency: bool(v.has_frequency_hz), FrequencyHz: float64(v.frequency_hz), HasWavelength: bool(v.has_wavelength_m), WavelengthM: float64(v.wavelength_m), HasValueM: bool(v.has_value_m), ValueM: float64(v.value_m), PhaseShiftCycles: float64(v.phase_shift_cycles)}
+		}
+		return nil
+	})
+	runtime.KeepAlive(obs)
+	return result, err
+}
+
+type NativeRinexPhaseShiftCorrection struct {
+	HasCycles bool
+	Cycles    float64
+}
+
+type NativeRinexObsWriteError struct {
+	Kind          uint32
+	HasSystem     bool
+	System        uint32
+	HasSatellite  bool
+	SatelliteID   string
+	HasEpochIndex bool
+	EpochIndex    uint64
+	HasPosition   bool
+	Position      uint64
+	HasFlag       bool
+	Flag          uint8
+	HasVersion    bool
+	Version       float64
+	HasCount      bool
+	Count         uint64
+	HasCodes      bool
+	Codes         uint64
+	HasValues     bool
+	Values        uint64
+	HasCode       bool
+	HasDetail     bool
+}
+
+type NativeRinexObsWriteOutcome struct {
+	IsOK    bool
+	Status  uint32
+	Error   NativeRinexObsWriteError
+	Text    []byte
+	Message string
+	Code    string
+	Detail  string
+}
+
+func (obs *RinexObs) RINEXTextWithOutcome() (NativeRinexObsWriteOutcome, error) {
+	var result NativeRinexObsWriteOutcome
+	err := obs.with(func(pointer *C.SidereonRinexObs) error {
+		return withCThreadError(func() error {
+			var nativeResult *C.SidereonRinexObsWriteResult
+			if err := callStatus(func() uint32 { return uint32(C.sidereon_rinex_obs_to_rinex_text_result(pointer, &nativeResult)) }); err != nil {
+				return err
+			}
+			if nativeResult == nil {
+				return missingNativeHandle("RINEX observation write result")
+			}
+			defer C.sidereon_rinex_obs_write_result_free(nativeResult)
+			var raw C.SidereonRinexObsWriteOutcome
+			if err := callStatus(func() uint32 { return uint32(C.sidereon_rinex_obs_write_result_get_outcome(nativeResult, &raw)) }); err != nil {
+				return err
+			}
+			e := raw.error
+			result = NativeRinexObsWriteOutcome{IsOK: bool(raw.is_ok), Status: uint32(raw.status), Error: NativeRinexObsWriteError{Kind: uint32(e.kind), HasSystem: bool(e.has_system), System: uint32(e.system), HasSatellite: bool(e.has_satellite), SatelliteID: tokenFromC(e.satellite), HasEpochIndex: bool(e.has_epoch_index), EpochIndex: uint64(e.epoch_index), HasPosition: bool(e.has_position), Position: uint64(e.position), HasFlag: bool(e.has_flag), Flag: uint8(e.flag), HasVersion: bool(e.has_version), Version: float64(e.version), HasCount: bool(e.has_count), Count: uint64(e.count), HasCodes: bool(e.has_codes), Codes: uint64(e.codes), HasValues: bool(e.has_values), Values: uint64(e.values), HasCode: bool(e.has_code), HasDetail: bool(e.has_detail)}}
+			copyText := func(label string, call func(*C.uint8_t, C.size_t, *C.size_t, *C.size_t) C.enum_SidereonStatus) ([]byte, error) {
+				return copyNativeBytesLocked(label, call)
+			}
+			var err error
+			if result.IsOK {
+				result.Text, err = copyText("RINEX observation text", func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+					return C.sidereon_rinex_obs_write_result_get_text(nativeResult, out, length, written, required)
+				})
+				if err != nil {
+					return err
+				}
+			}
+			var message []byte
+			if message, err = copyText("RINEX observation write message", func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+				return C.sidereon_rinex_obs_write_result_get_message(nativeResult, out, length, written, required)
+			}); err != nil {
+				return err
+			}
+			result.Message = string(message)
+			if result.Error.HasCode {
+				value, err := copyText("RINEX observation write code", func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+					return C.sidereon_rinex_obs_write_result_get_code(nativeResult, out, length, written, required)
+				})
+				if err != nil {
+					return err
+				}
+				result.Code = string(value)
+			}
+			if result.Error.HasDetail {
+				value, err := copyText("RINEX observation write detail", func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+					return C.sidereon_rinex_obs_write_result_get_detail(nativeResult, out, length, written, required)
+				})
+				if err != nil {
+					return err
+				}
+				result.Detail = string(value)
+			}
+			return nil
+		})
+	})
+	runtime.KeepAlive(obs)
+	return result, err
+}
+
+func (obs *RinexObs) CarrierPhaseConflicts(epoch, row int) ([]NativeRinexPhaseShiftCorrection, error) {
+	if epoch < 0 || row < 0 {
+		return nil, errNegativeIndex
+	}
+	var result []NativeRinexPhaseShiftCorrection
+	err := obs.with(func(pointer *C.SidereonRinexObs) error {
+		var written, required C.size_t
+		if err := callStatus(func() uint32 {
+			return C.sidereon_rinex_obs_carrier_phase_conflicts(pointer, C.size_t(epoch), C.size_t(row), nil, 0, &written, &required)
+		}); err != nil {
+			return err
+		}
+		n, err := validateNativeQuery("RINEX phase-shift conflicts", uint64(written), uint64(required))
+		if err != nil {
+			return err
+		}
+		if _, err := checkedNativeAllocationSize(n, unsafe.Sizeof(C.SidereonRinexPhaseShiftCorrection{})); err != nil {
+			return err
+		}
+		values := make([]C.SidereonRinexPhaseShiftCorrection, n)
+		var out *C.SidereonRinexPhaseShiftCorrection
+		if n != 0 {
+			out = &values[0]
+		}
+		written, required = 0, 0
+		if err := callStatus(func() uint32 {
+			return C.sidereon_rinex_obs_carrier_phase_conflicts(pointer, C.size_t(epoch), C.size_t(row), out, C.size_t(n), &written, &required)
+		}); err != nil {
+			return err
+		}
+		count, err := validateTwoPassCounts("RINEX phase-shift conflicts", n, n, uint64(written), uint64(required))
+		if err != nil {
+			return err
+		}
+		result = make([]NativeRinexPhaseShiftCorrection, count)
+		for i := range result {
+			result[i] = NativeRinexPhaseShiftCorrection{HasCycles: bool(values[i].has_cycles), Cycles: float64(values[i].cycles)}
 		}
 		return nil
 	})

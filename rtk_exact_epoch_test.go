@@ -7,12 +7,12 @@ func TestRTKExactEpochInputsPreserveOptionalHandles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer prediction.Close()
+	closeAfterTest(t, prediction)
 	gap, err := NewExactEpoch(12, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer gap.Close()
+	closeAfterTest(t, gap)
 	raw := nativeRTKArcEpoch(RTKArcEpoch{PredictionEpoch: prediction})
 	if raw.PredictionEpoch != prediction.handle {
 		t.Fatal("raw RTK adapter dropped exact prediction epoch")
@@ -40,7 +40,7 @@ func TestCarrierPhaseExactGapInputPreservesHandleAndLegacyFallback(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer gap.Close()
+	closeAfterTest(t, gap)
 	converted := nativeArcEpoch(ArcEpoch{GapTimeS: 2.75, GapEpoch: gap})
 	if converted.GapEpoch != gap.handle || converted.GapTimeS != 2.75 {
 		t.Fatalf("carrier-phase exact gap adapter = %+v", converted)

@@ -732,6 +732,7 @@ type NativeSppDopplerResult struct {
 	Receiver          SPPSolution
 	HasVelocity       bool
 	VelocityErrorKind uint32
+	VelocityError     *EngineError
 	Velocity          *NativeSppDopplerVelocity
 }
 
@@ -864,6 +865,23 @@ func readSPPDopplerResultLocked(solution *C.SidereonSppDopplerSolution) (NativeS
 		return NativeSppDopplerResult{}, invalidArgument("invalid Doppler velocity error kind returned by native code")
 	}
 	result.VelocityErrorKind = uint32(errorKind)
+	velocityError, captureErr := sppRowEngineErrorLocked("SPP Doppler velocity",
+		func(info *C.SidereonEngineErrorInfo) C.enum_SidereonStatus {
+			return C.sidereon_spp_doppler_solution_velocity_error_info(solution, info)
+		},
+		func(out *C.uint8_t, capacity C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+			return C.sidereon_spp_doppler_solution_velocity_error_payload(solution, out, capacity, written, required)
+		})
+	if velocityError == nil && captureErr != nil {
+		velocityError = &EngineError{
+			Family:       EngineErrorFamilyUnknown,
+			FamilyName:   EngineErrorFamilyUnknown.Name(),
+			CaptureError: captureErr,
+		}
+	} else if velocityError != nil && captureErr != nil && velocityError.CaptureError == nil {
+		velocityError.CaptureError = captureErr
+	}
+	result.VelocityError = velocityError
 	var receiver *C.SidereonSppSolution
 	if err := statusErrorLocked(uint32(C.sidereon_spp_doppler_solution_receiver(solution, &receiver))); err != nil {
 		if receiver != nil {

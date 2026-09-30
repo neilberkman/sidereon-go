@@ -18,6 +18,7 @@ func SolveBroadcastV2AtExactEpoch(broadcast *BroadcastEphemeris, input SPPInputs
 	return &SPPSolutionHandle{handle: handle}, nil
 }
 
+// SolveBroadcastV2AtExactEpoch solves the broadcast message at the supplied exact receive epoch using the selected SBAS region and correction mode.
 func (store *SBASCorrectionStore) SolveBroadcastV2AtExactEpoch(broadcast *BroadcastEphemeris, geo string, mode SBASSolveMode, input SPPInputsV2, receiveEpoch *ExactEpoch) (SPPSolution, error) {
 	if store == nil || store.handle == nil || broadcast == nil || broadcast.handle == nil || receiveEpoch == nil || receiveEpoch.handle == nil {
 		return SPPSolution{}, ErrClosed
@@ -33,6 +34,7 @@ func (store *SBASCorrectionStore) SolveBroadcastV2AtExactEpoch(broadcast *Broadc
 	return publicSPPSolution(value), publicError(err)
 }
 
+// SolveBroadcastV2AtExactEpoch applies the selected SSR corrections while solving the broadcast message at the exact receive epoch.
 func (store *SSRCorrectionStore) SolveBroadcastV2AtExactEpoch(broadcast *BroadcastEphemeris, input SPPInputsV2, stalenessSeconds float64, missing SSRMissingCorrectionAction, allowRegionalProvider bool, regionalProviderID uint16, sizePolicy SSRCorrectionSizePolicy, receiveEpoch *ExactEpoch) (SPPSolution, error) {
 	if store == nil || store.handle == nil || broadcast == nil || broadcast.handle == nil || receiveEpoch == nil || receiveEpoch.handle == nil {
 		return SPPSolution{}, ErrClosed

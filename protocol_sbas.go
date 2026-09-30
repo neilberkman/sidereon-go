@@ -488,16 +488,8 @@ func SBASPRNToSatelliteID(prn uint16) (satelliteID string, present bool, err err
 	return satelliteID, present, publicError(err)
 }
 
-// SatelliteIDToSBASPRN is the finite inverse of the C-owned forward mapping.
+// SatelliteIDToSBASPRN delegates satellite-token parsing and SBAS conversion to C.
 func SatelliteIDToSBASPRN(satelliteID string) (uint16, bool, error) {
-	for prn := uint16(120); prn <= 158; prn++ {
-		mapped, present, err := SBASPRNToSatelliteID(prn)
-		if err != nil {
-			return 0, false, err
-		}
-		if present && mapped == satelliteID {
-			return prn, true, nil
-		}
-	}
-	return 0, false, nil
+	prn, present, err := native.SatelliteIDToSbasPRN(satelliteID)
+	return prn, present, publicError(err)
 }

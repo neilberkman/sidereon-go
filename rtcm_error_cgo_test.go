@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-func ssrIngestFailureForSatellite(satelliteID uint8) (error, error) {
+func ssrIngestFailureForSatellite(satelliteID uint8) (ingestErr, setupErr error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -35,19 +35,31 @@ func ssrIngestFailureForSatellite(satelliteID uint8) (error, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer invalidMessages.Close()
+	defer func() {
+		if err := invalidMessages.Close(); err != nil {
+			setupErr = errors.Join(setupErr, fmt.Errorf("close invalid message fixture: %w", err))
+		}
+	}()
 	validMessages, err := message(1)
 	if err != nil {
 		return nil, err
 	}
-	defer validMessages.Close()
+	defer func() {
+		if err := validMessages.Close(); err != nil {
+			setupErr = errors.Join(setupErr, fmt.Errorf("close valid message fixture: %w", err))
+		}
+	}()
 	store, err := NewSSRCorrectionStore(SSRReferencePointAntennaPhaseCenter)
 	if err != nil {
 		return nil, err
 	}
-	defer store.Close()
+	defer func() {
+		if err := store.Close(); err != nil {
+			setupErr = errors.Join(setupErr, fmt.Errorf("close correction store: %w", err))
+		}
+	}()
 
-	ingestErr := store.Ingest(invalidMessages, GNSSWeekTow{System: GPST, Week: 2425, TOWSeconds: 345000})
+	ingestErr = store.Ingest(invalidMessages, GNSSWeekTow{System: GPST, Week: 2425, TOWSeconds: 345000})
 	if ingestErr == nil {
 		return nil, fmt.Errorf("SSR ingest unexpectedly accepted invalid SBAS satellite id %d", satelliteID)
 	}

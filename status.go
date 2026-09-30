@@ -33,6 +33,38 @@ const (
 	StatusTimeout StatusCode = 7
 )
 
+// SGP4ErrorKind identifies the native SGP4 propagation error category.
+type SGP4ErrorKind uint32
+
+const (
+	// SGP4ErrorNone indicates no SGP4 failure was captured.
+	SGP4ErrorNone SGP4ErrorKind = iota
+	// SGP4ErrorInvalidInput indicates invalid propagation input.
+	SGP4ErrorInvalidInput
+	// SGP4ErrorNonFiniteOutput indicates the propagator produced non-finite state.
+	SGP4ErrorNonFiniteOutput
+	// SGP4ErrorInvalidTLE indicates the element set is invalid for propagation.
+	SGP4ErrorInvalidTLE
+	// SGP4ErrorEngine indicates an underlying SGP4 engine error.
+	SGP4ErrorEngine
+	// SGP4ErrorResonanceStepBudget indicates a resonance propagation budget failure.
+	SGP4ErrorResonanceStepBudget
+)
+
+// SGP4Error retains the typed SGP4 cause captured on the same native call.
+type SGP4Error struct {
+	// Kind is the native SGP4 failure category, including unknown future values.
+	Kind SGP4ErrorKind
+	// HasCode reports whether Code contains an engine-specific SGP4 code.
+	HasCode bool
+	// Code is the engine-specific SGP4 code when HasCode is true.
+	Code int32
+	// HasBudget reports whether Budget contains a resonance-step budget.
+	HasBudget bool
+	// Budget is the configured step budget when HasBudget is true.
+	Budget uint64
+}
+
 // StatusError reports one failed C call. Text is the stable status name from
 // sidereon_status_message; Detail and any structured cause are captured from
 // the same native operation.
@@ -54,6 +86,16 @@ type StatusError struct {
 	Bias          *BiasError
 	// RTCM carries the native RTCM/SBAS discriminant and lossless JSON payload.
 	RTCM *RTCMError
+	// ANTEX carries a typed antenna lookup or calibration refusal when available.
+	ANTEX *ANTEXError
+	// DtedTile carries the complete typed refusal from loading or querying one DTED tile.
+	DtedTile *DtedTileError
+	// Geoid carries the complete typed refusal from a geoid constructor.
+	Geoid *GeoidError
+	// PreciseArtifact carries the complete typed artifact producer refusal.
+	PreciseArtifact *PreciseArtifactError
+	// SGP4 carries typed propagation details captured on the same C call.
+	SGP4 *SGP4Error
 }
 
 // QualityErrorKind identifies the core quality refusal captured from one
@@ -61,22 +103,37 @@ type StatusError struct {
 type QualityErrorKind uint32
 
 const (
+	// QualityErrorNone means quality evaluation found no error.
 	QualityErrorNone QualityErrorKind = iota
+	// QualityErrorInvalidElevation identifies an elevation outside the supported range.
 	QualityErrorInvalidElevation
+	// QualityErrorMissingCN0 identifies a missing carrier-to-noise observation.
 	QualityErrorMissingCN0
+	// QualityErrorInvalidParameter identifies a non-finite or out-of-range quality parameter.
 	QualityErrorInvalidParameter
+	// QualityErrorInvalidProbability identifies a probability outside (0, 1).
 	QualityErrorInvalidProbability
+	// QualityErrorInvalidSystemCount identifies an invalid constellation count.
 	QualityErrorInvalidSystemCount
+	// QualityErrorInvalidDOF identifies invalid degrees of freedom.
 	QualityErrorInvalidDOF
+	// QualityErrorInvalidWeight identifies an invalid observation weight.
 	QualityErrorInvalidWeight
+	// QualityErrorInvalidReliabilityParameter identifies an invalid reliability-monitoring parameter.
 	QualityErrorInvalidReliabilityParameter
+	// QualityErrorInvalidResiduals identifies invalid or incomplete residual data.
 	QualityErrorInvalidResiduals
+	// QualityErrorInvalidDesign identifies a design matrix with invalid dimensions or entries.
 	QualityErrorInvalidDesign
+	// QualityErrorSingularGeometry identifies geometry that cannot support the requested quality statistic.
 	QualityErrorSingularGeometry
+	// QualityErrorMissingVariances identifies missing observation variances.
 	QualityErrorMissingVariances
+	// QualityErrorInvalidVariance identifies a non-positive or non-finite variance.
 	QualityErrorInvalidVariance
 )
 
+// QualityErrorUnknown represents an unrecognized native value.
 const QualityErrorUnknown QualityErrorKind = 999
 
 // QualityError is a typed core quality refusal. It unwraps to the status and
@@ -87,6 +144,7 @@ type QualityError struct {
 	cause   error
 }
 
+// Error returns the QualityError message.
 func (e *QualityError) Error() string {
 	if e == nil {
 		return "sidereon: quality refusal"
@@ -97,6 +155,7 @@ func (e *QualityError) Error() string {
 	return fmt.Sprintf("sidereon: quality refusal (kind %d)", e.Kind)
 }
 
+// Unwrap returns the underlying cause when one is retained.
 func (e *QualityError) Unwrap() error {
 	if e == nil {
 		return nil
@@ -108,11 +167,15 @@ func (e *QualityError) Unwrap() error {
 type FDEUnresolvedReason uint32
 
 const (
+	// FDEUnresolvedNone means the FDE search resolved the detected fault.
 	FDEUnresolvedNone FDEUnresolvedReason = iota
+	// FDEUnresolvedExclusionBudgetExhausted means no accepted solution was found before the exclusion budget ended.
 	FDEUnresolvedExclusionBudgetExhausted
+	// FDEUnresolvedNoAdmissibleExclusion means every candidate exclusion violated the configured acceptance rules.
 	FDEUnresolvedNoAdmissibleExclusion
 )
 
+// FDEUnresolvedUnknown preserves an unrecognized native unresolved-fault value.
 const FDEUnresolvedUnknown FDEUnresolvedReason = 999
 
 // FDEUnresolvedError retains the last faulted solution and its actual RAIM
@@ -132,6 +195,7 @@ type FDEUnresolvedError struct {
 	cause                  error
 }
 
+// Error returns the FDEUnresolvedError message.
 func (e *FDEUnresolvedError) Error() string {
 	if e == nil {
 		return "sidereon: FDE left a detected fault unresolved"
@@ -150,6 +214,7 @@ func (e *FDEUnresolvedError) Error() string {
 	return message
 }
 
+// Unwrap returns the underlying cause when one is retained.
 func (e *FDEUnresolvedError) Unwrap() error {
 	if e == nil {
 		return nil
@@ -161,10 +226,15 @@ func (e *FDEUnresolvedError) Unwrap() error {
 type SP3ErrorKind uint32
 
 const (
-	SP3ErrorKindNone              SP3ErrorKind = 0
-	SP3ErrorKindExactValidation   SP3ErrorKind = 1
-	SP3ErrorKindEpochInterval     SP3ErrorKind = 2
-	SP3ErrorKindMergeTolerance    SP3ErrorKind = 3
+	// SP3ErrorKindNone means validation succeeded.
+	SP3ErrorKindNone SP3ErrorKind = 0
+	// SP3ErrorKindExactValidation classifies an exact-sample validation failure.
+	SP3ErrorKindExactValidation SP3ErrorKind = 1
+	// SP3ErrorKindEpochInterval classifies an invalid or mismatched epoch interval.
+	SP3ErrorKindEpochInterval SP3ErrorKind = 2
+	// SP3ErrorKindMergeTolerance classifies a merge-tolerance validation failure.
+	SP3ErrorKindMergeTolerance SP3ErrorKind = 3
+	// SP3ErrorKindContinuityOptions classifies invalid orbit or clock continuity options.
 	SP3ErrorKindContinuityOptions SP3ErrorKind = 4
 )
 
@@ -172,63 +242,114 @@ const (
 type SP3ErrorField uint32
 
 const (
-	SP3ErrorFieldNone                     SP3ErrorField = 0
-	SP3ErrorFieldDeclaredStart            SP3ErrorField = 1
-	SP3ErrorFieldTargetEpochInterval      SP3ErrorField = 2
-	SP3ErrorFieldMergedEpochInterval      SP3ErrorField = 3
-	SP3ErrorFieldPositionTolerance        SP3ErrorField = 4
-	SP3ErrorFieldClockTolerance           SP3ErrorField = 5
+	// SP3ErrorFieldNone marks the absence of a field-specific SP3 validation failure.
+	SP3ErrorFieldNone SP3ErrorField = 0
+	// SP3ErrorFieldDeclaredStart identifies the product-declared start epoch when SP3 validation fails.
+	SP3ErrorFieldDeclaredStart SP3ErrorField = 1
+	// SP3ErrorFieldTargetEpochInterval identifies the expected target epoch interval when SP3 validation fails.
+	SP3ErrorFieldTargetEpochInterval SP3ErrorField = 2
+	// SP3ErrorFieldMergedEpochInterval identifies the merged input epoch interval when SP3 validation fails.
+	SP3ErrorFieldMergedEpochInterval SP3ErrorField = 3
+	// SP3ErrorFieldPositionTolerance identifies the position continuity tolerance in metres when SP3 validation fails.
+	SP3ErrorFieldPositionTolerance SP3ErrorField = 4
+	// SP3ErrorFieldClockTolerance identifies the clock continuity tolerance in seconds when SP3 validation fails.
+	SP3ErrorFieldClockTolerance SP3ErrorField = 5
+	// SP3ErrorFieldOutlierPositionTolerance identifies the outlier position tolerance in metres when SP3 validation fails.
 	SP3ErrorFieldOutlierPositionTolerance SP3ErrorField = 6
-	SP3ErrorFieldOutlierClockTolerance    SP3ErrorField = 7
-	SP3ErrorFieldSpeedBound               SP3ErrorField = 8
-	SP3ErrorFieldResidualToleranceM       SP3ErrorField = 9
-	SP3ErrorFieldSP3Content               SP3ErrorField = 10
-	SP3ErrorFieldCatalogIdentity          SP3ErrorField = 11
-	SP3ErrorFieldProductFamily            SP3ErrorField = 12
-	SP3ErrorFieldIssueToken               SP3ErrorField = 13
-	SP3ErrorFieldSpanToken                SP3ErrorField = 14
-	SP3ErrorFieldSampleToken              SP3ErrorField = 15
-	SP3ErrorFieldExpectedAgency           SP3ErrorField = 16
-	SP3ErrorFieldProducingAgency          SP3ErrorField = 17
-	SP3ErrorFieldTerminalRecord           SP3ErrorField = 18
-	SP3ErrorFieldHeaderRecordCount        SP3ErrorField = 19
-	SP3ErrorFieldSatelliteCount           SP3ErrorField = 20
-	SP3ErrorFieldSatelliteDeclarations    SP3ErrorField = 21
-	SP3ErrorFieldSatelliteRecordSequence  SP3ErrorField = 22
-	SP3ErrorFieldBodyRecordOrder          SP3ErrorField = 23
-	SP3ErrorFieldHeaderCadence            SP3ErrorField = 24
-	SP3ErrorFieldDeclaredEpochCount       SP3ErrorField = 25
-	SP3ErrorFieldGPSStart                 SP3ErrorField = 26
-	SP3ErrorFieldHeaderStartMetadata      SP3ErrorField = 27
-	SP3ErrorFieldEpochGrid                SP3ErrorField = 28
-	SP3ErrorFieldRequestedSpan            SP3ErrorField = 29
-	SP3ErrorFieldFormatVersion            SP3ErrorField = 30
-	SP3ErrorFieldOther                    SP3ErrorField = 255
+	// SP3ErrorFieldOutlierClockTolerance identifies the outlier clock tolerance in seconds when SP3 validation fails.
+	SP3ErrorFieldOutlierClockTolerance SP3ErrorField = 7
+	// SP3ErrorFieldSpeedBound identifies the physical speed bound when SP3 validation fails.
+	SP3ErrorFieldSpeedBound SP3ErrorField = 8
+	// SP3ErrorFieldResidualToleranceM identifies the residual tolerance in metres when SP3 validation fails.
+	SP3ErrorFieldResidualToleranceM SP3ErrorField = 9
+	// SP3ErrorFieldSP3Content identifies malformed or inconsistent SP3 content when SP3 validation fails.
+	SP3ErrorFieldSP3Content SP3ErrorField = 10
+	// SP3ErrorFieldCatalogIdentity identifies the catalog identity when SP3 validation fails.
+	SP3ErrorFieldCatalogIdentity SP3ErrorField = 11
+	// SP3ErrorFieldProductFamily identifies the product family when SP3 validation fails.
+	SP3ErrorFieldProductFamily SP3ErrorField = 12
+	// SP3ErrorFieldIssueToken identifies the issue-date token when SP3 validation fails.
+	SP3ErrorFieldIssueToken SP3ErrorField = 13
+	// SP3ErrorFieldSpanToken identifies the span token when SP3 validation fails.
+	SP3ErrorFieldSpanToken SP3ErrorField = 14
+	// SP3ErrorFieldSampleToken identifies the sample token when SP3 validation fails.
+	SP3ErrorFieldSampleToken SP3ErrorField = 15
+	// SP3ErrorFieldExpectedAgency identifies the expected producing agency when SP3 validation fails.
+	SP3ErrorFieldExpectedAgency SP3ErrorField = 16
+	// SP3ErrorFieldProducingAgency identifies the agency declared by the product when SP3 validation fails.
+	SP3ErrorFieldProducingAgency SP3ErrorField = 17
+	// SP3ErrorFieldTerminalRecord identifies the terminal record when SP3 validation fails.
+	SP3ErrorFieldTerminalRecord SP3ErrorField = 18
+	// SP3ErrorFieldHeaderRecordCount identifies the header record count when SP3 validation fails.
+	SP3ErrorFieldHeaderRecordCount SP3ErrorField = 19
+	// SP3ErrorFieldSatelliteCount identifies the satellite count when SP3 validation fails.
+	SP3ErrorFieldSatelliteCount SP3ErrorField = 20
+	// SP3ErrorFieldSatelliteDeclarations identifies the satellite declarations when SP3 validation fails.
+	SP3ErrorFieldSatelliteDeclarations SP3ErrorField = 21
+	// SP3ErrorFieldSatelliteRecordSequence identifies the satellite-record sequence when SP3 validation fails.
+	SP3ErrorFieldSatelliteRecordSequence SP3ErrorField = 22
+	// SP3ErrorFieldBodyRecordOrder identifies the body-record order when SP3 validation fails.
+	SP3ErrorFieldBodyRecordOrder SP3ErrorField = 23
+	// SP3ErrorFieldHeaderCadence identifies the header cadence when SP3 validation fails.
+	SP3ErrorFieldHeaderCadence SP3ErrorField = 24
+	// SP3ErrorFieldDeclaredEpochCount identifies the declared epoch count when SP3 validation fails.
+	SP3ErrorFieldDeclaredEpochCount SP3ErrorField = 25
+	// SP3ErrorFieldGPSStart identifies the GPS start epoch when SP3 validation fails.
+	SP3ErrorFieldGPSStart SP3ErrorField = 26
+	// SP3ErrorFieldHeaderStartMetadata identifies the header start metadata when SP3 validation fails.
+	SP3ErrorFieldHeaderStartMetadata SP3ErrorField = 27
+	// SP3ErrorFieldEpochGrid identifies the expected epoch grid when SP3 validation fails.
+	SP3ErrorFieldEpochGrid SP3ErrorField = 28
+	// SP3ErrorFieldRequestedSpan identifies the requested span when SP3 validation fails.
+	SP3ErrorFieldRequestedSpan SP3ErrorField = 29
+	// SP3ErrorFieldFormatVersion identifies the format version when SP3 validation fails.
+	SP3ErrorFieldFormatVersion SP3ErrorField = 30
+	// SP3ErrorFieldOther identifies another SP3 field when SP3 validation fails.
+	SP3ErrorFieldOther SP3ErrorField = 255
 )
 
 // SP3ErrorReason identifies why a typed SP3 validation field was rejected.
 type SP3ErrorReason uint32
 
 const (
-	SP3ErrorReasonNone                      SP3ErrorReason = 0
-	SP3ErrorReasonMismatch                  SP3ErrorReason = 1
-	SP3ErrorReasonNotFinite                 SP3ErrorReason = 2
-	SP3ErrorReasonNegative                  SP3ErrorReason = 3
-	SP3ErrorReasonNotPositive               SP3ErrorReason = 4
-	SP3ErrorReasonNotWholeTicks             SP3ErrorReason = 5
-	SP3ErrorReasonBeyondTickResolution      SP3ErrorReason = 6
+	// SP3ErrorReasonNone records that means no validation reason was recorded.
+	SP3ErrorReasonNone SP3ErrorReason = 0
+	// SP3ErrorReasonMismatch records that means actual data differs from the required value.
+	SP3ErrorReasonMismatch SP3ErrorReason = 1
+	// SP3ErrorReasonNotFinite records that means a value is NaN or infinite.
+	SP3ErrorReasonNotFinite SP3ErrorReason = 2
+	// SP3ErrorReasonNegative records that means a value is below zero.
+	SP3ErrorReasonNegative SP3ErrorReason = 3
+	// SP3ErrorReasonNotPositive records that means a value is zero or below.
+	SP3ErrorReasonNotPositive SP3ErrorReason = 4
+	// SP3ErrorReasonNotWholeTicks records that means a duration is not an integer number of clock ticks.
+	SP3ErrorReasonNotWholeTicks SP3ErrorReason = 5
+	// SP3ErrorReasonBeyondTickResolution records that means a duration cannot be represented at the clock tick resolution.
+	SP3ErrorReasonBeyondTickResolution SP3ErrorReason = 6
+	// SP3ErrorReasonOutsideSpecificationRange records that means a value falls outside the format-specified range.
 	SP3ErrorReasonOutsideSpecificationRange SP3ErrorReason = 7
-	SP3ErrorReasonInvalid                   SP3ErrorReason = 8
-	SP3ErrorReasonMissing                   SP3ErrorReason = 9
-	SP3ErrorReasonUnsupported               SP3ErrorReason = 10
-	SP3ErrorReasonMalformed                 SP3ErrorReason = 11
-	SP3ErrorReasonNonCanonical              SP3ErrorReason = 12
-	SP3ErrorReasonDuplicate                 SP3ErrorReason = 13
-	SP3ErrorReasonTrailingContent           SP3ErrorReason = 14
-	SP3ErrorReasonEmpty                     SP3ErrorReason = 15
-	SP3ErrorReasonNotMultiple               SP3ErrorReason = 16
-	SP3ErrorReasonBeforeGPSEpoch            SP3ErrorReason = 17
-	SP3ErrorReasonOther                     SP3ErrorReason = 255
+	// SP3ErrorReasonInvalid records that means a value fails semantic validation.
+	SP3ErrorReasonInvalid SP3ErrorReason = 8
+	// SP3ErrorReasonMissing records that means a required value is absent.
+	SP3ErrorReasonMissing SP3ErrorReason = 9
+	// SP3ErrorReasonUnsupported records that means the value is valid but unsupported by this operation.
+	SP3ErrorReasonUnsupported SP3ErrorReason = 10
+	// SP3ErrorReasonMalformed records that means the input token is malformed.
+	SP3ErrorReasonMalformed SP3ErrorReason = 11
+	// SP3ErrorReasonNonCanonical records that means the token is valid but not in canonical form.
+	SP3ErrorReasonNonCanonical SP3ErrorReason = 12
+	// SP3ErrorReasonDuplicate records that means a field or record appears more than once.
+	SP3ErrorReasonDuplicate SP3ErrorReason = 13
+	// SP3ErrorReasonTrailingContent records that means unexpected bytes follow the expected terminal content.
+	SP3ErrorReasonTrailingContent SP3ErrorReason = 14
+	// SP3ErrorReasonEmpty records that means required content is empty.
+	SP3ErrorReasonEmpty SP3ErrorReason = 15
+	// SP3ErrorReasonNotMultiple records that means a count or duration is not an allowed multiple.
+	SP3ErrorReasonNotMultiple SP3ErrorReason = 16
+	// SP3ErrorReasonBeforeGPSEpoch records that means the epoch precedes the GPS epoch.
+	SP3ErrorReasonBeforeGPSEpoch SP3ErrorReason = 17
+	// SP3ErrorReasonOther records that preserves another validation reason.
+	SP3ErrorReasonOther SP3ErrorReason = 255
 )
 
 // SP3Error retains the typed native summary and raw schema-versioned JSON.
@@ -248,6 +369,7 @@ type SP3Error struct {
 	Payload            json.RawMessage
 }
 
+// Error returns the SP3Error message.
 func (e *SP3Error) Error() string {
 	if e == nil {
 		return "sidereon: SP3 validation error"
@@ -259,10 +381,15 @@ func (e *SP3Error) Error() string {
 type RTCMErrorClass uint32
 
 const (
-	RTCMErrorClassNone       RTCMErrorClass = 0
-	RTCMErrorClassEncode     RTCMErrorClass = 1
+	// RTCMErrorClassNone means no error or special condition occurred.
+	RTCMErrorClassNone RTCMErrorClass = 0
+	// RTCMErrorClassEncode classifies a failure while encoding an RTCM message.
+	RTCMErrorClassEncode RTCMErrorClass = 1
+	// RTCMErrorClassConversion classifies a field-conversion failure in RTCM processing.
 	RTCMErrorClassConversion RTCMErrorClass = 2
-	RTCMErrorClassOther      RTCMErrorClass = 3
+	// RTCMErrorClassOther preserves a native condition outside the named cases.
+	RTCMErrorClassOther RTCMErrorClass = 3
+	// RTCMErrorClassSBASEncode classifies a failure while encoding an SBAS message.
 	RTCMErrorClassSBASEncode RTCMErrorClass = 4
 )
 
@@ -278,6 +405,7 @@ type RTCMError struct {
 	Payload json.RawMessage
 }
 
+// Error returns the RTCMError message.
 func (e *RTCMError) Error() string {
 	if e == nil {
 		return "sidereon: RTCM error"
@@ -289,90 +417,167 @@ func (e *RTCMError) Error() string {
 type EngineErrorFamily uint32
 
 const (
-	EngineErrorFamilyNone               EngineErrorFamily = 0
-	EngineErrorFamilyRtk                EngineErrorFamily = 1
-	EngineErrorFamilyStaticReference    EngineErrorFamily = 2
-	EngineErrorFamilyTrls               EngineErrorFamily = 3
-	EngineErrorFamilyIls                EngineErrorFamily = 4
-	EngineErrorFamilySpk                EngineErrorFamily = 5
-	EngineErrorFamilyCdm                EngineErrorFamily = 6
-	EngineErrorFamilyTdm                EngineErrorFamily = 7
-	EngineErrorFamilyFusion             EngineErrorFamily = 8
-	EngineErrorFamilyFusionStateCodec   EngineErrorFamily = 9
-	EngineErrorFamilyAllan              EngineErrorFamily = 10
-	EngineErrorFamilyPowerLawNoise      EngineErrorFamily = 11
-	EngineErrorFamilyFrameCatalog       EngineErrorFamily = 12
-	EngineErrorFamilySidereal           EngineErrorFamily = 13
-	EngineErrorFamilyAtmosphere         EngineErrorFamily = 14
+	// EngineErrorFamilyNone marks the absence of a family-specific engine error.
+	EngineErrorFamilyNone EngineErrorFamily = 0
+	// EngineErrorFamilyRtk identifies typed engine errors from RTK positioning.
+	EngineErrorFamilyRtk EngineErrorFamily = 1
+	// EngineErrorFamilyStaticReference identifies typed engine errors from static reference positioning.
+	EngineErrorFamilyStaticReference EngineErrorFamily = 2
+	// EngineErrorFamilyTrls identifies typed engine errors from TRLS.
+	EngineErrorFamilyTrls EngineErrorFamily = 3
+	// EngineErrorFamilyIls identifies typed engine errors from ILS.
+	EngineErrorFamilyIls EngineErrorFamily = 4
+	// EngineErrorFamilySpk identifies typed engine errors from SPK.
+	EngineErrorFamilySpk EngineErrorFamily = 5
+	// EngineErrorFamilyCdm identifies typed engine errors from CDM.
+	EngineErrorFamilyCdm EngineErrorFamily = 6
+	// EngineErrorFamilyTdm identifies typed engine errors from TDM.
+	EngineErrorFamilyTdm EngineErrorFamily = 7
+	// EngineErrorFamilyFusion identifies typed engine errors from sensor fusion.
+	EngineErrorFamilyFusion EngineErrorFamily = 8
+	// EngineErrorFamilyFusionStateCodec identifies typed engine errors from fusion-state serialization.
+	EngineErrorFamilyFusionStateCodec EngineErrorFamily = 9
+	// EngineErrorFamilyAllan identifies typed engine errors from Allan deviation.
+	EngineErrorFamilyAllan EngineErrorFamily = 10
+	// EngineErrorFamilyPowerLawNoise identifies typed engine errors from power-law noise.
+	EngineErrorFamilyPowerLawNoise EngineErrorFamily = 11
+	// EngineErrorFamilyFrameCatalog identifies typed engine errors from frame catalog.
+	EngineErrorFamilyFrameCatalog EngineErrorFamily = 12
+	// EngineErrorFamilySidereal identifies typed engine errors from sidereal filtering.
+	EngineErrorFamilySidereal EngineErrorFamily = 13
+	// EngineErrorFamilyAtmosphere identifies typed engine errors from atmosphere models.
+	EngineErrorFamilyAtmosphere EngineErrorFamily = 14
+	// EngineErrorFamilySourceLocalization identifies typed engine errors from source localization.
 	EngineErrorFamilySourceLocalization EngineErrorFamily = 15
+	// EngineErrorFamilyGeodeticTimeSeries identifies typed engine errors from geodetic time series.
 	EngineErrorFamilyGeodeticTimeSeries EngineErrorFamily = 16
-	EngineErrorFamilyNormality          EngineErrorFamily = 17
-	EngineErrorFamilyTrack              EngineErrorFamily = 18
-	EngineErrorFamilyPreciseSamples     EngineErrorFamily = 19
+	// EngineErrorFamilyNormality identifies typed engine errors from normality testing.
+	EngineErrorFamilyNormality EngineErrorFamily = 17
+	// EngineErrorFamilyTrack identifies typed engine errors from track propagation.
+	EngineErrorFamilyTrack EngineErrorFamily = 18
+	// EngineErrorFamilyPreciseSamples identifies typed engine errors from precise-sample validation.
+	EngineErrorFamilyPreciseSamples EngineErrorFamily = 19
+	// EngineErrorFamilyPreciseInterpolant identifies typed engine errors from precise ephemeris interpolation.
 	EngineErrorFamilyPreciseInterpolant EngineErrorFamily = 20
-	EngineErrorFamilySpaceWeather       EngineErrorFamily = 21
-	EngineErrorFamilyAraim              EngineErrorFamily = 22
-	EngineErrorFamilyReducedOrbit       EngineErrorFamily = 23
+	// EngineErrorFamilySpaceWeather identifies typed engine errors from space weather.
+	EngineErrorFamilySpaceWeather EngineErrorFamily = 21
+	// EngineErrorFamilyAraim identifies typed engine errors from ARAIM.
+	EngineErrorFamilyAraim EngineErrorFamily = 22
+	// EngineErrorFamilyReducedOrbit identifies typed engine errors from reduced-orbit models.
+	EngineErrorFamilyReducedOrbit EngineErrorFamily = 23
+	// EngineErrorFamilyReducedOrbitSource identifies typed engine errors from reduced-orbit sources.
 	EngineErrorFamilyReducedOrbitSource EngineErrorFamily = 24
-	EngineErrorFamilyPiecewiseOrbit     EngineErrorFamily = 25
-	EngineErrorFamilyOrbitFit           EngineErrorFamily = 26
-	EngineErrorFamilyElements           EngineErrorFamily = 27
-	EngineErrorFamilyEquinoctial        EngineErrorFamily = 28
-	EngineErrorFamilyRtnFrame           EngineErrorFamily = 29
-	EngineErrorFamilyAnomaly            EngineErrorFamily = 30
-	EngineErrorFamilyPropagation        EngineErrorFamily = 31
-	EngineErrorFamilyDecay              EngineErrorFamily = 32
-	EngineErrorFamilyDgnss              EngineErrorFamily = 33
-	EngineErrorFamilyScenario           EngineErrorFamily = 34
-	EngineErrorFamilyCatalog            EngineErrorFamily = 35
-	EngineErrorFamilyExactCache         EngineErrorFamily = 36
-	EngineErrorFamilyTca                EngineErrorFamily = 37
-	EngineErrorFamilyAlmanac            EngineErrorFamily = 38
-	EngineErrorFamilyObserve            EngineErrorFamily = 39
-	EngineErrorFamilyBodyObservation    EngineErrorFamily = 40
-	EngineErrorFamilyLookAngle          EngineErrorFamily = 41
-	EngineErrorFamilyPass               EngineErrorFamily = 42
-	EngineErrorFamilyEventFinder        EngineErrorFamily = 43
-	EngineErrorFamilyFrameTransform     EngineErrorFamily = 44
-	EngineErrorFamilyConjunction        EngineErrorFamily = 45
-	EngineErrorFamilyFacade             EngineErrorFamily = 46
-	EngineErrorFamilySpp                EngineErrorFamily = 47
-	EngineErrorFamilySppPolicy          EngineErrorFamily = 48
-	EngineErrorFamilySunMoon            EngineErrorFamily = 49
-	EngineErrorFamilyRinexSpp           EngineErrorFamily = 50
+	// EngineErrorFamilyPiecewiseOrbit identifies typed engine errors from piecewise orbits.
+	EngineErrorFamilyPiecewiseOrbit EngineErrorFamily = 25
+	// EngineErrorFamilyOrbitFit identifies typed engine errors from orbit fitting.
+	EngineErrorFamilyOrbitFit EngineErrorFamily = 26
+	// EngineErrorFamilyElements identifies typed engine errors from orbital elements.
+	EngineErrorFamilyElements EngineErrorFamily = 27
+	// EngineErrorFamilyEquinoctial identifies typed engine errors from equinoctial elements.
+	EngineErrorFamilyEquinoctial EngineErrorFamily = 28
+	// EngineErrorFamilyRtnFrame identifies typed engine errors from RTN frames.
+	EngineErrorFamilyRtnFrame EngineErrorFamily = 29
+	// EngineErrorFamilyAnomaly identifies typed engine errors from orbital anomaly conversion.
+	EngineErrorFamilyAnomaly EngineErrorFamily = 30
+	// EngineErrorFamilyPropagation identifies typed engine errors from orbit propagation.
+	EngineErrorFamilyPropagation EngineErrorFamily = 31
+	// EngineErrorFamilyDecay identifies typed engine errors from orbital decay.
+	EngineErrorFamilyDecay EngineErrorFamily = 32
+	// EngineErrorFamilyDgnss identifies typed engine errors from differential GNSS.
+	EngineErrorFamilyDgnss EngineErrorFamily = 33
+	// EngineErrorFamilyScenario identifies typed engine errors from scenario evaluation.
+	EngineErrorFamilyScenario EngineErrorFamily = 34
+	// EngineErrorFamilyCatalog identifies typed engine errors from catalog access.
+	EngineErrorFamilyCatalog EngineErrorFamily = 35
+	// EngineErrorFamilyExactCache identifies typed engine errors from exact-epoch caching.
+	EngineErrorFamilyExactCache EngineErrorFamily = 36
+	// EngineErrorFamilyTca identifies typed engine errors from time of closest approach.
+	EngineErrorFamilyTca EngineErrorFamily = 37
+	// EngineErrorFamilyAlmanac identifies typed engine errors from almanac data.
+	EngineErrorFamilyAlmanac EngineErrorFamily = 38
+	// EngineErrorFamilyObserve identifies typed engine errors from observation geometry.
+	EngineErrorFamilyObserve EngineErrorFamily = 39
+	// EngineErrorFamilyBodyObservation identifies typed engine errors from body observations.
+	EngineErrorFamilyBodyObservation EngineErrorFamily = 40
+	// EngineErrorFamilyLookAngle identifies typed engine errors from look-angle calculation.
+	EngineErrorFamilyLookAngle EngineErrorFamily = 41
+	// EngineErrorFamilyPass identifies typed engine errors from pass prediction.
+	EngineErrorFamilyPass EngineErrorFamily = 42
+	// EngineErrorFamilyEventFinder identifies typed engine errors from event finding.
+	EngineErrorFamilyEventFinder EngineErrorFamily = 43
+	// EngineErrorFamilyFrameTransform identifies typed engine errors from frame transforms.
+	EngineErrorFamilyFrameTransform EngineErrorFamily = 44
+	// EngineErrorFamilyConjunction identifies typed engine errors from conjunction analysis.
+	EngineErrorFamilyConjunction EngineErrorFamily = 45
+	// EngineErrorFamilyFacade identifies typed engine errors from high-level facade calls.
+	EngineErrorFamilyFacade EngineErrorFamily = 46
+	// EngineErrorFamilySpp identifies typed engine errors from single-point positioning.
+	EngineErrorFamilySpp EngineErrorFamily = 47
+	// EngineErrorFamilySppPolicy identifies typed engine errors from SPP policies.
+	EngineErrorFamilySppPolicy EngineErrorFamily = 48
+	// EngineErrorFamilySunMoon identifies typed engine errors from sun and moon ephemerides.
+	EngineErrorFamilySunMoon EngineErrorFamily = 49
+	// EngineErrorFamilyRinexSpp identifies typed engine errors from RINEX SPP.
+	EngineErrorFamilyRinexSpp EngineErrorFamily = 50
+	// EngineErrorFamilySolutionValidation identifies typed engine errors from solution validation.
 	EngineErrorFamilySolutionValidation EngineErrorFamily = 51
-	EngineErrorFamilyRF                 EngineErrorFamily = 52
-	EngineErrorFamilyIonosphereFree     EngineErrorFamily = 53
-	EngineErrorFamilyDoppler            EngineErrorFamily = 54
-	EngineErrorFamilyOEM                EngineErrorFamily = 55
-	EngineErrorFamilyOPM                EngineErrorFamily = 56
-	EngineErrorFamilyOMM                EngineErrorFamily = 57
-	EngineErrorFamilyDOP                EngineErrorFamily = 58
-	EngineErrorFamilyGeofence           EngineErrorFamily = 59
-	EngineErrorFamilySignal             EngineErrorFamily = 60
-	EngineErrorFamilyCarrierPhase       EngineErrorFamily = 61
-	EngineErrorFamilySignalAnalysis     EngineErrorFamily = 62
-	EngineErrorFamilyErrorMetrics       EngineErrorFamily = 63
-	EngineErrorFamilyObservables        EngineErrorFamily = 64
-	EngineErrorFamilyNMEA               EngineErrorFamily = 65
-	EngineErrorFamilyTLEFit             EngineErrorFamily = 66
-	EngineErrorFamilyIOD                EngineErrorFamily = 67
-	EngineErrorFamilySelection          EngineErrorFamily = 68
-	EngineErrorFamilyPppAutoInit        EngineErrorFamily = 69
-	EngineErrorFamilyStaticPositioning  EngineErrorFamily = 70
-	EngineErrorFamilyTimeOffset         EngineErrorFamily = 71
-	EngineErrorFamilyTimeModel          EngineErrorFamily = 72
-	EngineErrorFamilyUnknown            EngineErrorFamily = 999
+	// EngineErrorFamilyRF identifies typed engine errors from radio-frequency analysis.
+	EngineErrorFamilyRF EngineErrorFamily = 52
+	// EngineErrorFamilyIonosphereFree identifies typed engine errors from ionosphere-free combinations.
+	EngineErrorFamilyIonosphereFree EngineErrorFamily = 53
+	// EngineErrorFamilyDoppler identifies typed engine errors from Doppler analysis.
+	EngineErrorFamilyDoppler EngineErrorFamily = 54
+	// EngineErrorFamilyOEM identifies typed engine errors from OEM codecs.
+	EngineErrorFamilyOEM EngineErrorFamily = 55
+	// EngineErrorFamilyOPM identifies typed engine errors from OPM codecs.
+	EngineErrorFamilyOPM EngineErrorFamily = 56
+	// EngineErrorFamilyOMM identifies typed engine errors from OMM codecs.
+	EngineErrorFamilyOMM EngineErrorFamily = 57
+	// EngineErrorFamilyDOP identifies typed engine errors from DOP calculations.
+	EngineErrorFamilyDOP EngineErrorFamily = 58
+	// EngineErrorFamilyGeofence identifies typed engine errors from geofencing.
+	EngineErrorFamilyGeofence EngineErrorFamily = 59
+	// EngineErrorFamilySignal identifies typed engine errors from signal analysis.
+	EngineErrorFamilySignal EngineErrorFamily = 60
+	// EngineErrorFamilyCarrierPhase identifies typed engine errors from carrier-phase processing.
+	EngineErrorFamilyCarrierPhase EngineErrorFamily = 61
+	// EngineErrorFamilySignalAnalysis identifies typed engine errors from signal analysis.
+	EngineErrorFamilySignalAnalysis EngineErrorFamily = 62
+	// EngineErrorFamilyErrorMetrics identifies typed engine errors from error metrics.
+	EngineErrorFamilyErrorMetrics EngineErrorFamily = 63
+	// EngineErrorFamilyObservables identifies typed engine errors from observable processing.
+	EngineErrorFamilyObservables EngineErrorFamily = 64
+	// EngineErrorFamilyNMEA identifies typed engine errors from NMEA processing.
+	EngineErrorFamilyNMEA EngineErrorFamily = 65
+	// EngineErrorFamilyTLEFit identifies typed engine errors from TLE fitting.
+	EngineErrorFamilyTLEFit EngineErrorFamily = 66
+	// EngineErrorFamilyIOD identifies typed engine errors from initial orbit determination.
+	EngineErrorFamilyIOD EngineErrorFamily = 67
+	// EngineErrorFamilySelection identifies typed engine errors from selection policies.
+	EngineErrorFamilySelection EngineErrorFamily = 68
+	// EngineErrorFamilyPppAutoInit identifies typed engine errors from PPP auto-initialization.
+	EngineErrorFamilyPppAutoInit EngineErrorFamily = 69
+	// EngineErrorFamilyStaticPositioning identifies typed engine errors from static positioning.
+	EngineErrorFamilyStaticPositioning EngineErrorFamily = 70
+	// EngineErrorFamilyTimeOffset identifies typed engine errors from time-offset conversion.
+	EngineErrorFamilyTimeOffset EngineErrorFamily = 71
+	// EngineErrorFamilyTimeModel identifies typed engine errors from time models.
+	EngineErrorFamilyTimeModel EngineErrorFamily = 72
+	// EngineErrorFamilyUnknown identifies typed engine errors from an unrecognized engine subsystem.
+	EngineErrorFamilyUnknown EngineErrorFamily = 999
 )
 
+// Name returns the stable textual name of this engine error family.
 func (f EngineErrorFamily) Name() string {
 	return native.EngineErrorFamily(f).Name()
 }
 
+// String returns the stable textual name of this engine error family.
 func (f EngineErrorFamily) String() string {
 	return f.Name()
 }
 
+// EngineErrorFamilyFromName parses a stable engine-family name and returns the unknown value for unrecognized names.
 func EngineErrorFamilyFromName(name string) EngineErrorFamily {
 	return EngineErrorFamily(native.EngineErrorFamilyFromName(name))
 }
@@ -433,12 +638,18 @@ type EngineError struct {
 type EngineJSONKind = native.EngineJSONKind
 
 const (
-	EngineJSONNull    = native.EngineJSONNull
-	EngineJSONString  = native.EngineJSONString
-	EngineJSONNumber  = native.EngineJSONNumber
+	// EngineJSONNull identifies a JSON null value.
+	EngineJSONNull = native.EngineJSONNull
+	// EngineJSONString identifies a JSON string value.
+	EngineJSONString = native.EngineJSONString
+	// EngineJSONNumber identifies a JSON number value.
+	EngineJSONNumber = native.EngineJSONNumber
+	// EngineJSONBoolean identifies a JSON boolean value.
 	EngineJSONBoolean = native.EngineJSONBoolean
-	EngineJSONObject  = native.EngineJSONObject
-	EngineJSONArray   = native.EngineJSONArray
+	// EngineJSONObject identifies a JSON object value.
+	EngineJSONObject = native.EngineJSONObject
+	// EngineJSONArray identifies a JSON array value.
+	EngineJSONArray = native.EngineJSONArray
 )
 
 // EngineJSONValue is a recursively typed engine-error field. Number preserves
@@ -470,6 +681,7 @@ func publicEngineJSONValue(value native.EngineJSONValue) EngineJSONValue {
 	return value
 }
 
+// Error returns the EngineError message.
 func (e *EngineError) Error() string {
 	if e == nil {
 		return "sidereon: engine error"
@@ -494,6 +706,7 @@ func (e *EngineError) Error() string {
 	return msg
 }
 
+// Unwrap returns the underlying cause when one is retained.
 func (e *EngineError) Unwrap() error {
 	if e == nil {
 		return nil
@@ -614,9 +827,22 @@ func (e *StatusError) Unwrap() error {
 	if e.SP3 != nil {
 		details = append(details, e.SP3)
 	}
+	if e.ANTEX != nil {
+		details = append(details, e.ANTEX)
+	}
+	if e.DtedTile != nil {
+		details = append(details, e.DtedTile)
+	}
+	if e.Geoid != nil {
+		details = append(details, e.Geoid)
+	}
+	if e.PreciseArtifact != nil {
+		details = append(details, e.PreciseArtifact)
+	}
 	return errors.Join(details...)
 }
 
+// EngineError returns the typed engine error attached to the current thread-local native response.
 func (e *StatusError) EngineError() *EngineError {
 	if e == nil {
 		return nil
@@ -746,6 +972,10 @@ func publicError(err error) error {
 		if statusErr.Engine != nil {
 			result.Engine = publicEngineError(statusErr.Engine)
 		}
+		if statusErr.SGP4 != nil {
+			value := statusErr.SGP4
+			result.SGP4 = &SGP4Error{Kind: SGP4ErrorKind(value.Kind), HasCode: value.HasCode, Code: value.Code, HasBudget: value.HasBudget, Budget: value.Budget}
+		}
 		if statusErr.SP3 != nil {
 			value := statusErr.SP3
 			result.SP3 = &SP3Error{
@@ -793,6 +1023,18 @@ func publicError(err error) error {
 			value := *statusErr.TerrainLookup
 			result.TerrainLookup = &value
 		}
+		if statusErr.DtedTile != nil {
+			value := *statusErr.DtedTile
+			result.DtedTile = &value
+		}
+		if statusErr.Geoid != nil {
+			value := *statusErr.Geoid
+			result.Geoid = &value
+		}
+		if statusErr.PreciseArtifact != nil {
+			value := statusErr.PreciseArtifact
+			result.PreciseArtifact = &PreciseArtifactError{Kind: PreciseInterpolantArtifactError(value.Kind), Version: value.Version, Tag: value.Tag, FoundMagic: value.FoundMagic, Available: value.Available, Declared: value.Declared, Offset: value.Offset, Length: value.Length, ExpectedChecksum: value.ExpectedChecksum, FoundChecksum: value.FoundChecksum, ClaimedChecksum: value.ClaimedChecksum, DeclaredChecksum: value.DeclaredChecksum, HasSatellite: value.HasSatellite, Satellite: value.Satellite, Path: value.Path, Message: value.Message, Reason: value.Reason, Region: value.Region}
+		}
 		if statusErr.Bias != nil {
 			value := statusErr.Bias
 			result.Bias = &BiasError{
@@ -809,6 +1051,10 @@ func publicError(err error) error {
 		if statusErr.RTCM != nil {
 			value := statusErr.RTCM
 			result.RTCM = &RTCMError{Class: RTCMErrorClass(value.Class), Kind: value.Kind, Payload: append(json.RawMessage(nil), value.Payload...)}
+		}
+		if statusErr.ANTEX != nil {
+			value := statusErr.ANTEX
+			result.ANTEX = &ANTEXError{Kind: ANTEXErrorKind(value.Kind), HasAntennaID: value.HasAntennaID, HasRecord: value.HasRecord, HasField: value.HasField, HasValue: value.HasValue, HasFrequency: value.HasFrequency, HasReason: value.HasReason, HasSections: value.HasSections, Sections: value.Sections, AntennaID: value.AntennaID, Record: value.Record, Field: value.Field, Value: value.Value, Frequency: value.Frequency, Reason: value.Reason, Message: value.Message}
 		}
 		if statusErr.QualityKind != 0 {
 			message := result.Detail

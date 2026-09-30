@@ -19,8 +19,11 @@ func (b *BroadcastEphemeris) NavMessagePreference() (uint32, error) {
 type FDEWeightsMode uint32
 
 const (
+	// FDEWeightsSolution uses the estimator pseudorange variances to normalize residuals.
 	FDEWeightsSolution FDEWeightsMode = iota
+	// FDEWeightsUnit assigns unit weight to each residual.
 	FDEWeightsUnit
+	// FDEWeightsBySatellite uses the configured per-satellite residual weights.
 	FDEWeightsBySatellite
 )
 

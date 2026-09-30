@@ -106,6 +106,51 @@ func LoadTLE(line1, line2 string, opsmode uint32) (*TLE, error) {
 	return &TLE{handle: newPositioningHandle(unsafe.Pointer(pointer), releaseTLE)}, nil
 }
 
+func LoadTLEWithPolicy(line1, line2 string, opsmode, policy uint32) (*TLE, error) {
+	if err := rejectEmbeddedNUL(line1, "TLE line 1"); err != nil {
+		return nil, err
+	}
+	if err := rejectEmbeddedNUL(line2, "TLE line 2"); err != nil {
+		return nil, err
+	}
+	if opsmode != TLEOpsModeAFSPCValue && opsmode != TLEOpsModeImprovedValue {
+		return nil, invalidArgument("TLE operations mode is not defined by the C ABI")
+	}
+	if policy != TLEFilePolicyStrictValue && policy != TLEFilePolicyLenientValue {
+		return nil, invalidArgument("TLE checksum policy is not defined by the C ABI")
+	}
+	cLine1, err := copyNativeCString(line1, "TLE line 1")
+	if err != nil {
+		return nil, err
+	}
+	defer C.free(cLine1)
+	cLine2, err := copyNativeCString(line2, "TLE line 2")
+	if err != nil {
+		return nil, err
+	}
+	defer C.free(cLine2)
+	var pointer *C.SidereonTle
+	withCThread(func() {
+		err = sgp4StatusErrorLocked(C.sidereon_tle_load_with_policy((*C.char)(cLine1), (*C.char)(cLine2), C.uint32_t(opsmode), C.uint32_t(policy), &pointer))
+		if err != nil && pointer != nil {
+			releaseTLE(unsafe.Pointer(pointer))
+			pointer = nil
+		}
+	})
+	runtime.KeepAlive(line1)
+	runtime.KeepAlive(line2)
+	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_tle_free(pointer) })
+		}
+		return nil, err
+	}
+	if pointer == nil {
+		return nil, missingNativeHandle("TLE load with policy")
+	}
+	return &TLE{handle: newPositioningHandle(unsafe.Pointer(pointer), releaseTLE)}, nil
+}
+
 func ParseTLE(line1, line2 string) (*TLE, error) {
 	return LoadTLE(line1, line2, TLEOpsModeAFSPCValue)
 }
@@ -228,7 +273,7 @@ func (t *TLE) Propagate(times []time.Time) ([]TEMEState, error) {
 				(*C.SidereonTle)(pointer), &epochs[0], C.size_t(len(times)), &propagation,
 			)
 			if status != C.SIDEREON_STATUS_OK {
-				operationErr = statusErrorLocked(uint32(status))
+				operationErr = sgp4StatusErrorLocked(status)
 				if propagation != nil {
 					C.sidereon_tle_propagation_free(propagation)
 				}

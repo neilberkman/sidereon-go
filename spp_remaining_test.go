@@ -2,6 +2,7 @@ package sidereon
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"math"
 	"reflect"
@@ -13,6 +14,51 @@ import (
 func v2Fixture() SPPInputsV2 {
 	base := usedSPPConfig()
 	return SPPInputsV2{Base: base, Policy: SPPSolvePolicy{UseValidationOptions: false}}
+}
+
+func TestSPPV2BatchPreservesPerRowModelOptions(t *testing.T) {
+	sp3, err := LoadSP3(readPositioningFixture(t, "trimmed.sp3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeAfterTest(t, sp3)
+	inputs := []SPPInputsV2{v2Fixture(), v2Fixture()}
+	inputs[1].Models.TroposphereModel = TroposphereSaastamoinenNiell
+	validation, err := SolutionValidationOptionsInit()
+	if err != nil {
+		t.Fatal(err)
+	}
+	inputs[1].Policy = SPPSolvePolicy{UseValidationOptions: true, Validation: validation, CoarseSearchSeeds: 8}
+	batch, err := SolveSPPBatchV2Serial(sp3, inputs)
+	if err != nil {
+		t.Fatalf("V2 batch: %v", err)
+	}
+	closeAfterTest(t, batch)
+	count, err := batch.Count()
+	if err != nil || count != 2 {
+		t.Fatalf("batch count=%d err=%v", count, err)
+	}
+	for i, input := range inputs {
+		want, err := SolveSPPV2(sp3, input)
+		if err != nil {
+			t.Fatalf("individual row %d: %v", i, err)
+		}
+		got, err := batch.Solution(i)
+		if err != nil {
+			_ = want.Close()
+			t.Fatalf("batch row %d: %v", i, err)
+		}
+		wantValue, wantErr := want.Solution()
+		gotValue, gotErr := got.Solution()
+		_ = want.Close()
+		_ = got.Close()
+		if wantErr != nil || gotErr != nil {
+			t.Fatalf("row %d solutions: want=%v got=%v", i, wantErr, gotErr)
+		}
+		if wantValue.PositionM != gotValue.PositionM || wantValue.ReceiverClockS != gotValue.ReceiverClockS {
+			t.Fatalf("row %d batch result differs from matching individual V2 call: batch=%+v individual=%+v", i, gotValue, wantValue)
+		}
+	}
 }
 
 func TestSPPV2AndBatchFixture(t *testing.T) {
@@ -141,6 +187,27 @@ func TestSPPV2AndBatchFixture(t *testing.T) {
 	for _, id := range detached.UsedSatelliteIDs {
 		rows = append(rows, SPPDopplerObservation{SatelliteID: id, CarrierHz: 1575420000})
 	}
+	tooFew, err := SolveSPPWithDopplerVelocity(sp3, v2Fixture(), rows[:1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tooFew.HasVelocity || tooFew.VelocityErrorKind != SPPDopplerVelocityTooFewSatellites {
+		t.Fatalf("one-row Doppler result = %#v", tooFew)
+	}
+	velocityError := tooFew.VelocityError
+	if velocityError == nil || velocityError.Family != EngineErrorFamilyFacade || velocityError.Kind != "velocity" || velocityError.CaptureError != nil {
+		t.Fatalf("one-row Doppler retained error = %#v", velocityError)
+	}
+	var velocityPayload map[string]any
+	if err := json.Unmarshal(velocityError.Payload, &velocityPayload); err != nil {
+		t.Fatalf("one-row Doppler payload is invalid JSON: %v", err)
+	}
+	outerError, _ := velocityPayload["error"].(map[string]any)
+	outerFields, _ := outerError["fields"].(map[string]any)
+	cause, _ := outerFields["cause"].(map[string]any)
+	if cause["kind"] != "too_few_satellites" || len(velocityError.Payload) == 0 {
+		t.Fatalf("one-row Doppler nested cause not retained: payload=%s", velocityError.Payload)
+	}
 	withVelocity, err := SolveSPPWithDopplerVelocity(sp3, v2Fixture(), rows)
 	if err != nil {
 		t.Fatal(err)
@@ -194,6 +261,59 @@ func TestSPPV2AndBatchFixture(t *testing.T) {
 		if delta := math.Abs(velocity.ResidualsMPerS[i] - want); delta > 0.05 {
 			t.Fatalf("precise Doppler residual[%d] = %.12f m/s, reference %.12f (delta %.6g)", i, velocity.ResidualsMPerS[i], want, delta)
 		}
+	}
+}
+
+func TestSPPDopplerErrorPayloadRemainsOwned(t *testing.T) {
+	sp3, err := LoadSP3(readPositioningFixture(t, "trimmed.sp3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeAfterTest(t, sp3)
+
+	position, err := SolveSPPV2(sp3, v2Fixture())
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeAfterTest(t, position)
+	detached, err := position.Solution()
+	if err != nil || len(detached.UsedSatelliteIDs) < 4 {
+		t.Fatalf("position solution satellites = %v, %v", detached.UsedSatelliteIDs, err)
+	}
+	result, err := SolveSPPWithDopplerVelocity(sp3, v2Fixture(), []SPPDopplerObservation{{SatelliteID: detached.UsedSatelliteIDs[0], CarrierHz: 1575420000}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.HasVelocity || result.VelocityErrorKind != SPPDopplerVelocityTooFewSatellites {
+		t.Fatalf("one-row Doppler status = kind %d, has_velocity %v", result.VelocityErrorKind, result.HasVelocity)
+	}
+	engineError := result.VelocityError
+	if engineError == nil || engineError.Family != EngineErrorFamilyFacade || engineError.Kind != "velocity" || engineError.CaptureError != nil {
+		t.Fatalf("Doppler engine error = %#v", engineError)
+	}
+	payload := append([]byte(nil), engineError.Payload...)
+	var decoded map[string]any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("Doppler payload JSON: %v", err)
+	}
+	if decoded["schema_version"] != float64(1) {
+		t.Fatalf("Doppler payload schema = %v, want 1", decoded["schema_version"])
+	}
+	outerError, _ := decoded["error"].(map[string]any)
+	outerFields, _ := outerError["fields"].(map[string]any)
+	cause, _ := outerFields["cause"].(map[string]any)
+	causeFields, _ := cause["fields"].(map[string]any)
+	if cause["kind"] != "too_few_satellites" || causeFields["used"] != float64(1) || causeFields["required"] != float64(4) {
+		t.Fatalf("Doppler nested refusal = %v, want too_few_satellites {used:1, required:4}", cause)
+	}
+	if _, err := DayOfYear(2024, 2, 29, 12, 0, 0); err != nil {
+		t.Fatalf("successful native call after Doppler error: %v", err)
+	}
+	if err := sp3.Close(); err != nil {
+		t.Fatalf("close source after capture: %v", err)
+	}
+	if !bytes.Equal(engineError.Payload, payload) {
+		t.Fatal("owned Doppler error payload changed after later native call and source close")
 	}
 }
 

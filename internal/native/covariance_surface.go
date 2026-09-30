@@ -67,6 +67,14 @@ func PropagationConfigDefault() (NativePropagationConfig, error) {
 	return NativePropagationConfig{Epoch: float64(c.epoch_s), Position: p, Velocity: v, ForceModel: uint32(c.force_model), Integrator: uint32(c.integrator), AbsTol: float64(c.abs_tol), RelTol: float64(c.rel_tol), InitialStep: float64(c.initial_step_s), MinStep: float64(c.min_step_s), MaxStep: float64(c.max_step_s), MaxSteps: uint32(c.max_steps), MuEnabled: bool(c.mu_km3_s2_enabled), Mu: float64(c.mu_km3_s2), HasDrag: bool(c.has_drag), Drag: dragParametersFromC(c.drag), ForceComponents: forceModelComponentsFromC(c.force_components)}, err
 }
 func PropagateCovariance(config NativePropagationConfig, covariance [6][6]float64, epochs []float64, inputFrame, outputFrame uint32, noise NativeProcessNoise) (*CovarianceEphemeris, error) {
+	return propagateCovariance(config, covariance, epochs, inputFrame, outputFrame, noise, nil)
+}
+
+func PropagateCovarianceWithTideSystem(config NativePropagationConfig, covariance [6][6]float64, epochs []float64, inputFrame, outputFrame uint32, noise NativeProcessNoise, tideSystem uint32) (*CovarianceEphemeris, error) {
+	return propagateCovariance(config, covariance, epochs, inputFrame, outputFrame, noise, &tideSystem)
+}
+
+func propagateCovariance(config NativePropagationConfig, covariance [6][6]float64, epochs []float64, inputFrame, outputFrame uint32, noise NativeProcessNoise, tideSystem *uint32) (*CovarianceEphemeris, error) {
 	if len(epochs) == 0 {
 		return nil, errors.New("sidereon: covariance epoch list must not be empty")
 	}
@@ -80,7 +88,10 @@ func PropagateCovariance(config NativePropagationConfig, covariance [6][6]float6
 	base := covarianceToC(covariance)
 	var out *C.SidereonCovarianceEphemeris
 	err = callStatus(func() uint32 {
-		return uint32(C.sidereon_propagate_covariance(&c, &base, (*C.double)(p), epochLength, co, &out))
+		if tideSystem == nil {
+			return uint32(C.sidereon_propagate_covariance(&c, &base, (*C.double)(p), epochLength, co, &out))
+		}
+		return uint32(C.sidereon_propagate_covariance_with_tide_system(&c, C.uint32_t(*tideSystem), &base, (*C.double)(p), epochLength, co, &out))
 	})
 	if err != nil {
 		return nil, err

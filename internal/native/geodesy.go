@@ -225,8 +225,8 @@ func geoidPointSlice(points []GeoidPoint) ([]C.SidereonGeoidPoint, error) {
 
 func geoidGridFromBytes(data []byte, fn func(*C.uint8_t, C.size_t, **C.SidereonGeoidGrid) uint32) (*GeoidGrid, error) {
 	var pointer *C.SidereonGeoidGrid
-	operationErr := withInput(data, func(input *C.uint8_t, length C.size_t) uint32 {
-		return fn(input, length, &pointer)
+	operationErr := withInputError(data, func(input *C.uint8_t, length C.size_t) error {
+		return statusGeoidErrorLocked(fn(input, length, &pointer))
 	})
 	if operationErr != nil {
 		if pointer != nil {
@@ -297,12 +297,8 @@ func NewGeoidGrid(latMinDeg, lonMinDeg, dLatDeg, dLonDeg float64, nLat, nLon int
 	if err != nil {
 		return nil, err
 	}
-	valueCount, err := checkedProduct(nLat, nLon, "geoid grid dimensions")
-	if err != nil {
+	if _, err := checkedProduct(nLat, nLon, "geoid grid dimensions"); err != nil {
 		return nil, err
-	}
-	if valueCount != len(values) {
-		return nil, errors.New("sidereon: geoid grid value count does not match dimensions")
 	}
 	if _, err := checkedNativeAllocationSize(len(values), unsafe.Sizeof(C.double(0))); err != nil {
 		return nil, err
@@ -318,7 +314,7 @@ func NewGeoidGrid(latMinDeg, lonMinDeg, dLatDeg, dLonDeg float64, nLat, nLon int
 		if len(cValues) != 0 {
 			input = &cValues[0]
 		}
-		operationErr = statusErrorLocked(C.sidereon_geoid_grid_new(
+		operationErr = statusGeoidErrorLocked(C.sidereon_geoid_grid_new(
 			C.double(latMinDeg), C.double(lonMinDeg), C.double(dLatDeg), C.double(dLonDeg),
 			latCount, lonCount, input, C.size_t(len(cValues)), &pointer,
 		))

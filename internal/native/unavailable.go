@@ -8,18 +8,32 @@ import "errors"
 // sidereon_linux_glibc or sidereon_linux_musl. Use sidereon_use_system_lib
 // with CGO_LDFLAGS when linking a system installation.
 var ErrClosed = errors.New("sidereon: handle is closed")
+var ErrUnavailable = errors.New("sidereon: native backend is unavailable on this target")
+
+type SGP4ErrorInfo struct {
+	Kind      uint32
+	HasCode   bool
+	Code      int32
+	HasBudget bool
+	Budget    uint64
+}
 
 type StatusError struct {
-	Code          int
-	Text          string
-	Detail        string
-	Engine        *EngineError
-	SP3           *SP3Error
-	TerrainDatum  *TerrainDatumError
-	TerrainStore  *TerrainStoreError
-	TerrainLookup *TerrainLookupError
-	Bias          *BiasError
-	RTCM          *RTCMError
+	Code            int
+	Text            string
+	Detail          string
+	Engine          *EngineError
+	SP3             *SP3Error
+	TerrainDatum    *TerrainDatumError
+	TerrainStore    *TerrainStoreError
+	TerrainLookup   *TerrainLookupError
+	Bias            *BiasError
+	RTCM            *RTCMError
+	ANTEX           *AntexError
+	DtedTile        *DtedTileError
+	Geoid           *GeoidError
+	PreciseArtifact *PreciseArtifactError
+	SGP4            *SGP4ErrorInfo
 }
 
 type SelectionError struct {
@@ -66,6 +80,18 @@ func (e *StatusError) Unwrap() error {
 	}
 	if e.RTCM != nil {
 		details = append(details, e.RTCM)
+	}
+	if e.ANTEX != nil {
+		details = append(details, e.ANTEX)
+	}
+	if e.DtedTile != nil {
+		details = append(details, e.DtedTile)
+	}
+	if e.Geoid != nil {
+		details = append(details, e.Geoid)
+	}
+	if e.PreciseArtifact != nil {
+		details = append(details, e.PreciseArtifact)
 	}
 	return errors.Join(details...)
 }

@@ -548,6 +548,26 @@ func SolveSPPBatchSerial(sp3 *SP3, inputs []SPPInputsV2, withGeodetic bool, poli
 	return &SPPBatch{handle: v}, nil
 }
 
+// SolveSPPBatchV2Serial solves rows serially while preserving all per-row V2 controls.
+func SolveSPPBatchV2Serial(sp3 *SP3, inputs []SPPInputsV2) (*SPPBatch, error) {
+	if sp3 == nil || sp3.handle == nil {
+		return nil, ErrClosed
+	}
+	values := make([]native.SppInputsV2, len(inputs))
+	for i, x := range inputs {
+		value, err := nativeSppV2(x)
+		if err != nil {
+			return nil, publicError(err)
+		}
+		values[i] = value
+	}
+	v, err := native.SolveSPPBatchV2Serial(sp3.handle, values)
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return &SPPBatch{handle: v}, nil
+}
+
 // SolveSPPBatchParallel solves SPP epochs in native parallel mode.
 func SolveSPPBatchParallel(sp3 *SP3, inputs []SPPInputsV2, withGeodetic bool, policy SPPSolvePolicy) (*SPPBatch, error) {
 	if sp3 == nil || sp3.handle == nil {
@@ -589,7 +609,7 @@ func SolveSPPWithDopplerVelocity(sp3 *SP3, input SPPInputsV2, rows []SPPDopplerO
 	if e != nil {
 		return SPPDopplerSolution{}, publicError(e)
 	}
-	out := SPPDopplerSolution{Receiver: publicSPPSolution(v.Receiver), HasVelocity: v.HasVelocity, VelocityErrorKind: SPPDopplerVelocityErrorKind(v.VelocityErrorKind)}
+	out := SPPDopplerSolution{Receiver: publicSPPSolution(v.Receiver), HasVelocity: v.HasVelocity, VelocityErrorKind: SPPDopplerVelocityErrorKind(v.VelocityErrorKind), VelocityError: publicEngineError(v.VelocityError)}
 	if v.Velocity != nil {
 		out.Velocity = &SPPDopplerVelocitySolution{VelocityMPerS: v.Velocity.VelocityMPerS, ClockDriftSPerS: v.Velocity.ClockDriftSPerS, SpeedMPerS: v.Velocity.SpeedMPerS, StateCovariance: v.Velocity.StateCovariance, UsedSatelliteCount: v.Velocity.UsedSatelliteCount, UsedSatelliteIDs: append([]string(nil), v.Velocity.UsedSatelliteIDs...), ResidualsMPerS: append([]float64(nil), v.Velocity.ResidualsMPerS...)}
 	}

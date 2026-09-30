@@ -32,9 +32,9 @@ type fdeDiagnosticCapture struct {
 }
 
 type fdeSuccessDiagnostic struct {
-	Solution       SPPSolution            `json:"solution"`
-	Diagnostics    FDEDiagnostics         `json:"diagnostics"`
-	AcceptedRAIM   RAIMResult             `json:"accepted_raim"`
+	Solution       SPPSolution              `json:"solution"`
+	Diagnostics    FDEDiagnostics           `json:"diagnostics"`
+	AcceptedRAIM   RAIMResult               `json:"accepted_raim"`
 	NormalizedRows []RAIMNormalizedResidual `json:"normalized_rows"`
 }
 

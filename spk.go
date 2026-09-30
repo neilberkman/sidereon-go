@@ -52,6 +52,16 @@ func (s *SPK) State(target, center int32, etSecondsTDB float64) (SPKState, error
 	return SPKState{Target: value.Target, Center: value.Center, PositionKm: value.PositionKm, HasVelocity: value.HasVelocity, HasVelocityKmPerS: value.HasVelocityKmPerS, VelocityKmPerS: value.VelocityKmPerS, Frame: value.Frame}, publicError(err)
 }
 
+// StateInFrame evaluates the target-center state in the requested NAIF frame.
+// Rotations are supported between the NAIF inertial frames 1 through 21.
+func (s *SPK) StateInFrame(target, center int32, etSecondsTDB float64, frame int32) (SPKState, error) {
+	if s == nil || s.handle == nil {
+		return SPKState{}, ErrClosed
+	}
+	value, err := s.handle.StateInFrame(target, center, etSecondsTDB, frame)
+	return SPKState{Target: value.Target, Center: value.Center, PositionKm: value.PositionKm, HasVelocity: value.HasVelocity, HasVelocityKmPerS: value.HasVelocityKmPerS, VelocityKmPerS: value.VelocityKmPerS, Frame: int32(value.Frame)}, publicError(err)
+}
+
 // PositionKm and VelocityKmPerS are target-center state vectors in km and km/s.
 // HasVelocity and HasVelocityKmPerS report optional velocity presence.
 // Frame is the native reference-frame identifier.

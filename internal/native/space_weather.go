@@ -87,6 +87,7 @@ type SpaceWeatherSample struct {
 }
 
 type SpaceWeatherPolicy struct {
+	AllowNotObserved      bool
 	AllowInterpolated     bool
 	AllowDailyPredicted   bool
 	AllowMonthlyPredicted bool
@@ -107,6 +108,22 @@ type SpaceWeatherTable struct {
 
 func spaceWeatherFromC(value C.SidereonSpaceWeather) SpaceWeather {
 	return SpaceWeather{F107: float64(value.f107), F107A: float64(value.f107a), Ap: float64(value.ap)}
+}
+
+func spaceWeatherPolicyFromC(value C.SidereonSpaceWeatherPolicy) SpaceWeatherPolicy {
+	return SpaceWeatherPolicy{AllowNotObserved: bool(value.allow_not_observed), AllowInterpolated: bool(value.allow_interpolated), AllowDailyPredicted: bool(value.allow_daily_predicted), AllowMonthlyPredicted: bool(value.allow_monthly_predicted), RequireGeomagnetic: bool(value.require_geomagnetic)}
+}
+
+func DefaultSpaceWeatherPolicy() (SpaceWeatherPolicy, error) {
+	var output C.SidereonSpaceWeatherPolicy
+	err := callStatus(func() uint32 { return C.sidereon_space_weather_policy_default(&output) })
+	return spaceWeatherPolicyFromC(output), err
+}
+
+func LenientSpaceWeatherPolicy() (SpaceWeatherPolicy, error) {
+	var output C.SidereonSpaceWeatherPolicy
+	err := callStatus(func() uint32 { return C.sidereon_space_weather_policy_lenient(&output) })
+	return spaceWeatherPolicyFromC(output), err
 }
 
 func DefaultSpaceWeather() (SpaceWeather, error) {
@@ -391,7 +408,7 @@ func (t *SpaceWeatherTable) SampleAtWithPolicy(epochJ2000S float64, policy Space
 	if t == nil || t.handle == nil {
 		return SpaceWeatherSample{}, ErrClosed
 	}
-	cPolicy := C.SidereonSpaceWeatherPolicy{allow_interpolated: C.bool(policy.AllowInterpolated), allow_daily_predicted: C.bool(policy.AllowDailyPredicted), allow_monthly_predicted: C.bool(policy.AllowMonthlyPredicted), require_geomagnetic: C.bool(policy.RequireGeomagnetic)}
+	cPolicy := C.SidereonSpaceWeatherPolicy{allow_not_observed: C.bool(policy.AllowNotObserved), allow_interpolated: C.bool(policy.AllowInterpolated), allow_daily_predicted: C.bool(policy.AllowDailyPredicted), allow_monthly_predicted: C.bool(policy.AllowMonthlyPredicted), require_geomagnetic: C.bool(policy.RequireGeomagnetic)}
 	var output C.SidereonSpaceWeatherSample
 	err := t.handle.with(func(pointer unsafe.Pointer) error {
 		return callStatus(func() uint32 {

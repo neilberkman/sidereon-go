@@ -2,6 +2,36 @@ package sidereon
 
 import "sidereon.dev/go/v3/internal/native"
 
+// RTKRINEXReceiver identifies the receiver file containing an unresolved measurement.
+type RTKRINEXReceiver uint32
+
+const (
+	// RTKRINEXReceiverBase identifies the base receiver's observation file.
+	RTKRINEXReceiverBase RTKRINEXReceiver = 0
+	// RTKRINEXReceiverRover identifies the rover receiver's observation file.
+	RTKRINEXReceiverRover RTKRINEXReceiver = 1
+)
+
+// RTKRINEXUnresolvedCarrier identifies a phase measurement omitted because its frequency was unavailable.
+type RTKRINEXUnresolvedCarrier struct {
+	// Receiver identifies the input observation file holding the measurement.
+	Receiver RTKRINEXReceiver
+	// EpochIndex is the zero-based epoch index in that receiver's file.
+	EpochIndex int
+	// SatelliteID identifies the satellite whose measurement was omitted.
+	SatelliteID string
+	// ObservableCode is the configured phase observable without a carrier frequency.
+	ObservableCode string
+}
+
+func publicRtkUnresolvedCarriers(values []native.RtkRinexUnresolvedCarrier) []RTKRINEXUnresolvedCarrier {
+	result := make([]RTKRINEXUnresolvedCarrier, len(values))
+	for index, value := range values {
+		result[index] = RTKRINEXUnresolvedCarrier{Receiver: RTKRINEXReceiver(value.Receiver), EpochIndex: value.EpochIndex, SatelliteID: value.SatelliteID, ObservableCode: value.ObservableCode}
+	}
+	return result
+}
+
 // RTKRINEXSignalPair selects one RINEX code and carrier observable for a GNSS
 // system in a single-frequency RTK arc.
 type RTKRINEXSignalPair struct {
@@ -291,6 +321,18 @@ func (a *RTKRINEXArc) SkippedEpochCount() (int, error) {
 	return value, publicError(err)
 }
 
+// UnresolvedCarriers returns measurements omitted because their carrier frequency was unavailable.
+func (a *RTKRINEXArc) UnresolvedCarriers() ([]RTKRINEXUnresolvedCarrier, error) {
+	if a == nil || a.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := a.handle.UnresolvedCarriers()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return publicRtkUnresolvedCarriers(values), nil
+}
+
 // EpochBaseObservations returns detached base-station observations for one epoch.
 func (a *RTKRINEXArc) EpochBaseObservations(index int) ([]RTKRINEXArcObservation, error) {
 	if a == nil || a.handle == nil {
@@ -427,6 +469,18 @@ func (a *RTKRINEXDualFrequencyArc) SkippedEpochCount() (int, error) {
 	}
 	value, err := a.handle.SkippedEpochCount()
 	return value, publicError(err)
+}
+
+// UnresolvedCarriers returns measurements omitted because either carrier frequency was unavailable.
+func (a *RTKRINEXDualFrequencyArc) UnresolvedCarriers() ([]RTKRINEXUnresolvedCarrier, error) {
+	if a == nil || a.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := a.handle.UnresolvedCarriers()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return publicRtkUnresolvedCarriers(values), nil
 }
 
 // EpochMetadata returns timing, gap, and row-count metadata for one dual-frequency epoch.

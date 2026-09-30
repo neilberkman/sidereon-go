@@ -10,11 +10,17 @@ import (
 type SP3AccuracyValueKind uint32
 
 const (
+	// SP3AccuracyKnown means the decoded accuracy value is within the supported limit.
 	SP3AccuracyKnown SP3AccuracyValueKind = iota
+	// SP3AccuracyUnknown means the record does not provide a usable accuracy value.
 	SP3AccuracyUnknown
+	// SP3AccuracyTooLarge means the accuracy exponent exceeds the supported limit.
 	SP3AccuracyTooLarge
+	// SP3AccuracyInvalidBase means the accuracy base is invalid.
 	SP3AccuracyInvalidBase
+	// SP3AccuracyOverflow means decoding overflowed the numeric range.
 	SP3AccuracyOverflow
+	// SP3AccuracyOther preserves another native accuracy status.
 	SP3AccuracyOther
 )
 
@@ -82,15 +88,25 @@ type PreciseEphemerisAccuracySample struct {
 type PreciseSamplesErrorKind uint32
 
 const (
+	// PreciseSamplesErrorNone means sample validation succeeded.
 	PreciseSamplesErrorNone PreciseSamplesErrorKind = iota
+	// PreciseSamplesErrorEmpty means no precise samples were supplied.
 	PreciseSamplesErrorEmpty
+	// PreciseSamplesErrorSingleSampleSatellite means a satellite has only one sample.
 	PreciseSamplesErrorSingleSampleSatellite
+	// PreciseSamplesErrorNonMonotonicEpochs means sample epochs are not strictly increasing.
 	PreciseSamplesErrorNonMonotonicEpochs
+	// PreciseSamplesErrorMixedTimeScales means samples use incompatible time scales.
 	PreciseSamplesErrorMixedTimeScales
+	// PreciseSamplesErrorEpochNotRepresentable means an epoch cannot be represented by the exact time type.
 	PreciseSamplesErrorEpochNotRepresentable
+	// PreciseSamplesErrorNonFiniteSample means a sample contains a non-finite value.
 	PreciseSamplesErrorNonFiniteSample
+	// PreciseSamplesErrorAccuracySamplesMismatch means accuracy samples do not align with the ephemeris samples.
 	PreciseSamplesErrorAccuracySamplesMismatch
+	// PreciseSamplesErrorInvalidAccuracyValue means an accuracy value violates its encoding constraints.
 	PreciseSamplesErrorInvalidAccuracyValue
+	// PreciseSamplesErrorOther preserves another native sample-validation failure.
 	PreciseSamplesErrorOther
 )
 
@@ -102,6 +118,7 @@ type PreciseSamplesValidationError struct {
 	Cause        error
 }
 
+// Error returns the PreciseSamplesValidationError message.
 func (e *PreciseSamplesValidationError) Error() string {
 	if e == nil {
 		return "sidereon: precise sample validation failed"
@@ -115,6 +132,7 @@ func (e *PreciseSamplesValidationError) Error() string {
 	return fmt.Sprintf("sidereon: precise sample validation kind %d", e.Kind)
 }
 
+// Unwrap returns the underlying cause when one is retained.
 func (e *PreciseSamplesValidationError) Unwrap() error {
 	if e == nil {
 		return nil
@@ -364,6 +382,7 @@ type SSRCorrectedState struct {
 	FirstAppliedEpochJ2000S float64
 }
 
+// CorrectedStateAtEpochQueries evaluates corrected states for the supplied exact epoch queries.
 func (s *SSRCorrectionStore) CorrectedStateAtEpochQueries(broadcast *BroadcastEphemeris, satellite string, stateEpoch, selectionEpoch *ExactEpochQuery, stalenessSeconds float64, missing SSRMissingCorrectionAction, allowRegionalProvider bool, regionalProviderID uint16, sizePolicy SSRCorrectionSizePolicy) (SSRCorrectedState, error) {
 	if s == nil || s.handle == nil || broadcast == nil || broadcast.handle == nil || stateEpoch == nil || stateEpoch.handle == nil || selectionEpoch == nil || selectionEpoch.handle == nil {
 		return SSRCorrectedState{}, ErrClosed

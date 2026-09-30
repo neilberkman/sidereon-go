@@ -16,6 +16,34 @@ import (
 	"unsafe"
 )
 
+type SGP4ErrorInfo struct {
+	Kind      uint32
+	HasCode   bool
+	Code      int32
+	HasBudget bool
+	Budget    uint64
+}
+
+func sgp4StatusErrorLocked(status C.enum_SidereonStatus) error {
+	err := statusErrorLocked(uint32(status))
+	if err == nil {
+		return nil
+	}
+	statusErr, ok := err.(*StatusError)
+	if !ok {
+		return err
+	}
+	var info C.SidereonSgp4ErrorInfo
+	infoStatus := C.sidereon_sgp4_last_error_info(&info)
+	if infoStatus != C.SIDEREON_STATUS_OK {
+		return errors.Join(statusErr, statusErrorLocked(uint32(infoStatus)))
+	}
+	if info.kind != C.SIDEREON_SGP4_ERROR_KIND_NONE {
+		statusErr.SGP4 = &SGP4ErrorInfo{Kind: uint32(info.kind), HasCode: bool(info.has_code), Code: int32(info.code), HasBudget: bool(info.has_budget), Budget: uint64(info.budget)}
+	}
+	return statusErr
+}
+
 type TLEChecksumWarning struct {
 	LineNumber uint8
 	Kind       uint32
@@ -71,9 +99,38 @@ func releaseDecayLatch(pointer unsafe.Pointer) {
 	C.sidereon_sgp4_decay_latch_free((*C.SidereonSgp4DecayLatch)(pointer))
 }
 
+const (
+	// TLEFilePolicyStrictValue selects strict checksum handling.
+	TLEFilePolicyStrictValue uint32 = 0
+	// TLEFilePolicyLenientValue accepts checksum mismatches and missing digits.
+	TLEFilePolicyLenientValue uint32 = 1
+	// TLERecordIssueInvalidValue indicates an invalid element set.
+	TLERecordIssueInvalidValue uint32 = 0
+	// TLERecordIssueMissingLine2Value indicates a line 1 without its pair.
+	TLERecordIssueMissingLine2Value uint32 = 1
+	// TLERecordIssueOrphanLine2Value indicates a line 2 without its pair.
+	TLERecordIssueOrphanLine2Value uint32 = 2
+	// TLERecordIssueOrphanNameValue indicates a name without an element set.
+	TLERecordIssueOrphanNameValue uint32 = 3
+)
+
+// NativeTLERejectedRecord is a detached native TLE-file rejection snapshot.
+type NativeTLERejectedRecord struct {
+	LineNumber  int
+	Issue       uint32
+	Name, Error string
+}
+
 func ParseTLEFile(text []byte, opsmode uint32) (*TLEFile, error) {
+	return ParseTLEFileWithPolicy(text, opsmode, TLEFilePolicyStrictValue)
+}
+
+func ParseTLEFileWithPolicy(text []byte, opsmode, policy uint32) (*TLEFile, error) {
 	if err := validOpsMode(opsmode); err != nil {
 		return nil, err
+	}
+	if policy > TLEFilePolicyLenientValue {
+		return nil, invalidArgument("TLE file policy is not defined by the C ABI")
 	}
 	if _, err := checkedNativeSize(len(text)); err != nil {
 		return nil, err
@@ -89,7 +146,7 @@ func ParseTLEFile(text []byte, opsmode uint32) (*TLEFile, error) {
 	}
 	var out *C.SidereonTleFile
 	err := callStatus(func() uint32 {
-		return C.sidereon_parse_tle_file((*C.uint8_t)(ptr), C.size_t(len(data)), C.uint32_t(opsmode), &out)
+		return C.sidereon_parse_tle_file_with_policy((*C.uint8_t)(ptr), C.size_t(len(data)), C.uint32_t(opsmode), C.uint32_t(policy), &out)
 	})
 	if err != nil {
 		if out != nil {
@@ -108,6 +165,35 @@ func (f *TLEFile) Close() error {
 	}
 	return f.handle.close()
 }
+func (f *TLEFile) LineNumber(index int) (int, error) {
+	if f == nil || f.handle == nil {
+		return 0, ErrClosed
+	}
+	if index < 0 {
+		return 0, invalidArgument("TLE file index must not be negative")
+	}
+	if _, err := checkedNativeSize(index); err != nil {
+		return 0, err
+	}
+	var result int
+	err := f.handle.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var line C.size_t
+			if err := statusErrorLocked(uint32(C.sidereon_tle_file_line_number((*C.SidereonTleFile)(pointer), C.size_t(index), &line))); err != nil {
+				return err
+			}
+			value, err := checkedNativeCount(uint64(line))
+			if err != nil {
+				return err
+			}
+			result = value
+			return nil
+		})
+	})
+	runtime.KeepAlive(f)
+	return result, err
+}
+
 func (f *TLEFile) count(which bool) (int, error) {
 	if f == nil || f.handle == nil {
 		return 0, ErrClosed
@@ -172,6 +258,81 @@ func (f *TLEFile) Name(index int) (string, error) {
 	})
 	return result, err
 }
+func (f *TLEFile) Rejected(index int) (NativeTLERejectedRecord, error) {
+	if f == nil || f.handle == nil {
+		return NativeTLERejectedRecord{}, ErrClosed
+	}
+	if index < 0 {
+		return NativeTLERejectedRecord{}, invalidArgument("TLE rejected-record index must not be negative")
+	}
+	if _, err := checkedNativeSize(index); err != nil {
+		return NativeTLERejectedRecord{}, err
+	}
+	var result NativeTLERejectedRecord
+	err := f.handle.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var value C.SidereonTleRejectedRecord
+			if err := statusErrorLocked(uint32(C.sidereon_tle_file_rejected((*C.SidereonTleFile)(pointer), C.size_t(index), &value))); err != nil {
+				return err
+			}
+			lineNumber, countErr := checkedNativeCount(uint64(value.line_number))
+			if countErr != nil {
+				return countErr
+			}
+			result.LineNumber = lineNumber
+			result.Issue = uint32(value.issue)
+			copyPart := func(name bool) (string, error) {
+				var written, required C.size_t
+				call := func(out *C.uint8_t, length C.size_t) C.enum_SidereonStatus {
+					if name {
+						return C.sidereon_tle_file_rejected_name((*C.SidereonTleFile)(pointer), C.size_t(index), out, length, &written, &required)
+					}
+					return C.sidereon_tle_file_rejected_error((*C.SidereonTleFile)(pointer), C.size_t(index), out, length, &written, &required)
+				}
+				if err := statusErrorLocked(uint32(call(nil, 0))); err != nil {
+					return "", err
+				}
+				count, err := validateNativeQuery("TLE rejected-record text", uint64(written), uint64(required))
+				if err != nil {
+					return "", err
+				}
+				if _, err := checkedNativeAllocationSize(count, 1); err != nil {
+					return "", err
+				}
+				var buffer unsafe.Pointer
+				if count > 0 {
+					buffer = C.malloc(C.size_t(count))
+					if buffer == nil {
+						return "", errors.New("sidereon: unable to allocate TLE rejected-record text")
+					}
+					defer C.free(buffer)
+				}
+				written, required = 0, 0
+				if err := statusErrorLocked(uint32(call((*C.uint8_t)(buffer), C.size_t(count)))); err != nil {
+					return "", err
+				}
+				n, err := validateTwoPassCounts("TLE rejected-record text", count, count, uint64(written), uint64(required))
+				if err != nil {
+					return "", err
+				}
+				if n == 0 {
+					return "", nil
+				}
+				return string(unsafe.Slice((*byte)(buffer), n)), nil
+			}
+			var err error
+			result.Name, err = copyPart(true)
+			if err != nil {
+				return err
+			}
+			result.Error, err = copyPart(false)
+			return err
+		})
+	})
+	runtime.KeepAlive(f)
+	return result, err
+}
+
 func (f *TLEFile) Satellite(index int) (*TLE, error) {
 	if f == nil || f.handle == nil {
 		return nil, ErrClosed
@@ -618,9 +779,11 @@ func (t *TLE) PropagateWithDecayLatch(minutes float64, latch *SGP4DecayLatch) (T
 	var out C.SidereonTemeState
 	err := t.handle.with(func(tlePointer unsafe.Pointer) error {
 		return latch.handle.withExclusive(func(latchPointer unsafe.Pointer) error {
-			return callStatus(func() uint32 {
-				return C.sidereon_tle_propagate_with_decay_latch((*C.SidereonTle)(tlePointer), C.double(minutes), (*C.SidereonSgp4DecayLatch)(latchPointer), &out)
+			var operationErr error
+			withCThread(func() {
+				operationErr = sgp4StatusErrorLocked(C.sidereon_tle_propagate_with_decay_latch((*C.SidereonTle)(tlePointer), C.double(minutes), (*C.SidereonSgp4DecayLatch)(latchPointer), &out))
 			})
+			return operationErr
 		})
 	})
 	return TEMEState{PositionKm: vectorsFromC(out.position_km), VelocityKmPerS: vectorsFromC(out.velocity_km_s)}, err

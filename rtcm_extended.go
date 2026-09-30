@@ -244,6 +244,7 @@ type RTCMUnsupportedBody struct {
 	Body          []byte
 }
 
+// TrailingBits returns the decoded typed payload for this RTCM message; it reports an error when the message type differs.
 func (m *RTCMMessages) TrailingBits(index int) (RTCMTrailingBits, error) {
 	if m == nil || m.handle == nil {
 		return nil, ErrClosed
@@ -252,6 +253,7 @@ func (m *RTCMMessages) TrailingBits(index int) (RTCMTrailingBits, error) {
 	return RTCMTrailingBits(v), publicError(err)
 }
 
+// UnsupportedBody returns the decoded typed payload for this RTCM message; it reports an error when the message type differs.
 func (m *RTCMMessages) UnsupportedBody(index int) (RTCMUnsupportedBody, error) {
 	if m == nil || m.handle == nil {
 		return RTCMUnsupportedBody{}, ErrClosed
@@ -264,6 +266,7 @@ func (m *RTCMMessages) UnsupportedBody(index int) (RTCMUnsupportedBody, error) {
 	return RTCMUnsupportedBody{MessageNumber: info.MessageNumber, Body: append([]byte(nil), body...)}, publicError(err)
 }
 
+// BuildRTCMUnsupported encodes the supplied typed payload as an RTCM message and validates its field ranges.
 func BuildRTCMUnsupported(value RTCMUnsupportedBody) (*RTCMMessages, error) {
 	h, err := native.BuildRTCMUnsupported(value.MessageNumber, value.Body)
 	if err != nil {
@@ -272,6 +275,7 @@ func BuildRTCMUnsupported(value RTCMUnsupportedBody) (*RTCMMessages, error) {
 	return &RTCMMessages{handle: h}, nil
 }
 
+// WithTrailingBits returns a new message collection with the selected message’s trailing bits replaced.
 func (m *RTCMMessages) WithTrailingBits(index int, bits RTCMTrailingBits) (*RTCMMessages, error) {
 	if m == nil || m.handle == nil {
 		return nil, ErrClosed
@@ -283,6 +287,7 @@ func (m *RTCMMessages) WithTrailingBits(index int, bits RTCMTrailingBits) (*RTCM
 	return &RTCMMessages{handle: h}, nil
 }
 
+// SSRInfoV2 returns the decoded typed payload for this RTCM message; it reports an error when the message type differs.
 func (m *RTCMMessages) SSRInfoV2(index int) (RTCMSSRInfoV2, error) {
 	if m == nil || m.handle == nil {
 		return RTCMSSRInfoV2{}, ErrClosed
@@ -298,6 +303,7 @@ func (m *RTCMMessages) SSRInfoV2(index int) (RTCMSSRInfoV2, error) {
 	return RTCMSSRInfoV2{MessageNumber: v.MessageNumber, System: GNSSSystem(v.System), Kind: RTCMSSRKind(v.Kind), Header: RTCMSSRHeader{EpochTimeS: v.Header.EpochTimeS, UpdateInterval: v.Header.UpdateInterval, MultipleMessage: v.Header.MultipleMessage, IODSSR: v.Header.IODSSR, ProviderID: v.Header.ProviderID, SolutionID: v.Header.SolutionID, HasSatelliteReferenceDatum: v.Header.HasSatelliteReferenceDatum, SatelliteReferenceDatum: v.Header.SatelliteReferenceDatum, HasDispersiveBiasConsistency: v.Header.HasDispersiveBiasConsistency, DispersiveBiasConsistency: v.Header.DispersiveBiasConsistency, HasMWConsistency: v.Header.HasMWConsistency, MWConsistency: v.Header.MWConsistency, SatelliteCount: v.Header.SatelliteCount}, HasIGSSSRVersion: v.HasIGSSSRVersion, IGSSSRVersion: v.IGSSSRVersion, OrbitCount: v.OrbitCount, ClockCount: v.ClockCount, URACount: v.URACount, CodeBiasCount: v.CodeBiasCount, PhaseBiasCount: v.PhaseBiasCount, PaddingBits: bits}, nil
 }
 
+// LegacyObservations returns the decoded typed payload for this RTCM message; it reports an error when the message type differs.
 func (m *RTCMMessages) LegacyObservations(index int) (RTCMLegacyObservations, error) {
 	if m == nil || m.handle == nil {
 		return RTCMLegacyObservations{}, ErrClosed
@@ -317,6 +323,7 @@ func rtcmLegacyObservations(value native.NativeRTCMLegacyObservations) RTCMLegac
 	return result
 }
 
+// BuildRTCMLegacyObservations encodes the supplied typed payload as an RTCM message and validates its field ranges.
 func BuildRTCMLegacyObservations(value RTCMLegacyObservations) (*RTCMMessages, error) {
 	nativeValue := native.NativeRTCMLegacyObservations{MessageNumber: value.MessageNumber, ReferenceStationID: value.ReferenceStationID, EpochTime: value.EpochTime, SynchronousGNSS: value.SynchronousGNSS, SatelliteCount: value.SatelliteCount, DivergenceFreeSmoothing: value.DivergenceFreeSmoothing, SmoothingInterval: value.SmoothingInterval, TrailingBits: []bool(value.TrailingBits), Satellites: make([]native.NativeRTCMLegacySatellite, len(value.Satellites))}
 	for index, row := range value.Satellites {
@@ -329,6 +336,7 @@ func BuildRTCMLegacyObservations(value RTCMLegacyObservations) (*RTCMMessages, e
 	return &RTCMMessages{handle: h}, nil
 }
 
+// SystemParameters returns the decoded typed payload for this RTCM message; it reports an error when the message type differs.
 func (m *RTCMMessages) SystemParameters(index int) (RTCMSystemParameters, error) {
 	if m == nil || m.handle == nil {
 		return RTCMSystemParameters{}, ErrClosed
@@ -344,6 +352,7 @@ func (m *RTCMMessages) SystemParameters(index int) (RTCMSystemParameters, error)
 	return result, nil
 }
 
+// Text returns the decoded typed payload for this RTCM message; it reports an error when the message type differs.
 func (m *RTCMMessages) Text(index int) (RTCMText, error) {
 	if m == nil || m.handle == nil {
 		return RTCMText{}, ErrClosed
@@ -355,6 +364,7 @@ func (m *RTCMMessages) Text(index int) (RTCMText, error) {
 	return RTCMText{ReferenceStationID: value.ReferenceStationID, MJD: value.MJD, SecondsOfDay: value.SecondsOfDay, CharacterCount: value.CharacterCount, CodeUnits: append([]byte(nil), value.CodeUnits...), TrailingBits: RTCMTrailingBits(value.TrailingBits)}, nil
 }
 
+// BuildRTCMSystemParameters encodes the supplied typed payload as an RTCM message and validates its field ranges.
 func BuildRTCMSystemParameters(value RTCMSystemParameters) (*RTCMMessages, error) {
 	nativeValue := native.NativeRTCMSystemParameters{ReferenceStationID: value.ReferenceStationID, MJD: value.MJD, SecondsOfDay: value.SecondsOfDay, AnnouncementCount: value.AnnouncementCount, LeapSeconds: value.LeapSeconds, TrailingBits: []bool(value.TrailingBits), Announcements: make([]native.NativeRTCMMessageAnnouncement, len(value.Announcements))}
 	for index, row := range value.Announcements {
@@ -367,6 +377,7 @@ func BuildRTCMSystemParameters(value RTCMSystemParameters) (*RTCMMessages, error
 	return &RTCMMessages{handle: handle}, nil
 }
 
+// BuildRTCMText encodes the supplied typed payload as an RTCM message and validates its field ranges.
 func BuildRTCMText(value RTCMText) (*RTCMMessages, error) {
 	handle, err := native.BuildRTCMText(native.NativeRTCMText{ReferenceStationID: value.ReferenceStationID, MJD: value.MJD, SecondsOfDay: value.SecondsOfDay, CharacterCount: value.CharacterCount, CodeUnits: append([]byte(nil), value.CodeUnits...), TrailingBits: []bool(value.TrailingBits)})
 	if err != nil {
@@ -375,6 +386,7 @@ func BuildRTCMText(value RTCMText) (*RTCMMessages, error) {
 	return &RTCMMessages{handle: handle}, nil
 }
 
+// NetworkAuxiliaryStation returns the decoded typed payload for this RTCM message; it reports an error when the message type differs.
 func (m *RTCMMessages) NetworkAuxiliaryStation(index int) (RTCMNetworkAuxiliaryStation, error) {
 	if m == nil || m.handle == nil {
 		return RTCMNetworkAuxiliaryStation{}, ErrClosed
@@ -386,6 +398,7 @@ func (m *RTCMMessages) NetworkAuxiliaryStation(index int) (RTCMNetworkAuxiliaryS
 	return RTCMNetworkAuxiliaryStation{NetworkID: value.NetworkID, SubnetworkID: value.SubnetworkID, AuxiliaryStationCount: value.AuxiliaryStationCount, MasterStationID: value.MasterStationID, AuxiliaryStationID: value.AuxiliaryStationID, DeltaLatitude: value.DeltaLatitude, DeltaLongitude: value.DeltaLongitude, DeltaHeight: value.DeltaHeight, TrailingBits: RTCMTrailingBits(value.TrailingBits)}, nil
 }
 
+// BuildRTCMNetworkAuxiliaryStation encodes the supplied typed payload as an RTCM message and validates its field ranges.
 func BuildRTCMNetworkAuxiliaryStation(value RTCMNetworkAuxiliaryStation) (*RTCMMessages, error) {
 	handle, err := native.BuildRTCMNetworkAuxiliaryStation(native.NativeRTCMNetworkAuxiliaryStation{NetworkID: value.NetworkID, SubnetworkID: value.SubnetworkID, AuxiliaryStationCount: value.AuxiliaryStationCount, MasterStationID: value.MasterStationID, AuxiliaryStationID: value.AuxiliaryStationID, DeltaLatitude: value.DeltaLatitude, DeltaLongitude: value.DeltaLongitude, DeltaHeight: value.DeltaHeight, TrailingBits: []bool(value.TrailingBits)})
 	if err != nil {
@@ -394,6 +407,7 @@ func BuildRTCMNetworkAuxiliaryStation(value RTCMNetworkAuxiliaryStation) (*RTCMM
 	return &RTCMMessages{handle: handle}, nil
 }
 
+// SSRVTEC returns the decoded typed payload for this RTCM message; it reports an error when the message type differs.
 func (m *RTCMMessages) SSRVTEC(index int) (RTCMSSRVTECInfo, error) {
 	if m == nil || m.handle == nil {
 		return RTCMSSRVTECInfo{}, ErrClosed
@@ -409,6 +423,7 @@ func (m *RTCMMessages) SSRVTEC(index int) (RTCMSSRVTECInfo, error) {
 	return result, nil
 }
 
+// BuildRTCMSSRVTEC encodes the supplied typed payload as an RTCM message and validates its field ranges.
 func BuildRTCMSSRVTEC(value RTCMSSRVTECInfo) (*RTCMMessages, error) {
 	nativeValue := native.NativeRTCMSSRVTECInfo{MessageNumber: value.MessageNumber, HasIGSSSRVersion: value.HasIGSSSRVersion, IGSSSRVersion: value.IGSSSRVersion, EpochTimeS: value.EpochTimeS, UpdateInterval: value.UpdateInterval, MultipleMessage: value.MultipleMessage, IODSSR: value.IODSSR, ProviderID: value.ProviderID, SolutionID: value.SolutionID, QualityIndicator: value.QualityIndicator, TrailingBits: []bool(value.TrailingBits), Layers: make([]native.NativeRTCMTecLayer, len(value.Layers))}
 	for index, layer := range value.Layers {
@@ -421,6 +436,7 @@ func BuildRTCMSSRVTEC(value RTCMSSRVTECInfo) (*RTCMMessages, error) {
 	return &RTCMMessages{handle: handle}, nil
 }
 
+// NetworkDifferences returns the decoded typed payload for this RTCM message; it reports an error when the message type differs.
 func (m *RTCMMessages) NetworkDifferences(index int) (RTCMNetworkDifferences, error) {
 	if m == nil || m.handle == nil {
 		return RTCMNetworkDifferences{}, ErrClosed
@@ -436,6 +452,7 @@ func (m *RTCMMessages) NetworkDifferences(index int) (RTCMNetworkDifferences, er
 	return result, nil
 }
 
+// BuildRTCMNetworkDifferences encodes the supplied typed payload as an RTCM message and validates its field ranges.
 func BuildRTCMNetworkDifferences(value RTCMNetworkDifferences) (*RTCMMessages, error) {
 	nativeValue := native.NativeRTCMNetworkDifferences{MessageNumber: value.MessageNumber, NetworkID: value.NetworkID, SubnetworkID: value.SubnetworkID, EpochTime: value.EpochTime, MultipleMessage: value.MultipleMessage, MasterStationID: value.MasterStationID, AuxiliaryStationID: value.AuxiliaryStationID, SatelliteCount: value.SatelliteCount, TrailingBits: []bool(value.TrailingBits), Satellites: make([]native.NativeRTCMNetworkDifference, len(value.Satellites))}
 	for row, item := range value.Satellites {
@@ -448,6 +465,7 @@ func BuildRTCMNetworkDifferences(value RTCMNetworkDifferences) (*RTCMMessages, e
 	return &RTCMMessages{handle: handle}, nil
 }
 
+// NetworkResiduals returns the decoded typed payload for this RTCM message; it reports an error when the message type differs.
 func (m *RTCMMessages) NetworkResiduals(index int) (RTCMNetworkResiduals, error) {
 	if m == nil || m.handle == nil {
 		return RTCMNetworkResiduals{}, ErrClosed
@@ -463,6 +481,7 @@ func (m *RTCMMessages) NetworkResiduals(index int) (RTCMNetworkResiduals, error)
 	return result, nil
 }
 
+// BuildRTCMNetworkResiduals encodes the supplied typed payload as an RTCM message and validates its field ranges.
 func BuildRTCMNetworkResiduals(value RTCMNetworkResiduals) (*RTCMMessages, error) {
 	nativeValue := native.NativeRTCMNetworkResiduals{MessageNumber: value.MessageNumber, EpochTime: value.EpochTime, ReferenceStationID: value.ReferenceStationID, ReferenceStationCount: value.ReferenceStationCount, SatelliteCount: value.SatelliteCount, TrailingBits: []bool(value.TrailingBits), Satellites: make([]native.NativeRTCMNetworkResidual, len(value.Satellites))}
 	for row, item := range value.Satellites {
@@ -475,6 +494,7 @@ func BuildRTCMNetworkResiduals(value RTCMNetworkResiduals) (*RTCMMessages, error
 	return &RTCMMessages{handle: handle}, nil
 }
 
+// FKPGradients returns the decoded typed payload for this RTCM message; it reports an error when the message type differs.
 func (m *RTCMMessages) FKPGradients(index int) (RTCMFKPGradients, error) {
 	if m == nil || m.handle == nil {
 		return RTCMFKPGradients{}, ErrClosed
@@ -490,6 +510,7 @@ func (m *RTCMMessages) FKPGradients(index int) (RTCMFKPGradients, error) {
 	return result, nil
 }
 
+// BuildRTCMFKPGradients encodes the supplied typed payload as an RTCM message and validates its field ranges.
 func BuildRTCMFKPGradients(value RTCMFKPGradients) (*RTCMMessages, error) {
 	nativeValue := native.NativeRTCMFKPGradients{MessageNumber: value.MessageNumber, ReferenceStationID: value.ReferenceStationID, EpochTime: value.EpochTime, SatelliteCount: value.SatelliteCount, TrailingBits: []bool(value.TrailingBits), Satellites: make([]native.NativeRTCMFKPGradient, len(value.Satellites))}
 	for row, item := range value.Satellites {
@@ -502,6 +523,7 @@ func BuildRTCMFKPGradients(value RTCMFKPGradients) (*RTCMMessages, error) {
 	return &RTCMMessages{handle: handle}, nil
 }
 
+// ResidualGrid returns the decoded typed payload for this RTCM message; it reports an error when the message type differs.
 func (m *RTCMMessages) ResidualGrid(index int) (RTCMResidualGrid, error) {
 	if m == nil || m.handle == nil {
 		return RTCMResidualGrid{}, ErrClosed
@@ -517,6 +539,7 @@ func (m *RTCMMessages) ResidualGrid(index int) (RTCMResidualGrid, error) {
 	return result, nil
 }
 
+// BuildRTCMResidualGrid encodes the supplied typed payload as an RTCM message and validates its field ranges.
 func BuildRTCMResidualGrid(value RTCMResidualGrid) (*RTCMMessages, error) {
 	nativeValue := native.NativeRTCMResidualGrid{MessageNumber: value.MessageNumber, SystemID: value.SystemID, HorizontalShift: value.HorizontalShift, VerticalShift: value.VerticalShift, Origin1: value.Origin1, Origin2: value.Origin2, Extension1: value.Extension1, Extension2: value.Extension2, MeanOffset1: value.MeanOffset1, MeanOffset2: value.MeanOffset2, MeanHeightOffset: value.MeanHeightOffset, HorizontalInterpolation: value.HorizontalInterpolation, VerticalInterpolation: value.VerticalInterpolation, HorizontalQuality: value.HorizontalQuality, VerticalQuality: value.VerticalQuality, MJD: value.MJD, TrailingBits: []bool(value.TrailingBits)}
 	for row, item := range value.Residuals {
@@ -529,6 +552,7 @@ func BuildRTCMResidualGrid(value RTCMResidualGrid) (*RTCMMessages, error) {
 	return &RTCMMessages{handle: handle}, nil
 }
 
+// Projection returns the decoded typed payload for this RTCM message; it reports an error when the message type differs.
 func (m *RTCMMessages) Projection(index int) (RTCMProjection, error) {
 	if m == nil || m.handle == nil {
 		return RTCMProjection{}, ErrClosed
@@ -540,6 +564,7 @@ func (m *RTCMMessages) Projection(index int) (RTCMProjection, error) {
 	return RTCMProjection{MessageNumber: value.MessageNumber, SystemID: value.SystemID, ProjectionType: value.ProjectionType, Rectification: value.Rectification, Latitude: value.Latitude, Longitude: value.Longitude, StandardParallel1: value.StandardParallel1, StandardParallel2: value.StandardParallel2, Azimuth: value.Azimuth, RectifiedToSkew: value.RectifiedToSkew, AddScale: value.AddScale, Easting: value.Easting, Northing: value.Northing, TrailingBits: RTCMTrailingBits(value.TrailingBits)}, nil
 }
 
+// BuildRTCMProjection encodes the supplied typed payload as an RTCM message and validates its field ranges.
 func BuildRTCMProjection(value RTCMProjection) (*RTCMMessages, error) {
 	handle, err := native.BuildRTCMProjection(native.NativeRTCMProjection{MessageNumber: value.MessageNumber, SystemID: value.SystemID, ProjectionType: value.ProjectionType, Rectification: value.Rectification, Latitude: value.Latitude, Longitude: value.Longitude, StandardParallel1: value.StandardParallel1, StandardParallel2: value.StandardParallel2, Azimuth: value.Azimuth, RectifiedToSkew: value.RectifiedToSkew, AddScale: value.AddScale, Easting: value.Easting, Northing: value.Northing, TrailingBits: []bool(value.TrailingBits)})
 	if err != nil {
@@ -548,6 +573,7 @@ func BuildRTCMProjection(value RTCMProjection) (*RTCMMessages, error) {
 	return &RTCMMessages{handle: handle}, nil
 }
 
+// PhysicalReferenceStation returns the decoded typed payload for this RTCM message; it reports an error when the message type differs.
 func (m *RTCMMessages) PhysicalReferenceStation(index int) (RTCMPhysicalReferenceStation, error) {
 	if m == nil || m.handle == nil {
 		return RTCMPhysicalReferenceStation{}, ErrClosed
@@ -559,6 +585,7 @@ func (m *RTCMMessages) PhysicalReferenceStation(index int) (RTCMPhysicalReferenc
 	return RTCMPhysicalReferenceStation{NonPhysicalStationID: value.NonPhysicalStationID, PhysicalStationID: value.PhysicalStationID, ITRFRealizationYear: value.ITRFRealizationYear, ECEFX: value.ECEFX, ECEFY: value.ECEFY, ECEFZ: value.ECEFZ, TrailingBits: RTCMTrailingBits(value.TrailingBits)}, nil
 }
 
+// BuildRTCMPhysicalReferenceStation encodes the supplied typed payload as an RTCM message and validates its field ranges.
 func BuildRTCMPhysicalReferenceStation(value RTCMPhysicalReferenceStation) (*RTCMMessages, error) {
 	handle, err := native.BuildRTCMPhysicalReferenceStation(native.NativeRTCMPhysicalReferenceStation{NonPhysicalStationID: value.NonPhysicalStationID, PhysicalStationID: value.PhysicalStationID, ITRFRealizationYear: value.ITRFRealizationYear, ECEFX: value.ECEFX, ECEFY: value.ECEFY, ECEFZ: value.ECEFZ, TrailingBits: []bool(value.TrailingBits)})
 	if err != nil {
@@ -567,6 +594,7 @@ func BuildRTCMPhysicalReferenceStation(value RTCMPhysicalReferenceStation) (*RTC
 	return &RTCMMessages{handle: handle}, nil
 }
 
+// HelmertTransformation returns the decoded typed payload for this RTCM message; it reports an error when the message type differs.
 func (m *RTCMMessages) HelmertTransformation(index int) (RTCMHelmertTransformation, error) {
 	if m == nil || m.handle == nil {
 		return RTCMHelmertTransformation{}, ErrClosed
@@ -578,6 +606,7 @@ func (m *RTCMMessages) HelmertTransformation(index int) (RTCMHelmertTransformati
 	return RTCMHelmertTransformation{MessageNumber: value.MessageNumber, SourceName: value.SourceName, TargetName: value.TargetName, SystemID: value.SystemID, UtilizedMessages: value.UtilizedMessages, PlateNumber: value.PlateNumber, ComputationIndicator: value.ComputationIndicator, HeightIndicator: value.HeightIndicator, ValidityLatitude: value.ValidityLatitude, ValidityLongitude: value.ValidityLongitude, ValidityExtensionLatitude: value.ValidityExtensionLatitude, ValidityExtensionLongitude: value.ValidityExtensionLongitude, DX: value.DX, DY: value.DY, DZ: value.DZ, R1: value.R1, R2: value.R2, R3: value.R3, DS: value.DS, HasRotationPoint: value.HasRotationPoint, RotationPointX: value.RotationPointX, RotationPointY: value.RotationPointY, RotationPointZ: value.RotationPointZ, AddAS: value.AddAS, AddBS: value.AddBS, AddAT: value.AddAT, AddBT: value.AddBT, HorizontalQuality: value.HorizontalQuality, VerticalQuality: value.VerticalQuality, TrailingBits: RTCMTrailingBits(value.TrailingBits)}, nil
 }
 
+// BuildRTCMHelmertTransformation encodes the supplied typed payload as an RTCM message and validates its field ranges.
 func BuildRTCMHelmertTransformation(value RTCMHelmertTransformation) (*RTCMMessages, error) {
 	handle, err := native.BuildRTCMHelmertTransformation(native.NativeRTCMHelmertTransformation{MessageNumber: value.MessageNumber, SourceName: value.SourceName, TargetName: value.TargetName, SystemID: value.SystemID, UtilizedMessages: value.UtilizedMessages, PlateNumber: value.PlateNumber, ComputationIndicator: value.ComputationIndicator, HeightIndicator: value.HeightIndicator, ValidityLatitude: value.ValidityLatitude, ValidityLongitude: value.ValidityLongitude, ValidityExtensionLatitude: value.ValidityExtensionLatitude, ValidityExtensionLongitude: value.ValidityExtensionLongitude, DX: value.DX, DY: value.DY, DZ: value.DZ, R1: value.R1, R2: value.R2, R3: value.R3, DS: value.DS, HasRotationPoint: value.HasRotationPoint, RotationPointX: value.RotationPointX, RotationPointY: value.RotationPointY, RotationPointZ: value.RotationPointZ, AddAS: value.AddAS, AddBS: value.AddBS, AddAT: value.AddAT, AddBT: value.AddBT, HorizontalQuality: value.HorizontalQuality, VerticalQuality: value.VerticalQuality, TrailingBits: []bool(value.TrailingBits)})
 	if err != nil {
@@ -586,6 +615,7 @@ func BuildRTCMHelmertTransformation(value RTCMHelmertTransformation) (*RTCMMessa
 	return &RTCMMessages{handle: handle}, nil
 }
 
+// GLONASSCodePhaseBiases returns the decoded typed payload for this RTCM message; it reports an error when the message type differs.
 func (m *RTCMMessages) GLONASSCodePhaseBiases(index int) (RTCMGLONASSCodePhaseBiases, error) {
 	if m == nil || m.handle == nil {
 		return RTCMGLONASSCodePhaseBiases{}, ErrClosed
@@ -597,6 +627,7 @@ func (m *RTCMMessages) GLONASSCodePhaseBiases(index int) (RTCMGLONASSCodePhaseBi
 	return RTCMGLONASSCodePhaseBiases{ReferenceStationID: value.ReferenceStationID, Aligned: value.Aligned, Reserved: value.Reserved, HasL1CA: value.HasL1CA, L1CA: value.L1CA, HasL1P: value.HasL1P, L1P: value.L1P, HasL2CA: value.HasL2CA, L2CA: value.L2CA, HasL2P: value.HasL2P, L2P: value.L2P, TrailingBits: RTCMTrailingBits(value.TrailingBits)}, nil
 }
 
+// BuildRTCMGLONASSCodePhaseBiases encodes the supplied typed payload as an RTCM message and validates its field ranges.
 func BuildRTCMGLONASSCodePhaseBiases(value RTCMGLONASSCodePhaseBiases) (*RTCMMessages, error) {
 	handle, err := native.BuildRTCMGLONASSCodePhaseBiases(native.NativeRTCMGLONASSCodePhaseBiases{ReferenceStationID: value.ReferenceStationID, Aligned: value.Aligned, Reserved: value.Reserved, HasL1CA: value.HasL1CA, L1CA: value.L1CA, HasL1P: value.HasL1P, L1P: value.L1P, HasL2CA: value.HasL2CA, L2CA: value.L2CA, HasL2P: value.HasL2P, L2P: value.L2P, TrailingBits: []bool(value.TrailingBits)})
 	if err != nil {
@@ -605,6 +636,7 @@ func BuildRTCMGLONASSCodePhaseBiases(value RTCMGLONASSCodePhaseBiases) (*RTCMMes
 	return &RTCMMessages{handle: handle}, nil
 }
 
+// BuildRTCMSSRMessageV2 encodes the supplied typed payload as an RTCM message and validates its field ranges.
 func BuildRTCMSSRMessageV2(info RTCMSSRInfoV2, orbits []RTCMSSROrbitRecord, clocks []RTCMSSRClockRecord, ura []RTCMSSRURARecord, codeBiases []RTCMSSRCodeBiasGroup, phaseBiases []RTCMSSRPhaseBiasGroup) (*RTCMMessages, error) {
 	nativeValue := native.NativeRTCMSSRMessageV2{Info: native.NativeRTCMSSRInfoV2{MessageNumber: info.MessageNumber, System: uint32(info.System), Kind: uint32(info.Kind), HasIGSSSRVersion: info.HasIGSSSRVersion, IGSSSRVersion: info.IGSSSRVersion, Header: native.NativeSsrHeader{EpochTimeS: info.Header.EpochTimeS, UpdateInterval: info.Header.UpdateInterval, MultipleMessage: info.Header.MultipleMessage, IODSSR: info.Header.IODSSR, ProviderID: info.Header.ProviderID, SolutionID: info.Header.SolutionID, HasSatelliteReferenceDatum: info.Header.HasSatelliteReferenceDatum, SatelliteReferenceDatum: info.Header.SatelliteReferenceDatum, HasDispersiveBiasConsistency: info.Header.HasDispersiveBiasConsistency, DispersiveBiasConsistency: info.Header.DispersiveBiasConsistency, HasMWConsistency: info.Header.HasMWConsistency, MWConsistency: info.Header.MWConsistency, SatelliteCount: info.Header.SatelliteCount}}, PaddingBits: []bool(info.PaddingBits)}
 	for _, row := range orbits {

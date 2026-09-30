@@ -414,7 +414,10 @@ build_all() {
   # Keep source and registry paths out of archives so two clean builds do not
   # record workstation-specific locations in Rust panic/debug strings.
   local remap_flags
-  remap_flags="--remap-path-prefix=$SOURCE_DIR=__sidereon_c__ --remap-path-prefix=$CARGO_HOME=__cargo_home__ --remap-path-prefix=$ROOT_DIR=__sidereon_go__"
+  # rustc selects the last matching remap. Put broader paths first so a
+  # Cargo home nested inside the Go checkout has the same canonical prefix
+  # as a Cargo home outside it. Source paths take precedence over both.
+  remap_flags="--remap-path-prefix=$ROOT_DIR=__sidereon_go__ --remap-path-prefix=$CARGO_HOME=__cargo_home__ --remap-path-prefix=$SOURCE_DIR=__sidereon_c__"
   # This builder owns global rustc flags. Ignore inherited flags that can
   # replace these remaps or select a host-specific linker. Explicit target
   # triples and release mode remain selected per archive below.

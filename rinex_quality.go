@@ -227,6 +227,23 @@ func (r *RINEXRepair) RINEXText() ([]byte, error) {
 	return v, publicError(e)
 }
 
+// RINEXTextWithOutcome returns repaired bytes or the complete typed writer refusal.
+func (r *RINEXRepair) RINEXTextWithOutcome() (RINEXObservationWriteOutcome, error) {
+	if r == nil || r.handle == nil {
+		return RINEXObservationWriteOutcome{}, ErrClosed
+	}
+	v, err := r.handle.TextWithOutcome()
+	if err != nil {
+		return RINEXObservationWriteOutcome{}, publicError(err)
+	}
+	out := RINEXObservationWriteOutcome{IsOK: v.IsOK, Status: StatusCode(v.Status), Text: append([]byte(nil), v.Text...)}
+	if !v.IsOK {
+		e := v.Error
+		out.Error = &RINEXObservationWriteError{Kind: RINEXObservationWriteErrorKind(e.Kind), HasSystem: e.HasSystem, System: e.System, HasSatellite: e.HasSatellite, SatelliteID: e.SatelliteID, HasEpochIndex: e.HasEpochIndex, EpochIndex: e.EpochIndex, HasPosition: e.HasPosition, Position: e.Position, HasFlag: e.HasFlag, Flag: e.Flag, HasVersion: e.HasVersion, Version: e.Version, HasCount: e.HasCount, Count: e.Count, HasCodes: e.HasCodes, Codes: e.Codes, HasValues: e.HasValues, Values: e.Values, HasCode: e.HasCode, Code: v.Code, HasDetail: e.HasDetail, Detail: v.Detail, Message: v.Message}
+	}
+	return out, nil
+}
+
 // CRINEXText returns detached repaired CRINEX representation.
 func (r *RINEXRepair) CRINEXText() ([]byte, error) {
 	if r == nil || r.handle == nil {

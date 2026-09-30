@@ -1455,6 +1455,57 @@ func SolveSPPBatchParallel(sp3 *SP3, inputs []SppInputsV2, withGeodetic bool, po
 	return solveSPPBatch(sp3, inputs, withGeodetic, true, policy)
 }
 
+// SolveSPPBatchV2Serial preserves each epoch's model options, robust controls,
+// GLONASS channels, BeiDou coefficients, and validation policy.
+func SolveSPPBatchV2Serial(sp3 *SP3, inputs []SppInputsV2) (*SPPBatch, error) {
+	if sp3 == nil || sp3.handle == nil {
+		return nil, ErrClosed
+	}
+	count, err := checkedNativeSize(len(inputs))
+	if err != nil {
+		return nil, err
+	}
+	alloc := new(cRtkAlloc)
+	defer alloc.close()
+	var rows *C.SidereonSppBatchInputV2
+	if len(inputs) > 0 {
+		bytes, e := checkedNativeAllocationSize(len(inputs), unsafe.Sizeof(C.SidereonSppBatchInputV2{}))
+		if e != nil {
+			return nil, e
+		}
+		memory, e := alloc.malloc(bytes, "SPP V2 batch input array")
+		if e != nil {
+			return nil, e
+		}
+		rows = (*C.SidereonSppBatchInputV2)(memory)
+		rowSlice := unsafe.Slice(rows, len(inputs))
+		for i, input := range inputs {
+			cinput, e := makeSppV2(input, alloc)
+			if e != nil {
+				return nil, e
+			}
+			models, e := makeSppModels(input.Models)
+			if e != nil {
+				return nil, e
+			}
+			rowSlice[i] = C.SidereonSppBatchInputV2{inputs: *cinput, models: *models}
+		}
+	}
+	var out *C.SidereonSppBatch
+	err = sp3.handle.with(func(pointer unsafe.Pointer) error {
+		return statusCall(func() C.enum_SidereonStatus {
+			return C.sidereon_solve_spp_batch_v2_serial((*C.SidereonSp3)(pointer), rows, count, &out)
+		})
+	})
+	if err != nil {
+		if out != nil {
+			withCThread(func() { C.sidereon_spp_batch_free(out) })
+		}
+		return nil, err
+	}
+	return newSppBatch(out)
+}
+
 func SolveSPPWithDoppler(sp3 *SP3, input SppInputsV2, observations []NativeSppDopplerObservation) (NativeSppDopplerResult, error) {
 	if sp3 == nil || sp3.handle == nil {
 		return NativeSppDopplerResult{}, ErrClosed

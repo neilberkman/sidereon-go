@@ -107,7 +107,7 @@ func TestLosslessPreciseSamplesV2BridgePreservesEpochsAndQueries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build V2 samples: %v", err)
 	}
-	defer sampleSet.Close()
+	closeAfterTest(t, sampleSet)
 	gotSamples, err := sampleSet.RecordsV2()
 	if err != nil {
 		t.Fatalf("read V2 sample records: %v", err)
@@ -137,19 +137,19 @@ func TestLosslessPreciseSamplesV2BridgePreservesEpochsAndQueries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build V2 interpolant: %v", err)
 	}
-	defer interpolant.Close()
+	closeAfterTest(t, interpolant)
 	seconds := int64(baseNanos / 1_000_000_000)
 	attoseconds := (baseNanos % 1_000_000_000) * 1_000_000_000
 	epoch, err := NewExactEpoch(seconds, attoseconds)
 	if err != nil {
 		t.Fatalf("construct exact tagged sample epoch: %v", err)
 	}
-	defer epoch.Close()
+	closeAfterTest(t, epoch)
 	query, err := epoch.Query()
 	if err != nil {
 		t.Fatalf("query exact tagged sample epoch: %v", err)
 	}
-	defer query.Close()
+	closeAfterTest(t, query)
 	state, err := interpolant.SourceStateAtEpochQueries(query, query, "G01")
 	if err != nil {
 		t.Fatalf("evaluate V2 interpolant at exact epoch: %v", err)

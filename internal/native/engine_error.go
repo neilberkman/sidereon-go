@@ -422,7 +422,7 @@ func (ef EngineFloat) Bits() (uint64, error) {
 		return 0, fmt.Errorf("sidereon: engine float bits_hex must be exactly 16 hex characters, got %d", len(ef.BitsHex))
 	}
 	for _, c := range ef.BitsHex {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
 			return 0, fmt.Errorf("sidereon: invalid hex in bits_hex %q", ef.BitsHex)
 		}
 	}
@@ -488,7 +488,8 @@ func checkDuplicateTokens(dec *json.Decoder, tok json.Token) error {
 	if !ok {
 		return nil
 	}
-	if delim == '{' {
+	switch delim {
+	case '{':
 		seen := make(map[string]bool)
 		for dec.More() {
 			kTok, err := dec.Token()
@@ -518,7 +519,7 @@ func checkDuplicateTokens(dec *json.Decoder, tok json.Token) error {
 		if endDelim, ok := endTok.(json.Delim); !ok || endDelim != '}' {
 			return fmt.Errorf("expected '}', got %v", endTok)
 		}
-	} else if delim == '[' {
+	case '[':
 		for dec.More() {
 			vTok, err := dec.Token()
 			if err != nil {

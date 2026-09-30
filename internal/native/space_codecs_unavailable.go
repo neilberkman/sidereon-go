@@ -223,6 +223,9 @@ type SPKState struct {
 func LoadSPK([]byte) (*SPK, error)                         { return nil, unavailable() }
 func (*SPK) Close() error                                  { return nil }
 func (*SPK) State(int32, int32, float64) (SPKState, error) { return SPKState{}, unavailable() }
+func (*SPK) StateInFrame(int32, int32, float64, int32) (SPKState, error) {
+	return SPKState{}, unavailable()
+}
 
 type TDMParticipant struct {
 	SegmentIndex int

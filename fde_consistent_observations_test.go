@@ -77,7 +77,7 @@ func TestFDEAcceptsConsistentObservations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer receive.Close()
+	closeAfterTest(t, receive)
 	for i := range config.Observations {
 		observation := &config.Observations[i]
 		observation.PseudorangeM = sppPlacedPseudorange(t, sp3, observation.SatelliteID, receiver, receive, observation.PseudorangeM)

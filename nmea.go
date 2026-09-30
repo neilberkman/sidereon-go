@@ -332,6 +332,7 @@ type NMEADiagnostic struct {
 	DecodeError   error                  `json:"-"`
 }
 
+// UnmarshalJSON decodes JSON while preserving the typed field representation.
 func (body *NMEASentenceBody) UnmarshalJSON(data []byte) error {
 	var head struct {
 		Kind string `json:"kind"`
@@ -372,6 +373,7 @@ func (body *NMEASentenceBody) UnmarshalJSON(data []byte) error {
 	}
 }
 
+// MarshalJSON encodes this value as JSON.
 func (body NMEASentenceBody) MarshalJSON() ([]byte, error) {
 	switch body.Kind {
 	case "gga":

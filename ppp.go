@@ -624,26 +624,40 @@ const (
 	PPPUnplacedObservationUnknown PPPUnplacedObservationReason = PPPUnplacedObservationReason(native.PPPUnplacedObservationUnknownValue)
 )
 
+// PPPResidualScreenRemoval identifies an observation removed before a float solve.
+type PPPResidualScreenRemoval struct {
+	// EpochIndex is the zero-based input epoch containing the observation.
+	EpochIndex int
+	// AmbiguityID is the observation's ambiguity identifier.
+	AmbiguityID string
+}
+
 // PPPCorrections owns native precomputed PPP correction tables.
 type PPPCorrections struct {
 	_      noCopy
 	handle *native.PppCorrections
 }
 
+// PPPValidityMode selects whether PPP correction building rejects or tolerates validity gaps.
 type PPPValidityMode uint32
 
 const (
+	// PPPValidityStrict rejects correction builds with validity gaps.
 	PPPValidityStrict PPPValidityMode = iota
+	// PPPValidityPermissive permits supported degradation when correction data has validity gaps.
 	PPPValidityPermissive
 )
 
+// StationTideConstantSet identifies the coefficient convention for solid Earth tides.
 type StationTideConstantSet = StationTideConstants
 
+// PPPCorrectionsBuildError reports which PPP correction could not be built and why.
 type PPPCorrectionsBuildError struct {
 	Kind  uint32
 	Cause error
 }
 
+// Error returns the PPPCorrectionsBuildError message.
 func (err *PPPCorrectionsBuildError) Error() string {
 	if err == nil {
 		return "sidereon: PPP corrections build failed"
@@ -653,6 +667,8 @@ func (err *PPPCorrectionsBuildError) Error() string {
 	}
 	return "sidereon: PPP corrections build failed"
 }
+
+// Unwrap returns the underlying cause when one is retained.
 func (err *PPPCorrectionsBuildError) Unwrap() error {
 	if err == nil {
 		return nil
@@ -1027,6 +1043,70 @@ func (s *PPPFixedSolution) UnplacedObservationsV2() ([]PPPUnplacedObservationV2,
 		return nil, publicError(err)
 	}
 	return pppUnplacedV2FromNative(values), nil
+}
+
+// SolvedEpochIndices returns input epoch indices that contributed to the float solution.
+func (s *PPPFloatSolution) SolvedEpochIndices() ([]int, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := s.handle.SolvedEpochIndices()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return append([]int(nil), values...), nil
+}
+
+// SolvedEpochIndices returns input epoch indices that contributed to the fixed solution.
+func (s *PPPFixedSolution) SolvedEpochIndices() ([]int, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := s.handle.SolvedEpochIndices()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return append([]int(nil), values...), nil
+}
+
+// EpochClocksM returns receiver clock ranges in metres, ordered like SolvedEpochIndices.
+func (s *PPPFloatSolution) EpochClocksM() ([]float64, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := s.handle.EpochClocksM()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return append([]float64(nil), values...), nil
+}
+
+// EpochClocksM returns receiver clock ranges in metres, ordered like SolvedEpochIndices.
+func (s *PPPFixedSolution) EpochClocksM() ([]float64, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := s.handle.EpochClocksM()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return append([]float64(nil), values...), nil
+}
+
+// ResidualScreenRemovals returns observations excluded from the float solution by its residual screen.
+func (s *PPPFloatSolution) ResidualScreenRemovals() ([]PPPResidualScreenRemoval, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := s.handle.ResidualScreenRemovals()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	out := make([]PPPResidualScreenRemoval, len(values))
+	for i, value := range values {
+		out[i] = PPPResidualScreenRemoval{EpochIndex: value.EpochIndex, AmbiguityID: value.AmbiguityID}
+	}
+	return out, nil
 }
 
 func pppUnplacedV2FromNative(values []native.PppUnplacedObservationV2) []PPPUnplacedObservationV2 {

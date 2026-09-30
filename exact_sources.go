@@ -2,11 +2,15 @@ package sidereon
 
 import "sidereon.dev/go/v3/internal/native"
 
+// UT1DegradeReason records why UT1 interpolation used a degraded endpoint.
 type UT1DegradeReason uint32
 
 const (
+	// UT1NotDegraded means UT1 interpolation used in-coverage data.
 	UT1NotDegraded UT1DegradeReason = iota
+	// UT1DegradedBeforeCoverage means the epoch precedes the available UT1 data.
 	UT1DegradedBeforeCoverage
+	// UT1DegradedAfterCoverage means the epoch follows the available UT1 data.
 	UT1DegradedAfterCoverage
 )
 
@@ -33,8 +37,11 @@ type TransmitEpochClock struct {
 type ClockRelativityKind uint32
 
 const (
+	// ClockRelativityNotApplicable means the satellite clock correction does not require the relativistic term.
 	ClockRelativityNotApplicable ClockRelativityKind = iota
+	// ClockRelativityTerm means the relativistic correction term is available.
 	ClockRelativityTerm
+	// ClockRelativityUnavailable means the relativistic correction cannot be calculated.
 	ClockRelativityUnavailable
 )
 
@@ -205,8 +212,9 @@ func (b *BroadcastEphemeris) EphemerisVarianceAtEpochQueries(stateEpoch, selecti
 	return value, publicError(err)
 }
 
-// SBASSourceStateAtEpochQueries evaluates corrected state using exact state
-// and record-selection epochs.
+// SourceStateAtEpochQueries evaluates a source at an exact state epoch while
+// selecting the broadcast record at a separately supplied exact epoch. For
+// SBAS sources, the query also applies the selected correction mode.
 func (s *SBASCorrectionStore) SourceStateAtEpochQueries(broadcast *BroadcastEphemeris, geo string, mode SBASSolveMode, satellite string, stateEpoch, selectionEpoch *ExactEpochQuery) (EphemerisSourceState, error) {
 	if s == nil || s.handle == nil || broadcast == nil || broadcast.handle == nil || stateEpoch == nil || stateEpoch.handle == nil || selectionEpoch == nil || selectionEpoch.handle == nil {
 		return EphemerisSourceState{}, ErrClosed

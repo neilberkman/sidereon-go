@@ -2,10 +2,12 @@ package sidereon
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"math"
 	"os"
 	"reflect"
@@ -380,7 +382,7 @@ func TestBiasLookupRetainsAmbiguousRecordIndices(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer set.Close()
+	closeAfterTest(t, set)
 	lookup, err := set.CodeOSBLookup("G01", "C1C", BiasEpoch{Year: 2020, DayOfYear: 2})
 	if err != nil || lookup.Status != BiasLookupAmbiguous || !reflect.DeepEqual(lookup.RecordIndices, []uint64{11, 12}) {
 		t.Fatalf("ambiguous lookup = %+v, %v", lookup, err)
@@ -411,7 +413,7 @@ func TestBiasDepartureNoticeHasTypedFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer parsed.Close()
+	closeAfterTest(t, parsed)
 	if parsed.Value == nil {
 		t.Fatal("lossy parser returned no bias set")
 	}
@@ -508,6 +510,142 @@ func TestBiasGoOwnedPathAdaptersAndDCB(t *testing.T) {
 	if _, err := ParseCodeDCB(dcb, &CodeDCBOptions{TimeScale: TimeScale(99)}); err == nil {
 		t.Fatal("invalid DCB time scale accepted")
 	}
+
+	var compressed bytes.Buffer
+	writer := gzip.NewWriter(&compressed)
+	if _, err := writer.Write(dcb); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	compressedPath := t.TempDir() + "/sample.dcb.gz"
+	if err := os.WriteFile(compressedPath, compressed.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	loadOptions := &CodeDCBOptions{Obs1: "P1", Obs2: "C1", Year: 2026, Month: 6, TimeScale: GPST}
+	for _, load := range []struct {
+		name string
+		fn   func(*testing.T) (int, error)
+	}{
+		{"strict", func(t *testing.T) (int, error) {
+			value, err := LoadCodeDCB(compressedPath, loadOptions)
+			if err != nil {
+				return 0, err
+			}
+			closeAfterTest(t, value)
+			return value.RecordCount()
+		}},
+		{"policy", func(t *testing.T) (int, error) {
+			value, err := LoadCodeDCBWithPolicy(compressedPath, loadOptions, BiasReadPolicyStrict)
+			if err != nil {
+				return 0, err
+			}
+			closeAfterTest(t, value)
+			return value.Value.RecordCount()
+		}},
+		{"lossy", func(t *testing.T) (int, error) {
+			value, err := LoadCodeDCBLossy(compressedPath, loadOptions)
+			if err != nil {
+				return 0, err
+			}
+			closeAfterTest(t, value)
+			return value.Value.RecordCount()
+		}},
+	} {
+		t.Run(load.name, func(t *testing.T) {
+			count, err := load.fn(t)
+			if err != nil || count == 0 {
+				t.Fatalf("gzip CODE DCB load: records=%d err=%v", count, err)
+			}
+		})
+	}
+}
+
+func TestReadCodeDCBPathBoundsAndGzipMembers(t *testing.T) {
+	t.Run("plain input bound", func(t *testing.T) {
+		path := t.TempDir() + "/input.dcb"
+		if err := os.WriteFile(path, []byte("12345"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		_, err := readCodeDCBPathWithLimits(path, 10, 4)
+		var limitErr *SizeLimitError
+		if !errors.As(err, &limitErr) || limitErr.Kind != "CODE DCB product" || limitErr.Limit != 4 {
+			t.Fatalf("plain size error = %#v, %v", limitErr, err)
+		}
+	})
+
+	t.Run("compressed input bound", func(t *testing.T) {
+		path := t.TempDir() + "/input.dcb.gz"
+		if err := os.WriteFile(path, bytes.Repeat([]byte{'x'}, 11), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		_, err := readCodeDCBPathWithLimits(path, 10, 100)
+		var limitErr *SizeLimitError
+		if !errors.As(err, &limitErr) || limitErr.Kind != "compressed CODE DCB product" || limitErr.Limit != 10 {
+			t.Fatalf("compressed size error = %#v, %v", limitErr, err)
+		}
+	})
+
+	t.Run("expanded input bound", func(t *testing.T) {
+		var archive bytes.Buffer
+		writer := gzip.NewWriter(&archive)
+		if _, err := writer.Write([]byte("more than eight")); err != nil {
+			t.Fatal(err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatal(err)
+		}
+		path := t.TempDir() + "/input.dcb.gz"
+		if err := os.WriteFile(path, archive.Bytes(), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		_, err := readCodeDCBPathWithLimits(path, 100, 8)
+		var limitErr *SizeLimitError
+		if !errors.As(err, &limitErr) || limitErr.Kind != "decompressed CODE DCB product" || limitErr.Limit != 8 {
+			t.Fatalf("decompressed size error = %#v, %v", limitErr, err)
+		}
+	})
+
+	t.Run("concatenated members", func(t *testing.T) {
+		var archive bytes.Buffer
+		for _, part := range []string{"first", "second"} {
+			writer := gzip.NewWriter(&archive)
+			if _, err := io.WriteString(writer, part); err != nil {
+				t.Fatal(err)
+			}
+			if err := writer.Close(); err != nil {
+				t.Fatal(err)
+			}
+		}
+		path := t.TempDir() + "/input.dcb.gz"
+		if err := os.WriteFile(path, archive.Bytes(), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		got, err := readCodeDCBPathWithLimits(path, 100, 100)
+		if err != nil || string(got) != "firstsecond" {
+			t.Fatalf("concatenated gzip output = %q, %v", got, err)
+		}
+	})
+
+	t.Run("truncated gzip", func(t *testing.T) {
+		var archive bytes.Buffer
+		writer := gzip.NewWriter(&archive)
+		if _, err := writer.Write([]byte("payload")); err != nil {
+			t.Fatal(err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatal(err)
+		}
+		path := t.TempDir() + "/input.dcb.gz"
+		truncated := archive.Bytes()[:archive.Len()-4]
+		if err := os.WriteFile(path, truncated, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := readCodeDCBPathWithLimits(path, 100, 100); err == nil {
+			t.Fatal("truncated gzip member was accepted")
+		}
+	})
 }
 
 func TestCCSDSFixturesRoundTrip(t *testing.T) {
@@ -832,6 +970,14 @@ func TestSPKPhaseBFixture(t *testing.T) {
 	if state.Target != 20000433 || state.Center != 10 || !state.HasVelocityKmPerS {
 		t.Fatalf("SPK metadata = %#v", state)
 	}
+	inSameFrame, err := spk.StateInFrame(20000433, 10, 757339200, state.Frame)
+	if err != nil || inSameFrame.Frame != state.Frame || inSameFrame.PositionKm != state.PositionKm || inSameFrame.VelocityKmPerS != state.VelocityKmPerS {
+		t.Fatalf("SPK requested-frame identity = %#v, %v; default=%#v", inSameFrame, err, state)
+	}
+	inECLIPJ2000, err := spk.StateInFrame(20000433, 10, 757339200, 17)
+	if err != nil || inECLIPJ2000.Frame != 17 || inECLIPJ2000.PositionKm == state.PositionKm {
+		t.Fatalf("SPK ECLIPJ2000 transform = %#v, %v; default=%#v", inECLIPJ2000, err, state)
+	}
 	wantPosition := [3]float64{198083634.33689928, 56306354.00566181, 67761020.0290685}
 	wantVelocity := [3]float64{-14.136880898003753, 18.729945253375007, 8.080580941541488}
 	for i := range wantPosition {
@@ -945,7 +1091,7 @@ func TestOMMCatalogNewGapsExpectations(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer value.Close()
+			closeAfterTest(t, value)
 			entry, err := value.Skipped(0)
 			if err != nil {
 				t.Fatal(err)

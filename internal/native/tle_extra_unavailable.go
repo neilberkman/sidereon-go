@@ -5,6 +5,11 @@ package native
 import "time"
 
 type TLEFile struct{}
+type NativeTLERejectedRecord struct {
+	LineNumber  int
+	Issue       uint32
+	Name, Error string
+}
 type TLEBatchPropagation struct{}
 type TLEBatchLookAngles struct{}
 type VisibleSatellite struct {
@@ -16,12 +21,17 @@ type VisibleList struct{}
 type SGP4DecayLatch struct{}
 type TLEPair struct{ Line1, Line2 string }
 
-func ParseTLEFile([]byte, uint32) (*TLEFile, error) { return nil, unavailable() }
-func (*TLEFile) Close() error                       { return nil }
-func (*TLEFile) Count() (int, error)                { return 0, unavailable() }
-func (*TLEFile) Skipped() (int, error)              { return 0, unavailable() }
-func (*TLEFile) Name(int) (string, error)           { return "", unavailable() }
-func (*TLEFile) Satellite(int) (*TLE, error)        { return nil, unavailable() }
+func ParseTLEFile([]byte, uint32) (*TLEFile, error)                   { return nil, unavailable() }
+func ParseTLEFileWithPolicy([]byte, uint32, uint32) (*TLEFile, error) { return nil, unavailable() }
+func (*TLEFile) Close() error                                         { return nil }
+func (*TLEFile) Count() (int, error)                                  { return 0, unavailable() }
+func (*TLEFile) LineNumber(int) (int, error)                          { return 0, unavailable() }
+func (*TLEFile) Skipped() (int, error)                                { return 0, unavailable() }
+func (*TLEFile) Rejected(int) (NativeTLERejectedRecord, error) {
+	return NativeTLERejectedRecord{}, unavailable()
+}
+func (*TLEFile) Name(int) (string, error)    { return "", unavailable() }
+func (*TLEFile) Satellite(int) (*TLE, error) { return nil, unavailable() }
 
 func PropagateTLEBatch([]TLEPair, []time.Time, uint32, bool) (*TLEBatchPropagation, error) {
 	return nil, unavailable()

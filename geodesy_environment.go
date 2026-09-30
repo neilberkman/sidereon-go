@@ -634,6 +634,16 @@ func (t *DTEDTile) Elevation(longitudeDeg, latitudeDeg float64) (int16, error) {
 	return value, publicError(err)
 }
 
+// HorizontalDatum returns the datum stated by the tile's DSI record. A blank
+// DSI field is reported as Unstated and is considered WGS84-compatible.
+func (t *DTEDTile) HorizontalDatum() (HorizontalDatum, error) {
+	if t == nil || t.native == nil {
+		return HorizontalDatum{}, ErrClosed
+	}
+	value, err := t.native.HorizontalDatum()
+	return HorizontalDatum(value), publicError(err)
+}
+
 // TerrainTileID identifies an integer-degree DTED tile.
 type TerrainTileID struct {
 	LatIndex int32
@@ -669,7 +679,7 @@ func WriteDTEDTileListToMMapStore(entries []DTEDTileListEntry, path string) erro
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	return os.WriteFile(path, data, 0o666)
 }
 
 // DTEDTreeToMMapStore converts a DTED directory tree to copied store bytes.
@@ -684,7 +694,7 @@ func WriteDTEDTreeToMMapStore(root, path string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	return os.WriteFile(path, data, 0o666)
 }
 
 // MMapTerrainHeightResult contains one memory-mappable terrain batch result.
@@ -1042,27 +1052,42 @@ const (
 type GeoidErrorKind uint32
 
 const (
-	GeoidErrorNone              GeoidErrorKind = GeoidErrorKind(native.GeoidErrorNoneValue)
+	// GeoidErrorNone means no error or special condition occurred.
+	GeoidErrorNone GeoidErrorKind = GeoidErrorKind(native.GeoidErrorNoneValue)
+	// GeoidErrorInvalidDimensions means the geoid grid dimensions are inconsistent with its node data.
 	GeoidErrorInvalidDimensions GeoidErrorKind = GeoidErrorKind(native.GeoidErrorInvalidDimensionsValue)
-	GeoidErrorInvalidSpacing    GeoidErrorKind = GeoidErrorKind(native.GeoidErrorInvalidSpacingValue)
-	GeoidErrorNonFiniteValue    GeoidErrorKind = GeoidErrorKind(native.GeoidErrorNonFiniteValueValue)
-	GeoidErrorParse             GeoidErrorKind = GeoidErrorKind(native.GeoidErrorParseValue)
-	GeoidErrorUnknown           GeoidErrorKind = GeoidErrorKind(native.GeoidErrorUnknownValue)
+	// GeoidErrorInvalidSpacing means the geoid grid has invalid latitude or longitude spacing.
+	GeoidErrorInvalidSpacing GeoidErrorKind = GeoidErrorKind(native.GeoidErrorInvalidSpacingValue)
+	// GeoidErrorNonFiniteValue means a geoid node contains a non-finite value.
+	GeoidErrorNonFiniteValue GeoidErrorKind = GeoidErrorKind(native.GeoidErrorNonFiniteValueValue)
+	// GeoidErrorParse means the geoid input could not be decoded.
+	GeoidErrorParse GeoidErrorKind = GeoidErrorKind(native.GeoidErrorParseValue)
+	// GeoidErrorUnknown preserves a native value not recognized by this version.
+	GeoidErrorUnknown GeoidErrorKind = GeoidErrorKind(native.GeoidErrorUnknownValue)
 )
 
 // TerrainLookupErrorKind identifies a failed terrain lookup.
 type TerrainLookupErrorKind uint32
 
 const (
-	TerrainLookupErrorNone             TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorNoneValue)
-	TerrainLookupErrorInvalidInput     TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorInvalidInputValue)
-	TerrainLookupErrorMissingTile      TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorMissingTileValue)
+	// TerrainLookupErrorNone means no error or special condition occurred.
+	TerrainLookupErrorNone TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorNoneValue)
+	// TerrainLookupErrorInvalidInput identifies invalid caller input.
+	TerrainLookupErrorInvalidInput TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorInvalidInputValue)
+	// TerrainLookupErrorMissingTile means no terrain tile covers the requested coordinate.
+	TerrainLookupErrorMissingTile TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorMissingTileValue)
+	// TerrainLookupErrorUnknownElevation means the selected terrain tile has no elevation for the coordinate.
 	TerrainLookupErrorUnknownElevation TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorUnknownElevationValue)
-	TerrainLookupErrorNonWgs84Tile     TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorNonWgs84TileValue)
-	TerrainLookupErrorParse            TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorParseValue)
-	TerrainLookupErrorTile             TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorTileValue)
-	TerrainLookupErrorTileOrigin       TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorTileOriginValue)
-	TerrainLookupErrorOther            TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorOtherValue)
+	// TerrainLookupErrorNonWgs84Tile means the tile uses a datum other than WGS 84.
+	TerrainLookupErrorNonWgs84Tile TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorNonWgs84TileValue)
+	// TerrainLookupErrorParse means the terrain tile could not be decoded.
+	TerrainLookupErrorParse TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorParseValue)
+	// TerrainLookupErrorTile means the terrain tile data is invalid.
+	TerrainLookupErrorTile TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorTileValue)
+	// TerrainLookupErrorTileOrigin means the tile origin does not match its declared identifier.
+	TerrainLookupErrorTileOrigin TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorTileOriginValue)
+	// TerrainLookupErrorOther preserves a native condition outside the named cases.
+	TerrainLookupErrorOther TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorOtherValue)
 )
 
 // TerrainDatumError is the typed terrain-datum detail captured from a failed terrain-datum operation.

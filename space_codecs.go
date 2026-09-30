@@ -213,6 +213,7 @@ type OMMParseError struct {
 	Raw    json.RawMessage     `json:"-"`
 }
 
+// UnmarshalJSON decodes JSON while preserving the typed field representation.
 func (value *OMMParseError) UnmarshalJSON(data []byte) error {
 	type wire OMMParseError
 	var decoded wire
@@ -224,6 +225,7 @@ func (value *OMMParseError) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalJSON encodes this value as JSON.
 func (value OMMParseError) MarshalJSON() ([]byte, error) {
 	if len(value.Raw) != 0 {
 		return append([]byte(nil), value.Raw...), nil
@@ -261,6 +263,7 @@ type OMMParseExpected struct {
 	IsNull  bool
 }
 
+// UnmarshalJSON decodes JSON while preserving the typed field representation.
 func (expected *OMMParseExpected) UnmarshalJSON(data []byte) error {
 	*expected = OMMParseExpected{Present: true}
 	if string(data) == "null" {
@@ -283,6 +286,7 @@ func (expected *OMMParseExpected) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalJSON encodes this value as JSON.
 func (expected OMMParseExpected) MarshalJSON() ([]byte, error) {
 	if expected.Text != nil {
 		return json.Marshal(*expected.Text)

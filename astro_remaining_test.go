@@ -154,7 +154,7 @@ func TestCoverageCellErrorPayloadIsOwnedAndTyped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tle.Close()
+	closeAfterTest(t, tle)
 	grid, err := CoverageLookAngles([]*TLE{tle}, []PassStation{
 		{LatitudeDeg: 51.5, LongitudeDeg: -0.1, AltitudeM: 80},
 		{LatitudeDeg: 91, LongitudeDeg: 0, AltitudeM: 0},

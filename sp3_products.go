@@ -2,6 +2,202 @@ package sidereon
 
 import "sidereon.dev/go/v3/internal/native"
 
+// SP3WriteErrorKind identifies a typed refusal to serialize an SP3 product.
+type SP3WriteErrorKind uint32
+
+const (
+	// SP3WriteErrorNone means the product was written.
+	SP3WriteErrorNone SP3WriteErrorKind = 0
+	// SP3WriteErrorTextNotColumnSafe identifies unsupported text bytes.
+	SP3WriteErrorTextNotColumnSafe SP3WriteErrorKind = 2
+	// SP3WriteErrorTextNotColumnStable identifies text changed by trimming.
+	SP3WriteErrorTextNotColumnStable SP3WriteErrorKind = 3
+	// SP3WriteErrorBlankDescriptor identifies an optional blank descriptor.
+	SP3WriteErrorBlankDescriptor SP3WriteErrorKind = 4
+	// SP3WriteErrorEmptyComment identifies a comment that encodes as padding.
+	SP3WriteErrorEmptyComment SP3WriteErrorKind = 5
+	// SP3WriteErrorTextTooWide identifies text wider than its record columns.
+	SP3WriteErrorTextTooWide SP3WriteErrorKind = 6
+	// SP3WriteErrorIntegerTooWide identifies an integer wider than its columns.
+	SP3WriteErrorIntegerTooWide SP3WriteErrorKind = 7
+	// SP3WriteErrorNonFinite identifies a non-finite header number.
+	SP3WriteErrorNonFinite SP3WriteErrorKind = 8
+	// SP3WriteErrorNumberTooWide identifies a number wider than its field.
+	SP3WriteErrorNumberTooWide SP3WriteErrorKind = 9
+	// SP3WriteErrorPrecisionNotRepresentable identifies precision lost in formatting.
+	SP3WriteErrorPrecisionNotRepresentable SP3WriteErrorKind = 10
+	// SP3WriteErrorYearNotRepresentable identifies a calendar year outside four digits.
+	SP3WriteErrorYearNotRepresentable SP3WriteErrorKind = 11
+	// SP3WriteErrorEpochNotRestatable identifies an epoch that formats to another instant.
+	SP3WriteErrorEpochNotRestatable SP3WriteErrorKind = 13
+	// SP3WriteErrorEpochTimeScaleMismatch identifies an epoch/header scale mismatch.
+	SP3WriteErrorEpochTimeScaleMismatch SP3WriteErrorKind = 14
+	// SP3WriteErrorHeaderTimeScaleMismatch identifies a header scale inconsistency.
+	SP3WriteErrorHeaderTimeScaleMismatch SP3WriteErrorKind = 15
+	// SP3WriteErrorEpochCountMismatch identifies different declared and stored epoch counts.
+	SP3WriteErrorEpochCountMismatch SP3WriteErrorKind = 16
+	// SP3WriteErrorAccuracyCodeCountMismatch identifies unaligned accuracy codes.
+	SP3WriteErrorAccuracyCodeCountMismatch SP3WriteErrorKind = 17
+	// SP3WriteErrorDuplicateSatellite identifies a duplicate header satellite.
+	SP3WriteErrorDuplicateSatellite SP3WriteErrorKind = 18
+	// SP3WriteErrorEpochArrayLengthMismatch identifies a per-epoch array length mismatch.
+	SP3WriteErrorEpochArrayLengthMismatch SP3WriteErrorKind = 19
+	// SP3WriteErrorUndeclaredSatelliteRecord identifies a record for an undeclared satellite.
+	SP3WriteErrorUndeclaredSatelliteRecord SP3WriteErrorKind = 20
+	// SP3WriteErrorConflictingRecords identifies conflicting same-epoch records.
+	SP3WriteErrorConflictingRecords SP3WriteErrorKind = 21
+	// SP3WriteErrorVelocityInPositionProduct identifies velocity in a position-only product.
+	SP3WriteErrorVelocityInPositionProduct SP3WriteErrorKind = 22
+	// SP3WriteErrorRecordValueNonFinite identifies a non-finite record value.
+	SP3WriteErrorRecordValueNonFinite SP3WriteErrorKind = 23
+	// SP3WriteErrorRecordValueTooWide identifies a record value wider than its columns.
+	SP3WriteErrorRecordValueTooWide SP3WriteErrorKind = 24
+	// SP3WriteErrorRecordValueNotRepresentable identifies a record value changed by formatting.
+	SP3WriteErrorRecordValueNotRepresentable SP3WriteErrorKind = 25
+	// SP3WriteErrorRecordReadsAsAbsent identifies a value formatted as an absence sentinel.
+	SP3WriteErrorRecordReadsAsAbsent SP3WriteErrorKind = 26
+	// SP3WriteErrorRecordFieldsDisagree identifies inconsistent product/native units.
+	SP3WriteErrorRecordFieldsDisagree SP3WriteErrorKind = 27
+	// SP3WriteErrorSatelliteNotRepresentable identifies an invalid satellite token.
+	SP3WriteErrorSatelliteNotRepresentable SP3WriteErrorKind = 28
+	// SP3WriteErrorAccuracyNotRepresentable identifies an accuracy code that cannot be written.
+	SP3WriteErrorAccuracyNotRepresentable SP3WriteErrorKind = 29
+	// SP3WriteErrorAccuracyRecordMismatch identifies inconsistent accuracy records.
+	SP3WriteErrorAccuracyRecordMismatch SP3WriteErrorKind = 30
+	// SP3WriteErrorAccuracyBasisMissing identifies an absent accuracy basis.
+	SP3WriteErrorAccuracyBasisMissing SP3WriteErrorKind = 31
+	// SP3WriteErrorUnknown identifies a refusal not represented by a known variant.
+	SP3WriteErrorUnknown SP3WriteErrorKind = 999
+)
+
+// SP3WriteError retains the precise refused field, record location, and values.
+type SP3WriteError struct {
+	// Kind is the typed reason the formatter refused the product.
+	Kind SP3WriteErrorKind
+	// HasField says Field identifies the refused product field.
+	HasField bool
+	// HasTextValue says TextValue contains the rejected text.
+	HasTextValue bool
+	// HasSatelliteID says SatelliteID identifies the affected satellite.
+	HasSatelliteID bool
+	// HasEpochIndex says EpochIndex identifies the affected epoch.
+	HasEpochIndex bool
+	// HasCommentIndex says CommentIndex identifies the affected comment.
+	HasCommentIndex bool
+	// HasColumns says Columns contains the field width.
+	HasColumns bool
+	// HasDecimals says Decimals contains the decimal precision.
+	HasDecimals bool
+	// HasIntegerValue says IntegerValue contains the rejected integer.
+	HasIntegerValue bool
+	// HasNumber says Number contains the rejected numeric value.
+	HasNumber bool
+	// HasYear says Year contains the rejected calendar year.
+	HasYear bool
+	// HasFieldSeconds says FieldSeconds contains the rejected seconds field.
+	HasFieldSeconds bool
+	// HasResidualS says ResidualS contains the rejected residual.
+	HasResidualS bool
+	// HasEpochTimeScale says EpochTimeScale identifies the affected epoch scale.
+	HasEpochTimeScale bool
+	// HasHeaderTimeScale says HeaderTimeScale identifies the header scale.
+	HasHeaderTimeScale bool
+	// HasTimeSystem says TimeSystem identifies the affected time system.
+	HasTimeSystem bool
+	// HasDeclaredEpochs says DeclaredEpochs contains the header epoch count.
+	HasDeclaredEpochs bool
+	// HasEpochs says Epochs contains the stored epoch count.
+	HasEpochs bool
+	// HasEntries says Entries contains the stored record count.
+	HasEntries bool
+	// HasSatellites says Satellites contains the declared satellite count.
+	HasSatellites bool
+	// HasCodes says Codes contains the accuracy-code count.
+	HasCodes bool
+	// HasStored says Stored contains the product value.
+	HasStored bool
+	// HasNative says Native contains the corresponding native-unit value.
+	HasNative bool
+	// HasColumnValue says ColumnValue contains the formatted field value.
+	HasColumnValue bool
+	// HasExponent says Exponent contains the rejected exponent.
+	HasExponent bool
+	// SatelliteID is the affected satellite identifier.
+	SatelliteID string
+	// TimeSystem is the affected time-system label.
+	TimeSystem string
+	// EpochIndex is the zero-based affected epoch.
+	EpochIndex int
+	// CommentIndex is the zero-based affected comment.
+	CommentIndex int
+	// Columns is the fixed-width field width.
+	Columns int
+	// Decimals is the decimal precision of the field.
+	Decimals int
+	// IntegerValue is the rejected integer.
+	IntegerValue uint64
+	// Number is the rejected floating-point value.
+	Number float64
+	// Year is the rejected calendar year.
+	Year int64
+	// FieldSeconds is the rejected epoch seconds field.
+	FieldSeconds float64
+	// ResidualS is the rejected residual in seconds.
+	ResidualS float64
+	// EpochTimeScale is the affected epoch's time scale.
+	EpochTimeScale TimeScale
+	// HeaderTimeScale is the header's time scale.
+	HeaderTimeScale TimeScale
+	// DeclaredEpochs is the header's epoch count.
+	DeclaredEpochs uint64
+	// Epochs is the retained epoch count.
+	Epochs int
+	// Entries is the retained satellite-record count.
+	Entries int
+	// Satellites is the declared satellite count.
+	Satellites int
+	// Codes is the retained accuracy-code count.
+	Codes int
+	// Stored is the value retained by the product.
+	Stored float64
+	// Native is the corresponding native-unit value.
+	Native float64
+	// ColumnValue is the value produced by field formatting.
+	ColumnValue float64
+	// Exponent is the rejected decimal exponent.
+	Exponent int16
+	// Message is the complete diagnostic text.
+	Message string
+	// Field is the refused field name.
+	Field string
+	// TextValue is the rejected field text.
+	TextValue string
+}
+
+// SP3WriteOutcome records a successful text output or typed refusal.
+type SP3WriteOutcome struct {
+	// IsOK reports whether serialization succeeded.
+	IsOK bool
+	// Status is the C status code recorded with the outcome.
+	Status uint32
+	// Error retains the owned typed refusal details.
+	Error SP3WriteError
+}
+
+func publicSP3WriteOutcome(value native.SP3WriteOutcome) SP3WriteOutcome {
+	e := value.Error
+	return SP3WriteOutcome{IsOK: value.IsOK, Status: value.Status, Error: SP3WriteError{Kind: SP3WriteErrorKind(e.Kind), HasField: e.HasField, HasTextValue: e.HasTextValue, HasSatelliteID: e.HasSatelliteID, HasEpochIndex: e.HasEpochIndex, HasCommentIndex: e.HasCommentIndex, HasColumns: e.HasColumns, HasDecimals: e.HasDecimals, HasIntegerValue: e.HasIntegerValue, HasNumber: e.HasNumber, HasYear: e.HasYear, HasFieldSeconds: e.HasFieldSeconds, HasResidualS: e.HasResidualS, HasEpochTimeScale: e.HasEpochTimeScale, HasHeaderTimeScale: e.HasHeaderTimeScale, HasTimeSystem: e.HasTimeSystem, HasDeclaredEpochs: e.HasDeclaredEpochs, HasEpochs: e.HasEpochs, HasEntries: e.HasEntries, HasSatellites: e.HasSatellites, HasCodes: e.HasCodes, HasStored: e.HasStored, HasNative: e.HasNative, HasColumnValue: e.HasColumnValue, HasExponent: e.HasExponent, SatelliteID: e.SatelliteID, TimeSystem: e.TimeSystem, EpochIndex: e.EpochIndex, CommentIndex: e.CommentIndex, Columns: e.Columns, Decimals: e.Decimals, IntegerValue: e.IntegerValue, Number: e.Number, Year: e.Year, FieldSeconds: e.FieldSeconds, ResidualS: e.ResidualS, EpochTimeScale: TimeScale(e.EpochTimeScale), HeaderTimeScale: TimeScale(e.HeaderTimeScale), DeclaredEpochs: e.DeclaredEpochs, Epochs: e.Epochs, Entries: e.Entries, Satellites: e.Satellites, Codes: e.Codes, Stored: e.Stored, Native: e.Native, ColumnValue: e.ColumnValue, Exponent: e.Exponent, Message: e.Message, Field: e.Field, TextValue: e.TextValue}}
+}
+
+// Encode writes the parsed product and returns an owned typed refusal when its fields cannot be restated exactly.
+func (s *SP3) Encode() ([]byte, SP3WriteOutcome, error) {
+	if s == nil || s.handle == nil {
+		return nil, SP3WriteOutcome{}, ErrClosed
+	}
+	text, outcome, err := s.handle.TextResult()
+	return text, publicSP3WriteOutcome(outcome), publicError(err)
+}
+
 // ExactSP3Coverage identifies whether the declared end epoch is excluded or included.
 type ExactSP3Coverage uint32
 
@@ -127,6 +323,18 @@ const (
 	SP3MergeFlagClockOutlier SP3MergeFlagKind = SP3MergeFlagKind(native.Sp3MergeFlagClockOutlier)
 )
 
+// SP3ProvenanceMode selects the merge provenance retained in its report.
+type SP3ProvenanceMode uint32
+
+const (
+	// SP3ProvenanceOff omits provenance.
+	SP3ProvenanceOff SP3ProvenanceMode = SP3ProvenanceMode(native.Sp3ProvenanceModeOff)
+	// SP3ProvenanceSummary retains contributor coverage and source transitions.
+	SP3ProvenanceSummary SP3ProvenanceMode = SP3ProvenanceMode(native.Sp3ProvenanceModeSummary)
+	// SP3ProvenanceFull also retains every accepted cell's source selection.
+	SP3ProvenanceFull SP3ProvenanceMode = SP3ProvenanceMode(native.Sp3ProvenanceModeFull)
+)
+
 // SP3FrameReconciliationMethod identifies how coordinate labels were reconciled.
 type SP3FrameReconciliationMethod uint32
 
@@ -168,6 +376,8 @@ type SP3MergeOptions struct {
 	AssertedFrameLabelSets [][]string
 	// HelmertFrameReconciliation reports whether Helmert frame reconciliation is enabled.
 	HelmertFrameReconciliation bool
+	// ProvenanceMode selects whether the report retains no, summary, or full provenance.
+	ProvenanceMode SP3ProvenanceMode
 }
 
 // NewSP3MergeOptions returns native merge defaults.
@@ -180,7 +390,7 @@ func NewSP3MergeOptions() (SP3MergeOptions, error) {
 }
 
 func publicSP3MergeOptions(v native.NativeSp3MergeOptions) SP3MergeOptions {
-	return SP3MergeOptions{PositionToleranceM: v.PositionToleranceM, ClockToleranceS: v.ClockToleranceS, MinAgree: v.MinAgree, ClockMinCommon: v.ClockMinCommon, Combine: SP3MergeCombine(v.Combine), PrecedenceScope: SP3MergePrecedenceScope(v.PrecedenceScope), OutlierRejectEnabled: v.OutlierRejectEnabled, OutlierRejectPositionTolerance: v.OutlierRejectPositionTolerance, OutlierRejectClockTolerance: v.OutlierRejectClockTolerance, TargetEpochIntervalEnabled: v.TargetEpochIntervalEnabled, TargetEpochIntervalS: v.TargetEpochIntervalS, HelmertFrameReconciliation: v.HelmertFrameReconciliation}
+	return SP3MergeOptions{PositionToleranceM: v.PositionToleranceM, ClockToleranceS: v.ClockToleranceS, MinAgree: v.MinAgree, ClockMinCommon: v.ClockMinCommon, Combine: SP3MergeCombine(v.Combine), PrecedenceScope: SP3MergePrecedenceScope(v.PrecedenceScope), OutlierRejectEnabled: v.OutlierRejectEnabled, OutlierRejectPositionTolerance: v.OutlierRejectPositionTolerance, OutlierRejectClockTolerance: v.OutlierRejectClockTolerance, TargetEpochIntervalEnabled: v.TargetEpochIntervalEnabled, TargetEpochIntervalS: v.TargetEpochIntervalS, HelmertFrameReconciliation: v.HelmertFrameReconciliation, ProvenanceMode: SP3ProvenanceMode(v.ProvenanceMode)}
 }
 
 func nativeSP3MergeOptions(v *SP3MergeOptions) *native.NativeSp3MergeOptions {
@@ -191,7 +401,7 @@ func nativeSP3MergeOptions(v *SP3MergeOptions) *native.NativeSp3MergeOptions {
 	for i := range v.Systems {
 		systems[i] = uint32(v.Systems[i])
 	}
-	return &native.NativeSp3MergeOptions{PositionToleranceM: v.PositionToleranceM, ClockToleranceS: v.ClockToleranceS, MinAgree: v.MinAgree, ClockMinCommon: v.ClockMinCommon, Combine: uint32(v.Combine), PrecedenceScope: uint32(v.PrecedenceScope), OutlierRejectEnabled: v.OutlierRejectEnabled, OutlierRejectPositionTolerance: v.OutlierRejectPositionTolerance, OutlierRejectClockTolerance: v.OutlierRejectClockTolerance, TargetEpochIntervalEnabled: v.TargetEpochIntervalEnabled, TargetEpochIntervalS: v.TargetEpochIntervalS, Systems: systems, AssertedFrameLabelSets: append([][]string(nil), v.AssertedFrameLabelSets...), HelmertFrameReconciliation: v.HelmertFrameReconciliation}
+	return &native.NativeSp3MergeOptions{PositionToleranceM: v.PositionToleranceM, ClockToleranceS: v.ClockToleranceS, MinAgree: v.MinAgree, ClockMinCommon: v.ClockMinCommon, Combine: uint32(v.Combine), PrecedenceScope: uint32(v.PrecedenceScope), OutlierRejectEnabled: v.OutlierRejectEnabled, OutlierRejectPositionTolerance: v.OutlierRejectPositionTolerance, OutlierRejectClockTolerance: v.OutlierRejectClockTolerance, TargetEpochIntervalEnabled: v.TargetEpochIntervalEnabled, TargetEpochIntervalS: v.TargetEpochIntervalS, Systems: systems, AssertedFrameLabelSets: append([][]string(nil), v.AssertedFrameLabelSets...), HelmertFrameReconciliation: v.HelmertFrameReconciliation, ProvenanceMode: uint32(v.ProvenanceMode)}
 }
 
 // SP3ArtifactIdentity describes one verified SP3 merge contributor.

@@ -110,6 +110,35 @@ for value in "$MAJOR" "$MINOR" "$PATCH" "$HEADER_VERSION"; do
 	fi
 done
 
+MODULE_PATH=$(awk '$1 == "module" { print $2; exit }' "$ROOT/go.mod" 2>/dev/null || true)
+case "$MODULE_PATH" in
+	*/v[0-9]*) MODULE_MAJOR=${MODULE_PATH##*/v} ;;
+	*) MODULE_MAJOR= ;;
+esac
+case "$MODULE_MAJOR" in
+	''|*[!0-9]*)
+		echo "check-release: go.mod module path has no numeric major-version suffix: $MODULE_PATH" >&2
+		exit 1
+		;;
+esac
+if [ "$MODULE_MAJOR" != "$MAJOR" ]; then
+	echo "check-release: go.mod module major v$MODULE_MAJOR does not agree with header major $MAJOR" >&2
+	exit 1
+fi
+README_MODULE_PATHS=$(grep -Eo 'go get sidereon\.dev/go/v[0-9]+' "$ROOT/README.md" \
+	| sed 's/^go get //' \
+	| sort -u || true)
+[ -n "$README_MODULE_PATHS" ] || {
+	echo "check-release: README.md has no Go module import-path example" >&2
+	exit 1
+}
+for module_path in $README_MODULE_PATHS; do
+	if [ "$module_path" != "$MODULE_PATH" ]; then
+		echo "check-release: README module path $module_path does not agree with go.mod module path $MODULE_PATH" >&2
+		exit 1
+	fi
+done
+
 if [ "$HEADER_VERSION" != "$MAJOR.$MINOR.$PATCH" ]; then
 	echo "check-release: header version string $HEADER_VERSION disagrees with macros $MAJOR.$MINOR.$PATCH" >&2
 	exit 1
@@ -158,25 +187,23 @@ else
 	exit 1
 fi
 
-CLAIM_FILES=
-if [ -f "$ROOT/README.md" ]; then
-	CLAIM_FILES="$ROOT/README.md"
-fi
-for file in $(find "$ROOT" -type f -name '*.go' -not -path "$ROOT/.git/*"); do
-	if [ -f "$file" ]; then
-		CLAIM_FILES="$CLAIM_FILES $file"
-	fi
-done
-
-CLAIMS=$(for file in $CLAIM_FILES; do
-	grep -Eoh '[0-9]+\.[0-9]+\.[0-9]+' "$file" || true
-done | sort -u)
+# Validate only explicit Go-module release claims. README toolchain requirements
+# (for example Rust 1.98.1) and unrelated dependency versions are not Go
+# release claims and must not be compared with the Sidereon module version.
+CLAIMS=$(grep -E 'go get sidereon\.dev/go/v[0-9]+@v[0-9]+\.[0-9]+\.[0-9]+|Go module uses' "$ROOT/README.md" \
+	| grep -Eoh 'v?[0-9]+\.[0-9]+\.[0-9]+' \
+	| sed 's/^v//' \
+	| sort -u || true)
+[ -n "$CLAIMS" ] || {
+	echo "check-release: README.md has no explicit Go module release-version claim" >&2
+	exit 1
+}
 for claim in $CLAIMS; do
 	if [ "$claim" != "$TARGET_VERSION" ] && [ "$claim" != "$EXPECTED_VERSION" ]; then
 		if [ "$RELEASE_MODE" -eq 0 ] && [ "$claim" = "$HEADER_VERSION" ]; then
 			continue
 		fi
-		echo "check-release: unsupported Go/README version claim: $claim" >&2
+		echo "check-release: unsupported Go module release claim: $claim" >&2
 		exit 1
 	fi
 done
@@ -189,8 +216,7 @@ if [ "$RELEASE_MODE" -eq 0 ]; then
 	echo "check-release: PRE-RELEASE — publication remains blocked until public v$TARGET_VERSION exists with $TARGET_VERSION C header macros"
 	if [ "$ALLOW_PRERELEASE" -ne 1 ]; then
 		echo "check-release: pass --allow-prerelease for ordinary pre-release CI" >&2
-		exit 2
-	fi
-else
-	echo "check-release: release ref $RELEASE_REF agrees with header and Go/README claims"
+			exit 2
+		fi
 fi
+echo "check-release: release ref $RELEASE_REF agrees with header, module path, and Go/README claims"

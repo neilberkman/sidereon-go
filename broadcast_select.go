@@ -1,6 +1,10 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import (
+	"errors"
+
+	"sidereon.dev/go/v3/internal/native"
+)
 
 // CompareEpoch is one broadcast/precise epoch pair for SISRE comparison.
 // Julian-date fields preserve the split representation required by the C ABI.
@@ -366,6 +370,8 @@ type SPPDopplerSolution struct {
 	HasVelocity bool
 	// VelocityErrorKind identifies why velocity is unavailable when HasVelocity is false.
 	VelocityErrorKind SPPDopplerVelocityErrorKind
+	// VelocityError retains the structured native diagnostic and complete JSON payload for a failed velocity solve.
+	VelocityError *EngineError
 	// Velocity refers to an optional value; nil means it is unavailable.
 	Velocity *SPPDopplerVelocitySolution
 }
@@ -408,9 +414,9 @@ func SolveBroadcast(broadcast *BroadcastEphemeris, config SPPConfig) (SPPSolutio
 		if err != nil {
 			return SPPSolution{}, publicError(err)
 		}
-		defer handle.Close()
-		result, err := handle.Solution()
-		return publicSPPSolution(result), publicError(err)
+		result, solveErr := handle.Solution()
+		closeErr := handle.Close()
+		return publicSPPSolution(result), errors.Join(publicError(solveErr), publicError(closeErr))
 	}
 	result, err := broadcast.handle.SolveBroadcast(nativeSPPConfig(config))
 	return publicSPPSolution(result), publicError(err)
@@ -427,7 +433,7 @@ func SolveBroadcastWithDopplerVelocity(broadcast *BroadcastEphemeris, config SPP
 		nativeObservations[i] = native.NativeSppDopplerObservation{SatelliteID: value.SatelliteID, DopplerHz: value.DopplerHz, CarrierHz: value.CarrierHz, SatelliteClockDriftSS: value.SatelliteClockDriftSPerS}
 	}
 	value, err := broadcast.handle.SolveBroadcastWithDopplerVelocity(nativeSPPConfig(config), nativeObservations)
-	out := SPPDopplerSolution{Receiver: publicSPPSolution(value.Receiver), HasVelocity: value.HasVelocity, VelocityErrorKind: SPPDopplerVelocityErrorKind(value.VelocityErrorKind)}
+	out := SPPDopplerSolution{Receiver: publicSPPSolution(value.Receiver), HasVelocity: value.HasVelocity, VelocityErrorKind: SPPDopplerVelocityErrorKind(value.VelocityErrorKind), VelocityError: publicEngineError(value.VelocityError)}
 	if value.Velocity != nil {
 		out.Velocity = &SPPDopplerVelocitySolution{VelocityMPerS: value.Velocity.VelocityMPerS, ClockDriftSPerS: value.Velocity.ClockDriftSPerS, SpeedMPerS: value.Velocity.SpeedMPerS, StateCovariance: value.Velocity.StateCovariance, UsedSatelliteCount: value.Velocity.UsedSatelliteCount, UsedSatelliteIDs: append([]string(nil), value.Velocity.UsedSatelliteIDs...), ResidualsMPerS: append([]float64(nil), value.Velocity.ResidualsMPerS...)}
 	}

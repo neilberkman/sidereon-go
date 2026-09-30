@@ -38,74 +38,85 @@ while IFS= read -r source; do
 done < <(find . -type f -name '*.go' ! -name '*_test.go' ! -path './.git/*' | LC_ALL=C sort) \
 	| sort -u >"$work/direct-all"
 
-awk -F '\t' '!seen[$1]++ { print $1 "\t`" $2 "` contains the production cgo call." }' \
-	"$work/direct-all" >"$work/direct-proof"
+# Production bridge helpers are private inline C definitions, rather than
+# symbols supplied by the vendored library. Require their local definitions
+# and account for them separately from public ABI routes.
+cut -f1 "$work/direct-all" | sort -u >"$work/all-call-symbols"
+comm -13 "$work/header" "$work/all-call-symbols" >"$work/private-calls"
+printf '%s\n' sidereon_enter_c_thread sidereon_get_c_thread_depth sidereon_leave_c_thread | sort >"$work/private-expected"
+if ! cmp -s "$work/private-expected" "$work/private-calls"; then
+    printf 'ABI coverage: unexpected production calls outside the vendored header\n' >&2
+    cat "$work/private-calls" >&2
+    exit 1
+fi
+while IFS= read -r helper; do
+    if ! grep -qE "^static inline (int|void) ${helper}\\(void\\)" internal/native/bridge.go; then
+        printf 'ABI coverage: private bridge helper %s has no inline definition\n' "$helper" >&2
+        exit 1
+    fi
+done <"$work/private-calls"
+awk -F '\t' 'NR==FNR {header[$1]=1; next} header[$1] && !seen[$1]++ {print $1 "\t`" $2 "` contains the production cgo call."}' \
+    "$work/header" "$work/direct-all" >"$work/direct-proof"
 cut -f1 "$work/direct-proof" >"$work/direct"
 
-printf '%s\t%s\n' \
-	'sidereon_bias_sinex_load' '`LoadBiasSINEX` in `bias.go` reads or decompresses the path in Go, then uses the byte parser.' \
-	'sidereon_bias_sinex_load_lossy' '`LoadBiasSINEXLossy` in `bias.go` reads or decompresses the path in Go, then uses the lossy byte parser.' \
-	'sidereon_code_dcb_load' '`LoadCodeDCB` in `bias.go` reads the path in Go, then uses the strict byte parser.' \
-	'sidereon_code_dcb_load_lossy' '`LoadCodeDCBLossy` in `bias.go` reads the path in Go, then uses the lossy byte parser.' \
-	'sidereon_broadcast_ephemeris_load_nav' '`LoadBroadcastEphemeris` in `corrections.go` reads the path in Go, then uses the NAV byte parser.' \
-	'sidereon_rinex_obs_load' '`LoadRINEXObservation` in `observation.go` reads the path in Go, then uses the RINEX observation byte parser.' \
-	'sidereon_precise_interpolant_artifact_from_path' '`OpenPreciseInterpolantArtifactFile` in `remaining_products.go` reads the path in Go, then opens the detached artifact bytes.' \
-	'sidereon_precise_interpolant_artifact_open_borrowed' '`OpenPreciseInterpolantArtifactBorrowed` in `remaining_products.go` delegates to the owned-byte artifact opener; Go slice lifetime is not borrowed across the call.' \
-	'sidereon_write_dted_tile_list_to_mmap_store' '`WriteDTEDTileListToMMapStore` in `geodesy_environment.go` builds store bytes through the ABI and writes them with Go filesystem ownership.' \
-	'sidereon_write_dted_tree_to_mmap_store' '`WriteDTEDTreeToMMapStore` in `geodesy_environment.go` builds store bytes through the ABI and writes them with Go filesystem ownership.' \
-	>"$work/composed-proof"
-sort -u "$work/composed-proof" -o "$work/composed-proof"
+# Every composition is a reviewed operation recipe, with a concrete public
+# entry and production native replacements. Unknown functions remain missing
+# dispositions and cause failure; exclusions are not accepted.
+# The table is manually reviewed. This checker verifies declared public entries
+# and production replacement call sites; it does not infer or prove semantic
+# equivalence. Validate the six-column contract before parsing; Bash read would
+# otherwise fold surplus tab-separated fields into the final proof column.
+awk -F '\t' 'NF == 0 || $0 ~ /^[[:space:]]*#/ { next } NF != 6 { print "ABI coverage: expected exactly 6 TSV columns at line " NR ", found " NF > "/dev/stderr"; bad=1 } END { exit bad }' audit/ABI_COMPOSITIONS.tsv
+# Reject duplicate symbols before any normalization can hide them.
+awk -F '\t' 'NF == 0 || $1 ~ /^#/ { next } seen[$1]++ { print "ABI coverage: duplicate composition symbol " $1 > "/dev/stderr"; bad=1 } END { exit bad }' audit/ABI_COMPOSITIONS.tsv
+: >"$work/composed-proof"
+while IFS=$'\t' read -r symbol function source native_source replacements proof; do
+    [[ "$symbol" == \#* || -z "$symbol" ]] && continue
+    if [[ -z "$function" || -z "$source" || -z "$native_source" || -z "$replacements" || -z "$proof" ]]; then
+        printf 'ABI coverage: incomplete composition row for %s\n' "$symbol" >&2
+        exit 1
+    fi
+    for entry in $function; do
+        entry_found=false
+        for public_path in $source; do
+            if grep -qE "^func[[:space:]]+(\\([^)]*\\)[[:space:]]+)?${entry}\\(" "$public_path"; then
+                entry_found=true
+            fi
+        done
+        if [[ "$entry_found" != true ]]; then
+            printf 'ABI coverage: composed entry %s is absent from listed public sources %s\n' "$entry" "$source" >&2
+            exit 1
+        fi
+    done
+    for replacement in $replacements; do
+        replacement_found=false
+        for native_path in $native_source; do
+            if grep -Fq "C.${replacement}(" "$native_path"; then
+                replacement_found=true
+            fi
+        done
+        if [[ "$replacement_found" != true ]] || ! grep -Fxq "$replacement" "$work/direct"; then
+            printf 'ABI coverage: composition %s lacks direct replacement %s in %s\n' "$symbol" "$replacement" "$native_source" >&2
+            exit 1
+        fi
+    done
+    printf '%s\t`%s` in `%s`, through `%s`: %s\n' "$symbol" "$function" "$source" "$native_source" "$proof" >>"$work/composed-proof"
+done <audit/ABI_COMPOSITIONS.tsv
+LC_ALL=C sort "$work/composed-proof" -o "$work/composed-proof"
 cut -f1 "$work/composed-proof" >"$work/composed"
 
-while IFS=$'\t' read -r function source; do
-	if ! grep -qE "^func[[:space:]]+${function}\\(" "$source"; then
-		printf 'ABI coverage: composed route %s is absent from %s\n' "$function" "$source" >&2
-		exit 1
-	fi
-done <<'EOF'
-LoadBiasSINEX	bias.go
-LoadBiasSINEXLossy	bias.go
-LoadCodeDCB	bias.go
-LoadCodeDCBLossy	bias.go
-LoadBroadcastEphemeris	corrections.go
-LoadRINEXObservation	observation.go
-OpenPreciseInterpolantArtifactFile	remaining_products.go
-OpenPreciseInterpolantArtifactBorrowed	remaining_products.go
-WriteDTEDTileListToMMapStore	geodesy_environment.go
-WriteDTEDTreeToMMapStore	geodesy_environment.go
-EOF
-
-printf '%s\t%s\n' \
-	'sidereon_precise_interpolant_artifact_from_path_attested' 'Excluded: this path-only deferred-attestation route cannot preserve the Go-owned byte-transport contract; the ABI has no equivalent owned-byte attested opener.' \
-	>"$work/excluded-proof"
-cut -f1 "$work/excluded-proof" >"$work/excluded"
+: >"$work/excluded-proof"
+: >"$work/excluded"
 
 header_count=$(wc -l <"$work/header" | tr -d ' ')
 direct_count=$(wc -l <"$work/direct" | tr -d ' ')
 composed_count=$(wc -l <"$work/composed" | tr -d ' ')
 excluded_count=$(wc -l <"$work/excluded" | tr -d ' ')
 
-[[ "$header_count" == 1513 ]] || {
-	printf 'ABI coverage: expected 1513 header declarations, found %s\n' "$header_count" >&2
-	exit 1
+[[ "$header_count" == 2017 ]] || {
+    printf 'ABI coverage: expected 2017 pinned v3 header declarations, found %s\n' "$header_count" >&2
+    exit 1
 }
-[[ "$direct_count" == 1502 ]] || {
-	printf 'ABI coverage: expected 1502 production cgo routes, found %s\n' "$direct_count" >&2
-	exit 1
-}
-[[ "$composed_count" == 10 && "$excluded_count" == 1 ]] || {
-	printf 'ABI coverage: expected 10 compositions and 1 exclusion, found %s and %s\n' "$composed_count" "$excluded_count" >&2
-	exit 1
-}
-
-if ! comm -13 "$work/header" "$work/direct" >"$work/calls-outside-header"; then
-	exit 1
-fi
-if [[ -s "$work/calls-outside-header" ]]; then
-	printf 'ABI coverage: production calls absent from the vendored header:\n' >&2
-	sed 's/^/  /' "$work/calls-outside-header" >&2
-	exit 1
-fi
 
 for left in direct composed excluded; do
 	for right in direct composed excluded; do
@@ -138,7 +149,7 @@ pin=$(tr -d '[:space:]' <internal/native/lib/sidereon-c.ref)
 {
 	printf '# Current C ABI implementation map\n\n'
 	printf 'This map is generated from the vendored header and production cgo calls for pinned public `sidereon-c` commit `%s`. Run `./scripts/check-abi-coverage.sh` to prove that every declaration has exactly one disposition.\n\n' "$pin"
-	printf 'Summary: **1,513 total = 1,502 direct + 10 composed + 1 excluded**. Direct rows name a production cgo source. Composed rows keep filesystem acquisition or persistence in Go and delegate bytes to an implemented ABI route.\n\n'
+	printf 'Summary: **%s total = %s direct + %s composed + 0 excluded**. Direct rows name production cgo calls. Composed rows describe manually reviewed Go recipes and native replacements; this checker verifies declared entries and replacement call sites, not semantic equivalence. Private inline thread helpers are accounted for separately. This is C-symbol coverage; canonical Rust API parity is a separate audit.\n\n' "$header_count" "$direct_count" "$composed_count"
 	printf '| # | C symbol | Disposition | Implementation proof |\n'
 	printf '|---:|---|---|---|\n'
 	awk -F '\t' '{ printf "| %d | `%s` | %s | %s |\n", NR, $1, $2, $3 }' "$work/dispositions"

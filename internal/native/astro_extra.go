@@ -313,12 +313,23 @@ type SPKState struct {
 }
 
 func (s *SPK) State(target, center int32, etSecondsTDB float64) (SPKState, error) {
+	return s.state(target, center, etSecondsTDB, nil)
+}
+
+func (s *SPK) StateInFrame(target, center int32, etSecondsTDB float64, frame int32) (SPKState, error) {
+	return s.state(target, center, etSecondsTDB, &frame)
+}
+
+func (s *SPK) state(target, center int32, etSecondsTDB float64, frame *int32) (SPKState, error) {
 	if s == nil || s.handle == nil {
 		return SPKState{}, ErrClosed
 	}
 	var out C.SidereonSpkState
 	err := s.handle.with(func(pointer unsafe.Pointer) error {
 		return callStatus(func() uint32 {
+			if frame != nil {
+				return uint32(C.sidereon_spk_state_in_frame((*C.SidereonSpk)(pointer), C.int32_t(target), C.int32_t(center), C.double(etSecondsTDB), C.int32_t(*frame), &out))
+			}
 			return C.sidereon_spk_state((*C.SidereonSpk)(pointer), C.int32_t(target), C.int32_t(center), C.double(etSecondsTDB), &out)
 		})
 	})
