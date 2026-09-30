@@ -199,6 +199,14 @@ func callStatus(fn func() uint32) error {
 	return err
 }
 
+func callSGP4Status(fn func() uint32) error {
+	var err error
+	withCThread(func() {
+		err = sgp4StatusErrorLocked(C.enum_SidereonStatus(fn()))
+	})
+	return err
+}
+
 func callQualityStatus(fn func() uint32) error {
 	var err error
 	withCThread(func() { err = qualityStatusErrorLocked(fn()) })

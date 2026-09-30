@@ -2,6 +2,7 @@ package sidereon
 
 import (
 	"encoding/json"
+	"fmt"
 	"sidereon.dev/go/v3/internal/native"
 )
 
@@ -211,6 +212,22 @@ type OMMParseError struct {
 	Kind   string              `json:"kind"`
 	Fields OMMParseErrorFields `json:"fields"`
 	Raw    json.RawMessage     `json:"-"`
+}
+
+// Error returns the typed core category and preserves nested record context.
+func (value OMMParseError) Error() string {
+	if value.Fields.Source != nil {
+		return fmt.Sprintf("OMM %s: %v", value.Kind, value.Fields.Source)
+	}
+	return fmt.Sprintf("OMM %s: %s", value.Kind, string(value.Raw))
+}
+
+// Unwrap exposes a nested per-record parse cause to errors.Is and errors.As.
+func (value OMMParseError) Unwrap() error {
+	if value.Fields.Source == nil {
+		return nil
+	}
+	return *value.Fields.Source
 }
 
 // UnmarshalJSON decodes JSON while preserving the typed field representation.

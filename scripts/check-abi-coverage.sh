@@ -113,8 +113,8 @@ direct_count=$(wc -l <"$work/direct" | tr -d ' ')
 composed_count=$(wc -l <"$work/composed" | tr -d ' ')
 excluded_count=$(wc -l <"$work/excluded" | tr -d ' ')
 
-[[ "$header_count" == 2017 ]] || {
-    printf 'ABI coverage: expected 2017 pinned v3 header declarations, found %s\n' "$header_count" >&2
+[[ "$header_count" == 2043 ]] || {
+    printf 'ABI coverage: expected 2043 pinned v3 header declarations, found %s\n' "$header_count" >&2
     exit 1
 }
 

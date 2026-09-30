@@ -169,7 +169,6 @@ type SPK struct{}
 type TDM struct{}
 
 func ParseOEM([]byte, bool) (*OEM, error)            { return nil, unavailable() }
-func ParseOMM([]byte, uint32) (*OMM, error)          { return nil, unavailable() }
 func ParseOPM([]byte, bool) (*OPM, error)            { return nil, unavailable() }
 func (*OEM) Close() error                            { return nil }
 func (*OMM) Close() error                            { return nil }
@@ -179,7 +178,80 @@ func (*OEM) SkippedStateCount() (int, error)         { return 0, unavailable() }
 func (*OEM) SkippedStatePayload(int) ([]byte, error) { return nil, unavailable() }
 func (*OEM) Text(bool) ([]byte, error)               { return nil, unavailable() }
 func (*OMM) Text(uint32) ([]byte, error)             { return nil, unavailable() }
-func (*OPM) Text(bool) ([]byte, error)               { return nil, unavailable() }
+func (*OMM) SnapshotJSON() ([]byte, error)           { return nil, unavailable() }
+func OMMFromSnapshotJSON([]byte) (*OMM, error)       { return nil, unavailable() }
+func (*OMM) ToElementSet() (OMMElementSet, error)    { return OMMElementSet{}, unavailable() }
+
+// OMMArray is the unavailable-build placeholder for the owned OMM collection.
+type OMMArray struct{}
+
+// ParseOMMJSONArray is unavailable without the supported native build.
+func ParseOMMJSONArray([]byte) (*OMMArray, error) { return nil, unavailable() }
+
+// ParseOMMXMLAll is unavailable without the supported native build.
+func ParseOMMXMLAll([]byte) (*OMMArray, error) { return nil, unavailable() }
+
+// ParseOMMCSVArray is unavailable without the supported native build.
+func ParseOMMCSVArray([]byte) (*OMMArray, error) { return nil, unavailable() }
+
+// NewOMMArray is unavailable without the supported native build.
+func NewOMMArray() (*OMMArray, error) { return nil, unavailable() }
+
+// Append is unavailable without the supported native build.
+func (*OMMArray) Append(*OMM) error { return unavailable() }
+
+// Count is unavailable without the supported native build.
+func (*OMMArray) Count() (int, error) { return 0, unavailable() }
+
+// Record is unavailable without the supported native build.
+func (*OMMArray) Record(int) (*OMM, error) { return nil, unavailable() }
+
+// Skipped is unavailable without the supported native build.
+func (*OMMArray) Skipped() ([]OMMSkippedRecord, error) { return nil, unavailable() }
+
+// JSON is unavailable without the supported native build.
+func (*OMMArray) JSON() ([]byte, error) { return nil, unavailable() }
+
+// JSONDiscardingComments is unavailable without the supported native build.
+func (*OMMArray) JSONDiscardingComments() ([]byte, error) { return nil, unavailable() }
+
+// CSV is unavailable without the supported native build.
+func (*OMMArray) CSV() ([]byte, error) { return nil, unavailable() }
+
+// CSVDiscardingComments is unavailable without the supported native build.
+func (*OMMArray) CSVDiscardingComments() ([]byte, error) { return nil, unavailable() }
+
+// Close releases the unavailable placeholder.
+func (*OMMArray) Close() error { return nil }
+
+// ParseOMM is unavailable without the supported native build.
+func ParseOMM([]byte) (*OMM, error) { return nil, unavailable() }
+
+// ParseOMMCSV is unavailable without the supported native build.
+func ParseOMMCSV([]byte) (*OMM, error) { return nil, unavailable() }
+
+// ParseOMMEpoch is unavailable without the supported native build.
+func ParseOMMEpoch(string) (OMMEpoch, error) { return OMMEpoch{}, unavailable() }
+
+// Sgp4Satellite is the unavailable-build placeholder for an OMM SGP4 handle.
+type Sgp4Satellite struct{}
+
+// Sgp4SatelliteFromOMM is unavailable without the supported native build.
+func Sgp4SatelliteFromOMM(*OMM) (*Sgp4Satellite, error) { return nil, unavailable() }
+
+// PropagateMinutes is unavailable without the supported native build.
+func (*Sgp4Satellite) PropagateMinutes(float64) (TEMEState, error) { return TEMEState{}, unavailable() }
+
+// PropagateJD is unavailable without the supported native build.
+func (*Sgp4Satellite) PropagateJD(JulianDate) (TEMEState, error) { return TEMEState{}, unavailable() }
+
+// EpochJ2000S is unavailable without the supported native build.
+func (*Sgp4Satellite) EpochJ2000S() (float64, error) { return 0, unavailable() }
+func (*Sgp4Satellite) Epoch() (JulianDate, error)    { return JulianDate{}, unavailable() }
+
+// Close releases the unavailable placeholder.
+func (*Sgp4Satellite) Close() error    { return nil }
+func (*OPM) Text(bool) ([]byte, error) { return nil, unavailable() }
 
 type ConstellationRecord struct {
 	System             uint32

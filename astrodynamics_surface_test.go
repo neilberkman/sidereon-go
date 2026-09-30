@@ -334,6 +334,20 @@ func TestAstrodynamicsSurfaceFixtureDeterministic(t *testing.T) {
 		t.Fatal(err)
 	}
 	cleanupClose(t, "OMM", fitOMM.Close)
+	fitOMMSnapshot, err := fitOMM.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fitOMMSnapshot.ExactSGP4Epoch == nil || fitOMMSnapshot.QuantizeTLEDerivedFields {
+		t.Fatalf("fitted OMM snapshot lost exact epoch/policy side channels: %+v", fitOMMSnapshot)
+	}
+	fitElementSet, err := fitOMM.ToElementSet()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fitElementSet.Epoch.Whole != fitOMMSnapshot.ExactSGP4Epoch.Whole || fitElementSet.Epoch.Fraction != fitOMMSnapshot.ExactSGP4Epoch.Fraction || fitElementSet.OMMEpochDays != nil {
+		t.Fatalf("fitted OMM bridge did not preserve its exact split epoch: snapshot=%+v elements=%+v", fitOMMSnapshot.ExactSGP4Epoch, fitElementSet)
+	}
 	if encoded, err := fitOMM.KVN(); err != nil || len(encoded) == 0 {
 		t.Fatalf("fitted OMM KVN = %d bytes, %v", len(encoded), err)
 	} else {
