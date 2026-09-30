@@ -1,6 +1,10 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import (
+	"errors"
+
+	"sidereon.dev/go/v3/internal/native"
+)
 
 // PPPTropoMapping selects the tropospheric mapping model used by PPP.
 type PPPTropoMapping uint32
@@ -598,10 +602,70 @@ type PPPFixedSolution struct {
 	handle *native.PppFixedSolution
 }
 
+// PPPUnplacedObservationV2 retains typed reasons and strict-SSR size values.
+type PPPUnplacedObservationV2 struct {
+	EpochIndex               int
+	SatelliteID, AmbiguityID string
+	Reason                   PPPUnplacedObservationReason
+	UnknownVariant           string
+	HasSize                  bool
+	OrbitM, ClockM           float64
+}
+
+// PPPUnplacedObservationReason identifies why an observation was not placed.
+type PPPUnplacedObservationReason uint32
+
+const (
+	// PPPUnplacedObservationCodeNotPositive marks absent or nonpositive code.
+	PPPUnplacedObservationCodeNotPositive PPPUnplacedObservationReason = PPPUnplacedObservationReason(native.PPPUnplacedObservationCodeNotPositiveValue)
+	// PPPUnplacedObservationSsrCorrectionExceedsLimit marks strict SSR refusal.
+	PPPUnplacedObservationSsrCorrectionExceedsLimit PPPUnplacedObservationReason = PPPUnplacedObservationReason(native.PPPUnplacedObservationSsrCorrectionExceedsLimitValue)
+	// PPPUnplacedObservationUnknown preserves an unrecognized native reason.
+	PPPUnplacedObservationUnknown PPPUnplacedObservationReason = PPPUnplacedObservationReason(native.PPPUnplacedObservationUnknownValue)
+)
+
 // PPPCorrections owns native precomputed PPP correction tables.
 type PPPCorrections struct {
 	_      noCopy
 	handle *native.PppCorrections
+}
+
+type PPPValidityMode uint32
+
+const (
+	PPPValidityStrict PPPValidityMode = iota
+	PPPValidityPermissive
+)
+
+type StationTideConstantSet = StationTideConstants
+
+type PPPCorrectionsBuildError struct {
+	Kind  uint32
+	Cause error
+}
+
+func (err *PPPCorrectionsBuildError) Error() string {
+	if err == nil {
+		return "sidereon: PPP corrections build failed"
+	}
+	if err.Cause != nil {
+		return "sidereon: PPP corrections build failed: " + err.Cause.Error()
+	}
+	return "sidereon: PPP corrections build failed"
+}
+func (err *PPPCorrectionsBuildError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.Cause
+}
+
+func publicPppCorrectionsBuildError(err error) error {
+	var nativeError *native.PppCorrectionsBuildError
+	if errors.As(err, &nativeError) {
+		return &PPPCorrectionsBuildError{Kind: nativeError.Kind, Cause: publicError(nativeError.Cause)}
+	}
+	return publicError(err)
 }
 
 func nativePPPAutoInitOptions(value PPPAutoInitOptions) native.PppAutoInitOptions {
@@ -806,12 +870,53 @@ func BuildPPPCorrections(sp3 *SP3, epochs []PPPCorrectionEpoch, receiverECEFM [3
 	}
 	value, err := native.PppCorrectionsBuild(sp3.handle, nativeEpochs, receiverECEFM, nativePPPCorrectionsOptions(options))
 	if err != nil {
-		return nil, publicError(err)
+		return nil, publicPppCorrectionsBuildError(err)
 	}
 	if value == nil {
 		return nil, errNilNativeHandle
 	}
 	return &PPPCorrections{handle: value}, nil
+}
+
+// BuildPPPCorrectionsWithValidityAndTideConstants selects UT1 validity and solid-Earth tide constants.
+func BuildPPPCorrectionsWithValidityAndTideConstants(sp3 *SP3, epochs []PPPCorrectionEpoch, receiverECEFM [3]float64, options PPPCorrectionsOptions, validity PPPValidityMode, constants StationTideConstants) (*PPPCorrections, error) {
+	if validity > PPPValidityPermissive || constants > StationTideIERSRoutine {
+		return nil, invalidArgument("invalid PPP validity or station-tide constants selector")
+	}
+	if sp3 == nil || sp3.handle == nil {
+		return nil, ErrClosed
+	}
+	for _, pair := range options.CodeBiasSystemPairs {
+		if err := validateGNSSSystem(pair.System); err != nil {
+			return nil, err
+		}
+	}
+	for _, pair := range options.CodeBiasClockReference {
+		if err := validateGNSSSystem(pair.System); err != nil {
+			return nil, err
+		}
+	}
+	nativeEpochs := make([]native.PppCorrectionEpoch, len(epochs))
+	for index, epoch := range epochs {
+		nativeEpochs[index] = nativePPPCorrectionEpoch(epoch)
+	}
+	value, err := native.PppCorrectionsBuildWithValidityAndTideConstants(sp3.handle, nativeEpochs, receiverECEFM, nativePPPCorrectionsOptions(options), uint32(validity), uint32(constants))
+	if err != nil {
+		return nil, publicPppCorrectionsBuildError(err)
+	}
+	if value == nil {
+		return nil, errNilNativeHandle
+	}
+	return &PPPCorrections{handle: value}, nil
+}
+
+// DegradedReason reports whether correction construction used permissive UT1 extrapolation.
+func (c *PPPCorrections) DegradedReason() (StationTideDegradeReason, error) {
+	if c == nil || c.handle == nil {
+		return StationTideNotDegraded, ErrClosed
+	}
+	value, err := c.handle.DegradedReason()
+	return StationTideDegradeReason(value), publicError(err)
 }
 
 // SolvePPPFloat solves a static multi-epoch float PPP arc through C.
@@ -898,6 +1003,38 @@ func (s *PPPFixedSolution) Close() error {
 		return nil
 	}
 	return publicError(s.handle.Close())
+}
+
+// UnplacedObservationsV2 returns float-solve rows with optional SSR sizes.
+func (s *PPPFloatSolution) UnplacedObservationsV2() ([]PPPUnplacedObservationV2, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := s.handle.UnplacedObservationsV2()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return pppUnplacedV2FromNative(values), nil
+}
+
+// UnplacedObservationsV2 returns fixed-solve rows with optional SSR sizes.
+func (s *PPPFixedSolution) UnplacedObservationsV2() ([]PPPUnplacedObservationV2, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := s.handle.UnplacedObservationsV2()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return pppUnplacedV2FromNative(values), nil
+}
+
+func pppUnplacedV2FromNative(values []native.PppUnplacedObservationV2) []PPPUnplacedObservationV2 {
+	result := make([]PPPUnplacedObservationV2, len(values))
+	for index, value := range values {
+		result[index] = PPPUnplacedObservationV2{EpochIndex: value.EpochIndex, SatelliteID: value.SatelliteID, AmbiguityID: value.AmbiguityID, Reason: PPPUnplacedObservationReason(value.Reason), UnknownVariant: value.UnknownVariant, HasSize: value.HasSize, OrbitM: value.OrbitM, ClockM: value.ClockM}
+	}
+	return result
 }
 
 // CodeBias returns detached per-satellite code-bias corrections in metres.

@@ -175,7 +175,7 @@ func (s *SP3) Continuity(orbitClass int, residualTolerance float64) (NativeSp3Co
 	}
 	var defects, checked, skipped C.size_t
 	err = s.handle.with(func(p unsafe.Pointer) error {
-		return callStatus(func() uint32 {
+		return callStatusWithSp3Diagnostics(func() uint32 {
 			return uint32(C.sidereon_sp3_check_continuity((*C.SidereonSp3)(p), class, C.double(residualTolerance), &defects, &checked, &skipped))
 		})
 	})
@@ -208,7 +208,7 @@ func (s *SP3) ContinuityWithGapThresholdFactor(orbitClass int, residualTolerance
 	}
 	var defects, checked, skipped C.size_t
 	err = s.handle.with(func(p unsafe.Pointer) error {
-		return callStatus(func() uint32 {
+		return callStatusWithSp3Diagnostics(func() uint32 {
 			return uint32(C.sidereon_sp3_check_continuity_with_gap_threshold_factor((*C.SidereonSp3)(p), class, C.double(residualTolerance), C.double(gapThresholdFactor), &defects, &checked, &skipped))
 		})
 	})
@@ -301,7 +301,7 @@ func (s *SP3) AlignClockReference(other *SP3, minCommon int) (*SP3, error) {
 	}
 	var out *C.SidereonSp3
 	err = withPositioningHandlePair(s.handle, other.handle, func(reference unsafe.Pointer, candidate unsafe.Pointer) error {
-		return callStatus(func() uint32 {
+		return callStatusWithSp3Diagnostics(func() uint32 {
 			return uint32(C.sidereon_sp3_align_clock_reference((*C.SidereonSp3)(reference), (*C.SidereonSp3)(candidate), common, &out))
 		})
 	})
@@ -351,17 +351,15 @@ func (s *SP3) Interpolate(satellite string, epochs []float64) ([][3]float64, []f
 	var positions [][3]float64
 	var clocks []float64
 	var written C.size_t
-	var countErr error
 	err = s.handle.with(func(p unsafe.Pointer) error {
-		callErr := withString(satellite, func(id *C.char) uint32 {
+		return withStringError(satellite, func(id *C.char) error {
 			status := C.sidereon_sp3_interpolate((*C.SidereonSp3)(p), id, (*C.double)(epochMemory), C.size_t(len(epochs)), (*C.double)(positionMemory), C.size_t(len(epochs)*3), (*C.double)(clockMemory), C.size_t(len(epochs)), &written)
-			if err := statusErrorLocked(uint32(status)); err != nil {
-				return uint32(status)
+			if err := statusSp3ErrorLocked(uint32(status)); err != nil {
+				return err
 			}
 			writtenInt, conversionErr := writtenToInt(written, len(epochs), "SP3 interpolation written count")
 			if conversionErr != nil {
-				countErr = conversionErr
-				return uint32(C.SIDEREON_STATUS_OK)
+				return conversionErr
 			}
 			positions = make([][3]float64, writtenInt)
 			clocks = make([]float64, writtenInt)
@@ -373,12 +371,8 @@ func (s *SP3) Interpolate(satellite string, epochs []float64) ([][3]float64, []f
 				}
 				clocks[i] = float64(cv[i])
 			}
-			return uint32(C.SIDEREON_STATUS_OK)
+			return nil
 		})
-		if countErr != nil {
-			return countErr
-		}
-		return callErr
 	})
 	runtime.KeepAlive(s)
 	runtime.KeepAlive(epochs)
@@ -404,9 +398,9 @@ func (s *SP3) ContinuityVerdictJSON(orbitClass int, residualTolerance, from, thr
 	err = s.handle.with(func(p unsafe.Pointer) error {
 		return withCThreadError(func() error {
 			var err error
-			result, err = copyNativeBytesLocked("SP3 continuity verdict", func(out *C.uint8_t, n C.size_t, w, r *C.size_t) C.enum_SidereonStatus {
+			result, err = copyNativeBytesLockedWithStatus("SP3 continuity verdict", func(out *C.uint8_t, n C.size_t, w, r *C.size_t) C.enum_SidereonStatus {
 				return C.sidereon_sp3_continuity_verdict_json((*C.SidereonSp3)(p), class, C.double(residualTolerance), C.double(from), C.double(through), out, n, w, r)
-			})
+			}, statusSp3ErrorLocked)
 			return err
 		})
 	})
@@ -426,9 +420,9 @@ func (s *SP3) ContinuityVerdictJSONWithGapThresholdFactor(orbitClass int, residu
 	err = s.handle.with(func(p unsafe.Pointer) error {
 		return withCThreadError(func() error {
 			var err error
-			result, err = copyNativeBytesLocked("SP3 continuity verdict", func(out *C.uint8_t, n C.size_t, w, r *C.size_t) C.enum_SidereonStatus {
+			result, err = copyNativeBytesLockedWithStatus("SP3 continuity verdict", func(out *C.uint8_t, n C.size_t, w, r *C.size_t) C.enum_SidereonStatus {
 				return C.sidereon_sp3_continuity_verdict_json_with_gap_threshold_factor((*C.SidereonSp3)(p), class, C.double(residualTolerance), C.double(gapThresholdFactor), C.double(from), C.double(through), out, n, w, r)
-			})
+			}, statusSp3ErrorLocked)
 			return err
 		})
 	})
@@ -444,9 +438,9 @@ func (s *SP3) Text() ([]byte, error) {
 	err := s.handle.with(func(p unsafe.Pointer) error {
 		return withCThreadError(func() error {
 			var err error
-			result, err = copyNativeBytesLocked("SP3 text", func(out *C.uint8_t, n C.size_t, w, r *C.size_t) C.enum_SidereonStatus {
+			result, err = copyNativeBytesLockedWithStatus("SP3 text", func(out *C.uint8_t, n C.size_t, w, r *C.size_t) C.enum_SidereonStatus {
 				return C.sidereon_sp3_to_sp3_text((*C.SidereonSp3)(p), out, n, w, r)
-			})
+			}, statusSp3ErrorLocked)
 			return err
 		})
 	})

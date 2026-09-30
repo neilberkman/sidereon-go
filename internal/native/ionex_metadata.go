@@ -39,8 +39,15 @@ type TecGridSamplesInfo struct {
 	TECMAPValueCount, RMSMAPValueCount            int
 }
 type IonexSlantDelayEvaluation struct {
-	DelayM                float64
-	Status, CoverageError uint32
+	DelayM                                           float64
+	Status, CoverageError                            uint32
+	IsValid, HasHeld, HasDegraded, HasAssumedMapping bool
+	Gap                                              IonexNodeGap
+	AssumedMapping                                   uint32
+}
+type IonexNodeGap struct {
+	HasGap         bool
+	Earlier, Later [4]bool
 }
 type Ionex struct {
 	_      noCopy
@@ -50,8 +57,8 @@ type Ionex struct {
 const (
 	IONEXCoveragePolicyStrictValue             = uint32(C.SIDEREON_IONEX_COVERAGE_POLICY_STRICT)
 	IONEXCoveragePolicyHoldValue               = uint32(C.SIDEREON_IONEX_COVERAGE_POLICY_HOLD)
-	IONEXSlantDelayStatusValidValue            = uint32(C.SIDEREON_IONEX_SLANT_DELAY_STATUS_VALID)
-	IONEXSlantDelayStatusHeldValue             = uint32(C.SIDEREON_IONEX_SLANT_DELAY_STATUS_HELD)
+	IONEXSlantDelayStatusValidValue            = uint32(0)
+	IONEXSlantDelayStatusHeldValue             = uint32(1)
 	IONEXCoverageErrorNoneValue                = uint32(C.SIDEREON_IONEX_COVERAGE_ERROR_KIND_NONE)
 	IONEXCoverageErrorEpochBeforeFirstMapValue = uint32(C.SIDEREON_IONEX_COVERAGE_ERROR_KIND_EPOCH_BEFORE_FIRST_MAP)
 	IONEXCoverageErrorEpochAfterLastMapValue   = uint32(C.SIDEREON_IONEX_COVERAGE_ERROR_KIND_EPOCH_AFTER_LAST_MAP)
@@ -265,20 +272,32 @@ func (i *Ionex) SlantDelayWithPolicy(lat, lon, azimuth, elevation float64, epoch
 	}
 	var x C.SidereonIonexSlantDelayEvaluation
 	e := i.handle.with(func(p unsafe.Pointer) error {
+		var detail C.SidereonIonexSlantError
 		return callStatus(func() uint32 {
-			return uint32(C.sidereon_ionex_slant_delay_with_policy((*C.SidereonIonex)(p), C.double(lat), C.double(lon), C.double(azimuth), C.double(elevation), C.int64_t(epochJ2000S), C.double(frequencyHz), C.uint32_t(policy), &x))
+			return uint32(C.sidereon_ionex_slant_delay_with_coverage_policy((*C.SidereonIonex)(p), C.double(lat), C.double(lon), C.double(azimuth), C.double(elevation), C.int64_t(epochJ2000S), C.double(frequencyHz), C.uint32_t(policy), &x, &detail))
 		})
 	})
 	if e != nil {
 		return IonexSlantDelayEvaluation{}, e
 	}
-	if x.status != C.SIDEREON_IONEX_SLANT_DELAY_STATUS_VALID && x.status != C.SIDEREON_IONEX_SLANT_DELAY_STATUS_HELD {
-		return IonexSlantDelayEvaluation{}, invalidArgument("native IONEX slant-delay status is not defined")
-	}
-	if x.coverage_error < C.SIDEREON_IONEX_COVERAGE_ERROR_KIND_NONE || x.coverage_error > C.SIDEREON_IONEX_COVERAGE_ERROR_KIND_LONGITUDE_OUT_OF_RANGE {
+	if x.status.coverage_error < C.SIDEREON_IONEX_COVERAGE_ERROR_KIND_NONE || x.status.coverage_error > C.SIDEREON_IONEX_COVERAGE_ERROR_KIND_LONGITUDE_OUT_OF_RANGE {
 		return IonexSlantDelayEvaluation{}, invalidArgument("native IONEX coverage error is not defined")
 	}
-	return IonexSlantDelayEvaluation{DelayM: float64(x.delay_m), Status: uint32(x.status), CoverageError: uint32(x.coverage_error)}, e
+	return ionexEvaluationFromC(x), e
+}
+
+func ionexEvaluationFromC(x C.SidereonIonexSlantDelayEvaluation) IonexSlantDelayEvaluation {
+	status := IONEXSlantDelayStatusValidValue
+	if bool(x.status.has_held) {
+		status = IONEXSlantDelayStatusHeldValue
+	}
+	value := IonexSlantDelayEvaluation{DelayM: float64(x.delay_m), Status: status, CoverageError: uint32(x.status.coverage_error), IsValid: bool(x.status.is_valid), HasHeld: bool(x.status.has_held), HasDegraded: bool(x.status.has_degraded), HasAssumedMapping: bool(x.status.has_assumed_mapping), AssumedMapping: uint32(x.status.assumed_mapping)}
+	value.Gap.HasGap = bool(x.status.gap.has_gap)
+	for index := 0; index < 4; index++ {
+		value.Gap.Earlier[index] = bool(x.status.gap.earlier.missing[index])
+		value.Gap.Later[index] = bool(x.status.gap.later.missing[index])
+	}
+	return value
 }
 
 func checkedIONEXDimensions(values ...int) (int, error) {

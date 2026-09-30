@@ -62,6 +62,37 @@ const (
 	TerrainStoreErrorChecksumValue                 = uint32(6)
 	TerrainStoreErrorTileIDMismatchValue           = uint32(7)
 	TerrainStoreErrorAttestedChecksumMismatchValue = uint32(8)
+	TerrainStoreErrorTileIDOutOfRangeValue         = uint32(9)
+	TerrainStoreErrorTileBoundsMismatchValue       = uint32(10)
+	TerrainStoreErrorNonWgs84TileValue             = uint32(11)
+	TerrainStoreErrorTileValue                     = uint32(12)
+
+	TerrainLookupErrorNoneValue             = uint32(0)
+	TerrainLookupErrorInvalidInputValue     = uint32(1)
+	TerrainLookupErrorMissingTileValue      = uint32(2)
+	TerrainLookupErrorUnknownElevationValue = uint32(3)
+	TerrainLookupErrorNonWgs84TileValue     = uint32(4)
+	TerrainLookupErrorParseValue            = uint32(5)
+	TerrainLookupErrorTileValue             = uint32(6)
+	TerrainLookupErrorTileOriginValue       = uint32(7)
+	TerrainLookupErrorOtherValue            = uint32(999)
+
+	GeoidErrorNoneValue              = uint32(0)
+	GeoidErrorInvalidDimensionsValue = uint32(1)
+	GeoidErrorInvalidSpacingValue    = uint32(2)
+	GeoidErrorNonFiniteValueValue    = uint32(3)
+	GeoidErrorParseValue             = uint32(4)
+	GeoidErrorUnknownValue           = uint32(999)
+
+	TerrainErrorFamilyTileValue      = uint32(0)
+	TerrainErrorFamilyStoreValue     = uint32(1)
+	TerrainErrorFamilyDatumValue     = uint32(2)
+	TerrainErrorFamilyLookupValue    = uint32(3)
+	TerrainErrorTextPathValue        = uint32(0)
+	TerrainErrorTextMessageValue     = uint32(1)
+	TerrainErrorTextReasonValue      = uint32(2)
+	TerrainErrorTextRemediationValue = uint32(3)
+	TerrainErrorTextFieldValue       = uint32(4)
 
 	TropoMappingErrorNoneValue         = uint32(0)
 	TropoMappingErrorLowElevationValue = uint32(1)
@@ -157,6 +188,7 @@ type DtedHeightResult struct {
 	Status     uint32
 	HasHeightM bool
 	HeightM    float64
+	Error      TerrainLookupError
 }
 type TerrainTileID struct {
 	LatIndex int32
@@ -190,57 +222,6 @@ func DtedTileListToMmapStore([]DtedTileListEntry) ([]byte, error) { return nil, 
 func DtedTreeToMmapStore(string) ([]byte, error)                  { return nil, unavailable() }
 func DtedInterpolationLabel(uint32) ([]byte, error)               { return nil, unavailable() }
 
-type TerrainDatumError struct {
-	Kind        uint32
-	Path        string
-	Message     string
-	Remediation string
-}
-type TerrainStoreError struct {
-	Kind             uint32
-	Path             string
-	Message          string
-	Reason           string
-	Version          uint16
-	Tag              uint8
-	LatIndex         int32
-	LonIndex         int32
-	ExpectedChecksum uint64
-	FoundChecksum    uint64
-}
-
-func (e *TerrainDatumError) Error() string {
-	if e == nil {
-		return "sidereon: terrain datum error"
-	}
-	if e.Message != "" {
-		return e.Message
-	}
-	if e.Remediation != "" {
-		return e.Remediation
-	}
-	if e.Path != "" {
-		return e.Path
-	}
-	return "sidereon: terrain datum error"
-}
-
-func (e *TerrainStoreError) Error() string {
-	if e == nil {
-		return "sidereon: terrain store error"
-	}
-	if e.Message != "" {
-		return e.Message
-	}
-	if e.Reason != "" {
-		return e.Reason
-	}
-	if e.Path != "" {
-		return e.Path
-	}
-	return "sidereon: terrain store error"
-}
-
 func LastTerrainDatumError() (TerrainDatumError, error) { return TerrainDatumError{}, unavailable() }
 func LastTerrainStoreError() (TerrainStoreError, error) { return TerrainStoreError{}, unavailable() }
 func TerrainStoreChecksum64([]byte) (uint64, error)     { return 0, unavailable() }
@@ -251,6 +232,7 @@ type MmapTerrainHeightResult struct {
 	Status                uint32
 	HasOrthometricHeightM bool
 	OrthometricHeightM    float64
+	Error                 TerrainLookupError
 }
 type TerrainStoreTileIndex struct {
 	LatIndex        int32

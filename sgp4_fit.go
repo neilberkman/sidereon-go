@@ -1,6 +1,139 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import (
+	"bytes"
+	"encoding/json"
+
+	"sidereon.dev/go/v3/internal/native"
+)
+
+// SGP4FitResult is the complete detached typed fit result. Raw retains the
+// exact complete payload for consumers that need its original JSON encoding.
+type SGP4FitResult struct {
+	Elements SGP4FitElements         `json:"elements"`
+	Line1    string                  `json:"line1"`
+	Line2    string                  `json:"line2"`
+	OMM      SGP4FitOMM              `json:"omm"`
+	Stats    SGP4FitResultStatistics `json:"stats"`
+	Raw      json.RawMessage         `json:"-"`
+}
+
+// SGP4FitElements contains every serialized field of the fitted element set.
+type SGP4FitElements struct {
+	Epoch                [2]EngineFloat `json:"epoch"`
+	BStar                EngineFloat    `json:"bstar"`
+	MeanMotionDot        *EngineFloat   `json:"mean_motion_dot"`
+	MeanMotionDoubleDot  *EngineFloat   `json:"mean_motion_double_dot"`
+	Eccentricity         EngineFloat    `json:"eccentricity"`
+	ArgumentOfPerigeeDeg EngineFloat    `json:"argument_of_perigee_deg"`
+	InclinationDeg       EngineFloat    `json:"inclination_deg"`
+	MeanAnomalyDeg       EngineFloat    `json:"mean_anomaly_deg"`
+	MeanMotionRevPerDay  EngineFloat    `json:"mean_motion_rev_per_day"`
+	RightAscensionDeg    EngineFloat    `json:"right_ascension_deg"`
+	CatalogNumber        *json.Number   `json:"catalog_number"`
+	OMMEpochDays         *EngineFloat   `json:"omm_epoch_days"`
+}
+
+// SGP4FitOMM is the complete fitted CCSDS mean-elements record.
+type SGP4FitOMM struct {
+	CCSDSOMMVers             *string                 `json:"ccsds_omm_vers"`
+	Classification           *string                 `json:"classification"`
+	CreationDate             *string                 `json:"creation_date"`
+	Originator               *string                 `json:"originator"`
+	MessageID                *string                 `json:"message_id"`
+	ObjectName               *string                 `json:"object_name"`
+	ObjectID                 *string                 `json:"object_id"`
+	CenterName               *string                 `json:"center_name"`
+	RefFrame                 *string                 `json:"ref_frame"`
+	RefFrameEpoch            *string                 `json:"ref_frame_epoch"`
+	TimeSystem               *string                 `json:"time_system"`
+	MeanElementTheory        *string                 `json:"mean_element_theory"`
+	Epoch                    SGP4FitOMMEpoch         `json:"epoch"`
+	MeanMotion               *EngineFloat            `json:"mean_motion"`
+	SemiMajorAxisKm          *EngineFloat            `json:"semi_major_axis_km"`
+	Eccentricity             EngineFloat             `json:"eccentricity"`
+	InclinationDeg           EngineFloat             `json:"inclination_deg"`
+	RAOfAscNodeDeg           EngineFloat             `json:"ra_of_asc_node_deg"`
+	ArgOfPericenterDeg       EngineFloat             `json:"arg_of_pericenter_deg"`
+	MeanAnomalyDeg           EngineFloat             `json:"mean_anomaly_deg"`
+	GMKm3S2                  *EngineFloat            `json:"gm_km3_s2"`
+	Spacecraft               *SGP4FitOMMSpacecraft   `json:"spacecraft"`
+	EphemerisType            *json.Number            `json:"ephemeris_type"`
+	ClassificationType       *string                 `json:"classification_type"`
+	NORADCatID               *json.Number            `json:"norad_cat_id"`
+	ElementSetNo             *json.Number            `json:"element_set_no"`
+	RevAtEpoch               *json.Number            `json:"rev_at_epoch"`
+	BStar                    *EngineFloat            `json:"bstar"`
+	BTermM2Kg                *EngineFloat            `json:"bterm_m2_kg"`
+	MeanMotionDot            *EngineFloat            `json:"mean_motion_dot"`
+	MeanMotionDDot           *EngineFloat            `json:"mean_motion_ddot"`
+	AGOMM2Kg                 *EngineFloat            `json:"agom_m2_kg"`
+	Covariance               *SGP4FitOMMCovariance   `json:"covariance"`
+	UserDefined              []SGP4FitOMMUserDefined `json:"user_defined"`
+	Comments                 SGP4FitOMMComments      `json:"comments"`
+	ExactSGP4Epoch           *[2]EngineFloat         `json:"exact_sgp4_epoch"`
+	QuantizeTLEDerivedFields bool                    `json:"quantize_tle_derived_fields"`
+}
+
+// SGP4FitOMMEpoch retains exact civil components, including sub-microseconds.
+type SGP4FitOMMEpoch struct {
+	Year        json.Number `json:"year"`
+	Month       json.Number `json:"month"`
+	Day         json.Number `json:"day"`
+	Hour        json.Number `json:"hour"`
+	Minute      json.Number `json:"minute"`
+	Second      json.Number `json:"second"`
+	Microsecond json.Number `json:"microsecond"`
+	Femtosecond json.Number `json:"femtosecond"`
+}
+
+// SGP4FitOMMSpacecraft retains every optional spacecraft field.
+type SGP4FitOMMSpacecraft struct {
+	Comments       []string     `json:"comments"`
+	MassKg         *EngineFloat `json:"mass_kg"`
+	SolarRadAreaM2 *EngineFloat `json:"solar_rad_area_m2"`
+	SolarRadCoeff  *EngineFloat `json:"solar_rad_coeff"`
+	DragAreaM2     *EngineFloat `json:"drag_area_m2"`
+	DragCoeff      *EngineFloat `json:"drag_coeff"`
+}
+
+// SGP4FitOMMCovariance retains the source-order lower triangle.
+type SGP4FitOMMCovariance struct {
+	Comments      []string        `json:"comments"`
+	CovRefFrame   *string         `json:"cov_ref_frame"`
+	LowerTriangle [21]EngineFloat `json:"lower_triangle"`
+}
+
+// SGP4FitOMMUserDefined is one ordered OMM user parameter.
+type SGP4FitOMMUserDefined struct {
+	Parameter string `json:"parameter"`
+	Value     string `json:"value"`
+}
+
+// SGP4FitOMMComments retains comments by OMM block and source order.
+type SGP4FitOMMComments struct {
+	Header        []string `json:"header"`
+	Metadata      []string `json:"metadata"`
+	MeanElements  []string `json:"mean_elements"`
+	TLEParameters []string `json:"tle_parameters"`
+	UserDefined   []string `json:"user_defined"`
+}
+
+// SGP4FitResultStatistics keeps every exact floating-point encoding and integer result.
+type SGP4FitResultStatistics struct {
+	RMSPositionKm     EngineFloat    `json:"rms_position_km"`
+	MaxPositionKm     EngineFloat    `json:"max_position_km"`
+	RMSPositionAxesKm [3]EngineFloat `json:"rms_position_axes_km"`
+	RMSVelocityKmPS   *EngineFloat   `json:"rms_velocity_km_s"`
+	TLERMSPositionKm  EngineFloat    `json:"tle_rms_position_km"`
+	Status            json.Number    `json:"status"`
+	NFEV              json.Number    `json:"nfev"`
+	NJEV              json.Number    `json:"njev"`
+	Cost              EngineFloat    `json:"cost"`
+	Optimality        EngineFloat    `json:"optimality"`
+	BStarObservable   bool           `json:"bstar_observable"`
+	SeedRefinePasses  json.Number    `json:"seed_refine_passes"`
+}
 
 // SGP4FitEpochKind selects how the fitted TLE epoch is chosen.
 type SGP4FitEpochKind uint32
@@ -186,6 +319,32 @@ func (fit *SGP4TLEFit) Statistics() (SGP4FitStatistics, error) {
 	}
 	value, err := fit.handle.Statistics()
 	return SGP4FitStatistics{RMSPositionKm: value.RMSPositionKm, MaxPositionKm: value.MaxPositionKm, RMSPositionAxesKm: value.RMSPositionAxesKm, HasRMSVelocityKmPS: value.HasRMSVelocityKmPS, RMSVelocityKmPS: value.RMSVelocityKmPS, TLERMSPositionKm: value.TLERMSPositionKm, Status: value.Status, NFEV: value.NFEV, NJEV: value.NJEV, Cost: value.Cost, Optimality: value.Optimality, BStarObservable: value.BStarObservable, SeedRefinePasses: value.SeedRefinePasses}, publicError(err)
+}
+
+// ResultPayload returns a detached lossless JSON copy of the full fitted
+// result, including fields beyond Lines, OMM, and Statistics.
+func (fit *SGP4TLEFit) ResultPayload() ([]byte, error) {
+	if fit == nil || fit.handle == nil {
+		return nil, ErrClosed
+	}
+	value, err := fit.handle.ResultPayload()
+	return append([]byte(nil), value...), publicError(err)
+}
+
+// Result returns the full typed top-level result and lossless nested fields.
+func (fit *SGP4TLEFit) Result() (SGP4FitResult, error) {
+	var result SGP4FitResult
+	payload, err := fit.ResultPayload()
+	if err != nil {
+		return result, err
+	}
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.UseNumber()
+	if err := decoder.Decode(&result); err != nil {
+		return SGP4FitResult{}, err
+	}
+	result.Raw = append(json.RawMessage(nil), payload...)
+	return result, nil
 }
 
 // PositionTEMEKm is a TEME position in kilometres.

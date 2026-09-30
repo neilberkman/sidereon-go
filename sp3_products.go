@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // ExactSP3Coverage identifies whether the declared end epoch is excluded or included.
 type ExactSP3Coverage uint32

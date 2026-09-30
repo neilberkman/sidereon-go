@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // RTKRINEXStaticBaselineConfig configures a static RTK solve from paired
 // RINEX observations and an SP3 product.
@@ -179,10 +179,18 @@ func publicRTKRINEXWideLaneFixedConfig(value native.RtkRinexWideLaneFixedConfig)
 // SolveStaticRTKArc solves a static raw RTK arc through C.
 func SolveStaticRTKArc(epochs []RTKArcEpoch, config RTKStaticArcConfig) (*RTKStaticArcSolution, error) {
 	values := make([]native.RtkArcEpochInput, len(epochs))
+	useExactEpochs := false
 	for i, epoch := range epochs {
 		values[i] = nativeRTKArcEpoch(epoch)
+		useExactEpochs = useExactEpochs || epoch.PredictionEpoch != nil
 	}
-	result, err := native.SolveStaticRtkArc(values, nativeRTKStaticArcConfig(config))
+	var result *native.RtkStaticArcSolution
+	var err error
+	if useExactEpochs {
+		result, err = native.SolveStaticRtkArcV2(values, nativeRTKStaticArcConfig(config))
+	} else {
+		result, err = native.SolveStaticRtkArc(values, nativeRTKStaticArcConfig(config))
+	}
 	if err != nil {
 		return nil, publicError(err)
 	}

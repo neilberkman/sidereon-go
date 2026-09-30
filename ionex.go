@@ -1,6 +1,10 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import (
+	"errors"
+
+	"sidereon.dev/go/v3/internal/native"
+)
 
 // TECSample is one native IONEX TEC sample.
 type TECSample struct {
@@ -32,10 +36,117 @@ type TECGridSamplesInfo struct {
 
 // IONEXSlantDelayEvaluation contains a delay and its coverage status.
 type IONEXSlantDelayEvaluation struct {
-	DelayM        float64
-	Status        IONEXSlantDelayStatus
-	CoverageError IONEXCoverageErrorKind
+	DelayM                                           float64
+	Status                                           IONEXSlantDelayStatus
+	CoverageError                                    IONEXCoverageErrorKind
+	IsValid, HasHeld, HasDegraded, HasAssumedMapping bool
+	Gap                                              IONEXNodeGap
+	AssumedMapping                                   IONEXAssumedMappingKind
 }
+
+// IONEXNodeGap preserves all weighted missing-node masks from both maps.
+type IONEXNodeGap struct {
+	HasGap         bool
+	Earlier, Later [4]bool
+}
+
+// IONEXEpochErrorKind identifies why an exact instant cannot be mapped to UTC.
+type IONEXEpochErrorKind uint32
+
+const (
+	IONEXEpochErrorNone                     IONEXEpochErrorKind = 0
+	IONEXEpochErrorNotWholeSecond           IONEXEpochErrorKind = 1
+	IONEXEpochErrorFractionalUTCSecond      IONEXEpochErrorKind = 2
+	IONEXEpochErrorNoExactUTCOffset         IONEXEpochErrorKind = 3
+	IONEXEpochErrorInsertedLeapSecond       IONEXEpochErrorKind = 4
+	IONEXEpochErrorBeforeIntegerLeapSeconds IONEXEpochErrorKind = 5
+	IONEXEpochErrorOutOfRange               IONEXEpochErrorKind = 6
+	IONEXEpochErrorYearOutOfField           IONEXEpochErrorKind = 7
+	IONEXEpochErrorUnknown                  IONEXEpochErrorKind = 999
+)
+
+// IONEXEpochError retains the conversion cause independently of other row errors.
+type IONEXEpochError struct {
+	Kind         IONEXEpochErrorKind
+	Scale        TimeScale
+	HasUTCJ2000S bool
+	UTCJ2000S    int64
+}
+
+// IONEXSlantPolicy controls coverage, missing-node, and mapping behavior.
+type IONEXSlantPolicy struct {
+	Coverage     IONEXCoveragePolicy
+	MissingNodes IONEXMissingNodePolicy
+	Mapping      IONEXMappingPolicy
+}
+type IONEXMissingNodePolicy uint32
+
+const (
+	IONEXMissingNodesStrict      IONEXMissingNodePolicy = 0
+	IONEXMissingNodesRenormalize IONEXMissingNodePolicy = 1
+)
+
+type IONEXMappingPolicy uint32
+
+const (
+	IONEXMappingDeclared    IONEXMappingPolicy = 0
+	IONEXMappingSingleLayer IONEXMappingPolicy = 1
+)
+
+type IONEXAssumedMappingKind uint32
+
+const (
+	IONEXAssumedMappingNone   IONEXAssumedMappingKind = 0
+	IONEXAssumedMappingOther  IONEXAssumedMappingKind = 1
+	IONEXAssumedMappingAbsent IONEXAssumedMappingKind = 2
+)
+
+// IONEXSlantErrorKind identifies the typed refusal for one slant query.
+type IONEXSlantErrorKind uint32
+
+const (
+	IONEXSlantErrorNone              IONEXSlantErrorKind = 0
+	IONEXSlantErrorInvalidInput      IONEXSlantErrorKind = 1
+	IONEXSlantErrorOutOfCoverage     IONEXSlantErrorKind = 2
+	IONEXSlantErrorNodesNotAvailable IONEXSlantErrorKind = 3
+	IONEXSlantErrorUnavailable       IONEXSlantErrorKind = 4
+	IONEXSlantErrorUnknown           IONEXSlantErrorKind = 999
+)
+
+// IONEXSlantError retains every typed cause field returned by the C ABI.
+type IONEXSlantError struct {
+	Kind                                               IONEXSlantErrorKind
+	CoverageError                                      IONEXCoverageErrorKind
+	HasGap                                             bool
+	Gap                                                IONEXNodeGap
+	Refusal                                            uint32
+	RefusalMapNumber, RefusalLatIndex, RefusalLonIndex uint64
+	HasMappingDeclaration                              bool
+	MappingDeclaration                                 uint32
+	HasMappingFunction                                 bool
+	MappingFunction                                    uint32
+}
+
+// IONEXInstantSlantRequest contains one slant query at a lossless scale-tagged instant.
+type IONEXInstantSlantRequest struct {
+	LatDeg, LonDeg, AzimuthDeg, ElevationDeg float64
+	Epoch                                    ClockEpoch
+	FrequencyHz                              float64
+}
+
+// IONEXInstantSlantResult retains either the value or full typed row failure.
+type IONEXInstantSlantResult struct {
+	IsOK        bool
+	Status      StatusCode
+	Evaluation  IONEXSlantDelayEvaluation
+	Error       *IONEXSlantError
+	EpochError  *IONEXEpochError
+	Message     string
+	MappingCode string
+}
+
+// IONEXInstantSlantResultList owns detached, input-ordered exact-time results.
+type IONEXInstantSlantResultList struct{ Rows []IONEXInstantSlantResult }
 
 // IONEX owns a parsed or synthesized IONEX product.
 type IONEX struct {
@@ -159,7 +270,97 @@ func (i *IONEX) SlantDelayWithPolicy(lat, lon, azimuth, elevation float64, epoch
 		return IONEXSlantDelayEvaluation{}, ErrClosed
 	}
 	v, e := i.handle.SlantDelayWithPolicy(lat, lon, azimuth, elevation, epochJ2000S, frequencyHz, uint32(policy))
-	return IONEXSlantDelayEvaluation{DelayM: v.DelayM, Status: IONEXSlantDelayStatus(v.Status), CoverageError: IONEXCoverageErrorKind(v.CoverageError)}, publicError(e)
+	return publicIONEXEvaluation(v), publicError(e)
+}
+
+// SlantDelayAtInstant evaluates a delay without reducing the supplied epoch to whole seconds.
+func (i *IONEX) SlantDelayAtInstant(lat, lon, azimuth, elevation float64, epoch ClockEpoch, frequencyHz float64) (float64, *IONEXEpochError, error) {
+	if i == nil || i.handle == nil {
+		return 0, nil, ErrClosed
+	}
+	delay, detail, err := i.handle.SlantDelayAtInstant(lat, lon, azimuth, elevation, nativeClockEpoch(epoch), frequencyHz)
+	return delay, publicIONEXEpochError(detail), publicError(err)
+}
+
+// SlantDelayAtInstantWithPolicy applies the exact composite policy and returns complete typed detail.
+func (i *IONEX) SlantDelayAtInstantWithPolicy(lat, lon, azimuth, elevation float64, epoch ClockEpoch, frequencyHz float64, policy IONEXSlantPolicy) (IONEXInstantSlantResult, error) {
+	if i == nil || i.handle == nil {
+		return IONEXInstantSlantResult{}, ErrClosed
+	}
+	row, err := i.handle.SlantDelayAtInstantWithPolicy(lat, lon, azimuth, elevation, nativeClockEpoch(epoch), frequencyHz, nativeIONEXPolicy(policy))
+	return publicIONEXInstantRow(row), publicError(err)
+}
+
+// SlantDelayResultsAtInstants fills caller-owned Go rows from exact-time requests.
+func (i *IONEX) SlantDelayResultsAtInstants(requests []IONEXInstantSlantRequest, out []IONEXInstantSlantResult, policy IONEXSlantPolicy) error {
+	if i == nil || i.handle == nil {
+		return ErrClosed
+	}
+	if len(out) != len(requests) {
+		return invalidArgument("IONEX request and output lengths differ")
+	}
+	nativeRequests := nativeIONEXRequests(requests)
+	rows, err := i.handle.SlantDelayResultsAtInstants(nativeRequests, nativeIONEXPolicy(policy))
+	if err != nil {
+		return publicError(err)
+	}
+	if len(rows) != len(out) {
+		return errors.New("sidereon: native IONEX result count differs from request count")
+	}
+	for index := range out {
+		out[index] = publicIONEXInstantRow(rows[index])
+	}
+	return nil
+}
+
+// SlantDelayResultsAtInstantsOwned returns independent rows with their messages and mapping codes.
+func (i *IONEX) SlantDelayResultsAtInstantsOwned(requests []IONEXInstantSlantRequest, policy IONEXSlantPolicy) (IONEXInstantSlantResultList, error) {
+	if i == nil || i.handle == nil {
+		return IONEXInstantSlantResultList{}, ErrClosed
+	}
+	values, err := i.handle.SlantDelayResultsAtInstantsOwned(nativeIONEXRequests(requests), nativeIONEXPolicy(policy))
+	if err != nil {
+		return IONEXInstantSlantResultList{}, publicError(err)
+	}
+	out := IONEXInstantSlantResultList{Rows: make([]IONEXInstantSlantResult, len(values.Rows))}
+	for index := range values.Rows {
+		out.Rows[index] = publicIONEXInstantRow(values.Rows[index])
+	}
+	return out, nil
+}
+
+// DefaultIONEXSlantPolicy returns strict coverage/nodes and single-layer mapping.
+func DefaultIONEXSlantPolicy() IONEXSlantPolicy {
+	return IONEXSlantPolicy{Coverage: IONEXCoveragePolicyStrict, MissingNodes: IONEXMissingNodesStrict, Mapping: IONEXMappingSingleLayer}
+}
+
+func nativeIONEXPolicy(value IONEXSlantPolicy) native.IonexSlantPolicy {
+	return native.IonexSlantPolicy{Coverage: uint32(value.Coverage), MissingNodes: uint32(value.MissingNodes), Mapping: uint32(value.Mapping)}
+}
+func nativeIONEXRequests(values []IONEXInstantSlantRequest) []native.IonexInstantSlantRequest {
+	out := make([]native.IonexInstantSlantRequest, len(values))
+	for i, v := range values {
+		out[i] = native.IonexInstantSlantRequest{LatDeg: v.LatDeg, LonDeg: v.LonDeg, AzimuthDeg: v.AzimuthDeg, ElevationDeg: v.ElevationDeg, Epoch: nativeClockEpoch(v.Epoch), FrequencyHz: v.FrequencyHz}
+	}
+	return out
+}
+func publicIONEXEvaluation(v native.IonexSlantDelayEvaluation) IONEXSlantDelayEvaluation {
+	return IONEXSlantDelayEvaluation{DelayM: v.DelayM, Status: IONEXSlantDelayStatus(v.Status), CoverageError: IONEXCoverageErrorKind(v.CoverageError), IsValid: v.IsValid, HasHeld: v.HasHeld, HasDegraded: v.HasDegraded, HasAssumedMapping: v.HasAssumedMapping, Gap: IONEXNodeGap{HasGap: v.Gap.HasGap, Earlier: v.Gap.Earlier, Later: v.Gap.Later}, AssumedMapping: IONEXAssumedMappingKind(v.AssumedMapping)}
+}
+func publicIONEXEpochError(v native.IonexEpochError) *IONEXEpochError {
+	if v.Kind == 0 {
+		return nil
+	}
+	return &IONEXEpochError{Kind: IONEXEpochErrorKind(v.Kind), Scale: TimeScale(v.Scale), HasUTCJ2000S: v.HasUTCJ2000S, UTCJ2000S: v.UTCJ2000S}
+}
+func publicIONEXSlantError(v native.IonexSlantError) *IONEXSlantError {
+	if v.Kind == 0 {
+		return nil
+	}
+	return &IONEXSlantError{Kind: IONEXSlantErrorKind(v.Kind), CoverageError: IONEXCoverageErrorKind(v.CoverageError), HasGap: v.HasGap, Gap: IONEXNodeGap{HasGap: v.Gap.HasGap, Earlier: v.Gap.Earlier, Later: v.Gap.Later}, Refusal: v.Refusal, RefusalMapNumber: v.RefusalMapNumber, RefusalLatIndex: v.RefusalLatIndex, RefusalLonIndex: v.RefusalLonIndex, HasMappingDeclaration: v.HasMappingDeclaration, MappingDeclaration: v.MappingDeclaration, HasMappingFunction: v.HasMappingFunction, MappingFunction: v.MappingFunction}
+}
+func publicIONEXInstantRow(v native.IonexInstantSlantRow) IONEXInstantSlantResult {
+	return IONEXInstantSlantResult{IsOK: v.IsOK, Status: StatusCode(v.Status), Evaluation: publicIONEXEvaluation(v.Evaluation), Error: publicIONEXSlantError(v.Error), EpochError: publicIONEXEpochError(v.EpochError), Message: v.Message, MappingCode: v.MappingCode}
 }
 
 // TECSamples returns detached TEC samples from the product.

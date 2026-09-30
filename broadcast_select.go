@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // CompareEpoch is one broadcast/precise epoch pair for SISRE comparison.
 // Julian-date fields preserve the split representation required by the C ABI.
@@ -148,8 +148,12 @@ func (r *BroadcastComparison) Satellite(index int) (string, CompareStats, error)
 type BroadcastRecordInfo struct {
 	// SatelliteID is the GNSS satellite identifier.
 	SatelliteID string
-	// Message and Issue are the broadcast message number, the broadcast issue number.
-	Message, Issue uint32
+	// Message is the broadcast message number.
+	Message uint32
+	// HasIssue reports whether Issue and IssueMessage are present.
+	HasIssue bool
+	// Issue is the issue number when HasIssue is true.
+	Issue uint32
 	// IssueMessage is the issue message number.
 	IssueMessage uint32
 	// Week and ToeWeek are the GNSS week number, the ephemeris reference week.
@@ -162,7 +166,9 @@ type BroadcastRecordInfo struct {
 	TocTOWSeconds float64
 	// SVHealth is the broadcast satellite-health indicator.
 	SVHealth float64
-	// SVAccuracyM contains metres.
+	// HasSVAccuracyM distinguishes unavailable accuracy from a present zero.
+	HasSVAccuracyM bool
+	// SVAccuracyM is signal-in-space accuracy in metres when present.
 	SVAccuracyM float64
 	// HasFitInterval reports whether FitIntervalS is valid.
 	HasFitInterval bool
@@ -174,7 +180,7 @@ type BroadcastRecordInfo struct {
 }
 
 func publicRecordInfo(value native.NativeBroadcastRecordInfo) BroadcastRecordInfo {
-	return BroadcastRecordInfo{SatelliteID: value.SatelliteID, Message: value.Message, Issue: value.Issue, IssueMessage: value.IssueMessage, Week: value.Week, ToeWeek: value.ToeWeek, ToeTOWSeconds: value.ToeTOWSeconds, TocWeek: value.TocWeek, TocTOWSeconds: value.TocTOWSeconds, SVHealth: value.SVHealth, SVAccuracyM: value.SVAccuracyM, HasFitInterval: value.HasFitInterval, FitIntervalS: value.FitIntervalS, DefaultGroupDelay: value.DefaultGroupDelay, CNAV: broadcastRecordFromNative(native.NativeBroadcastRecord{CNAV: value.CNAV}).CNAV}
+	return BroadcastRecordInfo{SatelliteID: value.SatelliteID, Message: value.Message, HasIssue: value.HasIssue, Issue: value.Issue, IssueMessage: value.IssueMessage, Week: value.Week, ToeWeek: value.ToeWeek, ToeTOWSeconds: value.ToeTOWSeconds, TocWeek: value.TocWeek, TocTOWSeconds: value.TocTOWSeconds, SVHealth: value.SVHealth, HasSVAccuracyM: value.HasSVAccuracyM, SVAccuracyM: value.SVAccuracyM, HasFitInterval: value.HasFitInterval, FitIntervalS: value.FitIntervalS, DefaultGroupDelay: value.DefaultGroupDelay, CNAV: broadcastRecordFromNative(native.NativeBroadcastRecord{CNAV: value.CNAV}).CNAV}
 }
 
 // RecordCNavCorrection returns one native CNAV signal correction and presence.
@@ -387,6 +393,24 @@ type SPPDopplerVelocitySolution struct {
 func SolveBroadcast(broadcast *BroadcastEphemeris, config SPPConfig) (SPPSolution, error) {
 	if broadcast == nil || broadcast.handle == nil {
 		return SPPSolution{}, ErrClosed
+	}
+	if config.Models != (SPPModelOptions{}) {
+		input := SPPInputsV2{Base: config, Models: config.Models}
+		if config.Validation != nil {
+			input.Policy.UseValidationOptions = true
+			input.Policy.Validation = *config.Validation
+		}
+		nativeInput, err := nativeSppV2(input)
+		if err != nil {
+			return SPPSolution{}, publicError(err)
+		}
+		handle, err := native.SolveBroadcastV2(broadcast.handle, nativeInput)
+		if err != nil {
+			return SPPSolution{}, publicError(err)
+		}
+		defer handle.Close()
+		result, err := handle.Solution()
+		return publicSPPSolution(result), publicError(err)
 	}
 	result, err := broadcast.handle.SolveBroadcast(nativeSPPConfig(config))
 	return publicSPPSolution(result), publicError(err)

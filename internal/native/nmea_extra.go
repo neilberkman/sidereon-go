@@ -186,6 +186,259 @@ func (accumulator *NMEAAccumulator) Epochs() ([]NMEAEpoch, error) {
 	return result, err
 }
 
+// SentenceRecords returns detached JSON records for accepted sentences.
+func (log *NMEALog) SentenceRecords() ([][]byte, error) {
+	if log == nil || log.resource == nil {
+		return nil, ErrClosed
+	}
+	var result [][]byte
+	err := log.resource.with(func(pointer unsafe.Pointer) error {
+		var list *C.SidereonNmeaRecordList
+		if err := callStatus(func() uint32 { return uint32(C.sidereon_nmea_log_sentences((*C.SidereonNmeaLog)(pointer), &list)) }); err != nil {
+			return err
+		}
+		if list == nil {
+			return missingNativeHandle("NMEA sentence records")
+		}
+		defer C.sidereon_nmea_record_list_free(list)
+		return copyNMEARecordList(list, &result)
+	})
+	runtime.KeepAlive(log)
+	return result, err
+}
+
+func (accumulator *NMEAAccumulator) SentenceRecords() ([][]byte, error) {
+	if accumulator == nil || accumulator.handle == nil {
+		return nil, ErrClosed
+	}
+	var result [][]byte
+	err := accumulator.handle.with(func(pointer unsafe.Pointer) error {
+		var list *C.SidereonNmeaRecordList
+		if err := callStatus(func() uint32 {
+			return uint32(C.sidereon_nmea_accumulator_sentences((*C.SidereonNmeaAccumulator)(pointer), &list))
+		}); err != nil {
+			return err
+		}
+		if list == nil {
+			return missingNativeHandle("NMEA sentence records")
+		}
+		defer C.sidereon_nmea_record_list_free(list)
+		return copyNMEARecordList(list, &result)
+	})
+	runtime.KeepAlive(accumulator)
+	return result, err
+}
+
+func (log *NMEALog) EpochRecords() ([][]byte, error) {
+	if log == nil || log.resource == nil {
+		return nil, ErrClosed
+	}
+	var result [][]byte
+	err := log.resource.with(func(pointer unsafe.Pointer) error {
+		var list *C.SidereonNmeaRecordList
+		if err := callStatus(func() uint32 { return uint32(C.sidereon_nmea_log_epoch_records((*C.SidereonNmeaLog)(pointer), &list)) }); err != nil {
+			return err
+		}
+		if list == nil {
+			return missingNativeHandle("NMEA epoch records")
+		}
+		defer C.sidereon_nmea_record_list_free(list)
+		return copyNMEARecordList(list, &result)
+	})
+	runtime.KeepAlive(log)
+	return result, err
+}
+
+func (accumulator *NMEAAccumulator) EpochRecords() ([][]byte, error) {
+	if accumulator == nil || accumulator.handle == nil {
+		return nil, ErrClosed
+	}
+	var result [][]byte
+	err := accumulator.handle.with(func(pointer unsafe.Pointer) error {
+		var list *C.SidereonNmeaRecordList
+		if err := callStatus(func() uint32 {
+			return uint32(C.sidereon_nmea_accumulator_epoch_records((*C.SidereonNmeaAccumulator)(pointer), &list))
+		}); err != nil {
+			return err
+		}
+		if list == nil {
+			return missingNativeHandle("NMEA epoch records")
+		}
+		defer C.sidereon_nmea_record_list_free(list)
+		return copyNMEARecordList(list, &result)
+	})
+	runtime.KeepAlive(accumulator)
+	return result, err
+}
+
+type NMEADiagnosticInfo struct {
+	Source        uint32
+	Kind          uint32
+	HasEpochIndex bool
+	EpochIndex    uint64
+}
+
+type NMEADiagnostic struct {
+	Info    NMEADiagnosticInfo
+	Payload []byte
+}
+
+func (log *NMEALog) Diagnostics() ([]NMEADiagnostic, error) {
+	if log == nil || log.resource == nil {
+		return nil, ErrClosed
+	}
+	var result []NMEADiagnostic
+	err := log.resource.with(func(pointer unsafe.Pointer) error {
+		var list *C.SidereonNmeaDiagnosticList
+		if err := callStatus(func() uint32 { return uint32(C.sidereon_nmea_log_diagnostics((*C.SidereonNmeaLog)(pointer), &list)) }); err != nil {
+			return err
+		}
+		if list == nil {
+			return missingNativeHandle("NMEA diagnostics")
+		}
+		defer C.sidereon_nmea_diagnostic_list_free(list)
+		return copyNMEADiagnosticList(list, &result)
+	})
+	runtime.KeepAlive(log)
+	return result, err
+}
+
+func (accumulator *NMEAAccumulator) Diagnostics() ([]NMEADiagnostic, error) {
+	if accumulator == nil || accumulator.handle == nil {
+		return nil, ErrClosed
+	}
+	var result []NMEADiagnostic
+	err := accumulator.handle.with(func(pointer unsafe.Pointer) error {
+		var list *C.SidereonNmeaDiagnosticList
+		if err := callStatus(func() uint32 {
+			return uint32(C.sidereon_nmea_accumulator_diagnostics((*C.SidereonNmeaAccumulator)(pointer), &list))
+		}); err != nil {
+			return err
+		}
+		if list == nil {
+			return missingNativeHandle("NMEA diagnostics")
+		}
+		defer C.sidereon_nmea_diagnostic_list_free(list)
+		return copyNMEADiagnosticList(list, &result)
+	})
+	runtime.KeepAlive(accumulator)
+	return result, err
+}
+
+func (log *NMEALog) EpochDiagnostics(index int) ([]NMEADiagnostic, error) {
+	if log == nil || log.resource == nil {
+		return nil, ErrClosed
+	}
+	if index < 0 {
+		return nil, errNegativeIndex
+	}
+	var result []NMEADiagnostic
+	err := log.resource.with(func(pointer unsafe.Pointer) error {
+		var list *C.SidereonNmeaDiagnosticList
+		if err := callStatus(func() uint32 {
+			return uint32(C.sidereon_nmea_log_epoch_diagnostics((*C.SidereonNmeaLog)(pointer), C.size_t(index), &list))
+		}); err != nil {
+			return err
+		}
+		if list == nil {
+			return missingNativeHandle("NMEA epoch diagnostics")
+		}
+		defer C.sidereon_nmea_diagnostic_list_free(list)
+		return copyNMEADiagnosticList(list, &result)
+	})
+	runtime.KeepAlive(log)
+	return result, err
+}
+
+func (accumulator *NMEAAccumulator) EpochDiagnostics(index int) ([]NMEADiagnostic, error) {
+	if accumulator == nil || accumulator.handle == nil {
+		return nil, ErrClosed
+	}
+	if index < 0 {
+		return nil, errNegativeIndex
+	}
+	var result []NMEADiagnostic
+	err := accumulator.handle.with(func(pointer unsafe.Pointer) error {
+		var list *C.SidereonNmeaDiagnosticList
+		if err := callStatus(func() uint32 {
+			return uint32(C.sidereon_nmea_accumulator_epoch_diagnostics((*C.SidereonNmeaAccumulator)(pointer), C.size_t(index), &list))
+		}); err != nil {
+			return err
+		}
+		if list == nil {
+			return missingNativeHandle("NMEA epoch diagnostics")
+		}
+		defer C.sidereon_nmea_diagnostic_list_free(list)
+		return copyNMEADiagnosticList(list, &result)
+	})
+	runtime.KeepAlive(accumulator)
+	return result, err
+}
+
+func copyNMEARecordList(list *C.SidereonNmeaRecordList, output *[][]byte) error {
+	var count C.size_t
+	if err := callStatus(func() uint32 { return uint32(C.sidereon_nmea_record_list_count(list, &count)) }); err != nil {
+		return err
+	}
+	n, err := sizeTToInt(count, "NMEA record count")
+	if err != nil {
+		return err
+	}
+	values := make([][]byte, n)
+	for i := range values {
+		index, err := cSize(i, "NMEA record index")
+		if err != nil {
+			return err
+		}
+		values[i], err = copyNativeBytes("NMEA record payload", func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+			return C.sidereon_nmea_record_list_get_payload(list, index, out, length, written, required)
+		})
+		if err != nil {
+			return err
+		}
+	}
+	*output = values
+	return nil
+}
+
+func copyNMEADiagnosticList(list *C.SidereonNmeaDiagnosticList, output *[]NMEADiagnostic) error {
+	var count C.size_t
+	if err := callStatus(func() uint32 { return uint32(C.sidereon_nmea_diagnostic_list_count(list, &count)) }); err != nil {
+		return err
+	}
+	n, err := sizeTToInt(count, "NMEA diagnostic count")
+	if err != nil {
+		return err
+	}
+	values := make([]NMEADiagnostic, n)
+	for i := range values {
+		index, err := cSize(i, "NMEA diagnostic index")
+		if err != nil {
+			return err
+		}
+		var info C.SidereonNmeaDiagnosticInfo
+		if err := callStatus(func() uint32 { return uint32(C.sidereon_nmea_diagnostic_list_get_info(list, index, &info)) }); err != nil {
+			return err
+		}
+		payload, err := copyNativeBytes("NMEA diagnostic payload", func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+			return C.sidereon_nmea_diagnostic_list_get_payload(list, index, out, length, written, required)
+		})
+		if err != nil {
+			return err
+		}
+		expectedLength, err := sizeTToInt(info.payload_len, "NMEA diagnostic payload length")
+		if err != nil {
+			return err
+		}
+		if len(payload) != expectedLength {
+			return errors.New("sidereon: native NMEA diagnostic payload length changed during copy")
+		}
+		values[i] = NMEADiagnostic{Info: NMEADiagnosticInfo{Source: uint32(info.source), Kind: uint32(info.kind), HasEpochIndex: bool(info.has_epoch_index), EpochIndex: uint64(info.epoch_index)}, Payload: payload}
+	}
+	*output = values
+	return nil
+}
+
 func WriteNMEAGGA(options NMEAGGAOptions) ([]byte, error) {
 	if len(options.Talker) != 2 {
 		return nil, invalidArgument("NMEA talker must contain exactly two bytes")

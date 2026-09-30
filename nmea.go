@@ -1,6 +1,417 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import (
+	"encoding/json"
+	"errors"
+
+	"sidereon.dev/go/v3/internal/native"
+)
+
+// NMEATalker is the exact parsed talker identifier.
+type NMEATalker struct {
+	Kind   string  `json:"kind"`
+	System string  `json:"system,omitempty"`
+	Code   string  `json:"code"`
+	Bytes  []uint8 `json:"bytes,omitempty"`
+}
+
+// NMEATime retains parsed clock fields and fractional precision.
+type NMEATime struct {
+	Hour     uint8  `json:"hour"`
+	Minute   uint8  `json:"minute"`
+	Second   uint8  `json:"second"`
+	Nanos    uint32 `json:"nanos"`
+	Decimals uint8  `json:"decimals"`
+}
+
+// NMEADate is a validated calendar date.
+type NMEADate struct {
+	Year  uint16 `json:"year"`
+	Month uint8  `json:"month"`
+	Day   uint8  `json:"day"`
+}
+
+// NMEACoordinate retains the source coordinate integer and decimal value.
+type NMEACoordinate struct {
+	Degrees       uint16      `json:"degrees"`
+	MinutesScaled json.Number `json:"minutes_scaled"`
+	Decimals      uint8       `json:"decimals"`
+	Negative      bool        `json:"negative"`
+	DegreesF64    float64     `json:"degrees_f64"`
+}
+
+// NMEAQuality is the typed GGA fix-quality code.
+type NMEAQuality struct {
+	Kind  string `json:"kind"`
+	Value uint8  `json:"value"`
+}
+
+// NMEASatelliteNumber retains a raw satellite number and optional resolved ID.
+type NMEASatelliteNumber struct {
+	Raw      uint16  `json:"raw"`
+	Resolved *string `json:"resolved"`
+}
+
+// NMEASignal retains the parsed signal code and optional carrier band.
+type NMEASignal struct {
+	System      *string `json:"system"`
+	ID          uint8   `json:"id"`
+	CarrierBand *string `json:"carrier_band"`
+}
+
+// NMEAStatus is a typed RMC or GLL status value.
+type NMEAStatus struct {
+	Kind  string `json:"kind"`
+	Value string `json:"value"`
+}
+
+// NMEAGGA contains all typed GGA sentence fields.
+type NMEAGGA struct {
+	Kind                  string          `json:"kind"`
+	Time                  *NMEATime       `json:"time"`
+	Latitude              *NMEACoordinate `json:"latitude"`
+	Longitude             *NMEACoordinate `json:"longitude"`
+	Quality               *NMEAQuality    `json:"quality"`
+	SatellitesUsed        *uint8          `json:"satellites_used"`
+	HDOP                  *json.Number    `json:"hdop"`
+	AltitudeMSLM          *json.Number    `json:"altitude_msl_m"`
+	GeoidSeparationM      *json.Number    `json:"geoid_separation_m"`
+	DifferentialAgeS      *json.Number    `json:"differential_age_s"`
+	DifferentialStationID *uint16         `json:"differential_station_id"`
+}
+
+// NMEARMC contains all typed RMC sentence fields.
+type NMEARMC struct {
+	Kind                 string          `json:"kind"`
+	Time                 *NMEATime       `json:"time"`
+	Status               *NMEAStatus     `json:"status"`
+	Latitude             *NMEACoordinate `json:"latitude"`
+	Longitude            *NMEACoordinate `json:"longitude"`
+	SpeedOverGroundKn    *json.Number    `json:"speed_over_ground_kn"`
+	CourseOverGroundDeg  *json.Number    `json:"course_over_ground_deg"`
+	Date                 *NMEADate       `json:"date"`
+	MagneticVariationDeg *json.Number    `json:"magnetic_variation_deg"`
+	FAAMode              *string         `json:"faa_mode"`
+	NavigationalStatus   *string         `json:"navigational_status"`
+}
+
+// NMEAGSA contains all typed GSA sentence fields.
+type NMEAGSA struct {
+	Kind          string      `json:"kind"`
+	SelectionMode *NMEAStatus `json:"selection_mode"`
+	FixMode       *struct {
+		Kind  string      `json:"kind"`
+		Value json.Number `json:"value"`
+	} `json:"fix_mode"`
+	Satellites []NMEASatelliteNumber `json:"satellites"`
+	PDOP       *json.Number          `json:"pdop"`
+	HDOP       *json.Number          `json:"hdop"`
+	VDOP       *json.Number          `json:"vdop"`
+	SystemID   *uint8                `json:"system_id"`
+	System     *string               `json:"system"`
+}
+
+// NMEAGSVSatellite contains one optional four-field GSV slot.
+type NMEAGSVSatellite struct {
+	SatNumber    *NMEASatelliteNumber `json:"sat_number"`
+	ElevationDeg *int16               `json:"elevation_deg"`
+	AzimuthDeg   *uint16              `json:"azimuth_deg"`
+	CN0DBHz      *uint8               `json:"cn0_db_hz"`
+}
+
+// NMEAGSV contains the typed fields from one GSV page.
+type NMEAGSV struct {
+	Kind             string             `json:"kind"`
+	TotalMessages    uint8              `json:"total_messages"`
+	MessageNumber    uint8              `json:"message_number"`
+	SatellitesInView *uint16            `json:"satellites_in_view"`
+	Satellites       []NMEAGSVSatellite `json:"satellites"`
+	Signal           *NMEASignal        `json:"signal"`
+}
+
+// NMEAGST contains all typed GST sentence fields.
+type NMEAGST struct {
+	Kind              string       `json:"kind"`
+	Time              *NMEATime    `json:"time"`
+	RMSRangeResidualM *json.Number `json:"rms_range_residual_m"`
+	SemiMajorErrorM   *json.Number `json:"semi_major_error_m"`
+	SemiMinorErrorM   *json.Number `json:"semi_minor_error_m"`
+	OrientationDeg    *json.Number `json:"orientation_deg"`
+	LatitudeSigmaM    *json.Number `json:"latitude_sigma_m"`
+	LongitudeSigmaM   *json.Number `json:"longitude_sigma_m"`
+	AltitudeSigmaM    *json.Number `json:"altitude_sigma_m"`
+}
+
+// NMEAVTG contains all typed VTG sentence fields.
+type NMEAVTG struct {
+	Kind              string       `json:"kind"`
+	CourseTrueDeg     *json.Number `json:"course_true_deg"`
+	CourseMagneticDeg *json.Number `json:"course_magnetic_deg"`
+	SpeedKn           *json.Number `json:"speed_kn"`
+	SpeedKMH          *json.Number `json:"speed_kmh"`
+	FAAMode           *string      `json:"faa_mode"`
+}
+
+// NMEAGLL contains all typed GLL sentence fields.
+type NMEAGLL struct {
+	Kind      string          `json:"kind"`
+	Latitude  *NMEACoordinate `json:"latitude"`
+	Longitude *NMEACoordinate `json:"longitude"`
+	Time      *NMEATime       `json:"time"`
+	Status    *NMEAStatus     `json:"status"`
+	FAAMode   *string         `json:"faa_mode"`
+}
+
+// NMEAZDA contains all typed ZDA sentence fields.
+type NMEAZDA struct {
+	Kind             string    `json:"kind"`
+	Time             *NMEATime `json:"time"`
+	Date             *NMEADate `json:"date"`
+	LocalZoneHours   *int8     `json:"local_zone_hours"`
+	LocalZoneMinutes *int8     `json:"local_zone_minutes"`
+}
+
+// NMEASentenceBody is a tagged union. Exactly one variant pointer is populated.
+type NMEASentenceBody struct {
+	Kind string          `json:"kind"`
+	GGA  *NMEAGGA        `json:"-"`
+	RMC  *NMEARMC        `json:"-"`
+	GSA  *NMEAGSA        `json:"-"`
+	GSV  *NMEAGSV        `json:"-"`
+	GST  *NMEAGST        `json:"-"`
+	VTG  *NMEAVTG        `json:"-"`
+	GLL  *NMEAGLL        `json:"-"`
+	ZDA  *NMEAZDA        `json:"-"`
+	Raw  json.RawMessage `json:"-"`
+}
+
+// NMEASentenceRecord retains one accepted sentence with its typed body.
+type NMEASentenceRecord struct {
+	Kind   string           `json:"kind"`
+	Index  uint64           `json:"index"`
+	Talker NMEATalker       `json:"talker"`
+	Body   NMEASentenceBody `json:"body"`
+	Raw    json.RawMessage  `json:"-"`
+}
+
+// NMEAEpochRecord contains all accepted sentence fields for one epoch.
+type NMEAEpochRecord struct {
+	Kind             string         `json:"kind"`
+	Index            uint64         `json:"index"`
+	Time             *NMEATime      `json:"time"`
+	Date             *NMEADate      `json:"date"`
+	GGA              *NMEAGGA       `json:"gga"`
+	RMC              *NMEARMC       `json:"rmc"`
+	GLL              *NMEAGLL       `json:"gll"`
+	GST              *NMEAGST       `json:"gst"`
+	VTG              *NMEAVTG       `json:"vtg"`
+	ZDA              *NMEAZDA       `json:"zda"`
+	GSA              []NMEAEpochGSA `json:"gsa"`
+	GSV              []NMEAEpochGSV `json:"gsv"`
+	SentenceCount    uint64         `json:"sentence_count"`
+	DiagnosticCounts struct {
+		Skips    uint64 `json:"skips"`
+		Warnings uint64 `json:"warnings"`
+	} `json:"diagnostic_counts"`
+	Raw json.RawMessage `json:"-"`
+}
+
+// NMEAEpochGSA retains one grouped GSA body and system context.
+type NMEAEpochGSA struct {
+	System *string `json:"system"`
+	Body   NMEAGSA `json:"body"`
+}
+
+// NMEAEpochGSV retains one grouped GSV view and its complete satellite slots.
+type NMEAEpochGSV struct {
+	Talker        NMEATalker         `json:"talker"`
+	Signal        *NMEASignal        `json:"signal"`
+	ClaimedInView *uint16            `json:"claimed_in_view"`
+	Complete      bool               `json:"complete"`
+	Satellites    []NMEAGSVSatellite `json:"satellites"`
+}
+
+// NMEADiagnosticSource identifies parser or epoch assembly diagnostics.
+type NMEADiagnosticSource uint32
+
+const (
+	// NMEADiagnosticParser marks a parser-level diagnostic.
+	NMEADiagnosticParser NMEADiagnosticSource = iota
+	// NMEADiagnosticEpochAssembly marks an epoch assembly diagnostic.
+	NMEADiagnosticEpochAssembly
+)
+
+// NMEADiagnosticKind identifies a skipped record or warning.
+type NMEADiagnosticKind uint32
+
+const (
+	// NMEADiagnosticSkip marks a skipped input record.
+	NMEADiagnosticSkip NMEADiagnosticKind = iota
+	// NMEADiagnosticWarning marks a nonfatal parser or assembly warning.
+	NMEADiagnosticWarning
+)
+
+// NMEARecordReference preserves optional input line and record indices.
+type NMEARecordReference struct {
+	Line        *uint64 `json:"line"`
+	RecordIndex *uint64 `json:"record_index"`
+	Satellite   *string `json:"satellite"`
+}
+
+// NMEAFieldError retains a typed field-validation refusal.
+type NMEAFieldError struct {
+	Kind   string `json:"kind"`
+	Fields struct {
+		Field          *string      `json:"field"`
+		Reason         *string      `json:"reason"`
+		Min            *EngineFloat `json:"min"`
+		Max            *EngineFloat `json:"max"`
+		UpperInclusive *bool        `json:"upper_inclusive"`
+		Value          *string      `json:"value"`
+		Year           *int64       `json:"year"`
+		Month          *int64       `json:"month"`
+		Day            *int64       `json:"day"`
+		Hour           *int64       `json:"hour"`
+		Minute         *int64       `json:"minute"`
+		Second         *EngineFloat `json:"second"`
+	} `json:"fields"`
+	Raw json.RawMessage `json:"-"`
+}
+
+// NMEASkipReasonFields contains variant-specific skip data.
+type NMEASkipReasonFields struct {
+	RecordType *string         `json:"record_type"`
+	Cause      *NMEAFieldError `json:"cause"`
+	Unit       *string         `json:"unit"`
+	Block      *string         `json:"block"`
+	Reason     *string         `json:"reason"`
+}
+
+// NMEASkipReason retains the typed parser skip variant.
+type NMEASkipReason struct {
+	Kind   string               `json:"kind"`
+	Fields NMEASkipReasonFields `json:"fields"`
+	Raw    json.RawMessage      `json:"-"`
+}
+
+// NMEASkipDiagnosticFields groups the input reference and reason.
+type NMEASkipDiagnosticFields struct {
+	At     NMEARecordReference `json:"at"`
+	Reason NMEASkipReason      `json:"reason"`
+}
+
+// NMEASkipDiagnostic retains one typed parser skip.
+type NMEASkipDiagnostic struct {
+	Kind   string                   `json:"kind"`
+	Fields NMEASkipDiagnosticFields `json:"fields"`
+	Raw    json.RawMessage          `json:"-"`
+}
+
+// NMEAWarningDiagnosticFields groups the input reference and warning kind.
+type NMEAWarningDiagnosticFields struct {
+	At          NMEARecordReference `json:"at"`
+	WarningKind string              `json:"warning_kind"`
+}
+
+// NMEAWarningDiagnostic retains one typed parser or assembly warning.
+type NMEAWarningDiagnostic struct {
+	Kind   string                      `json:"kind"`
+	Fields NMEAWarningDiagnosticFields `json:"fields"`
+	Raw    json.RawMessage             `json:"-"`
+}
+
+// NMEADiagnostic retains the typed scope, warning or skip value, and exact payload.
+type NMEADiagnostic struct {
+	Source        NMEADiagnosticSource   `json:"source"`
+	Kind          NMEADiagnosticKind     `json:"kind"`
+	HasEpochIndex bool                   `json:"has_epoch_index"`
+	EpochIndex    uint64                 `json:"epoch_index"`
+	Skip          *NMEASkipDiagnostic    `json:"skip,omitempty"`
+	Warning       *NMEAWarningDiagnostic `json:"warning,omitempty"`
+	Payload       json.RawMessage        `json:"payload"`
+	DecodeError   error                  `json:"-"`
+}
+
+func (body *NMEASentenceBody) UnmarshalJSON(data []byte) error {
+	var head struct {
+		Kind string `json:"kind"`
+	}
+	if err := json.Unmarshal(data, &head); err != nil {
+		return err
+	}
+	*body = NMEASentenceBody{}
+	body.Kind = head.Kind
+	body.Raw = append(json.RawMessage(nil), data...)
+	switch head.Kind {
+	case "gga":
+		body.GGA = new(NMEAGGA)
+		return json.Unmarshal(data, body.GGA)
+	case "rmc":
+		body.RMC = new(NMEARMC)
+		return json.Unmarshal(data, body.RMC)
+	case "gsa":
+		body.GSA = new(NMEAGSA)
+		return json.Unmarshal(data, body.GSA)
+	case "gsv":
+		body.GSV = new(NMEAGSV)
+		return json.Unmarshal(data, body.GSV)
+	case "gst":
+		body.GST = new(NMEAGST)
+		return json.Unmarshal(data, body.GST)
+	case "vtg":
+		body.VTG = new(NMEAVTG)
+		return json.Unmarshal(data, body.VTG)
+	case "gll":
+		body.GLL = new(NMEAGLL)
+		return json.Unmarshal(data, body.GLL)
+	case "zda":
+		body.ZDA = new(NMEAZDA)
+		return json.Unmarshal(data, body.ZDA)
+	default:
+		return nil
+	}
+}
+
+func (body NMEASentenceBody) MarshalJSON() ([]byte, error) {
+	switch body.Kind {
+	case "gga":
+		if body.GGA != nil {
+			return json.Marshal(body.GGA)
+		}
+	case "rmc":
+		if body.RMC != nil {
+			return json.Marshal(body.RMC)
+		}
+	case "gsa":
+		if body.GSA != nil {
+			return json.Marshal(body.GSA)
+		}
+	case "gsv":
+		if body.GSV != nil {
+			return json.Marshal(body.GSV)
+		}
+	case "gst":
+		if body.GST != nil {
+			return json.Marshal(body.GST)
+		}
+	case "vtg":
+		if body.VTG != nil {
+			return json.Marshal(body.VTG)
+		}
+	case "gll":
+		if body.GLL != nil {
+			return json.Marshal(body.GLL)
+		}
+	case "zda":
+		if body.ZDA != nil {
+			return json.Marshal(body.ZDA)
+		}
+	}
+	if len(body.Raw) != 0 {
+		return append([]byte(nil), body.Raw...), nil
+	}
+	return nil, errors.New("sidereon: NMEA sentence body has no matching variant")
+}
 
 // NMEASummary contains aggregate counts detached from a parsed NMEA log.
 type NMEASummary struct {
@@ -192,6 +603,56 @@ func (accumulator *NMEAAccumulator) Epochs() ([]NMEAEpoch, error) {
 	return publicNMEAEpochs(values), nil
 }
 
+// SentenceRecords returns every accepted sentence in input order with one of
+// the eight NMEA body variants decoded into its typed record.
+func (accumulator *NMEAAccumulator) SentenceRecords() ([]NMEASentenceRecord, error) {
+	if accumulator == nil || accumulator.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := accumulator.handle.SentenceRecords()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return decodeNMEASentences(values)
+}
+
+// EpochRecords returns every retained epoch with all singleton, GSA, and GSV
+// fields decoded into detached Go values.
+func (accumulator *NMEAAccumulator) EpochRecords() ([]NMEAEpochRecord, error) {
+	if accumulator == nil || accumulator.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := accumulator.handle.EpochRecords()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return decodeNMEAEpochs(values)
+}
+
+// Diagnostics returns parser and epoch-assembly skips and warnings in native order.
+func (accumulator *NMEAAccumulator) Diagnostics() ([]NMEADiagnostic, error) {
+	if accumulator == nil || accumulator.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := accumulator.handle.Diagnostics()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return publicNMEADiagnostics(values), nil
+}
+
+// EpochDiagnostics returns detached assembly diagnostics for one retained epoch.
+func (accumulator *NMEAAccumulator) EpochDiagnostics(index int) ([]NMEADiagnostic, error) {
+	if accumulator == nil || accumulator.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := accumulator.handle.EpochDiagnostics(index)
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return publicNMEADiagnostics(values), nil
+}
+
 // WriteNMEAGGA formats one checksummed NMEA 0183 GGA sentence, including its
 // CRLF terminator, through the engine's validated writer.
 func WriteNMEAGGA(options NMEAGGAOptions) ([]byte, error) {
@@ -273,6 +734,92 @@ func (l *NMEALog) Epochs() ([]NMEAEpoch, error) {
 		return nil, publicError(err)
 	}
 	return publicNMEAEpochs(epochs), nil
+}
+
+// SentenceRecords returns all accepted sentence bodies in input order.
+func (l *NMEALog) SentenceRecords() ([]NMEASentenceRecord, error) {
+	if l == nil || l.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := l.handle.SentenceRecords()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return decodeNMEASentences(values)
+}
+
+// EpochRecords returns all singleton, GSA, and GSV fields for each log epoch.
+func (l *NMEALog) EpochRecords() ([]NMEAEpochRecord, error) {
+	if l == nil || l.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := l.handle.EpochRecords()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return decodeNMEAEpochs(values)
+}
+
+// Diagnostics returns parser and epoch-assembly skips and warnings in native order.
+func (l *NMEALog) Diagnostics() ([]NMEADiagnostic, error) {
+	if l == nil || l.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := l.handle.Diagnostics()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return publicNMEADiagnostics(values), nil
+}
+
+// EpochDiagnostics returns detached assembly diagnostics for one log epoch.
+func (l *NMEALog) EpochDiagnostics(index int) ([]NMEADiagnostic, error) {
+	if l == nil || l.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := l.handle.EpochDiagnostics(index)
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return publicNMEADiagnostics(values), nil
+}
+
+func decodeNMEASentences(values [][]byte) ([]NMEASentenceRecord, error) {
+	out := make([]NMEASentenceRecord, len(values))
+	for i, raw := range values {
+		if err := json.Unmarshal(raw, &out[i]); err != nil {
+			return nil, err
+		}
+		out[i].Raw = append(json.RawMessage(nil), raw...)
+	}
+	return out, nil
+}
+
+func decodeNMEAEpochs(values [][]byte) ([]NMEAEpochRecord, error) {
+	out := make([]NMEAEpochRecord, len(values))
+	for i, raw := range values {
+		if err := json.Unmarshal(raw, &out[i]); err != nil {
+			return nil, err
+		}
+		out[i].Raw = append(json.RawMessage(nil), raw...)
+	}
+	return out, nil
+}
+
+func publicNMEADiagnostics(values []native.NMEADiagnostic) []NMEADiagnostic {
+	out := make([]NMEADiagnostic, len(values))
+	for i, value := range values {
+		out[i] = NMEADiagnostic{Source: NMEADiagnosticSource(value.Info.Source), Kind: NMEADiagnosticKind(value.Info.Kind), HasEpochIndex: value.Info.HasEpochIndex, EpochIndex: value.Info.EpochIndex, Payload: append(json.RawMessage(nil), value.Payload...)}
+		switch out[i].Kind {
+		case NMEADiagnosticSkip:
+			out[i].Skip = new(NMEASkipDiagnostic)
+			out[i].DecodeError = json.Unmarshal(value.Payload, out[i].Skip)
+		case NMEADiagnosticWarning:
+			out[i].Warning = new(NMEAWarningDiagnostic)
+			out[i].DecodeError = json.Unmarshal(value.Payload, out[i].Warning)
+		}
+	}
+	return out
 }
 
 func publicNMEAEpochs(values []native.NMEAEpoch) []NMEAEpoch {

@@ -56,25 +56,25 @@ func TestSP3RemainingRoutesFixture(t *testing.T) {
 		t.Error("empty product identity unexpectedly accepted")
 	}
 
-	if _, _, _, err := sp3.ObservableState(satellites[0], epochs[0]); err != nil {
+	if _, _, _, err := sp3.ObservableState(satellites[0], epochs[len(epochs)/2]); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := sp3.ObservableStates([]string{satellites[0]}, []float64{epochs[0]}); err != nil {
+	if _, err := sp3.ObservableStates([]string{satellites[0]}, []float64{epochs[len(epochs)/2]}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := sp3.ObservableStatesShared([]string{satellites[0]}, epochs[0]); err != nil {
+	if _, err := sp3.ObservableStatesShared([]string{satellites[0]}, epochs[len(epochs)/2]); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := sp3.PredictObservables(satellites[0], ECEF{}, epochs[0], nil); err != nil {
+	if _, err := sp3.PredictObservables(satellites[0], ECEF{}, epochs[len(epochs)/2], nil); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := sp3.PredictObservablesBatch([]PredictRequest{{SatelliteID: satellites[0], TRxJ2000S: epochs[0]}}, nil); err != nil {
+	if _, _, err := sp3.PredictObservablesBatch([]PredictRequest{{SatelliteID: satellites[0], TRxJ2000S: epochs[len(epochs)/2]}}, nil); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := sp3.PredictRanges([]PredictRequest{{SatelliteID: satellites[0], TRxJ2000S: epochs[0]}}, nil); err != nil {
+	if _, err := sp3.PredictRanges([]PredictRequest{{SatelliteID: satellites[0], TRxJ2000S: epochs[len(epochs)/2]}}, nil); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := sp3.GeometryVisible(ECEF{}, epochs[0], -90, nil); err != nil {
+	if _, err := sp3.GeometryVisible(ECEF{}, epochs[len(epochs)/2], -90, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := sp3.GeometryPasses(ECEF{}, epochs[0], epochs[len(epochs)-1], 900, -90, nil); err != nil {
@@ -269,7 +269,7 @@ func TestSP3RemainingCloseRaceAndInvalidBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertConcurrentClose(t, func() error {
-		_, _, _, err := sp3.ObservableState(satellites[0], epochs[0])
+		_, _, _, err := sp3.ObservableState(satellites[0], epochs[len(epochs)/2])
 		return err
 	}, sp3.Close)
 	if _, err := sp3.GeometryVisible(ECEF{}, epochs[0], -90, []GNSSSystem{GNSSSystem(99)}); err == nil {

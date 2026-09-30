@@ -3,7 +3,7 @@ package sidereon
 import (
 	"time"
 
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
 )
 
 // TLEFile owns a parsed multi-record TLE file. Its Satellite results are
@@ -80,11 +80,17 @@ func (f *TLEFile) Satellite(index int) (*TLE, error) {
 	return &TLE{handle: value}, nil
 }
 
-// TLEChecksumWarning records a checksum mismatch for one TLE line.
+// TLEChecksumWarning records a checksum issue for one TLE line.
 type TLEChecksumWarning struct {
-	// LineNumber identifies the TLE line; Expected and Computed are its
-	// expected and observed checksum digits.
-	LineNumber, Expected, Computed uint8
+	LineNumber uint8
+	// Kind is the native TLE checksum warning variant.
+	Kind uint32
+	// Found is the byte in column 69, or zero when the checksum is missing.
+	Found uint8
+	// Computed is the checksum recomputed from columns 1 through 68.
+	Computed uint8
+	// Expected is a compatibility alias for Found.
+	Expected uint8
 }
 
 // ChecksumWarnings returns detached checksum-mismatch diagnostics for this TLE.
@@ -98,7 +104,7 @@ func (t *TLE) ChecksumWarnings() ([]TLEChecksumWarning, error) {
 	}
 	out := make([]TLEChecksumWarning, len(values))
 	for i := range out {
-		out[i] = TLEChecksumWarning{LineNumber: values[i].LineNumber, Expected: values[i].Expected, Computed: values[i].Computed}
+		out[i] = TLEChecksumWarning{LineNumber: values[i].LineNumber, Kind: values[i].Kind, Found: values[i].Found, Expected: values[i].Expected, Computed: values[i].Computed}
 	}
 	return out, nil
 }

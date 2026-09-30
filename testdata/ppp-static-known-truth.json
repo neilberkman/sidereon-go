@@ -1,0 +1,84 @@
+{
+  "cadence_seconds": 900,
+  "constants": {
+    "c_m_s": 299792458.0,
+    "omega_rad_s": 7.2921151467e-05
+  },
+  "epoch_count": 13,
+  "fixture_path": "testdata/ppp-static-known-truth.sp3",
+  "fixture_sha256": "0e8bc8cefc6cb07954e2645a942b20949ef1fe29832166338ba7650b67dd5d6c",
+  "generator": "generate_ppp_static_fixture.py",
+  "independent_formula_reference": "RTKLIB 2.4.3 b34, git 75a2e56275485b21a67bd35bc94bbeb8936e1a74, src/rtkcmn.c geodist (first-order Sagnac term)",
+  "measurement_model": "Euclidean range + omega*(sat_x*receiver_y - sat_y*receiver_x)/c; code=phase; troposphere and other corrections disabled",
+  "receiver_ecef_m": [
+    4500000.0,
+    500000.0,
+    4500000.0
+  ],
+  "satellite_clock_seconds": 0.0,
+  "satellites": {
+    "G08": {
+      "code_phase_range_m": 23731294.69515018,
+      "first_order_sagnac_m": 23.63093684203126,
+      "geometric_range_m": 23731271.06421334,
+      "position_ecef_m": [
+        7438042.916,
+        -20762704.119000003,
+        14621192.8
+      ]
+    },
+    "G10": {
+      "code_phase_range_m": 22586446.389915567,
+      "first_order_sagnac_m": -9.916247595613452,
+      "geometric_range_m": 22586456.306163162,
+      "position_ecef_m": [
+        23919560.682,
+        11717183.156,
+        1816071.269
+      ]
+    },
+    "G16": {
+      "code_phase_range_m": 20365995.524979576,
+      "first_order_sagnac_m": 6.464786038383429,
+      "geometric_range_m": 20365989.06019354,
+      "position_ecef_m": [
+        18784088.401,
+        -3819088.2860000003,
+        18359430.195
+      ]
+    },
+    "G18": {
+      "code_phase_range_m": 21826196.948427886,
+      "first_order_sagnac_m": -14.217212912109147,
+      "geometric_range_m": 21826211.165640797,
+      "position_ecef_m": [
+        6670210.7530000005,
+        13729937.788999999,
+        21723310.518999998
+      ]
+    },
+    "G20": {
+      "code_phase_range_m": 21395692.775744885,
+      "first_order_sagnac_m": -14.16078213646841,
+      "geometric_range_m": 21395706.93652702,
+      "position_ecef_m": [
+        17932623.68,
+        14929762.015,
+        12814016.152
+      ]
+    },
+    "G21": {
+      "code_phase_range_m": 20774398.01569753,
+      "first_order_sagnac_m": -3.0863511134818222,
+      "geometric_range_m": 20774401.102048647,
+      "position_ecef_m": [
+        16999913.18,
+        4708560.403000001,
+        20550418.405
+      ]
+    }
+  },
+  "source_path": "testdata/trimmed.sp3",
+  "source_sha256": "8fa791c835ce289af78df792c228d033c716ce56e86537bc08ab090f82a354b7",
+  "static_reference_epoch_index_zero_based": 6
+}

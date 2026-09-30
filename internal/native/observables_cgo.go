@@ -36,6 +36,86 @@ type NativeEmissionMediaRow struct {
 	HasTroposphereDelay     bool
 	Status                  uint32
 	ResultStatus            uint32
+	Error                   *NativeObservableRowError
+}
+
+// NativeObservableRowError is a detached typed failure retained for one batch row.
+type NativeObservableRowError struct {
+	Index       uint64
+	Status      uint32
+	Payload     []byte
+	Engine      *EngineError
+	DecodeError error
+}
+
+// callObservableRows invokes one observable producer and snapshots its thread-local row errors before leaving the OS thread.
+func callObservableRows(fn func() uint32, rowCount int) ([]NativeObservableRowError, error) {
+	var rows []NativeObservableRowError
+	err := withCThreadError(func() error {
+		if err := statusErrorLocked(fn()); err != nil {
+			return err
+		}
+		var snapshot *C.SidereonObservableRowErrors
+		if err := statusErrorLocked(uint32(C.sidereon_observable_row_errors_snapshot(&snapshot))); err != nil {
+			return err
+		}
+		if snapshot == nil {
+			return errors.New("sidereon: native observable row error snapshot is null")
+		}
+		defer C.sidereon_observable_row_errors_free(snapshot)
+		var count C.size_t
+		if err := statusErrorLocked(uint32(C.sidereon_observable_row_errors_count(snapshot, &count))); err != nil {
+			return err
+		}
+		n, err := sizeTToInt(count, "observable row error count")
+		if err != nil {
+			return err
+		}
+		rows = make([]NativeObservableRowError, n)
+		seen := make(map[uint64]struct{}, n)
+		for i := range rows {
+			index, err := cSize(i, "observable row error index")
+			if err != nil {
+				return err
+			}
+			var info C.SidereonObservableRowErrorInfo
+			if err := statusErrorLocked(uint32(C.sidereon_observable_row_errors_info(snapshot, index, &info))); err != nil {
+				return err
+			}
+			rowIndex := uint64(info.row_index)
+			if rowIndex >= uint64(rowCount) {
+				return errors.New("sidereon: native observable row error index exceeds batch length")
+			}
+			if _, ok := seen[rowIndex]; ok {
+				return errors.New("sidereon: duplicate native observable row error index")
+			}
+			seen[rowIndex] = struct{}{}
+			payload, err := copyNativeBytes("observable row error payload", func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+				return C.sidereon_observable_row_errors_payload(snapshot, index, out, length, written, required)
+			})
+			if err != nil {
+				return err
+			}
+			want, err := sizeTToInt(info.payload_len, "observable row error payload length")
+			if err != nil {
+				return err
+			}
+			if len(payload) != want {
+				return errors.New("sidereon: native observable row error payload length changed during copy")
+			}
+			engine, decodeErr := DecodeSchema1EnginePayload(EngineErrorFamilyObservables, payload)
+			rows[i] = NativeObservableRowError{Index: rowIndex, Status: uint32(info.status), Payload: payload, Engine: engine, DecodeError: decodeErr}
+		}
+		return nil
+	})
+	return rows, err
+}
+
+func attachObservableRowErrors(rows []NativeObservableStateRow, errors []NativeObservableRowError) error {
+	for i := range errors {
+		rows[errors[i].Index].Error = &errors[i]
+	}
+	return nil
 }
 
 func ObservablesOptionsInit() (NativeObservablesOptions, error) {
@@ -190,13 +270,16 @@ func emissionBatchWith(withHandle func(func(unsafe.Pointer) error) error, satell
 			receiverValues[i] = C.double(receiver[i])
 		}
 		var status C.enum_SidereonStatus
-		if broadcast {
-			status = C.sidereon_broadcast_emission_media_batch_at_j2000_s((*C.SidereonBroadcastEphemeris)(bp), (**C.char)(satMem), (*C.double)(epochMem), nativeCount, (*C.double)(receiverMemory), opp, (*C.double)(posMem), (*C.bool)(hasPosMem), (*C.double)(clockMem), (*C.bool)(hasClockMem), (*C.double)(ionoMem), (*C.bool)(hasIonoMem), (*C.double)(tropoMem), (*C.bool)(hasTropoMem), (*C.enum_SidereonEmissionMediaStatus)(statusMem), (*C.enum_SidereonStatus)(resultStatusMem))
-		} else {
-			status = C.sidereon_sp3_emission_media_batch_at_j2000_s((*C.SidereonSp3)(bp), (**C.char)(satMem), (*C.double)(epochMem), nativeCount, (*C.double)(receiverMemory), opp, (*C.double)(posMem), (*C.bool)(hasPosMem), (*C.double)(clockMem), (*C.bool)(hasClockMem), (*C.double)(ionoMem), (*C.bool)(hasIonoMem), (*C.double)(tropoMem), (*C.bool)(hasTropoMem), (*C.enum_SidereonEmissionMediaStatus)(statusMem), (*C.enum_SidereonStatus)(resultStatusMem))
-		}
-		if status != C.SIDEREON_STATUS_OK {
-			return statusErrorLocked(uint32(status))
+		rowErrors, callErr := callObservableRows(func() uint32 {
+			if broadcast {
+				status = C.sidereon_broadcast_emission_media_batch_at_j2000_s((*C.SidereonBroadcastEphemeris)(bp), (**C.char)(satMem), (*C.double)(epochMem), nativeCount, (*C.double)(receiverMemory), opp, (*C.double)(posMem), (*C.bool)(hasPosMem), (*C.double)(clockMem), (*C.bool)(hasClockMem), (*C.double)(ionoMem), (*C.bool)(hasIonoMem), (*C.double)(tropoMem), (*C.bool)(hasTropoMem), (*C.enum_SidereonEmissionMediaStatus)(statusMem), (*C.enum_SidereonStatus)(resultStatusMem))
+			} else {
+				status = C.sidereon_sp3_emission_media_batch_at_j2000_s((*C.SidereonSp3)(bp), (**C.char)(satMem), (*C.double)(epochMem), nativeCount, (*C.double)(receiverMemory), opp, (*C.double)(posMem), (*C.bool)(hasPosMem), (*C.double)(clockMem), (*C.bool)(hasClockMem), (*C.double)(ionoMem), (*C.bool)(hasIonoMem), (*C.double)(tropoMem), (*C.bool)(hasTropoMem), (*C.enum_SidereonEmissionMediaStatus)(statusMem), (*C.enum_SidereonStatus)(resultStatusMem))
+			}
+			return uint32(status)
+		}, n)
+		if callErr != nil {
+			return callErr
 		}
 		result = make([]NativeEmissionMediaRow, n)
 		positionCount, err := checkedNativeProduct(n, 3, "emission-media position")
@@ -229,6 +312,9 @@ func emissionBatchWith(withHandle func(func(unsafe.Pointer) error) error, satell
 			}
 			result[i].Status = ps[i]
 			result[i].ResultStatus = pr[i]
+		}
+		for i := range rowErrors {
+			result[rowErrors[i].Index].Error = &rowErrors[i]
 		}
 		return nil
 	})

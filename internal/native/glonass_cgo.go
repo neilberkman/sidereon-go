@@ -20,15 +20,29 @@ type NativeFrequencyChannel struct {
 }
 
 type NativeGlonassRecord struct {
-	SatelliteID        string
-	ToeUTCJ2000S       float64
-	PositionM          [3]float64
-	VelocityMPerS      [3]float64
-	AccelerationMPerS2 [3]float64
-	ClockBiasS         float64
-	GammaN             float64
-	SVHealth           float64
-	FrequencyChannel   int32
+	SatelliteID             string
+	ToeUTCJ2000S            float64
+	EpochUTCJ2000S          float64
+	PositionM               [3]float64
+	VelocityMPerS           [3]float64
+	AccelerationMPerS2      [3]float64
+	ClockBiasS              float64
+	GammaN                  float64
+	SVHealth                float64
+	FrequencyChannel        int32
+	StatedFrequencyChannel  int32
+	HasMessageFrameTime     bool
+	MessageFrameTimeS       float64
+	HasAgeDays              bool
+	AgeDays                 float64
+	HasStatusFlags          bool
+	StatusFlags             float64
+	HasL1L2GroupDelayFieldS bool
+	L1L2GroupDelayFieldS    float64
+	HasURAI                 bool
+	URAI                    float64
+	HasHealthFlags          bool
+	HealthFlags             float64
 }
 
 type NativeSkippedGlonassRecord struct {
@@ -94,7 +108,14 @@ func (r *RinexGlonassRecords) Count() (int, error) {
 }
 
 func glonassRecordFromC(value C.SidereonGlonassRecord) NativeGlonassRecord {
-	result := NativeGlonassRecord{SatelliteID: tokenFromC(value.sat_id), ToeUTCJ2000S: float64(value.toe_utc_j2000_s), ClockBiasS: float64(value.clk_bias), GammaN: float64(value.gamma_n), SVHealth: float64(value.sv_health), FrequencyChannel: int32(value.freq_channel)}
+	result := NativeGlonassRecord{
+		SatelliteID: tokenFromC(value.sat_id), ToeUTCJ2000S: float64(value.toe_utc_j2000_s), EpochUTCJ2000S: float64(value.epoch_utc_j2000_s),
+		ClockBiasS: float64(value.clk_bias), GammaN: float64(value.gamma_n), SVHealth: float64(value.sv_health), FrequencyChannel: int32(value.freq_channel),
+		StatedFrequencyChannel: int32(value.stated_freq_channel), HasMessageFrameTime: bool(value.has_message_frame_time_s), MessageFrameTimeS: float64(value.message_frame_time_s),
+		HasAgeDays: bool(value.has_age_days), AgeDays: float64(value.age_days), HasStatusFlags: bool(value.has_status_flags), StatusFlags: float64(value.status_flags),
+		HasL1L2GroupDelayFieldS: bool(value.has_l1_l2_group_delay_field_s), L1L2GroupDelayFieldS: float64(value.l1_l2_group_delay_field_s),
+		HasURAI: bool(value.has_urai), URAI: float64(value.urai), HasHealthFlags: bool(value.has_health_flags), HealthFlags: float64(value.health_flags),
+	}
 	for axis := range result.PositionM {
 		result.PositionM[axis] = float64(value.pos_m[axis])
 		result.VelocityMPerS[axis] = float64(value.vel_m_s[axis])

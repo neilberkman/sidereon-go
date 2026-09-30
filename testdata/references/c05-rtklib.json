@@ -1,0 +1,36 @@
+{
+  "reference": "RTKLIB eph2pos/eph2clk and instrumented broadcast Kepler iteration loop",
+  "rtklib_revision": "75a2e56275485b21a67bd35bc94bbeb8936e1a74",
+  "source_sha256": {
+    "rtklib_ephemeris.c": "d0ca9ea6f3370ea615f84c4f6f379bc9561e3923a4e8b2e434258d1c2688c959",
+    "rtklib_rtkcmn.c": "392e8cc8101c94e8234dc3cc5b17834b4a132a2d488c611b7541a868d6ea2445",
+    "instrumented_harness": "473be5916cf450025001cb3388576dfd89adc36bdfbe1e1964cae0711af04617"
+  },
+  "input": {
+    "fixture": "testdata/nav/ESBC00DNK_R_20201770000_01D_MN.rnx",
+    "fixture_sha256": "069f73afc10e9c1a8b87b7fbbb774f3eb9be94fb4da4ac365cfd4356c6ebfd36",
+    "record": "C05 2020-06-24T22:00:00 BDT, first C05 record",
+    "toe_toc_sow_s": 338400.0,
+    "clock_af0_s": -0.0005154609680176,
+    "query_sow_s": 338400.0,
+    "sin_e": 0.0,
+    "is_geo": false,
+    "gm_m3_s2": 398600441800000.0,
+    "omega_e_rad_s": 7.2921151467e-5
+  },
+  "output": {
+    "position_m_bits": [
+      "4174e5f05f72e43c",
+      "418110354b8fb0af",
+      "c14eeba78b264b65"
+    ],
+    "eph2pos_clock_dts_bits": "bf40e3fde20fd1ce",
+    "eph2clk_clock_dts_bits": "bf40e4000004de97",
+    "kepler_newton_iterations": 3
+  },
+  "capture_sha256": {
+    "input_record": "f0acd136cf1beb2601f86c2b3460a7cfbe68742b7bde9ac98584e3620d00d0be",
+    "captured_position_clock": "61257cd74fb3d88b9606b7877467d280d67db08f5588aa13d2c60cdc5819a0d2",
+    "captured_iterations": "a992e4f0df6aac4d0f2ac0d982c141c91316158a634f9644cb4fffeae7310a57"
+  }
+}

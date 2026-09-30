@@ -153,6 +153,41 @@ func (g *CoverageGrid) LookAngle(satelliteIndex, stationIndex int) (CoverageLook
 	return CoverageLookAngle{OK: bool(out.ok), AzimuthDeg: float64(out.azimuth_deg), ElevationDeg: float64(out.elevation_deg), RangeKm: float64(out.range_km)}, err
 }
 
+// LookAngleErrorPayload copies the complete typed error JSON for a failed
+// satellite/station cell. Successful cells and invalid indices return the C
+// status error; the returned bytes are detached from the grid lifetime.
+func (g *CoverageGrid) LookAngleErrorPayload(satelliteIndex, stationIndex int) ([]byte, error) {
+	if g == nil || g.handle == nil {
+		return nil, ErrClosed
+	}
+	if satelliteIndex < 0 || stationIndex < 0 {
+		return nil, invalidArgument("coverage grid indices must not be negative")
+	}
+	sat, err := checkedNativeSize(satelliteIndex)
+	if err != nil {
+		return nil, err
+	}
+	station, err := checkedNativeSize(stationIndex)
+	if err != nil {
+		return nil, err
+	}
+	var result []byte
+	err = g.handle.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var copyErr error
+			result, copyErr = copyNativeBytesLocked("coverage look-angle error payload", func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+				return C.sidereon_coverage_grid_look_angle_error_payload((*C.SidereonCoverageGrid)(pointer), sat, station, out, length, written, required)
+			})
+			return copyErr
+		})
+	})
+	runtime.KeepAlive(g)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (g *CoverageGrid) AccessCounts(minElevationDeg float64) ([]int, error) {
 	return coverageGridIntValues(g, "coverage access counts", func(pointer unsafe.Pointer, out *C.size_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
 		return C.sidereon_coverage_grid_access_counts((*C.SidereonCoverageGrid)(pointer), C.double(minElevationDeg), out, length, written, required)

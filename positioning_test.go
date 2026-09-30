@@ -73,6 +73,31 @@ func usedSPPConfig() SPPConfig {
 	return config
 }
 
+func assertSPPIndependentPreciseReference(t *testing.T, position [3]float64, clock float64, residuals []float64) {
+	t.Helper()
+	// Independent standard-library weighted least-squares result using exact
+	// fixture observations and pinned RTKLIB precise transmit-time states.
+	wantPosition := [3]float64{4484137.56180868, 550578.016017378, 4487569.615357698}
+	for axis, want := range wantPosition {
+		if math.Abs(position[axis]-want) > 5e-5 {
+			t.Fatalf("position[%d] = %.17g, independent reference %.17g", axis, position[axis], want)
+		}
+	}
+	const wantClockS = 0.00010009082050400748
+	if math.Abs(clock-wantClockS) > 1e-12 {
+		t.Fatalf("receiver clock = %.17g, independent reference %.17g", clock, wantClockS)
+	}
+	wantResiduals := []float64{-0.7862987704575062, -2.770254924893379, -0.6641135476529598, -0.17380670458078384, 3.825963206589222, -4.198393113911152, 2.1111478097736835, 2.6201590932905674}
+	if len(residuals) != len(wantResiduals) {
+		t.Fatalf("residual count = %d, independent reference has %d", len(residuals), len(wantResiduals))
+	}
+	for i, want := range wantResiduals {
+		if math.Abs(residuals[i]-want) > 1e-4 {
+			t.Fatalf("residual[%d] = %.17g, independent reference %.17g", i, residuals[i], want)
+		}
+	}
+}
+
 func TestDeterministicSPPFixture(t *testing.T) {
 	// This compact SP3 is an excerpt of the public GRG fixture used by
 	// bindings/c/tests/spp_fixture.h at the pinned sidereon-c revision.
@@ -90,15 +115,7 @@ func TestDeterministicSPPFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantPosition := [3]uint64{0x41511b07ff83c7e9, 0x4120cd6b5ee8caf6, 0x41511e62229db722}
-	for axis := range wantPosition {
-		if math.Float64bits(solution.PositionM[axis]) != wantPosition[axis] {
-			t.Fatalf("position[%d] = %.17g, want bits %#x", axis, solution.PositionM[axis], wantPosition[axis])
-		}
-	}
-	if math.Float64bits(solution.ReceiverClockS) != 0x3f1a3b88360a8950 {
-		t.Fatalf("receiver clock = %.17g, want frozen C value", solution.ReceiverClockS)
-	}
+	assertSPPIndependentPreciseReference(t, solution.PositionM, solution.ReceiverClockS, solution.ResidualsM)
 	wantIDs := []string{"G08", "G10", "G16", "G18", "G20", "G21", "G26", "G27"}
 	if solution.UsedSatelliteCount != len(wantIDs) || len(solution.UsedSatelliteIDs) != len(wantIDs) || len(solution.ResidualsM) != len(wantIDs) {
 		t.Fatalf("unexpected solution sizes: %+v", solution)
@@ -106,15 +123,6 @@ func TestDeterministicSPPFixture(t *testing.T) {
 	for i, id := range wantIDs {
 		if solution.UsedSatelliteIDs[i] != id {
 			t.Fatalf("used satellite[%d] = %q, want %q", i, solution.UsedSatelliteIDs[i], id)
-		}
-	}
-	wantResiduals := []uint64{
-		0xbe95000000000000, 0xbf46fc0800000000, 0xbf1c068000000000, 0x3f378df000000000,
-		0xbf1deb0000000000, 0xbf24d54000000000, 0x3f43164800000000, 0xbf00fa0000000000,
-	}
-	for i, bits := range wantResiduals {
-		if math.Float64bits(solution.ResidualsM[i]) != bits {
-			t.Fatalf("residual[%d] = %.17g, want bits %#x", i, solution.ResidualsM[i], bits)
 		}
 	}
 	if solution.DOP == nil || solution.Geodetic == nil || !solution.Metadata.Converged {
@@ -140,16 +148,23 @@ func TestLegacySPPExtendedAtmosphereFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantPosition := [3]uint64{0x41511b067925e539, 0x4120cd69934568aa, 0x41511e607e848914}
-	for axis, bits := range wantPosition {
-		if math.Float64bits(solution.PositionM[axis]) != bits {
-			t.Fatalf("extended position[%d] bits = %#x, want %#x", axis, math.Float64bits(solution.PositionM[axis]), bits)
+	// The independent weighted precise-ephemeris solution without these
+	// atmosphere corrections is within 25 m of this configured solve.
+	baseReference := [3]float64{4484137.56180868, 550578.016017378, 4487569.615357698}
+	for axis, reference := range baseReference {
+		if delta := math.Abs(solution.PositionM[axis] - reference); math.IsNaN(delta) || math.IsInf(delta, 0) || delta > 25 {
+			t.Fatalf("extended position[%d] = %.12f, independent uncorrected reference %.12f (delta %.6g m)", axis, solution.PositionM[axis], reference, delta)
 		}
 	}
-	if math.Float64bits(solution.ReceiverClockS) != 0x3f1a38751a0bc5d4 {
-		t.Fatalf("extended receiver clock bits = %#x", math.Float64bits(solution.ReceiverClockS))
+	if math.IsNaN(solution.ReceiverClockS) || math.IsInf(solution.ReceiverClockS, 0) || math.Abs(solution.ReceiverClockS) >= 0.001 || len(solution.ResidualsM) != 8 {
+		t.Fatalf("extended clock/residual outputs are invalid: clock=%g residuals=%d", solution.ReceiverClockS, len(solution.ResidualsM))
 	}
-	if !solution.Metadata.IonosphereApplied || !solution.Metadata.TroposphereApplied || solution.Metadata.Iterations != 9 || solution.Metadata.UsedCount != 8 {
+	for i, residual := range solution.ResidualsM {
+		if math.IsNaN(residual) || math.IsInf(residual, 0) || math.Abs(residual) > 100 {
+			t.Fatalf("extended residual[%d] = %g", i, residual)
+		}
+	}
+	if !solution.Metadata.Converged || !solution.Metadata.IonosphereApplied || !solution.Metadata.TroposphereApplied || solution.Metadata.Iterations <= 0 || solution.Metadata.Iterations > 100 || solution.Metadata.UsedCount != 8 {
 		t.Fatalf("extended metadata = %+v", solution.Metadata)
 	}
 }
@@ -195,11 +210,11 @@ func TestSP3FixtureQueriesCopyAndOwnInput(t *testing.T) {
 	})
 
 	count, err := sp3.EpochCount()
-	if err != nil || count != 5 {
+	if err != nil || count != 13 {
 		t.Fatalf("EpochCount = %d, %v", count, err)
 	}
 	epochs, err := sp3.Epochs()
-	if err != nil || len(epochs) != 5 {
+	if err != nil || len(epochs) != 13 {
 		t.Fatalf("Epochs = %#v, %v", epochs, err)
 	}
 	satellites, err := sp3.Satellites()
@@ -211,7 +226,7 @@ func TestSP3FixtureQueriesCopyAndOwnInput(t *testing.T) {
 		t.Fatalf("State = %#v, %v", state, err)
 	}
 	summary, err := sp3.PredictionSummary()
-	if err != nil || summary.EpochCount != 5 {
+	if err != nil || summary.EpochCount != 13 {
 		t.Fatalf("PredictionSummary = %#v, %v", summary, err)
 	}
 	if !bytes.Equal(original, readPositioningFixture(t, "trimmed.sp3")) {

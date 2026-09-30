@@ -6,7 +6,7 @@ verbatim `sidereon.h` interface. Go owns the surrounding I/O and transport
 work; the C library owns byte parsing and numerical evaluation.
 
 The package name is `sidereon` and the module path is
-`github.com/neilberkman/sidereon-go/v2`.
+`sidereon.dev/go/v3`.
 
 ## Install
 
@@ -19,7 +19,7 @@ Install a released version with `go get` and cgo enabled (a branch or commit
 reference such as `@main` works the same way):
 
 ```sh
-CGO_ENABLED=1 go get github.com/neilberkman/sidereon-go/v2@v2.1.0
+CGO_ENABLED=1 go get sidereon.dev/go/v3@v3.0.0
 ```
 
 On Linux, select the matching bundled libc explicitly. For the usual glibc
@@ -27,7 +27,7 @@ distribution:
 
 ```sh
 CGO_ENABLED=1 GOFLAGS='-tags=sidereon_linux_glibc' \
-  go get github.com/neilberkman/sidereon-go/v2@v2.1.0
+  go get sidereon.dev/go/v3@v3.0.0
 ```
 
 Use `sidereon_linux_musl` instead when building with a musl C toolchain.
@@ -58,6 +58,7 @@ target support:
 
 ```sh
 CGO_ENABLED=1 GOOS=linux GOARCH=arm64 \
+  GOFLAGS='-tags=sidereon_linux_musl' \
   CC='zig cc -target aarch64-linux-musl' \
   go build ./...
 
@@ -88,6 +89,16 @@ CGO_ENABLED=1 \
 The system library must expose the same header ABI and version as the Go
 binding. The default build does not require a system installation.
 
+### Native archive rebuilding
+
+The native static archives for version 3 require Rust 1.98.1 (pinned in `rust-toolchain.toml`). When building from a source checkout without pre-compiled archives, rebuild them using:
+
+```sh
+./scripts/build-native-archives.sh
+```
+
+Alternatively, link against an external compatible `libsidereon` using `-tags sidereon_use_system_lib`.
+
 ## Quickstarts
 
 The Go surface follows the C binding's byte-oriented contracts. Names below
@@ -103,7 +114,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/neilberkman/sidereon-go/v2"
+	"sidereon.dev/go/v3"
 )
 
 func main() {
@@ -133,7 +144,7 @@ package main
 import (
 	"os"
 
-	"github.com/neilberkman/sidereon-go/v2"
+	"sidereon.dev/go/v3"
 )
 
 func main() {
@@ -218,14 +229,38 @@ that behavior. Mutating operations and `Close` are serialized per handle.
 Errors are read immediately on the same OS thread as the fallible C call
 because the C error detail is thread-local.
 
+### Error handling
+
+Fallible operations using the general C status contract return a `*StatusError` on native failure; operation-specific failures may return dedicated types such as `*SelectionError` or `*FDEUnresolvedError`. Use `errors.As` to inspect supported error types:
+
+```go
+var statusErr *sidereon.StatusError
+if errors.As(err, &statusErr) {
+	// Status code, stable status name, and same-call diagnostic detail:
+	fmt.Printf("status %s (%d): %s\n", statusErr.Text, statusErr.Code, statusErr.Detail)
+
+	// Access Schema 1 generic engine error details when present:
+	if engErr := statusErr.Engine; engErr != nil {
+		fmt.Printf("engine error family=%s (%d) op=%s kind=%s\n",
+			engErr.FamilyName, engErr.Family, engErr.Operation, engErr.Kind)
+		// Access raw payload bytes or unmarshal structured fields:
+		// engErr.UnmarshalFields(&customFields)
+	}
+}
+```
+
+- **Lossless payload & partial capture**: `EngineError` preserves raw JSON fields (`Fields`) and complete payload bytes (`Payload`) without truncating future variants or rounding integer lexemes. If diagnostic capture or payload decoding encounters an issue, partial error data is retained on `EngineError` alongside `CaptureError`.
+- **Batch SPP row errors**: `batch.EngineError(i)` returns a row-owned `*EngineError` for failed epochs (and `nil, nil` for successful epochs) directly from the batch handle, avoiding transient thread-local storage races. Calling `batch.Solution(i)` on a failed epoch returns `StatusSolve` with the row cause attached to `statusErr.Engine`.
+- **Thread-local reset**: Generic error state is stored per OS thread, and `sidereon.ClearEngineError()` only clears the executing OS thread. Ordinary wrapper calls already capture errors and reset generic state at operation entry, and owned error records remain valid. For a deliberate cross-call native TLS sequence, the caller must hold `runtime.LockOSThread()` and `defer runtime.UnlockOSThread()`.
+
 ## Versioning
 
 Go, C, and the canonical Sidereon engine release in lockstep: a published
-`v2.1.0` Go module uses the matching C header macros and static library for
-`2.1.0`. Go semantic import versioning requires the module path to carry the
+`v3.0.0` Go module uses the matching C header macros and static library for
+`3.0.0`. Go semantic import versioning requires the module path to carry the
 major version from 2 onward, so the module path is
-`github.com/neilberkman/sidereon-go/v2` and each later major version moves
-the suffix with it (`/v3`, ...), whether or not the Go API itself changed.
+`sidereon.dev/go/v3` and each later major version moves
+the suffix with it (`/v4`, ...), whether or not the Go API itself changed.
 The package name stays `sidereon`.
 
 This module does not claim full parity with the Python, WebAssembly, Elixir, or

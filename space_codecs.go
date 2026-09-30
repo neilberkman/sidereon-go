@@ -1,6 +1,9 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import (
+	"encoding/json"
+	"sidereon.dev/go/v3/internal/native"
+)
 
 // OEM owns a parsed CCSDS Orbit Ephemeris Message. The C handle retains all
 // parsed metadata, segments, state records, and covariance blocks; this Go
@@ -8,6 +11,28 @@ import "github.com/neilberkman/sidereon-go/v2/internal/native"
 type OEM struct {
 	_      noCopy
 	native *native.OEM
+}
+
+// OEMStateLineReason is the typed reason a forgiving KVN parser retained a
+// malformed state line.
+type OEMStateLineReason struct {
+	Kind   string `json:"kind"`
+	Fields struct {
+		Found     *json.Number `json:"found"`
+		Field     *string      `json:"field"`
+		InputKind *string      `json:"kind"`
+	} `json:"fields"`
+	Raw json.RawMessage `json:"-"`
+}
+
+// OEMSkippedState identifies one malformed KVN state line retained alongside
+// successfully parsed OEM data.
+type OEMSkippedState struct {
+	Line    uint64             `json:"line"`
+	Segment uint64             `json:"segment"`
+	Text    string             `json:"text"`
+	Reason  OEMStateLineReason `json:"reason"`
+	Raw     json.RawMessage    `json:"-"`
 }
 
 // ParseOEMKVN parses a CCSDS OEM Keyword-Value Notation byte stream. Input
@@ -50,6 +75,54 @@ func (o *OEM) SegmentCount() (int, error) {
 	}
 	v, err := o.native.SegmentCount()
 	return v, publicError(err)
+}
+
+// SkippedStateCount reports malformed KVN state lines retained by the parser.
+func (o *OEM) SkippedStateCount() (int, error) {
+	if o == nil || o.native == nil {
+		return 0, ErrClosed
+	}
+	v, err := o.native.SkippedStateCount()
+	return v, publicError(err)
+}
+
+// SkippedState returns one detached malformed KVN state line and its complete
+// typed parse reason.
+func (o *OEM) SkippedState(index int) (OEMSkippedState, error) {
+	if o == nil || o.native == nil {
+		return OEMSkippedState{}, ErrClosed
+	}
+	payload, err := o.native.SkippedStatePayload(index)
+	if err != nil {
+		return OEMSkippedState{}, publicError(err)
+	}
+	var value OEMSkippedState
+	if err := json.Unmarshal(payload, &value); err != nil {
+		return OEMSkippedState{}, err
+	}
+	value.Raw = append(json.RawMessage(nil), payload...)
+	var rawFields map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &rawFields); err != nil {
+		return OEMSkippedState{}, err
+	}
+	value.Reason.Raw = append(json.RawMessage(nil), rawFields["reason"]...)
+	return value, nil
+}
+
+// SkippedStates returns independent copies in input order.
+func (o *OEM) SkippedStates() ([]OEMSkippedState, error) {
+	n, err := o.SkippedStateCount()
+	if err != nil {
+		return nil, err
+	}
+	values := make([]OEMSkippedState, n)
+	for i := range values {
+		values[i], err = o.SkippedState(i)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return values, nil
 }
 
 // ToKVN serializes the OEM to an independent KVN byte slice.
@@ -122,12 +195,110 @@ type ConstellationRecord struct {
 
 // SkippedOMM identifies an OMM catalog object omitted from typed records.
 type SkippedOMM struct {
+	// NORADIDPresent distinguishes an omitted identifier from stated zero.
+	NORADIDPresent bool
 	// NORADID is the skipped object's catalog identifier.
 	NORADID uint32
 	// ObjectNamePresent reports whether ObjectName is present.
 	ObjectNamePresent bool
 	// ObjectName is an independent copy of the skipped object's name.
 	ObjectName string
+}
+
+// OMMParseError retains the complete tagged parser error for one malformed
+// array entry. Numeric fields use json.Number to avoid integer narrowing.
+type OMMParseError struct {
+	Kind   string              `json:"kind"`
+	Fields OMMParseErrorFields `json:"fields"`
+	Raw    json.RawMessage     `json:"-"`
+}
+
+func (value *OMMParseError) UnmarshalJSON(data []byte) error {
+	type wire OMMParseError
+	var decoded wire
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	*value = OMMParseError(decoded)
+	value.Raw = append(json.RawMessage(nil), data...)
+	return nil
+}
+
+func (value OMMParseError) MarshalJSON() ([]byte, error) {
+	if len(value.Raw) != 0 {
+		return append([]byte(nil), value.Raw...), nil
+	}
+	type wire OMMParseError
+	return json.Marshal(wire(value))
+}
+
+// OMMParseErrorFields contains the complete union of core OMM error fields.
+type OMMParseErrorFields struct {
+	Field     *string          `json:"field"`
+	KindValue *string          `json:"kind"`
+	Message   *string          `json:"message"`
+	First     *string          `json:"first"`
+	Second    *string          `json:"second"`
+	Found     *json.Number     `json:"found"`
+	Expected  OMMParseExpected `json:"expected"`
+	Block     *string          `json:"block"`
+	Line      *json.Number     `json:"line"`
+	Text      *string          `json:"text"`
+	Unit      *string          `json:"unit"`
+	Count     *json.Number     `json:"count"`
+	Index     *json.Number     `json:"index"`
+	Source    *OMMParseError   `json:"source"`
+	Value     *string          `json:"value"`
+	Issue     *string          `json:"issue"`
+}
+
+// OMMParseExpected is text for a unit expectation, an exact integer count for
+// CSV column-count errors, and null when no table unit is defined.
+type OMMParseExpected struct {
+	Text    *string
+	Count   *json.Number
+	Present bool
+	IsNull  bool
+}
+
+func (expected *OMMParseExpected) UnmarshalJSON(data []byte) error {
+	*expected = OMMParseExpected{Present: true}
+	if string(data) == "null" {
+		expected.IsNull = true
+		return nil
+	}
+	if len(data) > 0 && data[0] == '"' {
+		var value string
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		expected.Text = &value
+		return nil
+	}
+	var value json.Number
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	expected.Count = &value
+	return nil
+}
+
+func (expected OMMParseExpected) MarshalJSON() ([]byte, error) {
+	if expected.Text != nil {
+		return json.Marshal(*expected.Text)
+	}
+	if expected.Count != nil {
+		return json.Marshal(*expected.Count)
+	}
+	return []byte("null"), nil
+}
+
+// OMMMalformedRecord is one parser-level rejected input element. It is
+// distinct from parsed OMMs skipped during constellation identity resolution.
+type OMMMalformedRecord struct {
+	Index uint64          `json:"index"`
+	Error OMMParseError   `json:"error"`
+	Raw   json.RawMessage `json:"-"`
 }
 
 // OMMCatalog owns the typed and diagnostic results of a lenient OMM catalog
@@ -216,7 +387,46 @@ func (c *OMMCatalog) Skipped(index int) (SkippedOMM, error) {
 		return SkippedOMM{}, ErrClosed
 	}
 	v, err := c.native.Skipped(index)
-	return SkippedOMM{NORADID: v.NORADID, ObjectNamePresent: v.ObjectNamePresent, ObjectName: v.ObjectName}, publicError(err)
+	return SkippedOMM{NORADIDPresent: v.NORADIDPresent, NORADID: v.NORADID, ObjectNamePresent: v.ObjectNamePresent, ObjectName: v.ObjectName}, publicError(err)
+}
+
+// MalformedRecord returns one parser-level rejected array entry.
+func (c *OMMCatalog) MalformedRecord(index int) (OMMMalformedRecord, error) {
+	if c == nil || c.native == nil {
+		return OMMMalformedRecord{}, ErrClosed
+	}
+	entry, payload, err := c.native.MalformedRecord(index)
+	if err != nil {
+		return OMMMalformedRecord{}, publicError(err)
+	}
+	var value OMMMalformedRecord
+	if err := json.Unmarshal(payload, &value); err != nil {
+		return OMMMalformedRecord{}, err
+	}
+	value.Index = entry
+	value.Raw = append(json.RawMessage(nil), payload...)
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &fields); err != nil {
+		return OMMMalformedRecord{}, err
+	}
+	value.Error.Raw = append(json.RawMessage(nil), fields["error"]...)
+	return value, nil
+}
+
+// MalformedRecords returns detached parser-level failures in input order.
+func (c *OMMCatalog) MalformedRecords() ([]OMMMalformedRecord, error) {
+	n, err := c.MalformedCount()
+	if err != nil {
+		return nil, err
+	}
+	values := make([]OMMMalformedRecord, n)
+	for i := range values {
+		values[i], err = c.MalformedRecord(i)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return values, nil
 }
 
 // SkippedEntries returns independent copies of all skipped-object diagnostics.

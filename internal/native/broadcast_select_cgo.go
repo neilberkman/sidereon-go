@@ -288,13 +288,16 @@ func (r *BroadcastComparison) Satellite(index int) (string, NativeCompareStats, 
 
 type NativeBroadcastRecordInfo struct {
 	SatelliteID       string
-	Message, Issue    uint32
+	Message           uint32
+	HasIssue          bool
+	Issue             uint32
 	IssueMessage      uint32
 	Week, ToeWeek     uint32
 	ToeTOWSeconds     float64
 	TocWeek           uint32
 	TocTOWSeconds     float64
 	SVHealth          float64
+	HasSVAccuracyM    bool
 	SVAccuracyM       float64
 	HasFitInterval    bool
 	FitIntervalS      float64
@@ -313,9 +316,9 @@ func cnavInfoFromC(value C.SidereonCnavParameters) NativeBroadcastCNAV {
 
 func recordInfoFromC(value C.SidereonBroadcastRecordInfo) NativeBroadcastRecordInfo {
 	return NativeBroadcastRecordInfo{
-		SatelliteID: tokenFromC(value.sat_id), Message: uint32(value.message), Issue: uint32(value.issue), IssueMessage: uint32(value.issue_message),
+		SatelliteID: tokenFromC(value.sat_id), Message: uint32(value.message), HasIssue: bool(value.has_issue), Issue: uint32(value.issue), IssueMessage: uint32(value.issue_message),
 		Week: uint32(value.week), ToeWeek: uint32(value.toe_week), ToeTOWSeconds: float64(value.toe_tow_s), TocWeek: uint32(value.toc_week), TocTOWSeconds: float64(value.toc_tow_s),
-		SVHealth: float64(value.sv_health), SVAccuracyM: float64(value.sv_accuracy_m), HasFitInterval: bool(value.has_fit_interval_s), FitIntervalS: float64(value.fit_interval_s),
+		SVHealth: float64(value.sv_health), HasSVAccuracyM: bool(value.has_sv_accuracy_m), SVAccuracyM: float64(value.sv_accuracy_m), HasFitInterval: bool(value.has_fit_interval_s), FitIntervalS: float64(value.fit_interval_s),
 		DefaultGroupDelay: float64(value.default_group_delay_s), CNAV: cnavInfoFromC(value.cnav),
 	}
 }

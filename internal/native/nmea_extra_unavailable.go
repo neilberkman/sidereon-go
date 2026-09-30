@@ -22,6 +22,18 @@ type NMEAGGAOptions struct {
 
 type NMEAAccumulator struct{}
 
+type NMEADiagnosticInfo struct {
+	Source        uint32
+	Kind          uint32
+	HasEpochIndex bool
+	EpochIndex    uint64
+}
+
+type NMEADiagnostic struct {
+	Info    NMEADiagnosticInfo
+	Payload []byte
+}
+
 func NewNMEAAccumulator() (*NMEAAccumulator, error) { return nil, unavailable() }
 func (*NMEAAccumulator) Close() error               { return nil }
 func (*NMEAAccumulator) Push([]byte) (NMEAChunkSummary, error) {
@@ -30,7 +42,11 @@ func (*NMEAAccumulator) Push([]byte) (NMEAChunkSummary, error) {
 func (*NMEAAccumulator) Finish() (NMEAChunkSummary, error) {
 	return NMEAChunkSummary{}, unavailable()
 }
-func (*NMEAAccumulator) Summary() (NMEASummary, error)   { return NMEASummary{}, unavailable() }
-func (*NMEAAccumulator) RetainedLength() (uint64, error) { return 0, unavailable() }
-func (*NMEAAccumulator) Epochs() ([]NMEAEpoch, error)    { return nil, unavailable() }
-func WriteNMEAGGA(NMEAGGAOptions) ([]byte, error)        { return nil, unavailable() }
+func (*NMEAAccumulator) Summary() (NMEASummary, error)                  { return NMEASummary{}, unavailable() }
+func (*NMEAAccumulator) RetainedLength() (uint64, error)                { return 0, unavailable() }
+func (*NMEAAccumulator) Epochs() ([]NMEAEpoch, error)                   { return nil, unavailable() }
+func (*NMEAAccumulator) SentenceRecords() ([][]byte, error)             { return nil, unavailable() }
+func (*NMEAAccumulator) EpochRecords() ([][]byte, error)                { return nil, unavailable() }
+func (*NMEAAccumulator) Diagnostics() ([]NMEADiagnostic, error)         { return nil, unavailable() }
+func (*NMEAAccumulator) EpochDiagnostics(int) ([]NMEADiagnostic, error) { return nil, unavailable() }
+func WriteNMEAGGA(NMEAGGAOptions) ([]byte, error)                       { return nil, unavailable() }

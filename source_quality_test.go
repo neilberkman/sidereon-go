@@ -1,6 +1,7 @@
 package sidereon
 
 import (
+	"encoding/json"
 	"errors"
 	"math"
 	"sync"
@@ -212,5 +213,50 @@ func TestReceiverValidationUsesCFixture(t *testing.T) {
 	config.Validation = &options
 	if _, err := SolveSPP(sp3, config); err == nil {
 		t.Fatal("receiver validation unexpectedly accepted impossible radius")
+	}
+}
+
+func TestBroadcastReasonDetailDecodesBothTypedVariantsLosslessly(t *testing.T) {
+	selectionPayload := []byte(`{"family":"BroadcastReason","kind":"precise_unavailable","message":"selection refused","selection_error":{"family":"SelectionError","kind":"invalid_range","message":"bad range","start_epoch_j2000_s":{"decimal":"1","bits_hex":"3ff0000000000000"},"end_epoch_j2000_s":{"decimal":"2","bits_hex":"4000000000000000"}}}`)
+	selection, err := decodeBroadcastReasonDetail(selectionPayload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selection.SelectionError == nil || selection.SelectionError.Kind != "invalid_range" || selection.SelectionError.StartEpochJ2000S == nil || selection.SelectionError.EndEpochJ2000S == nil {
+		t.Fatalf("typed selection detail = %+v", selection)
+	}
+	startBits, err := selection.SelectionError.StartEpochJ2000S.Bits()
+	if err != nil || startBits != 0x3ff0000000000000 || string(selection.SelectionError.Raw) == "" || string(selection.Raw) != string(selectionPayload) {
+		t.Fatalf("selection exact/raw payload = %+v bits=%x err=%v", selection.SelectionError, startBits, err)
+	}
+
+	degradedPayload := []byte(`{"family":"BroadcastReason","kind":"precise_degraded_unusable","message":"stale source","staleness":{"kind":"nearest_prior","requested_epoch_j2000_s":{"decimal":"42","bits_hex":"4045000000000000"},"source_epoch_j2000_s":{"decimal":"41","bits_hex":"4044800000000000"},"staleness_s":{"decimal":"1","bits_hex":"3ff0000000000000"},"staleness_days":{"decimal":"0.5","bits_hex":"3fe0000000000000"}},"error":{"kind":"too_few_satellites","fields":{"used":2,"required":4}}}`)
+	degraded, err := decodeBroadcastReasonDetail(degradedPayload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if degraded.Staleness == nil || degraded.Staleness.Kind != "nearest_prior" || degraded.Error == nil || degraded.Error.Kind != "too_few_satellites" || degraded.Error.Fields.Used == nil || *degraded.Error.Fields.Used != 2 || degraded.Error.Fields.Required == nil || *degraded.Error.Fields.Required != 4 {
+		t.Fatalf("typed degraded detail = %+v", degraded)
+	}
+	if degraded.Error.Fields.TypedFields["used"].Number.String() != "2" || string(degraded.Error.Fields.Raw) == "" {
+		t.Fatalf("SPP error fields raw/typed retention = %+v", degraded.Error.Fields)
+	}
+	requested, err := degraded.Staleness.RequestedEpochJ2000S.Float64()
+	if err != nil || requested != 42 || string(degraded.Error.Raw) == "" || !json.Valid(degraded.Raw) {
+		t.Fatalf("degraded exact/raw payload requested=%v err=%v detail=%+v", requested, err, degraded)
+	}
+
+	nestedPayload := []byte(`{"family":"BroadcastReason","kind":"precise_unavailable","message":"epoch rejected","selection_error":{"family":"SelectionError","kind":"ionex_epoch","message":"bad epoch","cause":{"kind":"ionex_epoch","fields":{"cause":{"kind":"year_out_of_field","fields":{"utc_j2000_s":1e1000,"future":"retained"}}}}}}`)
+	nested, err := decodeBroadcastReasonDetail(nestedPayload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cause := nested.SelectionError.Cause
+	if cause == nil || cause.Kind != "ionex_epoch" || string(cause.Raw) == "" || string(cause.Fields.Raw) == "" || cause.Fields.TypedFields["cause"].Kind != EngineJSONObject {
+		t.Fatalf("typed selection cause retention = %+v", nested)
+	}
+	inner := cause.Fields.Cause
+	if inner == nil || inner.Kind != "year_out_of_field" || inner.Fields.TypedFields["utc_j2000_s"].Number.String() != "1e1000" || inner.Fields.TypedFields["future"].String != "retained" || string(inner.Raw) == "" {
+		t.Fatalf("nested core cause fields = %+v", cause)
 	}
 }

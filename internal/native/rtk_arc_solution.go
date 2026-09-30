@@ -35,6 +35,7 @@ type RtkArcEpochInput struct {
 	VelocityMPS             [3]float64
 	HasPredictionTime       bool
 	PredictionTimeS         float64
+	PredictionEpoch         *ExactEpoch
 }
 
 type RtkArcReferenceEntry struct {
@@ -115,6 +116,8 @@ type RtkDualFrequencyArcEpochInput struct {
 	VelocityMPS             [3]float64
 	HasPredictionTime       bool
 	PredictionTimeS         float64
+	GapEpoch                *ExactEpoch
+	PredictionEpoch         *ExactEpoch
 }
 
 type RtkWideLaneCycleInput struct {
@@ -328,7 +331,7 @@ func copyRtkArcReferences(values []RtkArcReferenceEntry, alloc *cRtkAlloc, label
 		if e != nil {
 			return nil, 0, e
 		}
-		rows[index] = C.SidereonRtkArcReferenceEntry{system: C.enum_SidereonGnssSystem(value.System), sat_id: sat}
+		rows[index] = C.SidereonRtkArcReferenceEntry{system: C.uint32_t(value.System), sat_id: sat}
 	}
 	return &rows[0], count, nil
 }

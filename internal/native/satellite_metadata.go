@@ -351,6 +351,15 @@ func (a *ConstellationLookAngleArcs) Values() ([]LookAngle, error) {
 	}
 	return out, nil
 }
+
+func (a *ConstellationLookAngleArcs) ErrorPayload(satelliteIndex int) ([]byte, error) {
+	if a == nil || a.handle == nil {
+		return nil, ErrClosed
+	}
+	return satelliteIndexedErrorPayload(a.handle, satelliteIndex, "constellation look-angle error payload", func(pointer unsafe.Pointer, index C.size_t, out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+		return C.sidereon_satellite_constellation_look_angles_error_payload((*C.SidereonSatelliteConstellationLookAngles)(pointer), index, out, length, written, required)
+	})
+}
 func (g *ConstellationGroundTracks) Close() error {
 	if g == nil || g.handle == nil {
 		return nil
@@ -400,6 +409,41 @@ func (g *ConstellationGroundTracks) Values() ([]Geodetic, error) {
 		out[j] = geodeticFromC(v)
 	}
 	return out, nil
+}
+
+func (g *ConstellationGroundTracks) ErrorPayload(satelliteIndex int) ([]byte, error) {
+	if g == nil || g.handle == nil {
+		return nil, ErrClosed
+	}
+	return satelliteIndexedErrorPayload(g.handle, satelliteIndex, "constellation ground-track error payload", func(pointer unsafe.Pointer, index C.size_t, out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+		return C.sidereon_satellite_constellation_ground_tracks_error_payload((*C.SidereonSatelliteConstellationGroundTracks)(pointer), index, out, length, written, required)
+	})
+}
+
+type satelliteIndexedErrorPayloadCall func(unsafe.Pointer, C.size_t, *C.uint8_t, C.size_t, *C.size_t, *C.size_t) C.enum_SidereonStatus
+
+func satelliteIndexedErrorPayload(handle *positioningHandle, index int, label string, call satelliteIndexedErrorPayloadCall) ([]byte, error) {
+	if index < 0 {
+		return nil, invalidArgument("constellation error index must not be negative")
+	}
+	nativeIndex, err := checkedNativeSize(index)
+	if err != nil {
+		return nil, err
+	}
+	var result []byte
+	err = handle.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var copyErr error
+			result, copyErr = copyNativeBytesLocked(label, func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+				return call(pointer, nativeIndex, out, length, written, required)
+			})
+			return copyErr
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 func arcLengths(h *positioningHandle, countCall func(unsafe.Pointer, *C.size_t) C.enum_SidereonStatus, lenCall func(unsafe.Pointer, C.size_t, *C.size_t) C.enum_SidereonStatus) ([]int, error) {
 	if h == nil {
@@ -610,6 +654,15 @@ func (p *ConstellationPasses) Values() ([]FleetPass, error) {
 		out[j] = FleetPass{SatelliteIndex: satelliteIndex, Pass: SatellitePass{AOS: time.UnixMicro(int64(v.pass.aos_unix_us)).UTC(), LOS: time.UnixMicro(int64(v.pass.los_unix_us)).UTC(), Culmination: time.UnixMicro(int64(v.pass.culmination_unix_us)).UTC(), MaxElevationDeg: float64(v.pass.max_elevation_deg), DurationS: float64(v.pass.duration_s)}}
 	}
 	return out, nil
+}
+
+func (p *ConstellationPasses) ErrorPayload(satelliteIndex int) ([]byte, error) {
+	if p == nil || p.handle == nil {
+		return nil, ErrClosed
+	}
+	return satelliteIndexedErrorPayload(p.handle, satelliteIndex, "constellation pass error payload", func(pointer unsafe.Pointer, index C.size_t, out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+		return C.sidereon_satellite_constellation_passes_error_payload((*C.SidereonSatelliteConstellationPasses)(pointer), index, out, length, written, required)
+	})
 }
 
 func SatelliteVisualMagnitude(rangeKm, phaseAngleDeg, standardMagnitude, referenceRangeKm float64) (float64, error) {

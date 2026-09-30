@@ -16,7 +16,14 @@ import (
 	"unsafe"
 )
 
-type TLEChecksumWarning struct{ LineNumber, Expected, Computed uint8 }
+type TLEChecksumWarning struct {
+	LineNumber uint8
+	Kind       uint32
+	Found      uint8
+	Computed   uint8
+	// Expected is kept as the legacy name for the column-69 byte reported by C.
+	Expected uint8
+}
 type TLEFile struct {
 	_      noCopy
 	handle *positioningHandle
@@ -552,7 +559,8 @@ func (t *TLE) ChecksumWarnings() ([]TLEChecksumWarning, error) {
 		}
 		result = make([]TLEChecksumWarning, n)
 		for i := range result {
-			result[i] = TLEChecksumWarning{LineNumber: uint8(values[i].line_number), Expected: uint8(values[i].expected), Computed: uint8(values[i].computed)}
+			found := uint8(values[i].found)
+			result[i] = TLEChecksumWarning{LineNumber: uint8(values[i].line_number), Kind: uint32(values[i].kind), Found: found, Expected: found, Computed: uint8(values[i].computed)}
 		}
 		return nil
 	})

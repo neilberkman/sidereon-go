@@ -3,6 +3,7 @@ package sidereon
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -467,7 +468,39 @@ func TestObservablesRoutesWithCommittedProducts(t *testing.T) {
 	if err != nil || !math.IsNaN(position[0]) || !math.IsNaN(position[1]) || !math.IsNaN(position[2]) {
 		t.Fatalf("missing position=%v err=%v", position, err)
 	}
-	sp3Rows, err := sp3.EmissionMediaBatch([]string{sp3Satellites[0]}, []float64{sp3Epochs[0]}, ECEF{}, nil)
+	// The original five-epoch fixture's first query was 11:45. The expanded
+	// fixture supplies the same source epoch plus enough neighboring records
+	// for the current eleven-node precise interpolation window.
+	legacySP3Query, err := CivilToJ2000Seconds(CivilDateTime{Year: 2020, Month: 6, Day: 24, Hour: 11, Minute: 45})
+	if err != nil {
+		t.Fatalf("old SP3 query time: %v", err)
+	}
+	queryIndex := -1
+	for index, epoch := range sp3Epochs {
+		if epoch == legacySP3Query {
+			queryIndex = index
+			break
+		}
+	}
+	if queryIndex != 5 || len(sp3Epochs) != 13 || queryIndex < 5 || len(sp3Epochs)-queryIndex < 6 {
+		t.Fatalf("SP3 fixture no longer contains the original 11:45 query with an 11-node window: index=%d epochs=%d query=%.0f", queryIndex, len(sp3Epochs), legacySP3Query)
+	}
+	for index := 1; index <= 10; index++ {
+		if sp3Epochs[index]-sp3Epochs[index-1] != 900 {
+			t.Fatalf("SP3 11-node oracle window cadence at %d = %.17g seconds", index, sp3Epochs[index]-sp3Epochs[index-1])
+		}
+	}
+	hasG08 := false
+	for _, satellite := range sp3Satellites {
+		if satellite == "G08" {
+			hasG08 = true
+			break
+		}
+	}
+	if !hasG08 {
+		t.Fatal("SP3 fixture lost G08 used by the original public regression")
+	}
+	sp3Rows, err := sp3.EmissionMediaBatch([]string{"G08"}, []float64{legacySP3Query}, ECEF{}, nil)
 	if err != nil || len(sp3Rows) != 1 {
 		t.Fatalf("SP3 emission rows=%d err=%v", len(sp3Rows), err)
 	}
@@ -510,6 +543,24 @@ func TestObservablesRoutesWithCommittedProducts(t *testing.T) {
 	if missing.HasPosition || !math.IsNaN(missing.PositionECEFM[0]) || !math.IsNaN(missing.PositionECEFM[1]) || !math.IsNaN(missing.PositionECEFM[2]) || missing.Status != EmissionMediaGap || missing.ResultStatus != StatusSolve {
 		t.Fatalf("missing emission sentinel/status = %+v", missing)
 	}
+	detailedRows, err := broadcast.EmissionMediaBatch([]string{records[0].SatelliteID, "G99"}, []float64{broadcastEpoch, broadcastEpoch}, ECEF{}, nil)
+	if err != nil || len(detailedRows) != 2 {
+		t.Fatalf("detailed emission rows=%d err=%v", len(detailedRows), err)
+	}
+	if detailedRows[0].Error != nil || !detailedRows[0].HasPosition || detailedRows[0].Status != EmissionMediaValid || detailedRows[0].ResultStatus != StatusOK {
+		t.Fatalf("valid mixed row = %+v", detailedRows[0])
+	}
+	failed := detailedRows[1].Error
+	if failed == nil || failed.Index != 1 || failed.Status != StatusSolve || failed.DecodeError != nil || failed.EngineError == nil || failed.EngineError.Family != EngineErrorFamilyObservables || failed.EngineError.Operation != "sidereon_broadcast_emission_media_batch_at_j2000_s" || failed.EngineError.Kind != "no_ephemeris" || !json.Valid(failed.Payload) || detailedRows[1].Status != EmissionMediaGap || detailedRows[1].ResultStatus != StatusSolve {
+		if failed == nil {
+			t.Fatalf("failed mixed row envelope/status = %+v", detailedRows[1])
+		}
+		t.Fatalf("failed mixed row envelope/status = %+v, engine=%+v payload=%s", detailedRows[1], failed.EngineError, failed.Payload)
+	}
+	var failureFields map[string]json.RawMessage
+	if err := failed.EngineError.UnmarshalFields(&failureFields); err != nil || len(failureFields) != 0 {
+		t.Fatalf("failed mixed row no_ephemeris fields = %+v, %v", failureFields, err)
+	}
 	assertBits := func(label string, actual float64, expected uint64) {
 		t.Helper()
 		if bits := math.Float64bits(actual); bits != expected {
@@ -527,13 +578,13 @@ func TestObservablesRoutesWithCommittedProducts(t *testing.T) {
 		assertBits(label+" clock", row.ClockS, expected[3])
 	}
 	assertMedia("SP3", sp3Rows[0], [4]uint64{0x415b0f8f0f9db22d, 0xc17540ec987ef9db, 0x41678ed0e05a1cac, 0xbf0442e1be8b9d32})
-	assertMedia("broadcast", broadcastRows[0], [4]uint64{0x4174e5f16a0c82aa, 0x41812ab508561ee9, 0xc12c036525890f1c, 0xbf40e3fc147a882d})
+	assertMedia("broadcast", broadcastRows[0], [4]uint64{0x4174e5f16a0c82aa, 0x41812ab508561eea, 0xc12c036525890f14, 0xbf40e3fbdd7beaad})
 	if sample[0].SatelliteID != records[0].SatelliteID || sample[0].Status != EphemerisSampleValid || !sample[0].HasPosition || !sample[0].HasClock || sample[1].Status != EphemerisSampleValid || !sample[1].HasPosition || !sample[1].HasClock {
 		t.Fatalf("sample presence/status = %+v", sample)
 	}
 	for index, expected := range [][4]uint64{
-		{0x4174e5f16a0c82aa, 0x41812ab508561ee9, 0xc12c036525890f1c, 0xbf40e3fc147a882d},
-		{0x4174e38491022c05, 0x41812a81ddbb90d7, 0xc1300399cef2c792, 0xbf40e603ade91dcc},
+		{0x4174e5f16a0c82aa, 0x41812ab508561eea, 0xc12c036525890f14, 0xbf40e3fbdd7beaad},
+		{0x4174e38491022c04, 0x41812a81ddbb90d6, 0xc1300399cef2c78e, 0xbf40e60376ea7ee7},
 	} {
 		if index >= len(sample) {
 			break
@@ -558,9 +609,9 @@ func TestObservablesRoutesWithCommittedProducts(t *testing.T) {
 		t.Fatalf("predicted/batch = %+v, %+v, accepted=%v", predicted, batch[0], accepted)
 	}
 	for index, value := range []float64{predicted.GeometricRangeM, predicted.RangeRateMPerS, predicted.DopplerHz, predicted.SatelliteClockS, predicted.ElevationDeg, predicted.AzimuthDeg, predicted.TransmitTimeJ2000S} {
-		assertBits(fmt.Sprintf("predicted scalar[%d]", index), value, [...]uint64{0x41841a04123953f0, 0xbff125202b8c08b6, 0x40168640b4ecfa6a, 0xbf40e3fc0f4a41e9, 0x403f5203b2874418, 0x4056dd79f47ba28e, 0x41c342f04fee003b}[index])
+		assertBits(fmt.Sprintf("predicted scalar[%d]", index), value, [...]uint64{0x41841a04123953f0, 0xbff1252865173d62, 0x4016864b831a3d43, 0xbf40e3fbd84ba469, 0x403f5203b2874418, 0x4056dd79f47ba28e, 0x41c342f04fee003c}[index])
 	}
-	for index, expected := range [][3]uint64{{0x3fe0a26383e1be53, 0x3feb53f08a085920, 0xbf964c12613259d1}, {0x4174e608821ba770, 0x41812aae03c39c3e, 0xc12c035843c6f30c}} {
+	for index, expected := range [][3]uint64{{0x3fe0a26383e1be54, 0x3feb53f08a085920, 0xbf964c12613259cb}, {0x4174e608821ba771, 0x41812aae03c39c3e, 0xc12c035843c6f304}} {
 		for coordinate := range expected {
 			var actual float64
 			if index == 0 {
@@ -618,8 +669,8 @@ func TestRTCMFrameRoundTripAndDiagnostics(t *testing.T) {
 	if _, _, e = DecodeRTCMFrame(frame[:len(frame)-1]); e == nil {
 		t.Fatal("strict frame decoder accepted truncation")
 	}
-	if _, e = DecodeRTCM(bad); e != nil {
-		t.Fatal("forgiving decoder rejected bad CRC:", e)
+	if _, e = DecodeRTCM(bad); e == nil {
+		t.Fatal("strict stream decoder accepted a bad CRC")
 	}
 	m, diag, e := DecodeRTCMStream(append(bad, frame...))
 	if e != nil {
@@ -704,8 +755,12 @@ func TestObservationQualityLintRepairAndSignalValidation(t *testing.T) {
 	if _, err := report.CycleSlips(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := report.CycleSlipSystems(); err != nil {
+	cycleSlipSystems, err := report.CycleSlipSystems()
+	if err != nil {
 		t.Fatal(err)
+	}
+	if len(cycleSlipSystems) != 1 || cycleSlipSystems[0].System != GNSSSystemGPS || cycleSlipSystems[0].Observations != 23 || cycleSlipSystems[0].Slips != 0 {
+		t.Fatalf("dual-frequency cycle-slip systems = %+v, want GPS only (GLONASS has no resolvable channel pair in this RINEX 2.11 fixture)", cycleSlipSystems)
 	}
 	if _, err := report.Satellites(); err != nil {
 		t.Fatal(err)
@@ -713,8 +768,18 @@ func TestObservationQualityLintRepairAndSignalValidation(t *testing.T) {
 	if _, err := report.SatelliteSignals(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := report.SystemSignals(); err != nil {
+	systemSignals, err := report.SystemSignals()
+	if err != nil {
 		t.Fatal(err)
+	}
+	gpsC2 := map[string]int{}
+	for _, signal := range systemSignals {
+		if signal.System == GNSSSystemGPS && (signal.Code == "C2X" || signal.Code == "C2W" || signal.Code == "C2C") {
+			gpsC2[signal.Code] = signal.ValueObservations
+		}
+	}
+	if len(gpsC2) != 2 || gpsC2["C2X"] != 10 || gpsC2["C2W"] != 23 {
+		t.Fatalf("RINEX 2.11 GPS L2 signal counts = %+v, want C2X=10 and C2W=23", gpsC2)
 	}
 	if _, err := report.SatelliteMultipath(); err != nil {
 		t.Fatal(err)
@@ -734,13 +799,13 @@ func TestObservationQualityLintRepairAndSignalValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := fmt.Sprintf("%x", sha256.Sum256(textRender)); got != "701babc38230d7236883eea8090d18a7b7fc382c21b217b18968b9add6ba15e5" {
+	if got := fmt.Sprintf("%x", sha256.Sum256(textRender)); got != "42152036aa54398d0d41f0fa50b2f202d3cc9e01d3edfb3cf398f7c734a39f43" {
 		t.Fatalf("quality text hash = %s", got)
 	}
-	if got := fmt.Sprintf("%x", sha256.Sum256(htmlRender)); got != "7c36369028e2ff7e362ff1d6c89af306c46a272663da031045a2ae58e90518b4" {
+	if got := fmt.Sprintf("%x", sha256.Sum256(htmlRender)); got != "8e35c7a39d5dc8d13236dfa68ff9efedace09f3f6848f5b72f960a3e1fefbd8b" {
 		t.Fatalf("quality HTML hash = %s", got)
 	}
-	if got := fmt.Sprintf("%x", sha256.Sum256(jsonA)); got != "8d2a92b82022f217a7405b9780c571492d36b3d088fc4c97ece088020bf13e43" {
+	if got := fmt.Sprintf("%x", sha256.Sum256(jsonA)); got != "2ad9fd34da62e6986cc66a61b40f4e8235df865d8bc8fc0eac8f2b99160d8d36" {
 		t.Fatalf("quality JSON hash = %s", got)
 	}
 	jsonB, err := report.JSON()
@@ -828,8 +893,31 @@ func TestObservationQualityLintRepairAndSignalValidation(t *testing.T) {
 	if len(repairedText) == 0 {
 		t.Fatal("empty repaired RINEX output")
 	}
-	if got := fmt.Sprintf("%x", sha256.Sum256(repairedText)); got != "7af542b522ea990ee4bcb9cf08dafa5afc06b8f7e4ef71e647d4adf57f89474b" {
+	if got := fmt.Sprintf("%x", sha256.Sum256(repairedText)); got != "7a2198f2760ba178387913a5c118e6e45f033f48e823e43bdc6c3db189f89107" {
 		t.Fatalf("repair text hash = %s", got)
+	}
+	// Repaired RINEX 2.11 output must remain readable as RINEX 2.11; older
+	// output used RINEX 3 epoch records under this version header.
+	reparsedRepair, err := ParseRINEXObservation(repairedText)
+	if err != nil {
+		t.Fatalf("repaired RINEX is not parseable: %v", err)
+	}
+	reparsedQuality, err := reparsedRepair.Quality(&options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reparsedSummary, err := reparsedQuality.Summary()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reparsedSummary != wantQCSummary {
+		t.Fatalf("repaired observation summary=%+v, want %+v", reparsedSummary, wantQCSummary)
+	}
+	if err := reparsedQuality.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := reparsedRepair.Close(); err != nil {
+		t.Fatal(err)
 	}
 	if err := repair.Close(); err != nil {
 		t.Fatal(err)

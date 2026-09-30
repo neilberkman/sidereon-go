@@ -19,56 +19,67 @@ var errTokenTooLong = errors.New("sidereon: satellite token is too long")
 var errNilNativeHandle = errors.New("sidereon: native constructor returned a nil handle")
 
 const (
-	RTCMMessageMSMValue                   = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_MSM)
-	RTCMMessageStationCoordinatesValue    = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_STATION_COORDINATES)
-	RTCMMessageAntennaDescriptorValue     = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_ANTENNA_DESCRIPTOR)
-	RTCMMessageGPSEphemerisValue          = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GPS_EPHEMERIS)
-	RTCMMessageGLONASSEphemerisValue      = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GLONASS_EPHEMERIS)
-	RTCMMessageSSRValue                   = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_SSR)
-	RTCMMessageUnsupportedValue           = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_UNSUPPORTED)
-	RTCMMessageBeiDouEphemerisValue       = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_BEIDOU_EPHEMERIS)
-	RTCMMessageQZSSEphemerisValue         = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_QZSS_EPHEMERIS)
-	RTCMMessageGalileoFNavEphemerisValue  = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GALILEO_FNAV_EPHEMERIS)
-	RTCMMessageGalileoINavEphemerisValue  = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GALILEO_INAV_EPHEMERIS)
-	RTCMMSM4Value                         = uint32(C.SIDEREON_RTCM_MSM_KIND_MSM4)
-	RTCMMSM7Value                         = uint32(C.SIDEREON_RTCM_MSM_KIND_MSM7)
-	RTCMFrameTruncatedValue               = uint32(C.SIDEREON_RTCM_FRAME_SKIP_REASON_TRUNCATED)
-	RTCMFrameMalformedValue               = uint32(C.SIDEREON_RTCM_FRAME_SKIP_REASON_MALFORMED)
-	RTCMAntennaDescriptorFieldValue       = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_ANTENNA_DESCRIPTOR)
-	RTCMAntennaSerialNumberFieldValue     = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_ANTENNA_SERIAL_NUMBER)
-	RTCMReceiverTypeFieldValue            = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_RECEIVER_TYPE)
-	RTCMReceiverFirmwareVersionFieldValue = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_RECEIVER_FIRMWARE_VERSION)
-	RTCMReceiverSerialNumberFieldValue    = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_RECEIVER_SERIAL_NUMBER)
-	EphemerisSampleValidValue             = uint32(C.SIDEREON_EPHEMERIS_SAMPLE_STATUS_VALID)
-	EphemerisSampleGapValue               = uint32(C.SIDEREON_EPHEMERIS_SAMPLE_STATUS_GAP)
-	ObservableStateValidValue             = uint32(C.SIDEREON_OBSERVABLE_STATE_ELEMENT_STATUS_VALID)
-	ObservableStateGapValue               = uint32(C.SIDEREON_OBSERVABLE_STATE_ELEMENT_STATUS_GAP)
-	ObservableStateErrorValue             = uint32(C.SIDEREON_OBSERVABLE_STATE_ELEMENT_STATUS_ERROR)
-	EmissionMediaValidValue               = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_VALID)
-	EmissionMediaGapValue                 = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_GAP)
-	EmissionMediaBelowElevationValue      = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_BELOW_ELEVATION_CUTOFF)
-	EmissionMediaErrorValue               = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_ERROR)
-	SignalModulationBPSKValue             = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_BPSK)
-	SignalModulationBOCSineValue          = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_BOC_SINE)
-	SignalModulationBOCCosineValue        = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_BOC_COSINE)
-	SignalModulationMBOCValue             = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_MBOC611_OVER11)
-	SignalModulationTMBOCValue            = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_TMBOC614_OVER33)
-	SignalModulationCBOCPlusValue         = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_CBOC611_OVER11_PLUS)
-	SignalModulationCBOCMinusValue        = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_CBOC611_OVER11_MINUS)
-	DLLCoherentValue                      = uint32(C.SIDEREON_SIGNAL_ANALYSIS_DLL_PROCESSING_COHERENT)
-	DLLNonCoherentValue                   = uint32(C.SIDEREON_SIGNAL_ANALYSIS_DLL_PROCESSING_NON_COHERENT)
-	SBASPLNoErrorValue                    = uint32(C.SIDEREON_SBAS_PL_ERROR_NONE)
-	SBASPLInsufficientGeometryValue       = uint32(C.SIDEREON_SBAS_PL_ERROR_INSUFFICIENT_GEOMETRY)
-	SBASPLNumericalFailureValue           = uint32(C.SIDEREON_SBAS_PL_ERROR_NUMERICAL_FAILURE)
-	SBASPLInvalidErrorModelValue          = uint32(C.SIDEREON_SBAS_PL_ERROR_INVALID_ERROR_MODEL)
-	SBASSolveMixedValue                   = uint32(C.SIDEREON_SBAS_SOLVE_MODE_MIXED_AUGMENTATION)
-	SBASSolveSBASOnlyValue                = uint32(C.SIDEREON_SBAS_SOLVE_MODE_SBAS_ONLY)
-	SSRReferencePointAntennaValue         = uint32(C.SIDEREON_SSR_REFERENCE_POINT_ANTENNA_PHASE_CENTER)
-	SSRReferencePointCenterOfMassValue    = uint32(C.SIDEREON_SSR_REFERENCE_POINT_CENTER_OF_MASS)
-	SSRSourceRTCMValue                    = uint32(0)
-	SSRSourceGalileoHASValue              = uint32(1)
-	SSRMissingDeclineValue                = uint32(C.SIDEREON_SSR_MISSING_CORRECTION_ACTION_DECLINE)
-	SSRMissingFallbackValue               = uint32(C.SIDEREON_SSR_MISSING_CORRECTION_ACTION_FALL_BACK_TO_BROADCAST)
+	RTCMMessageMSMValue                                  = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_MSM)
+	RTCMMessageStationCoordinatesValue                   = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_STATION_COORDINATES)
+	RTCMMessageAntennaDescriptorValue                    = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_ANTENNA_DESCRIPTOR)
+	RTCMMessageGPSEphemerisValue                         = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GPS_EPHEMERIS)
+	RTCMMessageGLONASSEphemerisValue                     = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GLONASS_EPHEMERIS)
+	RTCMMessageSSRValue                                  = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_SSR)
+	RTCMMessageUnsupportedValue                          = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_UNSUPPORTED)
+	RTCMMessageBeiDouEphemerisValue                      = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_BEIDOU_EPHEMERIS)
+	RTCMMessageQZSSEphemerisValue                        = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_QZSS_EPHEMERIS)
+	RTCMMessageGalileoFNavEphemerisValue                 = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GALILEO_FNAV_EPHEMERIS)
+	RTCMMessageGalileoINavEphemerisValue                 = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GALILEO_INAV_EPHEMERIS)
+	RTCMMessageNavICEphemerisValue                       = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_NAVIC_EPHEMERIS)
+	RTCMMessageLegacyObservationsValue                   = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_LEGACY_OBSERVATIONS)
+	RTCMMessageSystemParametersValue                     = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_SYSTEM_PARAMETERS)
+	RTCMMessageTextValue                                 = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_TEXT)
+	RTCMMessageNetworkValue                              = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_NETWORK)
+	RTCMMessageTransformationValue                       = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_TRANSFORMATION)
+	RTCMMessageGLONASSCodePhaseBiasesValue               = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GLONASS_CODE_PHASE_BIASES)
+	RTCMMessageSSRVTECValue                              = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_SSR_VTEC)
+	PPPUnplacedObservationCodeNotPositiveValue           = uint32(C.SIDEREON_PPP_UNPLACED_OBSERVATION_REASON_CODE_NOT_POSITIVE)
+	PPPUnplacedObservationSsrCorrectionExceedsLimitValue = uint32(C.SIDEREON_PPP_UNPLACED_OBSERVATION_REASON_SSR_CORRECTION_EXCEEDS_LIMIT)
+	PPPUnplacedObservationUnknownValue                   = uint32(C.SIDEREON_PPP_UNPLACED_OBSERVATION_REASON_UNKNOWN)
+	RTCMMSM4Value                                        = uint32(C.SIDEREON_RTCM_MSM_KIND_MSM4)
+	RTCMMSM7Value                                        = uint32(C.SIDEREON_RTCM_MSM_KIND_MSM7)
+	RTCMFrameTruncatedValue                              = uint32(C.SIDEREON_RTCM_FRAME_SKIP_REASON_TRUNCATED)
+	RTCMFrameMalformedValue                              = uint32(C.SIDEREON_RTCM_FRAME_SKIP_REASON_MALFORMED)
+	RTCMAntennaDescriptorFieldValue                      = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_ANTENNA_DESCRIPTOR)
+	RTCMAntennaSerialNumberFieldValue                    = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_ANTENNA_SERIAL_NUMBER)
+	RTCMReceiverTypeFieldValue                           = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_RECEIVER_TYPE)
+	RTCMReceiverFirmwareVersionFieldValue                = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_RECEIVER_FIRMWARE_VERSION)
+	RTCMReceiverSerialNumberFieldValue                   = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_RECEIVER_SERIAL_NUMBER)
+	EphemerisSampleValidValue                            = uint32(C.SIDEREON_EPHEMERIS_SAMPLE_STATUS_VALID)
+	EphemerisSampleGapValue                              = uint32(C.SIDEREON_EPHEMERIS_SAMPLE_STATUS_GAP)
+	ObservableStateValidValue                            = uint32(C.SIDEREON_OBSERVABLE_STATE_ELEMENT_STATUS_VALID)
+	ObservableStateGapValue                              = uint32(C.SIDEREON_OBSERVABLE_STATE_ELEMENT_STATUS_GAP)
+	ObservableStateErrorValue                            = uint32(C.SIDEREON_OBSERVABLE_STATE_ELEMENT_STATUS_ERROR)
+	EmissionMediaValidValue                              = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_VALID)
+	EmissionMediaGapValue                                = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_GAP)
+	EmissionMediaBelowElevationValue                     = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_BELOW_ELEVATION_CUTOFF)
+	EmissionMediaErrorValue                              = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_ERROR)
+	SignalModulationBPSKValue                            = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_BPSK)
+	SignalModulationBOCSineValue                         = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_BOC_SINE)
+	SignalModulationBOCCosineValue                       = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_BOC_COSINE)
+	SignalModulationMBOCValue                            = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_MBOC611_OVER11)
+	SignalModulationTMBOCValue                           = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_TMBOC614_OVER33)
+	SignalModulationCBOCPlusValue                        = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_CBOC611_OVER11_PLUS)
+	SignalModulationCBOCMinusValue                       = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_CBOC611_OVER11_MINUS)
+	DLLCoherentValue                                     = uint32(C.SIDEREON_SIGNAL_ANALYSIS_DLL_PROCESSING_COHERENT)
+	DLLNonCoherentValue                                  = uint32(C.SIDEREON_SIGNAL_ANALYSIS_DLL_PROCESSING_NON_COHERENT)
+	SBASPLNoErrorValue                                   = uint32(C.SIDEREON_SBAS_PL_ERROR_NONE)
+	SBASPLInsufficientGeometryValue                      = uint32(C.SIDEREON_SBAS_PL_ERROR_INSUFFICIENT_GEOMETRY)
+	SBASPLNumericalFailureValue                          = uint32(C.SIDEREON_SBAS_PL_ERROR_NUMERICAL_FAILURE)
+	SBASPLInvalidErrorModelValue                         = uint32(C.SIDEREON_SBAS_PL_ERROR_INVALID_ERROR_MODEL)
+	SBASSolveMixedValue                                  = uint32(C.SIDEREON_SBAS_SOLVE_MODE_MIXED_AUGMENTATION)
+	SBASSolveSBASOnlyValue                               = uint32(C.SIDEREON_SBAS_SOLVE_MODE_SBAS_ONLY)
+	SSRReferencePointAntennaValue                        = uint32(C.SIDEREON_SSR_REFERENCE_POINT_ANTENNA_PHASE_CENTER)
+	SSRReferencePointCenterOfMassValue                   = uint32(C.SIDEREON_SSR_REFERENCE_POINT_CENTER_OF_MASS)
+	SSRSourceRTCMValue                                   = uint32(0)
+	SSRSourceGalileoHASValue                             = uint32(1)
+	SSRMissingDeclineValue                               = uint32(C.SIDEREON_SSR_MISSING_CORRECTION_ACTION_DECLINE)
+	SSRMissingFallbackValue                              = uint32(C.SIDEREON_SSR_MISSING_CORRECTION_ACTION_FALL_BACK_TO_BROADCAST)
 
 	SBASWireFramed250Value = uint32(C.SIDEREON_SBAS_WIRE_FORM_FRAMED250)
 	SBASWireBody226Value   = uint32(C.SIDEREON_SBAS_WIRE_FORM_BODY226)
@@ -280,9 +291,27 @@ type NativeBroadcastCNAV struct {
 	Flags               uint32
 }
 
+type NativeStatedNavFields struct {
+	HasOrbit5Field2        bool
+	Orbit5Field2           float64
+	HasOrbit5Field4        bool
+	Orbit5Field4           float64
+	HasOrbit6Field4        bool
+	Orbit6Field4           float64
+	HasTransmissionTimeSOW bool
+	TransmissionTimeSOW    float64
+	HasOrbit7Field2        bool
+	Orbit7Field2           float64
+	HasOrbit7Field3        bool
+	Orbit7Field3           float64
+	HasOrbit7Field4        bool
+	Orbit7Field4           float64
+}
+
 type NativeBroadcastRecord struct {
 	SatelliteID    string
 	Message        uint32
+	HasIssue       bool
 	Issue          uint32
 	IssueMessage   uint32
 	Week           uint32
@@ -293,15 +322,18 @@ type NativeBroadcastRecord struct {
 	GroupDelays    NativeBroadcastGroupDelays
 	CNAV           NativeBroadcastCNAV
 	SVHealth       float64
+	HasSVAccuracyM bool
 	SVAccuracyM    float64
 	HasFitInterval bool
 	FitIntervalS   float64
+	Stated         NativeStatedNavFields
 }
 
 func broadcastRecordFromC(value C.SidereonBroadcastRecord) NativeBroadcastRecord {
 	return NativeBroadcastRecord{
 		SatelliteID:  tokenFromC(value.sat_id),
 		Message:      uint32(value.message),
+		HasIssue:     bool(value.has_issue),
 		Issue:        uint32(value.issue),
 		IssueMessage: uint32(value.issue_message),
 		Week:         uint32(value.week),
@@ -335,7 +367,16 @@ func broadcastRecordFromC(value C.SidereonBroadcastRecord) NativeBroadcastRecord
 			URAEDIndex: int8(value.cnav.ura_ed_index), URANED0Index: int8(value.cnav.ura_ned0_index), URANED1Index: uint8(value.cnav.ura_ned1_index), URANED2Index: uint8(value.cnav.ura_ned2_index),
 			TransmissionTimeSOW: float64(value.cnav.transmission_time_sow), HasFlags: bool(value.cnav.has_flags), Flags: uint32(value.cnav.flags),
 		},
-		SVHealth: float64(value.sv_health), SVAccuracyM: float64(value.sv_accuracy_m), HasFitInterval: bool(value.has_fit_interval_s), FitIntervalS: float64(value.fit_interval_s),
+		SVHealth: float64(value.sv_health), HasSVAccuracyM: bool(value.has_sv_accuracy_m), SVAccuracyM: float64(value.sv_accuracy_m), HasFitInterval: bool(value.has_fit_interval_s), FitIntervalS: float64(value.fit_interval_s),
+		Stated: NativeStatedNavFields{
+			HasOrbit5Field2: bool(value.stated.has_orbit5_field2), Orbit5Field2: float64(value.stated.orbit5_field2),
+			HasOrbit5Field4: bool(value.stated.has_orbit5_field4), Orbit5Field4: float64(value.stated.orbit5_field4),
+			HasOrbit6Field4: bool(value.stated.has_orbit6_field4), Orbit6Field4: float64(value.stated.orbit6_field4),
+			HasTransmissionTimeSOW: bool(value.stated.has_transmission_time_sow), TransmissionTimeSOW: float64(value.stated.transmission_time_sow),
+			HasOrbit7Field2: bool(value.stated.has_orbit7_field2), Orbit7Field2: float64(value.stated.orbit7_field2),
+			HasOrbit7Field3: bool(value.stated.has_orbit7_field3), Orbit7Field3: float64(value.stated.orbit7_field3),
+			HasOrbit7Field4: bool(value.stated.has_orbit7_field4), Orbit7Field4: float64(value.stated.orbit7_field4),
+		},
 	}
 }
 
@@ -718,7 +759,7 @@ func broadcastRecordToC(value NativeBroadcastRecord) (C.SidereonBroadcastRecord,
 		return C.SidereonBroadcastRecord{}, err
 	}
 	return C.SidereonBroadcastRecord{
-		sat_id: satelliteID, message: C.uint32_t(value.Message), issue: C.uint32_t(value.Issue), issue_message: C.uint32_t(value.IssueMessage), week: C.uint32_t(value.Week),
+		sat_id: satelliteID, message: C.uint32_t(value.Message), has_issue: C.bool(value.HasIssue || value.Issue != 0), issue: C.uint32_t(value.Issue), issue_message: C.uint32_t(value.IssueMessage), week: C.uint32_t(value.Week),
 		toe: weekTowToC(value.Toe), toc: weekTowToC(value.Toc),
 		elements: C.SidereonKeplerianElements{
 			sqrt_a: C.double(value.Elements.SqrtA), e: C.double(value.Elements.E), m0: C.double(value.Elements.M0), delta_n: C.double(value.Elements.DeltaN),
@@ -740,7 +781,16 @@ func broadcastRecordToC(value NativeBroadcastRecord) (C.SidereonBroadcastRecord,
 			ura_ed_index: C.int8_t(value.CNAV.URAEDIndex), ura_ned0_index: C.int8_t(value.CNAV.URANED0Index), ura_ned1_index: C.uint8_t(value.CNAV.URANED1Index), ura_ned2_index: C.uint8_t(value.CNAV.URANED2Index),
 			transmission_time_sow: C.double(value.CNAV.TransmissionTimeSOW), has_flags: C.bool(value.CNAV.HasFlags), flags: C.uint32_t(value.CNAV.Flags),
 		},
-		sv_health: C.double(value.SVHealth), sv_accuracy_m: C.double(value.SVAccuracyM), has_fit_interval_s: C.bool(value.HasFitInterval), fit_interval_s: C.double(value.FitIntervalS),
+		sv_health: C.double(value.SVHealth), has_sv_accuracy_m: C.bool(value.HasSVAccuracyM || value.SVAccuracyM != 0), sv_accuracy_m: C.double(value.SVAccuracyM), has_fit_interval_s: C.bool(value.HasFitInterval), fit_interval_s: C.double(value.FitIntervalS),
+		stated: C.SidereonStatedNavFields{
+			has_orbit5_field2: C.bool(value.Stated.HasOrbit5Field2), orbit5_field2: C.double(value.Stated.Orbit5Field2),
+			has_orbit5_field4: C.bool(value.Stated.HasOrbit5Field4), orbit5_field4: C.double(value.Stated.Orbit5Field4),
+			has_orbit6_field4: C.bool(value.Stated.HasOrbit6Field4), orbit6_field4: C.double(value.Stated.Orbit6Field4),
+			has_transmission_time_sow: C.bool(value.Stated.HasTransmissionTimeSOW), transmission_time_sow: C.double(value.Stated.TransmissionTimeSOW),
+			has_orbit7_field2: C.bool(value.Stated.HasOrbit7Field2), orbit7_field2: C.double(value.Stated.Orbit7Field2),
+			has_orbit7_field3: C.bool(value.Stated.HasOrbit7Field3), orbit7_field3: C.double(value.Stated.Orbit7Field3),
+			has_orbit7_field4: C.bool(value.Stated.HasOrbit7Field4), orbit7_field4: C.double(value.Stated.Orbit7Field4),
+		},
 	}, nil
 }
 
@@ -1597,7 +1647,7 @@ func (block *SbasBlock) Encode() ([]byte, error) {
 	var out []byte
 	err := block.resource.with(func(pointer unsafe.Pointer) error {
 		var written, required C.size_t
-		if err := callStatus(func() uint32 {
+		if err := rtcmCallStatus(func() uint32 {
 			return C.sidereon_sbas_block_encode((*C.SidereonSbasBlock)(pointer), nil, 0, &written, &required)
 		}); err != nil {
 			return err
@@ -1614,7 +1664,7 @@ func (block *SbasBlock) Encode() ([]byte, error) {
 		if len(values) != 0 {
 			output = &values[0]
 		}
-		if err := callStatus(func() uint32 {
+		if err := rtcmCallStatus(func() uint32 {
 			return C.sidereon_sbas_block_encode((*C.SidereonSbasBlock)(pointer), output, C.size_t(len(values)), &written, &required)
 		}); err != nil {
 			return err

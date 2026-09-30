@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // RTKArcReferenceMode selects the reference satellite policy for sequential
 // RTK and its derived arc products.
@@ -74,6 +74,9 @@ type RTKArcEpoch struct {
 	HasPredictionTime bool
 	// PredictionTimeS is the epoch time coordinate in seconds when HasPredictionTime is true.
 	PredictionTimeS float64
+	// PredictionEpoch optionally supplies an exact epoch for prediction deltas.
+	// When nil, the legacy scalar prediction-time behavior is unchanged.
+	PredictionEpoch *ExactEpoch
 }
 
 // RTKArcReferenceEntry specifies a per-constellation reference satellite.
@@ -180,6 +183,11 @@ type RTKDualFrequencyArcEpoch struct {
 	HasPredictionTime bool
 	// PredictionTimeS is the epoch time coordinate in seconds when HasPredictionTime is true.
 	PredictionTimeS float64
+	// GapEpoch optionally supplies the exact epoch used for gap comparisons.
+	// When nil, the legacy split-Julian-day and scalar-gap behavior is unchanged.
+	GapEpoch *ExactEpoch
+	// PredictionEpoch optionally supplies an exact epoch for prediction deltas.
+	PredictionEpoch *ExactEpoch
 }
 
 // RTKWideLaneCycle is one fixed Melbourne-Wubbena ambiguity in cycles.
@@ -253,8 +261,15 @@ type RTKWideLaneArcSolution struct {
 	handle *native.RtkWideLaneArcSolution
 }
 
+func nativeExactEpoch(value *ExactEpoch) *native.ExactEpoch {
+	if value == nil {
+		return nil
+	}
+	return value.handle
+}
+
 func nativeRTKArcEpoch(value RTKArcEpoch) native.RtkArcEpochInput {
-	result := native.RtkArcEpochInput{HasVelocityMPS: value.HasVelocityMPS, VelocityMPS: value.VelocityMPS, HasPredictionTime: value.HasPredictionTime, PredictionTimeS: value.PredictionTimeS}
+	result := native.RtkArcEpochInput{HasVelocityMPS: value.HasVelocityMPS, VelocityMPS: value.VelocityMPS, HasPredictionTime: value.HasPredictionTime, PredictionTimeS: value.PredictionTimeS, PredictionEpoch: nativeExactEpoch(value.PredictionEpoch)}
 	result.Base = append([]native.RtkArcObservationInput(nil), nativeRTKArcObservations(value.Base)...)
 	result.Rover = append([]native.RtkArcObservationInput(nil), nativeRTKArcObservations(value.Rover)...)
 	result.SatellitePositions = nativeRTKArcPositions(value.SatellitePositions)
@@ -334,7 +349,7 @@ func nativeRTKReceiverAntenna(value *RTKReceiverAntennaCorrections) *native.RtkR
 }
 
 func nativeRTKDualEpoch(value RTKDualFrequencyArcEpoch) native.RtkDualFrequencyArcEpochInput {
-	result := native.RtkDualFrequencyArcEpochInput{JDWhole: value.JDWhole, JDFraction: value.JDFraction, HasEpochSortKey: value.HasEpochSortKey, EpochSortKey: value.EpochSortKey, HasGapTimeS: value.HasGapTimeS, GapTimeS: value.GapTimeS, HasVelocityMPS: value.HasVelocityMPS, VelocityMPS: value.VelocityMPS, HasPredictionTime: value.HasPredictionTime, PredictionTimeS: value.PredictionTimeS, SatellitePositions: nativeRTKArcPositions(value.SatellitePositions), BaseSatellitePositions: nativeRTKArcPositions(value.BaseSatellitePositions), RoverSatellitePositions: nativeRTKArcPositions(value.RoverSatellitePositions)}
+	result := native.RtkDualFrequencyArcEpochInput{JDWhole: value.JDWhole, JDFraction: value.JDFraction, HasEpochSortKey: value.HasEpochSortKey, EpochSortKey: value.EpochSortKey, HasGapTimeS: value.HasGapTimeS, GapTimeS: value.GapTimeS, HasVelocityMPS: value.HasVelocityMPS, VelocityMPS: value.VelocityMPS, HasPredictionTime: value.HasPredictionTime, PredictionTimeS: value.PredictionTimeS, GapEpoch: nativeExactEpoch(value.GapEpoch), PredictionEpoch: nativeExactEpoch(value.PredictionEpoch), SatellitePositions: nativeRTKArcPositions(value.SatellitePositions), BaseSatellitePositions: nativeRTKArcPositions(value.BaseSatellitePositions), RoverSatellitePositions: nativeRTKArcPositions(value.RoverSatellitePositions)}
 	result.Observations = make([]native.RtkDualFrequencySatelliteObservationInput, len(value.Observations))
 	for index, observation := range value.Observations {
 		result.Observations[index] = native.RtkDualFrequencySatelliteObservationInput{SatelliteID: observation.SatelliteID, Base: nativeRTKDualObservation(observation.Base), Rover: nativeRTKDualObservation(observation.Rover)}
@@ -362,13 +377,33 @@ func nativeRTKDualEpochs(values []RTKDualFrequencyArcEpoch) []native.RtkDualFreq
 	return result
 }
 
+func nativeRTKDualEpochsWithExactEpochs(values []RTKDualFrequencyArcEpoch) ([]native.RtkDualFrequencyArcEpochInput, bool) {
+	result := nativeRTKDualEpochs(values)
+	useExactEpochs := false
+	for index, value := range values {
+		useExactEpochs = useExactEpochs || value.GapEpoch != nil || value.PredictionEpoch != nil
+		result[index].GapEpoch = nativeExactEpoch(value.GapEpoch)
+		result[index].PredictionEpoch = nativeExactEpoch(value.PredictionEpoch)
+	}
+	return result, useExactEpochs
+}
+
 // SolveRTKArc delegates sequential RTK solving to C.
 func SolveRTKArc(epochs []RTKArcEpoch, config RTKArcConfig) (*RTKArcSolution, error) {
 	nativeEpochs := make([]native.RtkArcEpochInput, len(epochs))
+	useExactEpochs := false
 	for index, value := range epochs {
 		nativeEpochs[index] = nativeRTKArcEpoch(value)
+		nativeEpochs[index].PredictionEpoch = nativeExactEpoch(value.PredictionEpoch)
+		useExactEpochs = useExactEpochs || value.PredictionEpoch != nil
 	}
-	result, err := native.SolveRtkArc(nativeEpochs, nativeRTKArcConfig(config))
+	var result *native.RtkArcSolution
+	var err error
+	if useExactEpochs {
+		result, err = native.SolveRtkArcV2(nativeEpochs, nativeRTKArcConfig(config))
+	} else {
+		result, err = native.SolveRtkArc(nativeEpochs, nativeRTKArcConfig(config))
+	}
 	if err != nil {
 		return nil, publicError(err)
 	}
@@ -377,7 +412,14 @@ func SolveRTKArc(epochs []RTKArcEpoch, config RTKArcConfig) (*RTKArcSolution, er
 
 // FixWideLaneRTKArc delegates wide-lane fixing to C.
 func FixWideLaneRTKArc(epochs []RTKDualFrequencyArcEpoch, config RTKWideLaneArcConfig) (*RTKWideLaneArcSolution, error) {
-	result, err := native.FixWideLaneRtkArc(nativeRTKDualEpochs(epochs), nativeRTKWideConfig(config))
+	nativeEpochs, useExactEpochs := nativeRTKDualEpochsWithExactEpochs(epochs)
+	var result *native.RtkWideLaneArcSolution
+	var err error
+	if useExactEpochs {
+		result, err = native.FixWideLaneRtkArcV2(nativeEpochs, nativeRTKWideConfig(config))
+	} else {
+		result, err = native.FixWideLaneRtkArc(nativeEpochs, nativeRTKWideConfig(config))
+	}
 	if err != nil {
 		return nil, publicError(err)
 	}
@@ -390,7 +432,14 @@ func PrepareIonosphereFreeRTKArc(epochs []RTKDualFrequencyArcEpoch, cycles []RTK
 	for index, value := range cycles {
 		nativeCycles[index] = native.RtkWideLaneCycleInput{ID: value.ID, Cycles: value.Cycles}
 	}
-	result, err := native.PrepareIonosphereFreeRtkArc(nativeRTKDualEpochs(epochs), nativeCycles, nativeRTKIonosphereFreeConfig(config))
+	nativeEpochs, useExactEpochs := nativeRTKDualEpochsWithExactEpochs(epochs)
+	var result *native.RtkIonosphereFreeArcSolution
+	var err error
+	if useExactEpochs {
+		result, err = native.PrepareIonosphereFreeRtkArcV2(nativeEpochs, nativeCycles, nativeRTKIonosphereFreeConfig(config))
+	} else {
+		result, err = native.PrepareIonosphereFreeRtkArc(nativeEpochs, nativeCycles, nativeRTKIonosphereFreeConfig(config))
+	}
 	if err != nil {
 		return nil, publicError(err)
 	}

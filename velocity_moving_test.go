@@ -49,6 +49,36 @@ func assertVelocityFloatSliceBits(t *testing.T, got, want []float64) {
 	}
 }
 
+func assertVelocityFloatNear(t *testing.T, got, want, tolerance float64) {
+	t.Helper()
+	if math.Abs(got-want) > tolerance {
+		t.Fatalf("value = %.17g, want %.17g (absolute tolerance %.3g)", got, want, tolerance)
+	}
+}
+
+func assertVelocityFloatSliceNear(t *testing.T, got, want []float64, tolerance float64) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("length = %d, want %d", len(got), len(want))
+	}
+	for i := range got {
+		assertVelocityFloatNear(t, got[i], want[i], tolerance)
+	}
+}
+
+func assertVelocityFloatSliceRelative(t *testing.T, got, want []float64, relativeTolerance float64) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("length = %d, want %d", len(got), len(want))
+	}
+	for i := range got {
+		limit := relativeTolerance * math.Abs(want[i])
+		if math.Abs(got[i]-want[i]) > limit {
+			t.Fatalf("value[%d] = %.17g, want %.17g (relative tolerance %.3g)", i, got[i], want[i], relativeTolerance)
+		}
+	}
+}
+
 func TestVelocitySP3Fixture(t *testing.T) {
 	defaults, err := VelocityOptionsDefaults()
 	if err != nil {
@@ -78,27 +108,39 @@ func TestVelocitySP3Fixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertVelocityFloatSliceBits(t, velocity[:], []float64{373.86547240733194, 356.43741989282614, 816.1437404497244})
+	// Reference: pinned RTKLIB 75a2e56275485b21a67bd35bc94bbeb8936e1a74
+	// peph2pos positions at transmit time +/- 0.5 s, central-difference range
+	// rates, and an independent Householder-QR least-squares solve. The narrow
+	// 5e-8 m/s bound covers the measured 1.45e-8 m/s maximum difference from
+	// this implementation's interpolation and normal-equation arithmetic.
+	assertVelocityFloatSliceNear(t, velocity[:], []float64{373.86943034704876, 356.42143668849855, 816.1410437050214}, 5e-8)
 	clockDrift, err := solution.ClockDrift()
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertVelocityFloatBits(t, clockDrift, 2.339954490391944e-06)
+	assertVelocityFloatNear(t, clockDrift, 2.3399190057589454e-06, 1e-16)
 	speed, err := solution.Speed()
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertVelocityFloatBits(t, speed, 965.8745419739975)
+	assertVelocityFloatNear(t, speed, 965.8678971262281, 5e-8)
 	residuals, err := solution.Residuals()
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertVelocityFloatSliceBits(t, residuals, []float64{-68.17584423780806, 261.35140116044, 73.08419919031576, -289.74531253342695, 284.00022050431164, 64.37404887655646, -563.4573978740209, 238.56868491363002})
+	assertVelocityFloatSliceNear(t, residuals, []float64{-68.17478888568519, 261.3449450635942, 73.0816687986169, -289.74179653138265, 283.9995252085579, 64.37118175307913, -563.4472967288883, 238.56656132210912}, 5e-8)
 	covariance, err := solution.StateCovariance()
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertVelocityFloatSliceBits(t, covariance[:], []float64{2.3162279558882606, -0.2967750023080173, 1.2173682454030528, 6.139875050756155e-09, -0.2967750023080172, 0.5132897623182687, 0.029378963283489993, -3.9217849890269614e-10, 1.2173682454030543, 0.029378963283490475, 2.0338358084492016, 5.518255216980216e-09, 6.139875050756155e-09, -3.9217849890269624e-10, 5.5182552169802185e-09, 2.1450337074179046e-17})
+	// Covariance uses the same independent reference; observed maximum relative
+	// disagreement is 2.64e-14, so 1e-13 allows small platform arithmetic drift.
+	assertVelocityFloatSliceRelative(t, covariance[:], []float64{
+		2.316227955646902, -0.29677500186135974, 1.2173682457041273, 6.139875050727654e-09,
+		-0.29677500186135974, 0.5132897622407843, 0.02937896351236663, -3.921784975553556e-10,
+		1.2173682457041273, 0.02937896351236663, 2.033835808850749, 5.5182552182293936e-09,
+		6.139875050727654e-09, -3.921784975553556e-10, 5.5182552182293936e-09, 2.145033707615911e-17,
+	}, 1e-13)
 	count, err := solution.UsedSatelliteCount()
 	if err != nil || count != 8 {
 		t.Fatalf("used satellite count = %d, err = %v, want 8", count, err)
@@ -154,7 +196,13 @@ func TestVelocityBroadcastFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertVelocityFloatSliceBits(t, velocity[:], []float64{-21.296330229757586, 1056.6070098348227, 83.375907650655279})
+	// Exact C46 direct-ABI result for this pinned NAV fixture; the independent
+	// RTKLIB/Householder reference's maximum component difference is 5.56e-6 m/s.
+	assertVelocityFloatSliceBits(t, velocity[:], []float64{
+		math.Float64frombits(0x40682182b8303b90),
+		math.Float64frombits(0x4071b36a045fde00),
+		math.Float64frombits(0xc06082a85097c918),
+	})
 }
 
 func TestVelocityBoundariesAndCloseRace(t *testing.T) {

@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // GLONASSChannel supplies the FDMA channel used by the native ionosphere
 // correction for one GLONASS slot.
@@ -24,6 +24,8 @@ type SPPSolvePolicy struct {
 type SPPInputsV2 struct {
 	// Base carries metre/second SPP observations and atmospheric settings.
 	Base SPPConfig
+	// Models selects QZSS clock and troposphere variants for model-aware solves.
+	Models SPPModelOptions
 	// BeidouKlobucharEnabled controls the optional BeiDou alpha/beta arrays.
 	BeidouKlobucharEnabled bool
 	// BeidouKlobucharAlpha and BeidouKlobucharBeta are optional coefficients.
@@ -44,6 +46,8 @@ type RINEXSPPOptions struct {
 	PressureHPA, TemperatureK, RelativeHumidity  float64
 	RobustEnabled                                bool
 	Robust                                       SPPRobustConfig
+	// Models selects QZSS clock and troposphere variants for RINEX solves.
+	Models SPPModelOptions
 }
 
 // RINEXSPPEpoch is detached RINEX-SPP epoch metadata.
@@ -58,6 +62,32 @@ type SPPRejectedSatellite struct {
 	// SatelliteID identifies the rejected row; Reason is the native reason code.
 	SatelliteID string
 	Reason      uint32
+}
+
+// SPPRejectionReason identifies why a satellite was excluded from an SPP solve.
+type SPPRejectionReason uint32
+
+const (
+	// SPPRejectionNoEphemeris marks unavailable broadcast state.
+	SPPRejectionNoEphemeris SPPRejectionReason = 0
+	// SPPRejectionLowElevation marks a row below the elevation mask.
+	SPPRejectionLowElevation SPPRejectionReason = 1
+	// SPPRejectionSBASWithdrawn marks an SBAS-withdrawn satellite.
+	SPPRejectionSBASWithdrawn SPPRejectionReason = 2
+	// SPPRejectionSBASIONOUncovered marks an uncovered SBAS ionosphere point.
+	SPPRejectionSBASIONOUncovered SPPRejectionReason = 3
+	// SPPRejectionIonosphereCarrierUnresolved marks an unavailable carrier.
+	SPPRejectionIonosphereCarrierUnresolved SPPRejectionReason = 4
+	// SPPRejectionSsrCorrectionExceedsLimit marks strict SSR-size refusal.
+	SPPRejectionSsrCorrectionExceedsLimit SPPRejectionReason = 5
+)
+
+// SPPRejectedSatelliteV2 retains the exact strict-SSR correction magnitudes.
+type SPPRejectedSatelliteV2 struct {
+	SatelliteID    string
+	Reason         SPPRejectionReason
+	HasSize        bool
+	OrbitM, ClockM float64
 }
 
 // SPPSystemClock is one detached per-constellation receiver clock.
@@ -118,14 +148,30 @@ func nativeSppV2(v SPPInputsV2) (native.SppInputsV2, error) {
 	if err != nil {
 		return native.SppInputsV2{}, err
 	}
-	return native.SppInputsV2{Base: nativeSPPConfig(v.Base), BeidouEnabled: v.BeidouKlobucharEnabled, BeidouAlpha: v.BeidouKlobucharAlpha, BeidouBeta: v.BeidouKlobucharBeta, RobustEnabled: v.RobustEnabled, Robust: robust, Policy: policy, GlonassChannels: channels}, nil
+	return native.SppInputsV2{Base: nativeSPPConfig(v.Base), Models: native.NativeSPPModelOptions{QZSSClock: uint32(v.Models.QZSSClock), TroposphereModel: uint32(v.Models.TroposphereModel)}, BeidouEnabled: v.BeidouKlobucharEnabled, BeidouAlpha: v.BeidouKlobucharAlpha, BeidouBeta: v.BeidouKlobucharBeta, RobustEnabled: v.RobustEnabled, Robust: robust, Policy: policy, GlonassChannels: channels}, nil
+}
+
+// SolveSPPV2AtExactEpoch preserves the receive-epoch representation through the native solve.
+func SolveSPPV2AtExactEpoch(sp3 *SP3, input SPPInputsV2, receiveEpoch *ExactEpoch) (*SPPSolutionHandle, error) {
+	if sp3 == nil || sp3.handle == nil || receiveEpoch == nil || receiveEpoch.handle == nil {
+		return nil, ErrClosed
+	}
+	nativeInput, err := nativeSppV2(input)
+	if err != nil {
+		return nil, publicError(err)
+	}
+	result, err := native.SolveSPPV2AtExactEpoch(sp3.handle, nativeInput, receiveEpoch.handle)
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return &SPPSolutionHandle{handle: result}, nil
 }
 func nativeRinexSppOptions(v RINEXSPPOptions) (native.NativeRinexSPPOptions, error) {
 	robust, err := nativeRobustConfig(v.Robust)
 	if err != nil {
 		return native.NativeRinexSPPOptions{}, err
 	}
-	return native.NativeRinexSPPOptions{Ionosphere: v.Ionosphere, Troposphere: v.Troposphere, InitialGuessEnabled: v.InitialGuessEnabled, InitialGuess: v.InitialGuess, PressureHPA: v.PressureHPA, TemperatureK: v.TemperatureK, RelativeHumidity: v.RelativeHumidity, RobustEnabled: v.RobustEnabled, Robust: robust}, nil
+	return native.NativeRinexSPPOptions{Ionosphere: v.Ionosphere, Troposphere: v.Troposphere, InitialGuessEnabled: v.InitialGuessEnabled, InitialGuess: v.InitialGuess, PressureHPA: v.PressureHPA, TemperatureK: v.TemperatureK, RelativeHumidity: v.RelativeHumidity, RobustEnabled: v.RobustEnabled, Robust: robust, Models: native.NativeSPPModelOptions{QZSSClock: uint32(v.Models.QZSSClock), TroposphereModel: uint32(v.Models.TroposphereModel)}}, nil
 }
 func publicRinexEpoch(v native.NativeRinexSPPEpoch) RINEXSPPEpoch {
 	return RINEXSPPEpoch{Index: v.Index, ObservationCount: v.ObservationCount, Epoch: civilFromNative(v.Epoch)}
@@ -139,7 +185,7 @@ func publicSppV2(v native.SppInputsV2) (SPPInputsV2, error) {
 	if err != nil {
 		return SPPInputsV2{}, err
 	}
-	out := SPPInputsV2{Base: SPPConfig{TRxJ2000S: v.Base.TRxJ2000S, TRxSecondOfDayS: v.Base.TRxSecondOfDayS, DayOfYear: v.Base.DayOfYear, InitialGuess: v.Base.InitialGuess, Ionosphere: v.Base.Ionosphere, Troposphere: v.Base.Troposphere, WithGeodetic: v.Base.WithGeodetic, KlobucharAlpha: v.Base.KlobucharAlpha, KlobucharBeta: v.Base.KlobucharBeta, PressureHPA: v.Base.PressureHPA, TemperatureK: v.Base.TemperatureK, RelativeHumidity: v.Base.RelativeHumidity}, BeidouKlobucharEnabled: v.BeidouEnabled, BeidouKlobucharAlpha: v.BeidouAlpha, BeidouKlobucharBeta: v.BeidouBeta, RobustEnabled: v.RobustEnabled, Robust: SPPRobustConfig{HuberK: v.Robust.HuberK, ScaleFloorM: v.Robust.ScaleFloorM, MaxOuter: maxOuter, OuterToleranceM: v.Robust.OuterToleranceM}, Policy: SPPSolvePolicy{UseValidationOptions: v.Policy.UseValidationOptions, CoarseSearchEnabled: v.Policy.CoarseSearchEnabled, CoarseSearchSeeds: uint64(seeds)}}
+	out := SPPInputsV2{Base: SPPConfig{TRxJ2000S: v.Base.TRxJ2000S, TRxSecondOfDayS: v.Base.TRxSecondOfDayS, DayOfYear: v.Base.DayOfYear, InitialGuess: v.Base.InitialGuess, Ionosphere: v.Base.Ionosphere, Troposphere: v.Base.Troposphere, WithGeodetic: v.Base.WithGeodetic, KlobucharAlpha: v.Base.KlobucharAlpha, KlobucharBeta: v.Base.KlobucharBeta, PressureHPA: v.Base.PressureHPA, TemperatureK: v.Base.TemperatureK, RelativeHumidity: v.Base.RelativeHumidity}, Models: SPPModelOptions{QZSSClock: QZSSClock(v.Models.QZSSClock), TroposphereModel: TroposphereModel(v.Models.TroposphereModel)}, BeidouKlobucharEnabled: v.BeidouEnabled, BeidouKlobucharAlpha: v.BeidouAlpha, BeidouKlobucharBeta: v.BeidouBeta, RobustEnabled: v.RobustEnabled, Robust: SPPRobustConfig{HuberK: v.Robust.HuberK, ScaleFloorM: v.Robust.ScaleFloorM, MaxOuter: maxOuter, OuterToleranceM: v.Robust.OuterToleranceM}, Policy: SPPSolvePolicy{UseValidationOptions: v.Policy.UseValidationOptions, CoarseSearchEnabled: v.Policy.CoarseSearchEnabled, CoarseSearchSeeds: uint64(seeds)}}
 	out.Base.Observations = make([]SPPObservation, len(v.Base.Observations))
 	for i, x := range v.Base.Observations {
 		out.Base.Observations[i] = SPPObservation{SatelliteID: x.SatelliteID, PseudorangeM: x.PseudorangeM}
@@ -255,6 +301,23 @@ func (r *RINEXSPPSolutions) SolutionError(i int) (string, error) {
 	return v, publicError(e)
 }
 
+// EngineError returns the structured native error for one failed RINEX epoch.
+// It returns nil, nil for a successful epoch and preserves partial capture
+// details alongside any diagnostic error.
+func (r *RINEXSPPSolutions) EngineError(i int) (*EngineError, error) {
+	if r == nil || r.handle == nil {
+		return nil, ErrClosed
+	}
+	v, e := r.handle.EngineError(i)
+	if e != nil {
+		return publicEngineError(v), publicError(e)
+	}
+	if v == nil {
+		return nil, nil
+	}
+	return publicEngineError(v), nil
+}
+
 // Solution returns an owning handle for one successful epoch.
 func (r *RINEXSPPSolutions) Solution(i int) (*SPPSolutionHandle, error) {
 	if r == nil || r.handle == nil {
@@ -300,6 +363,24 @@ func (b *SPPBatch) Error(i int) (string, error) {
 	}
 	v, e := b.handle.Error(i)
 	return v, publicError(e)
+}
+
+// EngineError returns the structured engine error for one failed batch epoch.
+// Returns nil, nil if the epoch solved successfully. If secondary diagnostic
+// capture or JSON payload decoding encounters an error, a partial EngineError
+// record is returned alongside the non-nil error according to the partial-record contract.
+func (b *SPPBatch) EngineError(i int) (*EngineError, error) {
+	if b == nil || b.handle == nil {
+		return nil, ErrClosed
+	}
+	v, e := b.handle.EngineError(i)
+	if e != nil {
+		return publicEngineError(v), publicError(e)
+	}
+	if v == nil {
+		return nil, nil
+	}
+	return publicEngineError(v), nil
 }
 
 // Solution returns an owning handle for one successful batch epoch.
@@ -363,6 +444,27 @@ func (s *SPPSolutionHandle) RejectedSatellites() ([]SPPRejectedSatellite, error)
 		out[i] = SPPRejectedSatellite{SatelliteID: x.SatelliteID, Reason: x.Reason}
 	}
 	return out, nil
+}
+
+// RejectedSatellitesV2 returns rejected rows with optional strict-SSR sizes.
+func (s *SPPSolutionHandle) RejectedSatellitesV2() ([]SPPRejectedSatelliteV2, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := s.handle.RejectedSatellitesV2()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	result := sppRejectedSatellitesV2FromNative(values)
+	return result, nil
+}
+
+func sppRejectedSatellitesV2FromNative(values []native.NativeSPPRejectedSatelliteV2) []SPPRejectedSatelliteV2 {
+	result := make([]SPPRejectedSatelliteV2, len(values))
+	for index, value := range values {
+		result[index] = SPPRejectedSatelliteV2{SatelliteID: value.SatelliteID, Reason: SPPRejectionReason(value.Reason), HasSize: value.HasSize, OrbitM: value.OrbitM, ClockM: value.ClockM}
+	}
+	return result
 }
 
 // ReceiverClockDriftSS returns receiver clock drift in seconds per second.

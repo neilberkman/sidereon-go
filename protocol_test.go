@@ -23,6 +23,44 @@ func protocolFixture(t *testing.T, relative ...string) []byte {
 	return data
 }
 
+func TestBroadcastRecordIssuePresenceConversion(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		present bool
+		issue   uint32
+	}{
+		{name: "absent zero"},
+		{name: "present zero", present: true},
+		{name: "present one", present: true, issue: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got := broadcastRecordFromNative(broadcastRecordToNative(BroadcastRecord{HasIssue: test.present, Issue: test.issue}))
+			if got.HasIssue != test.present || got.Issue != test.issue {
+				t.Fatalf("issue presence/value = (%t,%d), want (%t,%d)", got.HasIssue, got.Issue, test.present, test.issue)
+			}
+		})
+	}
+}
+
+func TestBroadcastRecordOptionalFieldsConversion(t *testing.T) {
+	want := BroadcastRecord{
+		HasIssue: true, HasSVAccuracyM: true,
+		Stated: StatedNavFields{
+			HasOrbit5Field2: true, Orbit5Field2: 0,
+			HasOrbit5Field4: true, Orbit5Field4: 7.25,
+			HasOrbit6Field4: true, Orbit6Field4: 12,
+			HasTransmissionTimeSOW: true, TransmissionTimeSOW: 345678.125,
+			HasOrbit7Field2: true, Orbit7Field2: 0,
+			HasOrbit7Field3: true, Orbit7Field3: 123.5,
+			HasOrbit7Field4: true, Orbit7Field4: -456.25,
+		},
+	}
+	got := broadcastRecordFromNative(broadcastRecordToNative(want))
+	if got != want {
+		t.Fatalf("optional broadcast fields conversion = %+v, want %+v", got, want)
+	}
+}
+
 func TestRINEXNavAndClockPublicSmoke(t *testing.T) {
 	nav := protocolFixture(t, "nav", "ESBC00DNK_R_20201770000_01D_MN.rnx")
 	clockText := protocolFixture(t, "clk", "synthetic_rinex_clock.clk")
@@ -46,8 +84,11 @@ func TestRINEXNavAndClockPublicSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if record.SatelliteID != "C05" || record.Message != 8 || record.Issue != 1 || record.Week != 755 {
+	if record.SatelliteID != "C05" || record.Message != 8 || !record.HasIssue || record.Issue != 1 || record.Week != 755 {
 		t.Fatalf("unexpected first NAV identity: %+v", record)
+	}
+	if !record.HasSVAccuracyM || record.SVAccuracyM != 2 || !record.Stated.HasOrbit5Field2 || !record.Stated.HasTransmissionTimeSOW || !record.Stated.HasOrbit7Field2 || record.Stated.Orbit7Field2 != 0 {
+		t.Fatalf("unexpected stated/optional NAV fields: accuracy=%t/%g stated=%+v", record.HasSVAccuracyM, record.SVAccuracyM, record.Stated)
 	}
 	if record.Toe.System != BDT || record.Toe.Week != 755 || math.Float64bits(record.Toe.TOWSeconds) != 0x4114a78000000000 {
 		t.Fatalf("unexpected first NAV epoch: %+v", record.Toe)
@@ -63,8 +104,12 @@ func TestRINEXNavAndClockPublicSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(encoded) != 810 || !bytes.HasSuffix(encoded, []byte("\n")) {
-		t.Fatalf("encoded NAV length = %d, want 810", len(encoded))
+	if !bytes.HasSuffix(encoded, []byte("\n")) {
+		t.Fatal("encoded NAV is missing its final newline")
+	}
+	lines := bytes.Split(bytes.TrimSuffix(encoded, []byte("\n")), []byte("\n"))
+	if len(lines) != 11 || !bytes.HasSuffix(lines[0], []byte("RINEX VERSION / TYPE")) || !bytes.Contains(lines[1], []byte("sidereon")) || !bytes.HasSuffix(lines[1], []byte("PGM / RUN BY / DATE")) || !bytes.HasSuffix(lines[2], []byte("END OF HEADER")) || !bytes.HasPrefix(lines[3], []byte("C05")) {
+		t.Fatalf("encoded NAV header/body structure is invalid: %d lines, prefix=%q", len(lines), encoded[:min(len(encoded), 240)])
 	}
 	reparsed, err := ParseRINEXNavRecords(encoded)
 	if err != nil {
@@ -79,8 +124,73 @@ func TestRINEXNavAndClockPublicSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if !reparsedRecord.HasIssue || reparsedRecord.Issue != record.Issue {
+		t.Fatalf("NAV round trip changed issue-of-data presence/value: before=(%t,%d) after=(%t,%d)", record.HasIssue, record.Issue, reparsedRecord.HasIssue, reparsedRecord.Issue)
+	}
+	reparsedRecord.HasIssue = false
+	reparsedRecord.Issue = 99
+	storedRecord, err := reparsed.Record(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !storedRecord.HasIssue || storedRecord.Issue != record.Issue {
+		t.Fatalf("mutating detached NAV record changed stored issue: got (%t,%d), want (%t,%d)", storedRecord.HasIssue, storedRecord.Issue, record.HasIssue, record.Issue)
+	}
 	if math.Float64bits(reparsedRecord.Elements.SqrtA) != math.Float64bits(record.Elements.SqrtA) || math.Float64bits(reparsedRecord.Clock.AF0) != math.Float64bits(record.Clock.AF0) {
 		t.Fatalf("NAV round trip changed representative values: %+v", reparsedRecord)
+	}
+	if reparsedRecord.HasSVAccuracyM != record.HasSVAccuracyM || math.Float64bits(reparsedRecord.SVAccuracyM) != math.Float64bits(record.SVAccuracyM) || reparsedRecord.Stated != record.Stated {
+		t.Fatalf("NAV round trip changed accuracy/stated columns: before=(%t,%.17g,%+v) after=(%t,%.17g,%+v)", record.HasSVAccuracyM, record.SVAccuracyM, record.Stated, reparsedRecord.HasSVAccuracyM, reparsedRecord.SVAccuracyM, reparsedRecord.Stated)
+	}
+	zeroIssueRecord := record
+	zeroIssueRecord.HasIssue = true
+	zeroIssueRecord.Issue = 0
+	zeroIssueNAV, err := EncodeRINEXNav([]BroadcastRecord{zeroIssueRecord})
+	if err != nil {
+		t.Fatalf("encode present-zero issue record: %v", err)
+	}
+	zeroIssueRecords, err := ParseRINEXNavRecords(zeroIssueNAV)
+	if err != nil {
+		t.Fatalf("parse present-zero issue record: %v", err)
+	}
+	zeroIssueParsed, err := zeroIssueRecords.Record(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !zeroIssueParsed.HasIssue || zeroIssueParsed.Issue != 0 {
+		t.Fatalf("present-zero issue was not retained: (%t,%d)", zeroIssueParsed.HasIssue, zeroIssueParsed.Issue)
+	}
+	if err := zeroIssueRecords.Close(); err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name    string
+		present bool
+	}{
+		{name: "accuracy absent"},
+		{name: "accuracy present zero", present: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			variant := record
+			variant.HasSVAccuracyM = test.present
+			variant.SVAccuracyM = 0
+			encodedVariant, err := EncodeRINEXNav([]BroadcastRecord{variant})
+			if err != nil {
+				t.Fatalf("encode accuracy variant: %v", err)
+			}
+			parsedVariant, err := ParseRINEXNavLenient(encodedVariant)
+			if err != nil {
+				t.Fatalf("parse accuracy variant: %v", err)
+			}
+			defer parsedVariant.Close()
+			rows, err := parsedVariant.Records()
+			if err != nil || len(rows) != 1 {
+				t.Fatalf("accuracy variant rows = %d, %v", len(rows), err)
+			}
+			if rows[0].HasSVAccuracyM != test.present {
+				t.Fatalf("accuracy presence = %t, want %t; row=%+v", rows[0].HasSVAccuracyM, test.present, rows[0])
+			}
+		})
 	}
 
 	badNAV := bytes.Replace(navOriginal, []byte("C05 2020"), []byte("C05 XXXX"), 1)

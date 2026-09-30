@@ -34,7 +34,12 @@ type SPPConfig struct {
 	PressureHPA      float64
 	TemperatureK     float64
 	RelativeHumidity float64
+	Models           NativeSPPModelOptions
 	Validation       *NativeSolutionValidationOptions
+}
+
+type NativeSPPModelOptions struct {
+	QZSSClock, TroposphereModel uint32
 }
 
 type SPPGeometryQuality struct {
@@ -64,14 +69,16 @@ type SPPMetadata struct {
 }
 
 type SPPSolution struct {
-	PositionM          [3]float64
-	ReceiverClockS     float64
-	UsedSatelliteCount int
-	UsedSatelliteIDs   []string
-	ResidualsM         []float64
-	DOP                *Dop
-	Geodetic           *Geodetic
-	Metadata           SPPMetadata
+	PositionM              [3]float64
+	ReceiverClockS         float64
+	UsedSatelliteCount     int
+	UsedSatelliteIDs       []string
+	ResidualsM             []float64
+	PseudorangeVariancesM2 []float64
+	Weights                []float64
+	DOP                    *Dop
+	Geodetic               *Geodetic
+	Metadata               SPPMetadata
 }
 
 func (s *SP3) Solve(config SPPConfig) (SPPSolution, error) {

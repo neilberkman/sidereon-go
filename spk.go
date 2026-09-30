@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // SPK owns a parsed JPL/NAIF binary ephemeris kernel.
 type SPK struct {
@@ -31,11 +31,13 @@ func (s *SPK) Close() error {
 // SPKState contains a target-center state in kilometres and kilometres per second.
 type SPKState struct {
 	// Target and Center are NAIF body identifiers.
-	Target      int32
-	Center      int32
-	PositionKm  [3]float64
+	Target     int32
+	Center     int32
+	PositionKm [3]float64
+	// HasVelocity reports the velocity vector returned by the C state record;
+	// the record always contains target-relative velocity.
 	HasVelocity bool
-	// HasVelocityKmPerS is an explicit unit-bearing alias of HasVelocity.
+	// HasVelocityKmPerS is a source-compatible unit-bearing alias of HasVelocity.
 	HasVelocityKmPerS bool
 	VelocityKmPerS    [3]float64
 	Frame             int32

@@ -405,3 +405,22 @@ func (fit *SGP4TLEFit) Statistics() (SGP4FitStatistics, error) {
 	}
 	return SGP4FitStatistics{RMSPositionKm: float64(value.rms_position_km), MaxPositionKm: float64(value.max_position_km), RMSPositionAxesKm: axes, HasRMSVelocityKmPS: bool(value.has_rms_velocity_km_s), RMSVelocityKmPS: float64(value.rms_velocity_km_s), TLERMSPositionKm: float64(value.tle_rms_position_km), Status: int32(value.status), NFEV: nfev, NJEV: njev, Cost: float64(value.cost), Optimality: float64(value.optimality), BStarObservable: bool(value.bstar_observable), SeedRefinePasses: passes}, nil
 }
+
+// ResultPayload returns a detached, complete JSON copy of the fitted result.
+// It includes every serialized element-set, OMM, TLE-line, and fit-statistic
+// field, including fields that the convenience accessors do not expose.
+func (fit *SGP4TLEFit) ResultPayload() ([]byte, error) {
+	if fit == nil || fit.handle == nil {
+		return nil, ErrClosed
+	}
+	var result []byte
+	err := fit.handle.with(func(pointer unsafe.Pointer) error {
+		var callErr error
+		result, callErr = copyNativeBytes("SGP4 fit result payload", func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+			return C.sidereon_sgp4_tle_fit_result_payload((*C.SidereonSgp4TleFit)(pointer), out, length, written, required)
+		})
+		return callErr
+	})
+	runtime.KeepAlive(fit)
+	return result, err
+}

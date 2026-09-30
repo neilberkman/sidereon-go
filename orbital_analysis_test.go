@@ -26,10 +26,10 @@ var (
 const (
 	fixtureISSLine1          = "1 25544U 98067A   18184.80969102  .00001614  00000-0  31745-4 0  9993"
 	fixtureISSLine2          = "2 25544  51.6414 295.8524 0003435 262.6267 204.2868 15.54005638121106"
-	fixtureTCAPrimaryLine1   = "1 25544U 98067A   20177.50000000  .00001264  00000-0  29621-4 0  9993"
-	fixtureTCAPrimaryLine2   = "2 25544  51.6443 142.0099 0001234  90.0000 270.0000 15.49500000228000"
-	fixtureTCASecondaryLine1 = "1 43205U 18015A   20177.50000000  .00000500  00000-0  20000-4 0  9990"
-	fixtureTCASecondaryLine2 = "2 43205  51.6400 145.0000 0002000  80.0000 280.0000 15.50000000220000"
+	fixtureTCAPrimaryLine1   = "1 25544U 98067A   20177.50000000  .00001264  00000-0  29621-4 0  9999"
+	fixtureTCAPrimaryLine2   = "2 25544  51.6443 142.0099 0001234  90.0000 270.0000 15.49500000228004"
+	fixtureTCASecondaryLine1 = "1 43205U 18015A   20177.50000000  .00000500  00000-0  20000-4 0  9992"
+	fixtureTCASecondaryLine2 = "2 43205  51.6400 145.0000 0002000  80.0000 280.0000 15.50000000220007"
 )
 
 type passFixture struct {
@@ -639,6 +639,101 @@ func TestPublicCleanupErrorComposition(t *testing.T) {
 	joined := joinPublicErrors(copyErr, closeErr)
 	if !errors.Is(joined, copyErr) || !errors.Is(joined, closeErr) {
 		t.Fatalf("joined cleanup errors = %v", joined)
+	}
+}
+
+func TestConstellationFleetErrorsOwnTypedDiagnostics(t *testing.T) {
+	line1, line2, ok := splitTLELines(string(readPositioningFixture(t, "iss.tle")))
+	if !ok {
+		t.Fatal("invalid TLE fixture")
+	}
+	tle, err := ParseTLE(line1, line2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tle.Close()
+	constellation, err := NewSatelliteConstellation([]*TLE{tle})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer constellation.Close()
+
+	epoch := time.Unix(1530619200, 0).UTC()
+	badStation := PassStation{LatitudeDeg: 91, LongitudeDeg: 0, AltitudeM: 0}
+	arcs, err := constellation.LookAngles(badStation, []time.Time{epoch}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	arcPayload, err := arcs.ErrorPayload(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	arcDetail, err := arcs.ErrorDetail(0)
+	if err != nil || arcDetail.Kind != "invalid_input" || arcDetail.Fields.Field != "ground_station.latitude_deg" || arcDetail.Fields.Reason != "out of range" || string(arcDetail.Raw) != string(arcPayload) {
+		t.Fatalf("look-angle diagnostic = %+v, %v", arcDetail, err)
+	}
+	if _, err := arcs.ErrorPayload(-1); err == nil {
+		t.Fatal("negative look-angle satellite index accepted")
+	}
+	if err := arcs.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if len(arcDetail.Raw) == 0 || string(arcDetail.Raw) != string(arcPayload) {
+		t.Fatal("look-angle diagnostic did not remain owned after close")
+	}
+
+	validArcs, err := constellation.LookAngles(PassStation{LatitudeDeg: 51.5, LongitudeDeg: -0.1, AltitudeM: 80}, []time.Time{epoch}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validArcs.ErrorPayload(0); err == nil {
+		t.Fatal("successful look-angle satellite unexpectedly has an error payload")
+	}
+	if err := validArcs.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	tracks, err := constellation.GroundTracks([]time.Time{time.Unix(-2208988800, 0).UTC()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	trackDetail, err := tracks.ErrorDetail(0)
+	if err != nil || trackDetail.Kind != "frame_transform" || trackDetail.Fields.Cause == nil || trackDetail.Fields.Cause.Kind != "ut1_outside_coverage" || trackDetail.Fields.Cause.Fields.Reason != "before_coverage" {
+		t.Fatalf("ground-track diagnostic = %+v, %v", trackDetail, err)
+	}
+	var trackEnvelope struct {
+		Fields struct {
+			Cause json.RawMessage `json:"cause"`
+		} `json:"fields"`
+	}
+	if err := json.Unmarshal(trackDetail.Raw, &trackEnvelope); err != nil || len(trackDetail.Fields.Cause.Raw) == 0 || string(trackDetail.Fields.Cause.Raw) != string(trackEnvelope.Fields.Cause) {
+		t.Fatalf("ground-track nested cause bytes = %s, envelope=%s, error=%v", trackDetail.Fields.Cause.Raw, trackEnvelope.Fields.Cause, err)
+	}
+	trackPayload := append([]byte(nil), trackDetail.Raw...)
+	if err := tracks.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if len(trackPayload) == 0 || string(trackDetail.Raw) != string(trackPayload) {
+		t.Fatal("ground-track diagnostic did not remain owned after close")
+	}
+
+	passes, err := constellation.Passes(badStation, epoch, epoch.Add(time.Hour), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	passPayload, err := passes.ErrorPayload(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	passDetail, err := passes.ErrorDetail(0)
+	if err != nil || passDetail.Kind != "invalid_input" || passDetail.Fields.Field != "ground_station.latitude_deg" || passDetail.Fields.Reason != "out of range" || string(passDetail.Raw) != string(passPayload) {
+		t.Fatalf("pass-search diagnostic = %+v, %v", passDetail, err)
+	}
+	if err := passes.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if len(passDetail.Raw) == 0 || string(passDetail.Raw) != string(passPayload) {
+		t.Fatal("pass-search diagnostic did not remain owned after close")
 	}
 }
 

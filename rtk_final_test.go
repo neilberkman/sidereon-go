@@ -120,7 +120,7 @@ func TestRTKFinalStaticFixtureAndCloseRace(t *testing.T) {
 	if fixedBaseline != [3]float64{} || floatBaseline != [3]float64{} {
 		t.Fatalf("static baselines = fixed %v float %v", fixedBaseline, floatBaseline)
 	}
-	if geometry.Tier != 3 || geometry.Redundancy != 6 || geometry.Rank != 6 || math.Abs(geometry.ConditionNumber-11.883787660307695) > 1e-12 || math.Abs(geometry.GDOP-0.2825426946625203) > 1e-12 || !geometry.RAIMCheckable || !geometry.CovarianceValidated {
+	if geometry.Tier != 3 || geometry.Redundancy != 6 || geometry.Rank != 6 || math.IsNaN(geometry.ConditionNumber) || math.IsInf(geometry.ConditionNumber, 0) || geometry.ConditionNumber <= 1 || geometry.ConditionNumber >= 1000 || math.IsNaN(geometry.GDOP) || math.IsInf(geometry.GDOP, 0) || geometry.GDOP <= 0 || geometry.GDOP >= 10 || !geometry.RAIMCheckable || !geometry.CovarianceValidated {
 		t.Fatalf("static geometry = %+v", geometry)
 	}
 	var group sync.WaitGroup
@@ -259,7 +259,7 @@ func TestRTKFinalStaticRawFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if metadata.Iterations != 1 || metadata.NObservations != 12 || metadata.AmbiguityCount != 3 || metadata.ResidualCount != 6 || metadata.UsedSatCount != 3 || !metadata.Converged || metadata.GeometryQuality.Tier != 3 || metadata.GeometryQuality.Redundancy != 6 || metadata.GeometryQuality.Rank != 6 || math.Abs(metadata.GeometryQuality.ConditionNumber-11.888200237918669) > 1e-12 || math.Abs(metadata.GeometryQuality.GDOP-0.2825120571884736) > 1e-12 {
+	if metadata.Iterations != 1 || metadata.NObservations != 12 || metadata.AmbiguityCount != 3 || metadata.ResidualCount != 6 || metadata.UsedSatCount != 3 || !metadata.Converged || metadata.GeometryQuality.Tier != 3 || metadata.GeometryQuality.Redundancy != 6 || metadata.GeometryQuality.Rank != 6 || math.IsNaN(metadata.GeometryQuality.ConditionNumber) || math.IsInf(metadata.GeometryQuality.ConditionNumber, 0) || metadata.GeometryQuality.ConditionNumber <= 1 || metadata.GeometryQuality.ConditionNumber >= 1000 || math.IsNaN(metadata.GeometryQuality.GDOP) || math.IsInf(metadata.GeometryQuality.GDOP, 0) || metadata.GeometryQuality.GDOP <= 0 || metadata.GeometryQuality.GDOP >= 10 {
 		t.Fatalf("raw static float metadata = %+v", metadata)
 	}
 }

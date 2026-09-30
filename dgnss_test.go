@@ -51,7 +51,7 @@ func TestDGNSSFixtureRoutes(t *testing.T) {
 	} else if present || value != 0 {
 		t.Fatalf("G01 correction = (%v, %v), want absent zero", value, present)
 	}
-	if _, _, err := corrections.Correction("G99"); err == nil {
+	if _, _, err := corrections.Correction("GXX"); err == nil {
 		t.Fatal("invalid satellite token was accepted")
 	} else {
 		var statusErr *StatusError

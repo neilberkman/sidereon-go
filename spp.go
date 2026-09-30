@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // SPPObservation is one measured pseudorange in meters.
 type SPPObservation struct {
@@ -8,6 +8,28 @@ type SPPObservation struct {
 	SatelliteID string
 	// PseudorangeM is the pseudorange m in metres.
 	PseudorangeM float64
+}
+
+// QZSSClock selects how QZSS receiver-clock observations are modeled.
+type QZSSClock uint32
+
+const (
+	QZSSClockGPS QZSSClock = iota
+	QZSSClockSeparate
+)
+
+// TroposphereModel selects the native troposphere mapping model.
+type TroposphereModel uint32
+
+const (
+	TroposphereRTKLIB TroposphereModel = iota
+	TroposphereSaastamoinenNiell
+)
+
+// SPPModelOptions selects model variants used by SPP, RINEX, and static solves.
+type SPPModelOptions struct {
+	QZSSClock        QZSSClock
+	TroposphereModel TroposphereModel
 }
 
 // SPPConfig is the legacy C SPP input surface. Domain validation and all
@@ -39,6 +61,8 @@ type SPPConfig struct {
 	TemperatureK float64
 	// RelativeHumidity is the relative humidity fraction.
 	RelativeHumidity float64
+	// Models selects QZSS clock and troposphere variants for model-aware routes.
+	Models SPPModelOptions
 	// Validation optionally applies C's receiver plausibility gates before the
 	// detached solution is returned.
 	Validation *SolutionValidationOptions
@@ -105,6 +129,10 @@ type SPPSolution struct {
 	UsedSatelliteIDs []string
 	// ResidualsM is the residuals m in metres.
 	ResidualsM []float64
+	// PseudorangeVariancesM2 contains the estimator variance for each used row.
+	PseudorangeVariancesM2 []float64
+	// Weights contains each used row's effective solve weight, including robust factors.
+	Weights []float64
 	// DOP contains a detached copy; nil means this field is absent.
 	DOP *DOP
 	// Geodetic contains a detached copy; nil means this field is absent.
@@ -116,9 +144,11 @@ type SPPSolution struct {
 func publicSPPSolution(result native.SPPSolution) SPPSolution {
 	out := SPPSolution{
 		PositionM: result.PositionM, ReceiverClockS: result.ReceiverClockS,
-		UsedSatelliteCount: result.UsedSatelliteCount,
-		UsedSatelliteIDs:   append([]string(nil), result.UsedSatelliteIDs...),
-		ResidualsM:         append([]float64(nil), result.ResidualsM...),
+		UsedSatelliteCount:     result.UsedSatelliteCount,
+		UsedSatelliteIDs:       append([]string(nil), result.UsedSatelliteIDs...),
+		ResidualsM:             append([]float64(nil), result.ResidualsM...),
+		PseudorangeVariancesM2: append([]float64(nil), result.PseudorangeVariancesM2...),
+		Weights:                append([]float64(nil), result.Weights...),
 		Metadata: SPPMetadata{
 			Iterations: result.Metadata.Iterations, Converged: result.Metadata.Converged, Status: result.Metadata.Status,
 			IonosphereApplied: result.Metadata.IonosphereApplied, TroposphereApplied: result.Metadata.TroposphereApplied,
@@ -148,6 +178,21 @@ func SolveSPP(sp3 *SP3, config SPPConfig) (SPPSolution, error) {
 	if sp3 == nil || sp3.handle == nil {
 		return SPPSolution{}, ErrClosed
 	}
+	if config.Models != (SPPModelOptions{}) {
+		input := SPPInputsV2{Base: config, Models: config.Models}
+		policy := SPPSolvePolicy{}
+		if config.Validation != nil {
+			policy.UseValidationOptions = true
+			policy.Validation = *config.Validation
+		}
+		input.Policy = policy
+		handle, err := SolveSPPV2(sp3, input)
+		if err != nil {
+			return SPPSolution{}, err
+		}
+		defer handle.Close()
+		return handle.Solution()
+	}
 	nativeConfig := native.SPPConfig{
 		TRxJ2000S:        config.TRxJ2000S,
 		TRxSecondOfDayS:  config.TRxSecondOfDayS,
@@ -161,6 +206,7 @@ func SolveSPP(sp3 *SP3, config SPPConfig) (SPPSolution, error) {
 		PressureHPA:      config.PressureHPA,
 		TemperatureK:     config.TemperatureK,
 		RelativeHumidity: config.RelativeHumidity,
+		Models:           native.NativeSPPModelOptions{QZSSClock: uint32(config.Models.QZSSClock), TroposphereModel: uint32(config.Models.TroposphereModel)},
 	}
 	if config.Validation != nil {
 		value := native.NativeSolutionValidationOptions{HasMaxPDOP: config.Validation.HasMaxPDOP, MaxPDOP: config.Validation.MaxPDOP, MinPlausibleRadiusM: config.Validation.MinPlausibleRadiusM, MaxPlausibleRadiusM: config.Validation.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: config.Validation.MaxConvergedResidualRMSM}
@@ -194,6 +240,7 @@ func nativeSPPConfig(config SPPConfig) native.SPPConfig {
 		PressureHPA:      config.PressureHPA,
 		TemperatureK:     config.TemperatureK,
 		RelativeHumidity: config.RelativeHumidity,
+		Models:           native.NativeSPPModelOptions{QZSSClock: uint32(config.Models.QZSSClock), TroposphereModel: uint32(config.Models.TroposphereModel)},
 	}
 	if config.Validation != nil {
 		value := native.NativeSolutionValidationOptions{HasMaxPDOP: config.Validation.HasMaxPDOP, MaxPDOP: config.Validation.MaxPDOP, MinPlausibleRadiusM: config.Validation.MinPlausibleRadiusM, MaxPlausibleRadiusM: config.Validation.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: config.Validation.MaxConvergedResidualRMSM}
@@ -211,11 +258,13 @@ func nativeSPPConfig(config SPPConfig) native.SPPConfig {
 
 func fromNativeSPPSolution(result native.SPPSolution) SPPSolution {
 	out := SPPSolution{
-		PositionM:          result.PositionM,
-		ReceiverClockS:     result.ReceiverClockS,
-		UsedSatelliteCount: result.UsedSatelliteCount,
-		UsedSatelliteIDs:   append([]string(nil), result.UsedSatelliteIDs...),
-		ResidualsM:         append([]float64(nil), result.ResidualsM...),
+		PositionM:              result.PositionM,
+		ReceiverClockS:         result.ReceiverClockS,
+		UsedSatelliteCount:     result.UsedSatelliteCount,
+		UsedSatelliteIDs:       append([]string(nil), result.UsedSatelliteIDs...),
+		ResidualsM:             append([]float64(nil), result.ResidualsM...),
+		PseudorangeVariancesM2: append([]float64(nil), result.PseudorangeVariancesM2...),
+		Weights:                append([]float64(nil), result.Weights...),
 		Metadata: SPPMetadata{
 			Iterations:          result.Metadata.Iterations,
 			Converged:           result.Metadata.Converged,

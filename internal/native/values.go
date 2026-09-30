@@ -899,7 +899,7 @@ func ComputeNISGate(innovation, variance float64, dof uint64, confidence float64
 
 func ChiSquareInverse(probability float64, dof uint64) (float64, error) {
 	var output C.double
-	err := callStatus(func() uint32 {
+	err := callQualityStatus(func() uint32 {
 		return C.sidereon_chi2_inv(C.double(probability), C.size_t(dof), &output)
 	})
 	return float64(output), err

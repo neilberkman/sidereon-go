@@ -9,56 +9,67 @@ var errNegativeIndex = errors.New("sidereon: index must not be negative")
 func protocolUnavailable() error { return unavailable() }
 
 const (
-	RTCMMessageMSMValue                   = uint32(0)
-	RTCMMessageStationCoordinatesValue    = uint32(1)
-	RTCMMessageAntennaDescriptorValue     = uint32(2)
-	RTCMMessageGPSEphemerisValue          = uint32(3)
-	RTCMMessageGLONASSEphemerisValue      = uint32(4)
-	RTCMMessageSSRValue                   = uint32(5)
-	RTCMMessageUnsupportedValue           = uint32(6)
-	RTCMMessageBeiDouEphemerisValue       = uint32(7)
-	RTCMMessageQZSSEphemerisValue         = uint32(8)
-	RTCMMessageGalileoFNavEphemerisValue  = uint32(9)
-	RTCMMessageGalileoINavEphemerisValue  = uint32(10)
-	RTCMMSM4Value                         = uint32(0)
-	RTCMMSM7Value                         = uint32(1)
-	RTCMFrameTruncatedValue               = uint32(0)
-	RTCMFrameMalformedValue               = uint32(1)
-	RTCMAntennaDescriptorFieldValue       = uint32(0)
-	RTCMAntennaSerialNumberFieldValue     = uint32(1)
-	RTCMReceiverTypeFieldValue            = uint32(2)
-	RTCMReceiverFirmwareVersionFieldValue = uint32(3)
-	RTCMReceiverSerialNumberFieldValue    = uint32(4)
-	EphemerisSampleValidValue             = uint32(0)
-	EphemerisSampleGapValue               = uint32(1)
-	ObservableStateValidValue             = uint32(0)
-	ObservableStateGapValue               = uint32(1)
-	ObservableStateErrorValue             = uint32(2)
-	EmissionMediaValidValue               = uint32(0)
-	EmissionMediaGapValue                 = uint32(1)
-	EmissionMediaBelowElevationValue      = uint32(2)
-	EmissionMediaErrorValue               = uint32(3)
-	SignalModulationBPSKValue             = uint32(0)
-	SignalModulationBOCSineValue          = uint32(1)
-	SignalModulationBOCCosineValue        = uint32(2)
-	SignalModulationMBOCValue             = uint32(3)
-	SignalModulationTMBOCValue            = uint32(4)
-	SignalModulationCBOCPlusValue         = uint32(5)
-	SignalModulationCBOCMinusValue        = uint32(6)
-	DLLCoherentValue                      = uint32(0)
-	DLLNonCoherentValue                   = uint32(1)
-	SBASPLNoErrorValue                    = uint32(0)
-	SBASPLInsufficientGeometryValue       = uint32(1)
-	SBASPLNumericalFailureValue           = uint32(2)
-	SBASPLInvalidErrorModelValue          = uint32(3)
-	SBASSolveMixedValue                   = uint32(0)
-	SBASSolveSBASOnlyValue                = uint32(1)
-	SSRReferencePointAntennaValue         = uint32(0)
-	SSRReferencePointCenterOfMassValue    = uint32(1)
-	SSRSourceRTCMValue                    = uint32(0)
-	SSRSourceGalileoHASValue              = uint32(1)
-	SSRMissingDeclineValue                = uint32(0)
-	SSRMissingFallbackValue               = uint32(1)
+	RTCMMessageMSMValue                                  = uint32(0)
+	RTCMMessageStationCoordinatesValue                   = uint32(1)
+	RTCMMessageAntennaDescriptorValue                    = uint32(2)
+	RTCMMessageGPSEphemerisValue                         = uint32(3)
+	RTCMMessageGLONASSEphemerisValue                     = uint32(4)
+	RTCMMessageSSRValue                                  = uint32(5)
+	RTCMMessageUnsupportedValue                          = uint32(6)
+	RTCMMessageBeiDouEphemerisValue                      = uint32(7)
+	RTCMMessageQZSSEphemerisValue                        = uint32(8)
+	RTCMMessageGalileoFNavEphemerisValue                 = uint32(9)
+	RTCMMessageGalileoINavEphemerisValue                 = uint32(10)
+	RTCMMessageNavICEphemerisValue                       = uint32(17)
+	RTCMMessageLegacyObservationsValue                   = uint32(11)
+	RTCMMessageSystemParametersValue                     = uint32(12)
+	RTCMMessageTextValue                                 = uint32(13)
+	RTCMMessageNetworkValue                              = uint32(14)
+	RTCMMessageTransformationValue                       = uint32(15)
+	RTCMMessageGLONASSCodePhaseBiasesValue               = uint32(16)
+	RTCMMessageSSRVTECValue                              = uint32(18)
+	PPPUnplacedObservationCodeNotPositiveValue           = uint32(0)
+	PPPUnplacedObservationSsrCorrectionExceedsLimitValue = uint32(1)
+	PPPUnplacedObservationUnknownValue                   = uint32(999)
+	RTCMMSM4Value                                        = uint32(0)
+	RTCMMSM7Value                                        = uint32(1)
+	RTCMFrameTruncatedValue                              = uint32(0)
+	RTCMFrameMalformedValue                              = uint32(1)
+	RTCMAntennaDescriptorFieldValue                      = uint32(0)
+	RTCMAntennaSerialNumberFieldValue                    = uint32(1)
+	RTCMReceiverTypeFieldValue                           = uint32(2)
+	RTCMReceiverFirmwareVersionFieldValue                = uint32(3)
+	RTCMReceiverSerialNumberFieldValue                   = uint32(4)
+	EphemerisSampleValidValue                            = uint32(0)
+	EphemerisSampleGapValue                              = uint32(1)
+	ObservableStateValidValue                            = uint32(0)
+	ObservableStateGapValue                              = uint32(1)
+	ObservableStateErrorValue                            = uint32(2)
+	EmissionMediaValidValue                              = uint32(0)
+	EmissionMediaGapValue                                = uint32(1)
+	EmissionMediaBelowElevationValue                     = uint32(2)
+	EmissionMediaErrorValue                              = uint32(3)
+	SignalModulationBPSKValue                            = uint32(0)
+	SignalModulationBOCSineValue                         = uint32(1)
+	SignalModulationBOCCosineValue                       = uint32(2)
+	SignalModulationMBOCValue                            = uint32(3)
+	SignalModulationTMBOCValue                           = uint32(4)
+	SignalModulationCBOCPlusValue                        = uint32(5)
+	SignalModulationCBOCMinusValue                       = uint32(6)
+	DLLCoherentValue                                     = uint32(0)
+	DLLNonCoherentValue                                  = uint32(1)
+	SBASPLNoErrorValue                                   = uint32(0)
+	SBASPLInsufficientGeometryValue                      = uint32(1)
+	SBASPLNumericalFailureValue                          = uint32(2)
+	SBASPLInvalidErrorModelValue                         = uint32(3)
+	SBASSolveMixedValue                                  = uint32(0)
+	SBASSolveSBASOnlyValue                               = uint32(1)
+	SSRReferencePointAntennaValue                        = uint32(0)
+	SSRReferencePointCenterOfMassValue                   = uint32(1)
+	SSRSourceRTCMValue                                   = uint32(0)
+	SSRSourceGalileoHASValue                             = uint32(1)
+	SSRMissingDeclineValue                               = uint32(0)
+	SSRMissingFallbackValue                              = uint32(1)
 
 	SBASWireFramed250Value = uint32(0)
 	SBASWireBody226Value   = uint32(1)
@@ -131,17 +142,55 @@ type NativeBroadcastCNAV struct {
 	HasFlags                      bool
 	Flags                         uint32
 }
+
+type NativeStatedNavFields struct {
+	HasOrbit5Field2        bool
+	Orbit5Field2           float64
+	HasOrbit5Field4        bool
+	Orbit5Field4           float64
+	HasOrbit6Field4        bool
+	Orbit6Field4           float64
+	HasTransmissionTimeSOW bool
+	TransmissionTimeSOW    float64
+	HasOrbit7Field2        bool
+	Orbit7Field2           float64
+	HasOrbit7Field3        bool
+	Orbit7Field3           float64
+	HasOrbit7Field4        bool
+	Orbit7Field4           float64
+}
 type NativeBroadcastRecord struct {
 	SatelliteID                        string
 	Message, Issue, IssueMessage, Week uint32
+	HasIssue                           bool
 	Toe, Toc                           NativeGnssWeekTow
 	Elements                           NativeKeplerianElements
 	Clock                              NativeClockPolynomial
 	GroupDelays                        NativeBroadcastGroupDelays
 	CNAV                               NativeBroadcastCNAV
 	SVHealth, SVAccuracyM              float64
+	HasSVAccuracyM                     bool
 	HasFitInterval                     bool
 	FitIntervalS                       float64
+	Stated                             NativeStatedNavFields
+}
+type NativeBroadcastRecordInfo struct {
+	SatelliteID       string
+	Message           uint32
+	HasIssue          bool
+	Issue             uint32
+	IssueMessage      uint32
+	Week, ToeWeek     uint32
+	ToeTOWSeconds     float64
+	TocWeek           uint32
+	TocTOWSeconds     float64
+	SVHealth          float64
+	HasSVAccuracyM    bool
+	SVAccuracyM       float64
+	HasFitInterval    bool
+	FitIntervalS      float64
+	DefaultGroupDelay float64
+	CNAV              NativeBroadcastCNAV
 }
 type NativeSkippedNavBlock struct{ SatelliteID, Message string }
 type NativeIonoCorrections struct {

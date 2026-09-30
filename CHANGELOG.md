@@ -2,6 +2,58 @@
 
 All notable changes to this module are documented here.
 
+## Unreleased
+
+- Module path is now `sidereon.dev/go/v3`, as Go semantic
+  import versioning requires for major version 3. Import the package as
+  `sidereon.dev/go/v3`; the package name is unchanged.
+- Structured engine error inspection: `StatusError.Engine` (`*EngineError`) and
+  `StatusError.EngineError()` provide access to the core engine's Schema 1 generic
+  error details. `errors.As(err, &statusErr)` and `errors.As(err, &engineErr)`
+  unwrap and inspect engine failures.
+- Lossless payload and forward compatibility: `EngineError` preserves `Family`
+  (`EngineErrorFamily`), `FamilyName`, `Schema` (uint32 1), `Operation`, `Kind`,
+  `Fields` (`json.RawMessage`), `Payload` (`json.RawMessage`), and `CaptureError`.
+  `UnmarshalFields(target any)` decodes `Fields` using `json.Number` to preserve
+  integer lexemes without lossy `float64` conversion. Raw JSON fields retain future
+  error codes and unknown variants without truncation. Exact floating-point values
+  are preserved via `EngineFloat` with `decimal` string and `bits_hex` string (IEEE-754 hex).
+- Partial capture contract: when native diagnostic capture, payload extraction, or
+  JSON decoding encounters an error, partial error data (such as `Family`,
+  `FamilyName`, and raw `Payload`) is preserved on `EngineError` alongside the
+  non-nil diagnostic refusal in `CaptureError`.
+- Explicit generic error reset: `ClearEngineError()` explicitly clears the generic
+  engine error thread-local storage slot on the calling OS thread.
+- SPP batch row-owned error handling:
+  - `SPPBatch.EngineError(i int) (*EngineError, error)` returns `nil, nil` for an
+    epoch that solved successfully, and returns the row-owned `*EngineError` for a
+    failed epoch. If secondary diagnostic capture encounters an error, a partial
+    `EngineError` is returned alongside `CaptureError`.
+  - `SPPBatch.Solution(i int)`: when an epoch failed, returns `StatusError` with
+    code `StatusSolve`, attaching the row's engine error cause to `statusErr.Engine`.
+  - `SPPBatch.Error(i int)` preserves human-readable diagnostic error text as a
+    compatibility method.
+- Major surface additions verified in public source types:
+  - FDE and RAIM: `SolveFDE`, `FDEOptions` (`PFA`, `MaxExclusions`,
+    `MaxExclusionRMSM`, `WeightsMode`, `Weights`, `Systems`), `FDEResult`,
+    `FDEUnresolvedError` (retaining last faulted solution, exclusions, iterations,
+    RAIM result, normalized residuals, and `CaptureError`), `RAIMResult`,
+    `RangeFDEOptions`, `RangeFDEResult`, and `DefaultRangeFDEOptions`.
+  - Exact time and source queries: `ExactEpoch` (attosecond resolution),
+    `ExactEpochQuery`, `NewExactEpoch`, `ExactEpochComponents`, and `ExactOrdering`.
+    Precise ephemeris sources (`SP3`, `PreciseEphemerisInterpolant`,
+    `PreciseInterpolantArtifact`) support exact time and source queries:
+    `SourceStateAtEpochQueries`, `TransmitEpochClockAtEpochQueries`,
+    `ClockRelativityAtEpochQuery`, and `EphemerisVarianceAtEpochQueries`, returning
+    `EphemerisSourceState`, `TransmitEpochClock`, `ClockRelativity`, and `UT1DegradeReason`.
+- Native toolchain and static archives:
+  - Build scripts (`scripts/build-native-archives.sh`) and `rust-toolchain.toml`
+    pin Rust toolchain 1.98.1.
+  - Builds from a source checkout without matching prebuilt archives require
+    rebuilding native static archives (`libsidereon.a`) using Rust 1.98.1 via
+    `scripts/build-native-archives.sh`, or specifying an external library with
+    `-tags sidereon_use_system_lib`.
+
 ## 2.1.0 - 2026-09-06
 
 - Module path is now `github.com/neilberkman/sidereon-go/v2`, as Go semantic

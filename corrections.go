@@ -3,7 +3,7 @@ package sidereon
 import (
 	"os"
 
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
 )
 
 // BroadcastEphemeris owns a C-backed RINEX navigation source. The byte parser
@@ -560,21 +560,21 @@ func (s *SSRCorrectionStore) Clock(satellite string) (SSRClockCorrection, bool, 
 	return SSRClockCorrection{Source: SSRSource(v.Source), ProviderID: v.ProviderID, SolutionID: v.SolutionID, IODSSR: v.IODSSR, C0M: v.C0M, C1MPerS: v.C1MPerS, C2MPerS2: v.C2MPerS2, RefEpochJ2000S: v.RefEpochJ2000S, UpdateIntervalS: v.UpdateIntervalS, HasHighRate: v.HasHighRate, HighRateC0M: v.HighRateC0M, HighRateRefEpochJ2000S: v.HighRateRefEpochJ2000S, HighRateUpdateIntervalS: v.HighRateUpdateIntervalS}, p, publicError(e)
 }
 
-// CodeBias returns an optional code bias in metres.
-func (s *SSRCorrectionStore) CodeBias(satellite string, signalID uint8) (float64, bool, error) {
+// CodeBias returns an optional code bias in metres for the explicit correction source.
+func (s *SSRCorrectionStore) CodeBias(satellite string, source SSRSource, signalID uint8) (float64, bool, error) {
 	if s == nil || s.handle == nil {
 		return 0, false, ErrClosed
 	}
-	v, p, e := s.handle.CodeBias(satellite, signalID)
+	v, p, e := s.handle.CodeBias(satellite, uint32(source), signalID)
 	return v, p, publicError(e)
 }
 
-// PhaseBias returns an optional phase bias in metres.
-func (s *SSRCorrectionStore) PhaseBias(satellite string, signalID uint8) (float64, bool, error) {
+// PhaseBias returns an optional phase bias in metres for the explicit correction source.
+func (s *SSRCorrectionStore) PhaseBias(satellite string, source SSRSource, signalID uint8) (float64, bool, error) {
 	if s == nil || s.handle == nil {
 		return 0, false, ErrClosed
 	}
-	v, p, e := s.handle.PhaseBias(satellite, signalID)
+	v, p, e := s.handle.PhaseBias(satellite, uint32(source), signalID)
 	return v, p, publicError(e)
 }
 

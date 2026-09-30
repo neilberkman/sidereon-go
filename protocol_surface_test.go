@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math"
 	"os"
 	"testing"
@@ -275,6 +276,29 @@ func TestCommittedRTCMBuildersAnd1046(t *testing.T) {
 		t.Fatalf("built 1046 = %+v, %v", inavValue, err)
 	}
 	if err := inav.Close(); err != nil {
+		t.Fatal(err)
+	}
+	navicExpected := RTCMNavICEphemeris{
+		SatelliteID: 9, WeekNumber: 389, AF0: -1_234_567, AF1: -12_345, AF2: -3, URA: 2,
+		TOC: 10_821, TGD: -5, DeltaN: 1_234_567, IODEC: 161, Reserved: 0x2A5, L5Flag: true,
+		CUC: -16_000, CUS: 15_000, CIC: -1, CIS: 2, CRC: 16_383, CRS: -16_384, IDOT: -8_000,
+		M0: -2_000_000_000, TOE: 10_821, Eccentricity: 3_000_000, SqrtA: 3_404_000_000,
+		Omega0: 1_500_000_000, Omega: -1_000_000_000, I0: 400_000_000, OmegaDot: -2_000_000,
+		SpareDF544: 3, SpareDF545: 1,
+	}
+	navic, err := BuildRTCMNavICEphemeris(navicExpected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	navicValue, err := navic.NavICEphemeris(0)
+	if err != nil || navicValue != navicExpected {
+		t.Fatalf("built 1041 = %+v, %v; want %+v", navicValue, err, navicExpected)
+	}
+	navicMessage, err := navic.Message(0)
+	if err != nil || navicMessage.Kind != RTCMMessageNavICEphemeris || navicMessage.NavIC == nil || *navicMessage.NavIC != navicExpected {
+		t.Fatalf("decoded 1041 message = %+v, %v", navicMessage, err)
+	}
+	if err := navic.Close(); err != nil {
 		t.Fatal(err)
 	}
 	msm, err := BuildRTCMMSM(RTCMMSMInfo{MessageNumber: 1077, System: GNSSSystemGPS, Kind: RTCMMSM7, Header: RTCMMSMHeader{ReferenceStationID: 2003, EpochTime: 100000}}, []RTCMMSMSatellite{{ID: 8, RoughRangeMS: 75, RoughRangeMod1: 512, HasExtendedInfo: true, ExtendedInfo: 3, HasRoughPhaseRangeRate: true, RoughPhaseRangeRateMS: -100}}, []RTCMMSMSignal{{SatelliteID: 8, SignalID: 2, FinePseudorange: 1234, FinePhaseRange: -5678, LockTimeIndicator: 200, CNR: 720, HasFinePhaseRangeRate: true, FinePhaseRangeRate: 42}})
@@ -628,10 +652,10 @@ func TestCommittedCorrectionStoreSurface(t *testing.T) {
 	if _, present, err := ssr.Clock("G32"); err != nil || present {
 		t.Fatalf("absent SSR clock = present=%v err=%v", present, err)
 	}
-	if _, present, err := ssr.CodeBias("G30", 1); err != nil || present {
+	if _, present, err := ssr.CodeBias("G30", SSRSourceRTCM, 1); err != nil || present {
 		t.Fatalf("absent SSR code bias = present=%v err=%v", present, err)
 	}
-	if _, present, err := ssr.PhaseBias("G30", 1); err != nil || present {
+	if _, present, err := ssr.PhaseBias("G30", SSRSourceRTCM, 1); err != nil || present {
 		t.Fatalf("absent SSR phase bias = present=%v err=%v", present, err)
 	}
 	if _, present, err := ssr.URAIndex("G30"); err != nil || present {
@@ -668,11 +692,12 @@ func TestCommittedCorrectionStoreSurface(t *testing.T) {
 
 func TestCommittedGLONASSRecordsAndSkips(t *testing.T) {
 	fixture := "     3.05           NAVIGATION DATA     M                   RINEX VERSION / TYPE\n" +
-		"     XXX                                                         END OF HEADER\n" +
+		"                                                            END OF HEADER\n" +
 		"R01 2020 06 24 23 15 00 6.355904042721e-05 0.000000000000e+00 3.420000000000e+05\n" +
 		"     1.090894238281e+04 1.407806396484e+00-1.862645149231e-09 0.000000000000e+00\n" +
 		"    -2.885726074219e+03 2.795855522156e+00-0.000000000000e+00 1.000000000000e+00\n" +
-		"     2.288353955078e+04-3.169984817505e-01-2.793967723846e-09 0.000000000000e+00\n"
+		"     2.288353955078e+04-3.169984817505e-01-2.793967723846e-09 0.000000000000e+00\n" +
+		"     7.500000000000e+00 0.000000000000e+00 0.000000000000e+00 0.000000000000e+00\n"
 	records, err := ParseRINEXGLONASSRecords([]byte(fixture))
 	if err != nil {
 		t.Fatal(err)
@@ -694,6 +719,12 @@ func TestCommittedGLONASSRecordsAndSkips(t *testing.T) {
 	if value.SatelliteID != "R01" || value.FrequencyChannel != 1 {
 		t.Fatalf("GLONASS identity = %+v", value)
 	}
+	if value.EpochUTCJ2000S != value.ToeUTCJ2000S || value.StatedFrequencyChannel != 1 {
+		t.Fatalf("GLONASS stated epoch/channel = %.17g/%d; want epoch %g and channel 1", value.EpochUTCJ2000S, value.StatedFrequencyChannel, value.ToeUTCJ2000S)
+	}
+	if !value.HasMessageFrameTime || value.MessageFrameTimeS != 342000 || !value.HasAgeDays || value.AgeDays != 0 || !value.HasStatusFlags || value.StatusFlags != 7.5 || !value.HasL1L2GroupDelayFieldS || value.L1L2GroupDelayFieldS != 0 || !value.HasURAI || value.URAI != 0 || !value.HasHealthFlags || value.HealthFlags != 0 {
+		t.Fatalf("GLONASS stated optional fields lost: %+v", value)
+	}
 	for index, expected := range [][3]uint64{{0x4164cea1cc3ffac2, 0xc146042f09800219, 0x4175d2cd38cffeb0}, {0x4095ff39bffff98f, 0x40a5d7b60700020c, 0xc073cff9c80000ce}, {0xbebf4000000000cb, 0x8000000000000000, 0xbec76ffffffffbfc}} {
 		var actual [3]float64
 		switch index {
@@ -714,24 +745,43 @@ func TestCommittedGLONASSRecordsAndSkips(t *testing.T) {
 	assertFloat("GLONASS health", value.SVHealth, 0)
 
 	extended := "     3.05           NAVIGATION DATA     M                   RINEX VERSION / TYPE\n" +
-		"     XXX                                                         END OF HEADER\n" +
+		fmt.Sprintf("%-60sEND OF HEADER\n", "     XXX") +
 		"R28 2020 06 24 23 15 00 6.355904042721e-05 0.000000000000e+00 3.420000000000e+05\n" +
 		"     1.090894238281e+04 1.407806396484e+00-1.862645149231e-09 0.000000000000e+00\n" +
 		"    -2.885726074219e+03 2.795855522156e+00-0.000000000000e+00 1.000000000000e+00\n" +
-		"     2.288353955078e+04-3.169984817505e-01-2.793967723846e-09 0.000000000000e+00\n"
+		"     2.288353955078e+04-3.169984817505e-01-2.793967723846e-09 0.000000000000e+00\n" +
+		"     7.500000000000e+00 0.000000000000e+00 0.000000000000e+00 0.000000000000e+00\n"
 	extendedRecords, err := ParseRINEXGLONASSRecords([]byte(extended))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if count, err := extendedRecords.Count(); err != nil || count != 0 {
-		t.Fatalf("extended GLONASS count = %d, %v", count, err)
+	if count, err := extendedRecords.Count(); err != nil || count != 1 {
+		t.Fatalf("R28 GLONASS count = %d, %v", count, err)
 	}
-	if count, err := extendedRecords.SkippedCount(); err != nil || count != 1 {
-		t.Fatalf("extended GLONASS skips = %d, %v", count, err)
+	if count, err := extendedRecords.SkippedCount(); err != nil || count != 0 {
+		t.Fatalf("R28 GLONASS skips = %d, %v", count, err)
 	}
-	skip, err := extendedRecords.Skipped(0)
-	if err != nil || skip.SatelliteID != "R28" {
-		t.Fatalf("extended GLONASS skip = %+v, %v", skip, err)
+	r28, err := extendedRecords.Record(0)
+	if err != nil || r28.SatelliteID != "R28" {
+		t.Fatalf("R28 GLONASS record = %+v, %v", r28, err)
+	}
+	invalidSlot := bytes.Replace([]byte(extended), []byte("R28"), []byte("R00"), 1)
+	invalidRecords, err := ParseRINEXGLONASSRecords(invalidSlot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count, err := invalidRecords.Count(); err != nil || count != 0 {
+		t.Fatalf("R00 GLONASS count = %d, %v", count, err)
+	}
+	if count, err := invalidRecords.SkippedCount(); err != nil || count != 1 {
+		t.Fatalf("R00 GLONASS skips = %d, %v", count, err)
+	}
+	skip, err := invalidRecords.Skipped(0)
+	if err != nil || skip.SatelliteID != "R00" {
+		t.Fatalf("R00 GLONASS skip = %+v, %v", skip, err)
+	}
+	if err := invalidRecords.Close(); err != nil {
+		t.Fatal(err)
 	}
 	assertConcurrentClose(t, func() error { _, err := extendedRecords.SkippedCount(); return err }, extendedRecords.Close)
 	if err := records.Close(); err != nil {

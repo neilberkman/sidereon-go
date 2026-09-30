@@ -3,7 +3,7 @@ package sidereon
 import (
 	"errors"
 
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
 )
 
 // RINEXClockInstantRepresentation identifies how a clock instant is stored.
@@ -110,30 +110,56 @@ type BroadcastCNAV struct {
 	Flags               uint32
 }
 
+// StatedNavFields retains legacy NAV columns that are not part of orbit or
+// clock calculations. Each Has* flag distinguishes a blank column from zero.
+type StatedNavFields struct {
+	HasOrbit5Field2        bool
+	Orbit5Field2           float64
+	HasOrbit5Field4        bool
+	Orbit5Field4           float64
+	HasOrbit6Field4        bool
+	Orbit6Field4           float64
+	HasTransmissionTimeSOW bool
+	TransmissionTimeSOW    float64
+	HasOrbit7Field2        bool
+	Orbit7Field2           float64
+	HasOrbit7Field3        bool
+	Orbit7Field3           float64
+	HasOrbit7Field4        bool
+	Orbit7Field4           float64
+}
+
 // BroadcastRecord is one complete raw RINEX NAV record. Optional values are
 // retained with explicit presence flags, matching the C value model.
 type BroadcastRecord struct {
 	// SatelliteID and message/issue fields identify the detached broadcast record.
-	SatelliteID    string
-	Message        uint32
-	Issue          uint32
-	IssueMessage   uint32
-	Week           uint32
-	Toe            GNSSWeekTow
-	Toc            GNSSWeekTow
-	Elements       KeplerianElements
-	Clock          ClockPolynomial
-	GroupDelays    BroadcastGroupDelays
-	CNAV           BroadcastCNAV
-	SVHealth       float64
+	SatelliteID string
+	Message     uint32
+	// HasIssue marks a present issue field, including a present zero. For
+	// compatibility, encoding treats a nonzero Issue as present even if false.
+	HasIssue     bool
+	Issue        uint32
+	IssueMessage uint32
+	Week         uint32
+	Toe          GNSSWeekTow
+	Toc          GNSSWeekTow
+	Elements     KeplerianElements
+	Clock        ClockPolynomial
+	GroupDelays  BroadcastGroupDelays
+	CNAV         BroadcastCNAV
+	SVHealth     float64
+	// HasSVAccuracyM distinguishes a present zero from unavailable accuracy.
+	// Encoding also treats a nonzero SVAccuracyM as present for compatibility.
+	HasSVAccuracyM bool
 	SVAccuracyM    float64
 	HasFitInterval bool
 	FitIntervalS   float64
+	Stated         StatedNavFields
 }
 
 func broadcastRecordFromNative(value native.NativeBroadcastRecord) BroadcastRecord {
 	return BroadcastRecord{
-		SatelliteID: value.SatelliteID, Message: value.Message, Issue: value.Issue, IssueMessage: value.IssueMessage, Week: value.Week,
+		SatelliteID: value.SatelliteID, Message: value.Message, HasIssue: value.HasIssue, Issue: value.Issue, IssueMessage: value.IssueMessage, Week: value.Week,
 		Toe: GNSSWeekTow{System: TimeScale(value.Toe.System), Week: value.Toe.Week, TOWSeconds: value.Toe.TOWSeconds},
 		Toc: GNSSWeekTow{System: TimeScale(value.Toc.System), Week: value.Toc.Week, TOWSeconds: value.Toc.TOWSeconds},
 		Elements: KeplerianElements{
@@ -163,13 +189,22 @@ func broadcastRecordFromNative(value native.NativeBroadcastRecord) BroadcastReco
 			URANED2Index: value.CNAV.URANED2Index, TransmissionTimeSOW: value.CNAV.TransmissionTimeSOW,
 			HasFlags: value.CNAV.HasFlags, Flags: value.CNAV.Flags,
 		},
-		SVHealth: value.SVHealth, SVAccuracyM: value.SVAccuracyM, HasFitInterval: value.HasFitInterval, FitIntervalS: value.FitIntervalS,
+		SVHealth: value.SVHealth, HasSVAccuracyM: value.HasSVAccuracyM, SVAccuracyM: value.SVAccuracyM, HasFitInterval: value.HasFitInterval, FitIntervalS: value.FitIntervalS,
+		Stated: StatedNavFields{
+			HasOrbit5Field2: value.Stated.HasOrbit5Field2, Orbit5Field2: value.Stated.Orbit5Field2,
+			HasOrbit5Field4: value.Stated.HasOrbit5Field4, Orbit5Field4: value.Stated.Orbit5Field4,
+			HasOrbit6Field4: value.Stated.HasOrbit6Field4, Orbit6Field4: value.Stated.Orbit6Field4,
+			HasTransmissionTimeSOW: value.Stated.HasTransmissionTimeSOW, TransmissionTimeSOW: value.Stated.TransmissionTimeSOW,
+			HasOrbit7Field2: value.Stated.HasOrbit7Field2, Orbit7Field2: value.Stated.Orbit7Field2,
+			HasOrbit7Field3: value.Stated.HasOrbit7Field3, Orbit7Field3: value.Stated.Orbit7Field3,
+			HasOrbit7Field4: value.Stated.HasOrbit7Field4, Orbit7Field4: value.Stated.Orbit7Field4,
+		},
 	}
 }
 
 func broadcastRecordToNative(value BroadcastRecord) native.NativeBroadcastRecord {
 	return native.NativeBroadcastRecord{
-		SatelliteID: value.SatelliteID, Message: value.Message, Issue: value.Issue, IssueMessage: value.IssueMessage, Week: value.Week,
+		SatelliteID: value.SatelliteID, Message: value.Message, HasIssue: value.HasIssue, Issue: value.Issue, IssueMessage: value.IssueMessage, Week: value.Week,
 		Toe: native.NativeGnssWeekTow{System: uint32(value.Toe.System), Week: value.Toe.Week, TOWSeconds: value.Toe.TOWSeconds},
 		Toc: native.NativeGnssWeekTow{System: uint32(value.Toc.System), Week: value.Toc.Week, TOWSeconds: value.Toc.TOWSeconds},
 		Elements: native.NativeKeplerianElements{
@@ -198,7 +233,16 @@ func broadcastRecordToNative(value BroadcastRecord) native.NativeBroadcastRecord
 			URAEDIndex: value.CNAV.URAEDIndex, URANED0Index: value.CNAV.URANED0Index, URANED1Index: value.CNAV.URANED1Index,
 			URANED2Index: value.CNAV.URANED2Index, TransmissionTimeSOW: value.CNAV.TransmissionTimeSOW, HasFlags: value.CNAV.HasFlags, Flags: value.CNAV.Flags,
 		},
-		SVHealth: value.SVHealth, SVAccuracyM: value.SVAccuracyM, HasFitInterval: value.HasFitInterval, FitIntervalS: value.FitIntervalS,
+		SVHealth: value.SVHealth, HasSVAccuracyM: value.HasSVAccuracyM, SVAccuracyM: value.SVAccuracyM, HasFitInterval: value.HasFitInterval, FitIntervalS: value.FitIntervalS,
+		Stated: native.NativeStatedNavFields{
+			HasOrbit5Field2: value.Stated.HasOrbit5Field2, Orbit5Field2: value.Stated.Orbit5Field2,
+			HasOrbit5Field4: value.Stated.HasOrbit5Field4, Orbit5Field4: value.Stated.Orbit5Field4,
+			HasOrbit6Field4: value.Stated.HasOrbit6Field4, Orbit6Field4: value.Stated.Orbit6Field4,
+			HasTransmissionTimeSOW: value.Stated.HasTransmissionTimeSOW, TransmissionTimeSOW: value.Stated.TransmissionTimeSOW,
+			HasOrbit7Field2: value.Stated.HasOrbit7Field2, Orbit7Field2: value.Stated.Orbit7Field2,
+			HasOrbit7Field3: value.Stated.HasOrbit7Field3, Orbit7Field3: value.Stated.Orbit7Field3,
+			HasOrbit7Field4: value.Stated.HasOrbit7Field4, Orbit7Field4: value.Stated.Orbit7Field4,
+		},
 	}
 }
 

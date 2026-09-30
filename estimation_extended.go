@@ -1,9 +1,10 @@
 package sidereon
 
 import (
+	"math"
 	"sort"
 
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
 )
 
 // AlphaBetaState is a scalar level/rate state. Level uses caller-chosen units;
@@ -310,13 +311,13 @@ func BoundedILS(floatCycles, covariance []float64, options BoundedILSOptions, ra
 type RAIMOptions struct {
 	// PFA is the requested false-alarm probability.
 	PFA float64
-	// UnitWeights selects unit residual weights.
-	UnitWeights bool
-	// Weights optionally maps satellite IDs to residual weights.
+	// WeightsMode selects Solution, Unit, or BySatellite weights.
+	WeightsMode FDEWeightsMode
+	// Weights optionally maps satellite IDs to inverse-variance weights.
 	Weights map[string]float64
 	// SystemsEnabled controls constellation grouping.
 	SystemsEnabled bool
-	// Systems is the native constellation mask.
+	// Systems is the positive receiver-clock parameter count when enabled.
 	Systems int64
 }
 
@@ -326,6 +327,9 @@ type RAIMInput struct {
 	SatelliteIDs []string
 	// ResidualsM contains residuals in metres in matching order.
 	ResidualsM []float64
+	// VariancesM2 contains the estimator variances aligned with SatelliteIDs.
+	// Nil means unavailable and is rejected by Solution weighting.
+	VariancesM2 []float64
 }
 
 // RAIMResult contains C's receiver-autonomous integrity-monitoring summary.
@@ -366,8 +370,37 @@ type RAIMNormalizedResidual struct {
 
 // RAIM performs the C standalone receiver-autonomous integrity test.
 func RAIM(input RAIMInput, options RAIMOptions) (RAIMResult, []RAIMNormalizedResidual, error) {
+	pfa := options.PFA
+	if pfa == 0 {
+		pfa = 1e-3
+	}
+	if math.IsNaN(pfa) || math.IsInf(pfa, 0) || pfa <= 0 || pfa >= 1 {
+		return RAIMResult{}, nil, &QualityError{Kind: QualityErrorInvalidProbability, Message: "sidereon: RAIM probability must be finite and between zero and one"}
+	}
+	if options.WeightsMode == FDEWeightsBySatellite {
+		for _, weight := range options.Weights {
+			if math.IsNaN(weight) || math.IsInf(weight, 0) || weight <= 0 {
+				return RAIMResult{}, nil, &QualityError{Kind: QualityErrorInvalidWeight, Message: "sidereon: RAIM weights must be finite and positive"}
+			}
+		}
+	}
+	if len(input.SatelliteIDs) != len(input.ResidualsM) {
+		return RAIMResult{}, nil, &QualityError{Kind: QualityErrorInvalidResiduals, Message: "sidereon: RAIM satellite and residual counts differ"}
+	}
+	for _, residual := range input.ResidualsM {
+		if math.IsNaN(residual) || math.IsInf(residual, 0) {
+			return RAIMResult{}, nil, &QualityError{Kind: QualityErrorInvalidResiduals, Message: "sidereon: RAIM residuals must be finite"}
+		}
+	}
+	if options.WeightsMode == FDEWeightsSolution && input.VariancesM2 != nil && len(input.VariancesM2) != len(input.SatelliteIDs) {
+		return RAIMResult{}, nil, &QualityError{Kind: QualityErrorInvalidVariance, Message: "sidereon: RAIM variances must align with satellite IDs"}
+	}
 	weights := nativeWeightMap(options.Weights)
-	value, rows, err := native.RAIM(input.SatelliteIDs, input.ResidualsM, weights, options.PFA, options.UnitWeights, options.SystemsEnabled, options.Systems)
+	variances := input.VariancesM2
+	if options.WeightsMode != FDEWeightsSolution {
+		variances = nil
+	}
+	value, rows, err := native.RAIM(input.SatelliteIDs, input.ResidualsM, variances, weights, pfa, uint32(options.WeightsMode), options.SystemsEnabled, options.Systems)
 	if err != nil {
 		return RAIMResult{}, nil, publicError(err)
 	}

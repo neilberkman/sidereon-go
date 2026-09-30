@@ -10,6 +10,7 @@ import "C"
 
 import (
 	"errors"
+	"fmt"
 	"unsafe"
 )
 
@@ -18,17 +19,145 @@ type FDESolution struct {
 	handle *surfaceHandle
 }
 type NativeFDEOptions struct {
-	PFA            float64
-	MaxIterations  uint64
-	UnitWeights    bool
-	Weights        []NativeFDERaimWeight
-	SystemsEnabled bool
-	Systems        int64
-	UseValidation  bool
+	PFA              float64
+	MaxExclusions    *uint64
+	MaxExclusionRMSM *float64
+	WeightsMode      uint32
+	Weights          []NativeFDERaimWeight
+	SystemsEnabled   bool
+	Systems          int64
+	UseValidation    bool
+	HasUseValidation bool
 }
 type NativeFDEOutput struct {
 	Iterations uint64
 	Excluded   []string
+}
+
+type NativeFDEUnresolvedError struct {
+	Reason        uint32
+	Solution      SPPSolution
+	HasSolution   bool
+	Excluded      []string
+	HasExcluded   bool
+	RAIM          NativeRaimResult
+	Normalized    []NativeRaimNormalizedResidual
+	HasNormalized bool
+	HasRAIM       bool
+	Cause         error
+	CaptureError  error
+}
+
+func (e *NativeFDEUnresolvedError) Error() string {
+	return fmt.Sprintf("sidereon: FDE unresolved (reason %d)", e.Reason)
+}
+func (e *NativeFDEUnresolvedError) Unwrap() error { return e.Cause }
+
+func copyFDERaimRowsLocked(call func(*C.SidereonRaimNormalizedResidual, C.size_t, *C.size_t, *C.size_t) C.enum_SidereonStatus) ([]NativeRaimNormalizedResidual, error) {
+	var written, required C.size_t
+	if err := statusErrorLocked(uint32(call(nil, 0, &written, &required))); err != nil {
+		return nil, err
+	}
+	count, err := sizeTToInt(required, "FDE normalized residual count")
+	if err != nil {
+		return nil, err
+	}
+	if _, err := writtenToInt(written, 0, "FDE normalized residual first-call count"); err != nil {
+		return nil, err
+	}
+	buffer := make([]C.SidereonRaimNormalizedResidual, count)
+	length, err := cSize(len(buffer), "FDE normalized residual output length")
+	if err != nil {
+		return nil, err
+	}
+	var output *C.SidereonRaimNormalizedResidual
+	if len(buffer) != 0 {
+		output = &buffer[0]
+	}
+	written, required = 0, 0
+	if err := statusErrorLocked(uint32(call(output, length, &written, &required))); err != nil {
+		return nil, err
+	}
+	actual, err := validateTwoPassCounts("FDE normalized residuals", len(buffer), count, uint64(written), uint64(required))
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]NativeRaimNormalizedResidual, actual)
+	for i := range rows {
+		rows[i] = NativeRaimNormalizedResidual{tokenFromC(buffer[i].sat_id), float64(buffer[i].normalized_residual)}
+	}
+	return rows, nil
+}
+
+// fdeStatusErrorLocked captures quality or unresolved data while still on the
+// OS thread that ran the FDE producer.
+func fdeStatusErrorLocked(status uint32) error {
+	err := qualityStatusErrorLocked(status)
+	if err == nil {
+		return nil
+	}
+	if _, ok := err.(*StatusError); !ok {
+		return err
+	}
+	statusErr := err.(*StatusError)
+	if statusErr.QualityKind != 0 || statusErr.Code != 5 {
+		return err
+	}
+	unresolved := &NativeFDEUnresolvedError{Cause: err}
+	setCaptureError := func(captureErr error) {
+		if captureErr == nil {
+			return
+		}
+		if unresolved.CaptureError == nil {
+			unresolved.CaptureError = captureErr
+		} else {
+			unresolved.CaptureError = errors.Join(unresolved.CaptureError, captureErr)
+		}
+	}
+	var info C.SidereonFdeUnresolvedInfo
+	infoErr := statusErrorLocked(uint32(C.sidereon_last_fde_unresolved(&info)))
+	if infoErr != nil {
+		setCaptureError(infoErr)
+		return unresolved
+	}
+	unresolved.Reason = uint32(info.reason)
+	if unresolved.Reason == 0 {
+		return err
+	}
+	unresolved.RAIM = nativeRaimResult(info.raim)
+	unresolved.HasRAIM = true
+	var solution *C.SidereonSppSolution
+	solutionErr := statusErrorLocked(uint32(C.sidereon_last_fde_unresolved_solution(&solution)))
+	if solutionErr != nil {
+		setCaptureError(solutionErr)
+	} else if solution == nil {
+		setCaptureError(errors.New("sidereon: unresolved FDE solution getter returned nil"))
+	} else {
+		defer C.sidereon_spp_solution_free(solution)
+		nativeSolution, readErr := readSPPSolutionLocked(solution)
+		if readErr != nil {
+			setCaptureError(readErr)
+		} else {
+			unresolved.Solution, unresolved.HasSolution = nativeSolution, true
+		}
+	}
+	excluded, readErr := copyNativeTokensLocked("FDE unresolved excluded satellites", func(out *C.SidereonSatelliteToken, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+		return C.sidereon_last_fde_unresolved_excluded_sats(out, length, written, required)
+	})
+	if readErr != nil {
+		setCaptureError(readErr)
+	} else {
+		unresolved.Excluded, unresolved.HasExcluded = excluded, true
+	}
+	rows, readErr := copyFDERaimRowsLocked(func(out *C.SidereonRaimNormalizedResidual, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+		return C.sidereon_last_fde_unresolved_raim_normalized_residuals(out, length, written, required)
+	})
+	if readErr != nil {
+		setCaptureError(readErr)
+	} else {
+		unresolved.Normalized, unresolved.HasNormalized = rows, true
+	}
+	return unresolved
 }
 
 type NativeSPPRobustConfig struct {
@@ -36,6 +165,9 @@ type NativeSPPRobustConfig struct {
 	MaxOuter            uint64
 	OuterToleranceM     float64
 }
+
+func ptrUint64(value uint64) *uint64    { return &value }
+func ptrFloat64(value float64) *float64 { return &value }
 
 func FDEOptionsDefault() (NativeFDEOptions, error) {
 	var options C.SidereonFdeOptions
@@ -45,12 +177,13 @@ func FDEOptionsDefault() (NativeFDEOptions, error) {
 		return NativeFDEOptions{}, err
 	}
 	return NativeFDEOptions{
-		PFA:            float64(options.p_fa),
-		MaxIterations:  uint64(options.max_iterations),
-		UnitWeights:    bool(options.unit_weights),
-		SystemsEnabled: bool(options.n_systems_enabled),
-		Systems:        int64(options.n_systems),
-		UseValidation:  bool(options.use_validation_options),
+		PFA:              float64(options.p_fa),
+		MaxExclusions:    ptrUint64(uint64(options.max_exclusions)),
+		MaxExclusionRMSM: ptrFloat64(float64(options.max_exclusion_rms_m)),
+		WeightsMode:      uint32(options.weights_mode),
+		SystemsEnabled:   bool(options.n_systems_enabled),
+		Systems:          int64(options.n_systems),
+		UseValidation:    bool(options.use_validation_options),
 	}, nil
 }
 
@@ -76,21 +209,31 @@ func (b *BroadcastEphemeris) NavMessagePreference() (uint32, error) {
 }
 
 func nativeFDEOptions(value NativeFDEOptions) (C.SidereonFdeOptions, unsafe.Pointer, []*C.char, error) {
-	maxIterations, err := cSize64(value.MaxIterations, "FDE iteration count")
-	if err != nil {
-		return C.SidereonFdeOptions{}, nil, nil, err
-	}
 	var options C.SidereonFdeOptions
+	var err error
 	withCThread(func() { err = statusErrorLocked(uint32(C.sidereon_fde_options_init(&options))) })
 	if err != nil {
 		return options, nil, nil, err
 	}
-	options.p_fa = C.double(value.PFA)
-	options.max_iterations = maxIterations
-	options.unit_weights = C.bool(value.UnitWeights)
+	if value.MaxExclusions != nil {
+		maxExclusions, conversionErr := cSize64(*value.MaxExclusions, "FDE exclusion budget")
+		if conversionErr != nil {
+			return options, nil, nil, conversionErr
+		}
+		options.max_exclusions = maxExclusions
+	}
+	if value.MaxExclusionRMSM != nil {
+		options.max_exclusion_rms_m = C.double(*value.MaxExclusionRMSM)
+	}
+	if value.PFA != 0 {
+		options.p_fa = C.double(value.PFA)
+	}
+	options.weights_mode = C.uint32_t(value.WeightsMode)
 	options.n_systems_enabled = C.bool(value.SystemsEnabled)
 	options.n_systems = C.int64_t(value.Systems)
-	options.use_validation_options = C.bool(value.UseValidation)
+	if value.HasUseValidation {
+		options.use_validation_options = C.bool(value.UseValidation)
+	}
 	if len(value.Weights) == 0 {
 		return options, nil, nil, nil
 	}
@@ -193,9 +336,9 @@ func solveFDE(source unsafe.Pointer, sp3 bool, config SPPConfig, options NativeF
 	var opErr error
 	withCThread(func() {
 		if sp3 {
-			opErr = statusErrorLocked(uint32(C.sidereon_fde_solve_spp((*C.SidereonSp3)(source), &inputs, &coptions, &out)))
+			opErr = fdeStatusErrorLocked(uint32(C.sidereon_fde_solve_spp((*C.SidereonSp3)(source), &inputs, &coptions, &out)))
 		} else {
-			opErr = statusErrorLocked(uint32(C.sidereon_fde_solve_broadcast((*C.SidereonBroadcastEphemeris)(source), &inputs, &coptions, &out)))
+			opErr = fdeStatusErrorLocked(uint32(C.sidereon_fde_solve_broadcast((*C.SidereonBroadcastEphemeris)(source), &inputs, &coptions, &out)))
 		}
 	})
 	if opErr != nil {
@@ -229,9 +372,9 @@ func solveRobustFDE(source unsafe.Pointer, sp3 bool, config SPPConfig, robust Na
 	var callErr error
 	withCThread(func() {
 		if sp3 {
-			callErr = statusErrorLocked(uint32(C.sidereon_robust_fde_solve_spp((*C.SidereonSp3)(source), &inputs, &cr, &coptions, &out)))
+			callErr = fdeStatusErrorLocked(uint32(C.sidereon_robust_fde_solve_spp((*C.SidereonSp3)(source), &inputs, &cr, &coptions, &out)))
 		} else {
-			callErr = statusErrorLocked(uint32(C.sidereon_robust_fde_solve_broadcast((*C.SidereonBroadcastEphemeris)(source), &inputs, &cr, &coptions, &out)))
+			callErr = fdeStatusErrorLocked(uint32(C.sidereon_robust_fde_solve_broadcast((*C.SidereonBroadcastEphemeris)(source), &inputs, &cr, &coptions, &out)))
 		}
 	})
 	if callErr != nil {
@@ -334,7 +477,7 @@ func (f *FDESolution) Solution() (SPPSolution, error) {
 	return result, err
 }
 
-func (f *FDESolution) RAIM(pfa float64, unitWeights bool, weights []NativeFDERaimWeight, systemsEnabled bool, systems int64) (NativeRaimResult, error) {
+func (f *FDESolution) RecomputeRAIM(pfa float64, weightsMode uint32, weights []NativeFDERaimWeight, systemsEnabled bool, systems int64) (NativeRaimResult, error) {
 	weightMemory, weightCount, weightIDs, err := makeFDERaimWeights(weights)
 	if err != nil {
 		return NativeRaimResult{}, err
@@ -359,19 +502,47 @@ func (f *FDESolution) RAIM(pfa float64, unitWeights bool, weights []NativeFDERai
 				return
 			}
 			defer C.sidereon_spp_solution_free(solution)
-			callErr = statusErrorLocked(uint32(C.sidereon_raim_for_solution(solution, C.double(pfa), C.bool(unitWeights), weightPointer, weightCount, C.bool(systemsEnabled), C.int64_t(systems), &result)))
+			callErr = qualityStatusErrorLocked(uint32(C.sidereon_raim_for_solution(solution, C.double(pfa), C.uint32_t(weightsMode), weightPointer, weightCount, C.bool(systemsEnabled), C.int64_t(systems), &result)))
 		})
 		return callErr
 	})
 	if err != nil {
 		return NativeRaimResult{}, err
 	}
-	return NativeRaimResult{
-		FaultDetected: bool(result.fault_detected), TestStatistic: float64(result.test_statistic),
-		HasThreshold: bool(result.has_threshold), Threshold: float64(result.threshold),
-		HasReducedChiSquare: bool(result.has_reduced_chi_square), ReducedChiSquare: float64(result.reduced_chi_square),
-		RMSM: float64(result.rms_m), DOF: int64(result.dof), Testable: bool(result.testable),
-		NormalizedResidualCount: uint64(result.normalized_residual_count), HasWorstSatellite: bool(result.has_worst_sat),
-		WorstSatellite: tokenChars(result.worst_sat[:]),
-	}, nil
+	return nativeRaimResult(result), nil
+}
+
+func (f *FDESolution) AcceptedRAIM() (NativeRaimResult, []NativeRaimNormalizedResidual, error) {
+	var result C.SidereonRaimResult
+	var operationErr error
+	err := f.handle.read(func(pointer unsafe.Pointer) error {
+		withCThread(func() {
+			operationErr = statusErrorLocked(uint32(C.sidereon_fde_solution_raim((*C.SidereonFdeSolution)(pointer), &result)))
+		})
+		return operationErr
+	})
+	if err != nil {
+		return NativeRaimResult{}, nil, err
+	}
+	rows, err := copySurfaceFDERaimRows(f.handle, "accepted FDE normalized residuals", func(pointer unsafe.Pointer, out *C.SidereonRaimNormalizedResidual, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+		return C.sidereon_fde_solution_raim_normalized_residuals((*C.SidereonFdeSolution)(pointer), out, length, written, required)
+	})
+	return nativeRaimResult(result), rows, err
+}
+
+func copySurfaceFDERaimRows(handle *surfaceHandle, label string, call func(unsafe.Pointer, *C.SidereonRaimNormalizedResidual, C.size_t, *C.size_t, *C.size_t) C.enum_SidereonStatus) ([]NativeRaimNormalizedResidual, error) {
+	var rows []NativeRaimNormalizedResidual
+	var opErr error
+	err := handle.read(func(pointer unsafe.Pointer) error {
+		withCThread(func() {
+			rows, opErr = copyFDERaimRowsLocked(func(out *C.SidereonRaimNormalizedResidual, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+				return call(pointer, out, length, written, required)
+			})
+		})
+		return opErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
 }

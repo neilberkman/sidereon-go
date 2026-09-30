@@ -381,8 +381,10 @@ type RangeFDEResult struct {
 	handle *surfaceHandle
 }
 type NativeRangeFDEOptions struct {
-	PFA                          float64
-	MaxExclusions, MinRedundancy uint64
+	PFA              float64
+	MaxExclusions    *uint64
+	MinRedundancy    *uint64
+	MaxExclusionRMSM *float64
 }
 type NativeRangeFDERow struct {
 	ID       string
@@ -506,7 +508,7 @@ func ReliabilityDesign(rows []NativeReliabilityRow, options NativeReliabilityOpt
 	var out *C.SidereonReliabilityReport
 	var opErr error
 	withCThread(func() {
-		opErr = statusErrorLocked(uint32(C.sidereon_reliability_design((*C.SidereonRangeReliabilityRow)(mem), rowCount, &co, &out)))
+		opErr = qualityStatusErrorLocked(uint32(C.sidereon_reliability_design((*C.SidereonRangeReliabilityRow)(mem), rowCount, &co, &out)))
 	})
 	if opErr != nil {
 		return nil, opErr
@@ -626,7 +628,7 @@ func (r *ReliabilityReport) Observations() ([]NativeReliabilityObservation, erro
 func RangeFDEOptionsDefault() (NativeRangeFDEOptions, error) {
 	var o C.SidereonRangeFdeOptions
 	err := callStatus(func() uint32 { return uint32(C.sidereon_range_fde_options_init(&o)) })
-	return NativeRangeFDEOptions{float64(o.p_fa), uint64(o.max_exclusions), uint64(o.min_redundancy)}, err
+	return NativeRangeFDEOptions{PFA: float64(o.p_fa), MaxExclusions: ptrUint64(uint64(o.max_exclusions)), MinRedundancy: ptrUint64(uint64(o.min_redundancy)), MaxExclusionRMSM: ptrFloat64(float64(o.max_exclusion_rms_m))}, err
 }
 
 func RangeFDE(rows []NativeRangeFDERow, options NativeRangeFDEOptions) (*RangeFDEResult, error) {
@@ -634,13 +636,19 @@ func RangeFDE(rows []NativeRangeFDERow, options NativeRangeFDEOptions) (*RangeFD
 	if err != nil {
 		return nil, err
 	}
-	maxExclusions, err := cSize64(options.MaxExclusions, "range FDE maximum exclusions")
-	if err != nil {
-		return nil, err
+	var maxExclusions C.size_t
+	if options.MaxExclusions != nil {
+		maxExclusions, err = cSize64(*options.MaxExclusions, "range FDE maximum exclusions")
+		if err != nil {
+			return nil, err
+		}
 	}
-	minRedundancy, err := cSize64(options.MinRedundancy, "range FDE minimum redundancy")
-	if err != nil {
-		return nil, err
+	var minRedundancy C.size_t
+	if options.MinRedundancy != nil {
+		minRedundancy, err = cSize64(*options.MinRedundancy, "range FDE minimum redundancy")
+		if err != nil {
+			return nil, err
+		}
 	}
 	size, err := checkedNativeAllocationSize(len(rows), unsafe.Sizeof(C.SidereonRangeFdeRow{}))
 	if err != nil {
@@ -680,11 +688,26 @@ func RangeFDE(rows []NativeRangeFDERow, options NativeRangeFDEOptions) (*RangeFD
 		designs[i] = p
 		input[i] = C.SidereonRangeFdeRow{id: ids[i], residual_m: C.double(row.Residual), design_row: (*C.double)(p), design_dim: designLength, weight: C.double(row.Weight)}
 	}
-	optionsC := C.SidereonRangeFdeOptions{p_fa: C.double(options.PFA), max_exclusions: maxExclusions, min_redundancy: minRedundancy}
+	var optionsC C.SidereonRangeFdeOptions
+	if err := callStatus(func() uint32 { return uint32(C.sidereon_range_fde_options_init(&optionsC)) }); err != nil {
+		return nil, err
+	}
+	if options.PFA != 0 {
+		optionsC.p_fa = C.double(options.PFA)
+	}
+	if options.MinRedundancy != nil {
+		optionsC.min_redundancy = minRedundancy
+	}
+	if options.MaxExclusions != nil {
+		optionsC.max_exclusions = maxExclusions
+	}
+	if options.MaxExclusionRMSM != nil {
+		optionsC.max_exclusion_rms_m = C.double(*options.MaxExclusionRMSM)
+	}
 	var out *C.SidereonRangeFdeResult
 	var opErr error
 	withCThread(func() {
-		opErr = statusErrorLocked(uint32(C.sidereon_raim_fde_design((*C.SidereonRangeFdeRow)(memory), rowCount, &optionsC, &out)))
+		opErr = qualityStatusErrorLocked(uint32(C.sidereon_raim_fde_design((*C.SidereonRangeFdeRow)(memory), rowCount, &optionsC, &out)))
 	})
 	if opErr != nil {
 		return nil, opErr

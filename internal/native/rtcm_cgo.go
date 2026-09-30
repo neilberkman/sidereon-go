@@ -222,6 +222,26 @@ type NativeRTCMGalileoINavEphemeris struct {
 	E1BDataValidity    bool
 	Reserved           uint8
 }
+type NativeRTCMNavICEphemeris struct {
+	SatelliteID                        uint8
+	WeekNumber                         uint16
+	AF0, AF1                           int32
+	AF2                                int16
+	URA                                uint8
+	TOC                                uint16
+	TGD                                int16
+	DeltaN                             int32
+	IODEC                              uint8
+	Reserved                           uint16
+	L5Flag, SFlag                      bool
+	CUC, CUS, CIC, CIS, CRC, CRS, IDOT int32
+	M0                                 int64
+	TOE                                uint16
+	Eccentricity, SqrtA                uint64
+	Omega0, Omega, I0                  int64
+	OmegaDot                           int32
+	SpareDF544, SpareDF545             uint8
+}
 type NativeRTCMGLONASSEphemeris struct {
 	SatelliteID, FrequencyChannel            uint8
 	AlmanacHealth, AlmanacHealthAvailability bool
@@ -277,7 +297,7 @@ type RtcmLockTimeTracker struct {
 }
 
 func validateRTCMMessageKindValue(value uint32) error {
-	if value > RTCMMessageGalileoINavEphemerisValue {
+	if value > RTCMMessageSSRVTECValue {
 		return invalidArgument("invalid RTCM message kind returned by native code")
 	}
 	return nil
@@ -346,7 +366,7 @@ func newRtcmTracker(p *C.SidereonRtcmLockTimeTracker) (*RtcmLockTimeTracker, err
 
 func DecodeRTCM(data []byte) (*RtcmMessages, error) {
 	var p *C.SidereonRtcmMessages
-	err := withInput(data, func(b *C.uint8_t, n C.size_t) uint32 { return C.sidereon_rtcm_decode_messages(b, n, &p) })
+	err := rtcmInputError(data, func(b *C.uint8_t, n C.size_t) uint32 { return C.sidereon_rtcm_decode_messages(b, n, &p) })
 	if err != nil {
 		if p != nil {
 			withCThread(func() { C.sidereon_rtcm_messages_free(p) })
@@ -444,7 +464,7 @@ func DecodeRTCMFrame(data []byte) ([]byte, int, error) {
 			defer C.free(input)
 		}
 		var written, required C.size_t
-		if err = statusErrorLocked(C.sidereon_rtcm_decode_frame((*C.uint8_t)(input), inputLength, nil, 0, &written, &required, &frameLength)); err != nil {
+		if err = rtcmErrorLocked(uint32(C.sidereon_rtcm_decode_frame((*C.uint8_t)(input), inputLength, nil, 0, &written, &required, &frameLength))); err != nil {
 			return
 		}
 		n, queryErr := validateNativeQuery("RTCM decoded frame body", uint64(written), uint64(required))
@@ -466,7 +486,7 @@ func DecodeRTCMFrame(data []byte) ([]byte, int, error) {
 		if n > 0 {
 			output = (*C.uint8_t)(unsafe.Pointer(&buffer[0]))
 		}
-		if err = statusErrorLocked(C.sidereon_rtcm_decode_frame((*C.uint8_t)(input), inputLength, output, outputLength, &written, &required, &frameLength)); err != nil {
+		if err = rtcmErrorLocked(uint32(C.sidereon_rtcm_decode_frame((*C.uint8_t)(input), inputLength, output, outputLength, &written, &required, &frameLength))); err != nil {
 			return
 		}
 		count, validationErr := validateNativeOutput("RTCM decoded frame body", n, uint64(written), uint64(required))
@@ -487,7 +507,7 @@ func EncodeRTCMFrame(body []byte) ([]byte, error) {
 	var out []byte
 	err := withInputError(body, func(b *C.uint8_t, n C.size_t) error {
 		var w, r C.size_t
-		if err := callStatus(func() uint32 { return C.sidereon_rtcm_encode_frame(b, n, nil, 0, &w, &r) }); err != nil {
+		if err := rtcmCallStatus(func() uint32 { return C.sidereon_rtcm_encode_frame(b, n, nil, 0, &w, &r) }); err != nil {
 			return err
 		}
 		need, err := validateNativeQuery("RTCM frame", uint64(w), uint64(r))
@@ -501,7 +521,7 @@ func EncodeRTCMFrame(body []byte) ([]byte, error) {
 		if mem != nil {
 			defer C.free(mem)
 		}
-		if err := callStatus(func() uint32 { return C.sidereon_rtcm_encode_frame(b, n, (*C.uint8_t)(mem), C.size_t(need), &w, &r) }); err != nil {
+		if err := rtcmCallStatus(func() uint32 { return C.sidereon_rtcm_encode_frame(b, n, (*C.uint8_t)(mem), C.size_t(need), &w, &r) }); err != nil {
 			return err
 		}
 		z, err := validateNativeOutput("RTCM frame", need, uint64(w), uint64(r))
@@ -572,7 +592,7 @@ func rtcmBytesCall(m *RtcmMessages, index int, frame bool) ([]byte, error) {
 	var out []byte
 	err := m.resource.with(func(p unsafe.Pointer) error {
 		var e error
-		out, e = copyByteOutput("RTCM encoded message", func(b *C.uint8_t, n C.size_t, w, r *C.size_t) uint32 {
+		out, e = copyRTCMByteOutput("RTCM encoded message", func(b *C.uint8_t, n C.size_t, w, r *C.size_t) uint32 {
 			if frame {
 				return C.sidereon_rtcm_message_to_frame((*C.SidereonRtcmMessages)(p), C.size_t(index), b, n, w, r)
 			}
@@ -1155,7 +1175,7 @@ func BuildRTCMAntennaDescriptor(messageNumber, referenceStationID uint16, setup 
 		}
 		var pointer *C.SidereonRtcmMessages
 		status := C.sidereon_rtcm_build_antenna_descriptor(C.uint16_t(messageNumber), C.uint16_t(referenceStationID), C.uint8_t(setup), cDescriptor, strings[0], strings[1], strings[2], strings[3], &pointer)
-		err = statusErrorLocked(status)
+		err = statusErrorLocked(uint32(status))
 		if err != nil {
 			if pointer != nil {
 				C.sidereon_rtcm_messages_free(pointer)
@@ -1229,7 +1249,7 @@ func BuildRTCMMSM(info NativeRTCMMSMInfo, satellites []NativeRTCMMSMSatellite, s
 	}
 	defer C.free(infoMemory)
 	cinfo := (*C.SidereonRtcmMsmInfo)(infoMemory)
-	*cinfo = C.SidereonRtcmMsmInfo{message_number: C.uint16_t(info.MessageNumber), system: C.enum_SidereonGnssSystem(info.System), kind: C.enum_SidereonRtcmMsmKind(info.Kind), header: C.SidereonRtcmMsmHeader{reference_station_id: C.uint16_t(info.Header.ReferenceStationID), epoch_time: C.uint32_t(info.Header.EpochTime), multiple_message: C.bool(info.Header.MultipleMessage), iods: C.uint8_t(info.Header.IODS), reserved: C.uint8_t(info.Header.Reserved), clock_steering: C.uint8_t(info.Header.ClockSteering), external_clock: C.uint8_t(info.Header.ExternalClock), divergence_free_smoothing: C.bool(info.Header.DivergenceFreeSmoothing), smoothing_interval: C.uint8_t(info.Header.SmoothingInterval)}, satellite_count: satelliteCount, signal_count: signalCount}
+	*cinfo = C.SidereonRtcmMsmInfo{message_number: C.uint16_t(info.MessageNumber), system: C.uint32_t(info.System), kind: C.uint32_t(info.Kind), header: C.SidereonRtcmMsmHeader{reference_station_id: C.uint16_t(info.Header.ReferenceStationID), epoch_time: C.uint32_t(info.Header.EpochTime), multiple_message: C.bool(info.Header.MultipleMessage), iods: C.uint8_t(info.Header.IODS), reserved: C.uint8_t(info.Header.Reserved), clock_steering: C.uint8_t(info.Header.ClockSteering), external_clock: C.uint8_t(info.Header.ExternalClock), divergence_free_smoothing: C.bool(info.Header.DivergenceFreeSmoothing), smoothing_interval: C.uint8_t(info.Header.SmoothingInterval)}, satellite_count: satelliteCount, signal_count: signalCount}
 	return buildRTCMMessage(func(out **C.SidereonRtcmMessages) uint32 {
 		var satellitePointer *C.SidereonRtcmMsmSatellite
 		var signalPointer *C.SidereonRtcmMsmSignal
@@ -1317,6 +1337,25 @@ func BuildRTCMGalileoINavEphemeris(value NativeRTCMGalileoINavEphemeris) (*RtcmM
 	})
 }
 
+func BuildRTCMNavICEphemeris(value NativeRTCMNavICEphemeris) (*RtcmMessages, error) {
+	fields := C.SidereonRtcmNavicEphemeris{
+		satellite_id: C.uint8_t(value.SatelliteID), week_number: C.uint16_t(value.WeekNumber),
+		a_f0: C.int32_t(value.AF0), a_f1: C.int32_t(value.AF1), a_f2: C.int16_t(value.AF2),
+		ura: C.uint8_t(value.URA), t_oc: C.uint16_t(value.TOC), t_gd: C.int16_t(value.TGD),
+		delta_n: C.int32_t(value.DeltaN), iodec: C.uint8_t(value.IODEC), reserved: C.uint16_t(value.Reserved),
+		l5_flag: C.bool(value.L5Flag), s_flag: C.bool(value.SFlag), c_uc: C.int32_t(value.CUC),
+		c_us: C.int32_t(value.CUS), c_ic: C.int32_t(value.CIC), c_is: C.int32_t(value.CIS),
+		c_rc: C.int32_t(value.CRC), c_rs: C.int32_t(value.CRS), idot: C.int32_t(value.IDOT),
+		m0: C.int64_t(value.M0), t_oe: C.uint16_t(value.TOE), eccentricity: C.uint64_t(value.Eccentricity),
+		sqrt_a: C.uint64_t(value.SqrtA), omega0: C.int64_t(value.Omega0), omega: C.int64_t(value.Omega),
+		i0: C.int64_t(value.I0), omega_dot: C.int32_t(value.OmegaDot),
+		spare_df544: C.uint8_t(value.SpareDF544), spare_df545: C.uint8_t(value.SpareDF545),
+	}
+	return buildRTCMMessage(func(out **C.SidereonRtcmMessages) uint32 {
+		return C.sidereon_rtcm_build_navic_ephemeris(&fields, out)
+	})
+}
+
 func BuildRTCMGLONASSEphemeris(value NativeRTCMGLONASSEphemeris) (*RtcmMessages, error) {
 	memory, err := checkedNativeMalloc(1, unsafe.Sizeof(C.SidereonRtcmGlonassEphemeris{}))
 	if err != nil {
@@ -1389,6 +1428,26 @@ func (m *RtcmMessages) GalileoINavEphemeris(index int) (NativeRTCMGalileoINavEph
 		})
 	})
 	return NativeRTCMGalileoINavEphemeris{SatelliteID: uint8(x.satellite_id), WeekNumber: uint16(x.week_number), IodNav: uint16(x.iod_nav), SISAIndex: uint8(x.sisa_index), IDOT: int32(x.idot), TOC: uint16(x.t_oc), AF2: int16(x.a_f2), AF1: int32(x.a_f1), AF0: int64(x.a_f0), CRS: int32(x.c_rs), DeltaN: int32(x.delta_n), M0: int64(x.m0), CUC: int32(x.c_uc), Eccentricity: uint64(x.eccentricity), CUS: int32(x.c_us), SqrtA: uint64(x.sqrt_a), TOE: uint16(x.t_oe), CIC: int32(x.c_ic), Omega0: int64(x.omega0), CIS: int32(x.c_is), I0: int64(x.i0), CRC: int32(x.c_rc), Omega: int64(x.omega), OmegaDot: int32(x.omega_dot), BGDE5AE1: int16(x.bgd_e5a_e1), BGDE5BE1: int16(x.bgd_e5b_e1), E5BSignalHealth: uint8(x.e5b_signal_health), E5BDataValidity: bool(x.e5b_data_validity), E1BSignalHealth: uint8(x.e1b_signal_health), E1BDataValidity: bool(x.e1b_data_validity), Reserved: uint8(x.reserved)}, err
+}
+func (m *RtcmMessages) NavICEphemeris(index int) (NativeRTCMNavICEphemeris, error) {
+	if index < 0 {
+		return NativeRTCMNavICEphemeris{}, errNegativeIndex
+	}
+	var value C.SidereonRtcmNavicEphemeris
+	err := m.resource.with(func(pointer unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return C.sidereon_rtcm_message_navic_ephemeris((*C.SidereonRtcmMessages)(pointer), C.size_t(index), &value)
+		})
+	})
+	return NativeRTCMNavICEphemeris{
+		SatelliteID: uint8(value.satellite_id), WeekNumber: uint16(value.week_number), AF0: int32(value.a_f0), AF1: int32(value.a_f1),
+		AF2: int16(value.a_f2), URA: uint8(value.ura), TOC: uint16(value.t_oc), TGD: int16(value.t_gd), DeltaN: int32(value.delta_n),
+		IODEC: uint8(value.iodec), Reserved: uint16(value.reserved), L5Flag: bool(value.l5_flag), SFlag: bool(value.s_flag),
+		CUC: int32(value.c_uc), CUS: int32(value.c_us), CIC: int32(value.c_ic), CIS: int32(value.c_is), CRC: int32(value.c_rc), CRS: int32(value.c_rs),
+		IDOT: int32(value.idot), M0: int64(value.m0), TOE: uint16(value.t_oe), Eccentricity: uint64(value.eccentricity),
+		SqrtA: uint64(value.sqrt_a), Omega0: int64(value.omega0), Omega: int64(value.omega), I0: int64(value.i0),
+		OmegaDot: int32(value.omega_dot), SpareDF544: uint8(value.spare_df544), SpareDF545: uint8(value.spare_df545),
+	}, err
 }
 func (m *RtcmMessages) GLONASSEphemeris(index int) (NativeRTCMGLONASSEphemeris, error) {
 	if index < 0 {

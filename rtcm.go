@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // RTCMMessageKind identifies the decoded RTCM message family.
 type RTCMMessageKind uint32
@@ -28,6 +28,22 @@ const (
 	RTCMMessageGalileoFNavEphemeris RTCMMessageKind = RTCMMessageKind(native.RTCMMessageGalileoFNavEphemerisValue)
 	// RTCMMessageGalileoINavEphemeris identifies Galileo I/NAV ephemeris.
 	RTCMMessageGalileoINavEphemeris RTCMMessageKind = RTCMMessageKind(native.RTCMMessageGalileoINavEphemerisValue)
+	// RTCMMessageNavICEphemeris identifies NavIC ephemeris.
+	RTCMMessageNavICEphemeris RTCMMessageKind = RTCMMessageKind(native.RTCMMessageNavICEphemerisValue)
+	// RTCMMessageLegacyObservations identifies legacy GPS/GLONASS observations.
+	RTCMMessageLegacyObservations RTCMMessageKind = RTCMMessageKind(native.RTCMMessageLegacyObservationsValue)
+	// RTCMMessageSystemParameters identifies a system-parameter message.
+	RTCMMessageSystemParameters RTCMMessageKind = RTCMMessageKind(native.RTCMMessageSystemParametersValue)
+	// RTCMMessageText identifies an RTCM text message.
+	RTCMMessageText RTCMMessageKind = RTCMMessageKind(native.RTCMMessageTextValue)
+	// RTCMMessageNetwork identifies the RTCM network message family.
+	RTCMMessageNetwork RTCMMessageKind = RTCMMessageKind(native.RTCMMessageNetworkValue)
+	// RTCMMessageTransformation identifies RTCM transformation messages.
+	RTCMMessageTransformation RTCMMessageKind = RTCMMessageKind(native.RTCMMessageTransformationValue)
+	// RTCMMessageGLONASSCodePhaseBiases identifies GLONASS code/phase biases.
+	RTCMMessageGLONASSCodePhaseBiases RTCMMessageKind = RTCMMessageKind(native.RTCMMessageGLONASSCodePhaseBiasesValue)
+	// RTCMMessageSSRVTEC identifies SSR VTEC.
+	RTCMMessageSSRVTEC RTCMMessageKind = RTCMMessageKind(native.RTCMMessageSSRVTECValue)
 )
 
 // RTCMMSMKind selects an RTCM MSM 4 or MSM 7 payload.
@@ -281,6 +297,28 @@ type RTCMGalileoINavEphemeris struct {
 	Reserved           uint8
 }
 
+// RTCMNavICEphemeris retains the raw transmitted-integer fields of a 1041 message.
+type RTCMNavICEphemeris struct {
+	SatelliteID                        uint8
+	WeekNumber                         uint16
+	AF0, AF1                           int32
+	AF2                                int16
+	URA                                uint8
+	TOC                                uint16
+	TGD                                int16
+	DeltaN                             int32
+	IODEC                              uint8
+	Reserved                           uint16
+	L5Flag, SFlag                      bool
+	CUC, CUS, CIC, CIS, CRC, CRS, IDOT int32
+	M0                                 int64
+	TOE                                uint16
+	Eccentricity, SqrtA                uint64
+	Omega0, Omega, I0                  int64
+	OmegaDot                           int32
+	SpareDF544, SpareDF545             uint8
+}
+
 // RTCMGLONASSEphemeris is the lossless raw transmitted-integer payload of a
 // 1020 GLONASS broadcast ephemeris.
 type RTCMGLONASSEphemeris struct {
@@ -338,24 +376,39 @@ type RTCMCellLLI struct {
 // only the matching typed payload pointer is populated.
 type RTCMMessage struct {
 	// Kind and MessageNumber identify the decoded message.
-	Kind           RTCMMessageKind
-	MessageNumber  uint16
-	Body, Frame    []byte
-	MSM            *RTCMMSMInfo
-	Station        *RTCMStationCoordinates
-	Antenna        *RTCMAntennaDescriptor
-	GPS            *RTCMGPSEphemeris
-	GLONASS        *RTCMGLONASSEphemeris
-	BeiDou         *RTCMBeiDouEphemeris
-	QZSS           *RTCMQZSSEphemeris
-	GalileoFNav    *RTCMGalileoFNavEphemeris
-	GalileoINav    *RTCMGalileoINavEphemeris
-	SSR            *RTCMSSRInfo
-	SSROrbits      []RTCMSSROrbitRecord
-	SSRClocks      []RTCMSSRClockRecord
-	SSRCodeBiases  []RTCMSSRCodeBiasGroup
-	SSRPhaseBiases []RTCMSSRPhaseBiasGroup
-	SSRURA         []RTCMSSRURARecord
+	Kind                     RTCMMessageKind
+	MessageNumber            uint16
+	Body, Frame              []byte
+	MSM                      *RTCMMSMInfo
+	Station                  *RTCMStationCoordinates
+	Antenna                  *RTCMAntennaDescriptor
+	GPS                      *RTCMGPSEphemeris
+	GLONASS                  *RTCMGLONASSEphemeris
+	BeiDou                   *RTCMBeiDouEphemeris
+	QZSS                     *RTCMQZSSEphemeris
+	GalileoFNav              *RTCMGalileoFNavEphemeris
+	GalileoINav              *RTCMGalileoINavEphemeris
+	NavIC                    *RTCMNavICEphemeris
+	Legacy                   *RTCMLegacyObservations
+	SystemParameters         *RTCMSystemParameters
+	Text                     *RTCMText
+	NetworkAuxiliary         *RTCMNetworkAuxiliaryStation
+	NetworkDifferences       *RTCMNetworkDifferences
+	NetworkResiduals         *RTCMNetworkResiduals
+	FKPGradients             *RTCMFKPGradients
+	ResidualGrid             *RTCMResidualGrid
+	Projection               *RTCMProjection
+	HelmertTransformation    *RTCMHelmertTransformation
+	PhysicalReferenceStation *RTCMPhysicalReferenceStation
+	GLONASSCodePhaseBiases   *RTCMGLONASSCodePhaseBiases
+	SSRVTEC                  *RTCMSSRVTECInfo
+	Unsupported              *RTCMUnsupportedBody
+	SSR                      *RTCMSSRInfo
+	SSROrbits                []RTCMSSROrbitRecord
+	SSRClocks                []RTCMSSRClockRecord
+	SSRCodeBiases            []RTCMSSRCodeBiasGroup
+	SSRPhaseBiases           []RTCMSSRPhaseBiasGroup
+	SSRURA                   []RTCMSSRURARecord
 }
 
 // RTCMMessages owns a C-backed decoded message collection.
@@ -504,6 +557,23 @@ func BuildRTCMGalileoINavEphemeris(value RTCMGalileoINavEphemeris) (*RTCMMessage
 		return nil, publicError(err)
 	}
 	return &RTCMMessages{handle: h}, nil
+}
+
+// BuildRTCMNavICEphemeris builds a detached NavIC 1041 message.
+func BuildRTCMNavICEphemeris(value RTCMNavICEphemeris) (*RTCMMessages, error) {
+	handle, err := native.BuildRTCMNavICEphemeris(native.NativeRTCMNavICEphemeris{
+		SatelliteID: value.SatelliteID, WeekNumber: value.WeekNumber, AF0: value.AF0, AF1: value.AF1,
+		AF2: value.AF2, URA: value.URA, TOC: value.TOC, TGD: value.TGD, DeltaN: value.DeltaN,
+		IODEC: value.IODEC, Reserved: value.Reserved, L5Flag: value.L5Flag, SFlag: value.SFlag,
+		CUC: value.CUC, CUS: value.CUS, CIC: value.CIC, CIS: value.CIS, CRC: value.CRC, CRS: value.CRS,
+		IDOT: value.IDOT, M0: value.M0, TOE: value.TOE, Eccentricity: value.Eccentricity, SqrtA: value.SqrtA,
+		Omega0: value.Omega0, Omega: value.Omega, I0: value.I0, OmegaDot: value.OmegaDot,
+		SpareDF544: value.SpareDF544, SpareDF545: value.SpareDF545,
+	})
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return &RTCMMessages{handle: handle}, nil
 }
 
 // BuildRTCMGLONASSEphemeris builds a detached GLONASS 1020 message.
@@ -656,6 +726,73 @@ func (m *RTCMMessages) Message(index int) (RTCMMessage, error) {
 		}
 		converted := rtcmGalileoINav(value)
 		out.GalileoINav = &converted
+	case RTCMMessageNavICEphemeris:
+		value, err := m.handle.NavICEphemeris(index)
+		if err != nil {
+			return RTCMMessage{}, publicError(err)
+		}
+		converted := rtcmNavIC(value)
+		out.NavIC = &converted
+	case RTCMMessageLegacyObservations:
+		value, err := m.LegacyObservations(index)
+		if err != nil {
+			return RTCMMessage{}, err
+		}
+		out.Legacy = &value
+	case RTCMMessageSystemParameters:
+		value, err := m.SystemParameters(index)
+		if err != nil {
+			return RTCMMessage{}, err
+		}
+		out.SystemParameters = &value
+	case RTCMMessageText:
+		value, err := m.Text(index)
+		if err != nil {
+			return RTCMMessage{}, err
+		}
+		out.Text = &value
+	case RTCMMessageSSRVTEC:
+		value, err := m.SSRVTEC(index)
+		if err != nil {
+			return RTCMMessage{}, err
+		}
+		out.SSRVTEC = &value
+	case RTCMUnsupportedMessage:
+		value, err := m.UnsupportedBody(index)
+		if err != nil {
+			return RTCMMessage{}, err
+		}
+		out.Unsupported = &value
+	case RTCMMessageNetwork:
+		if value, err := m.NetworkAuxiliaryStation(index); err == nil {
+			out.NetworkAuxiliary = &value
+		} else if value, err := m.NetworkDifferences(index); err == nil {
+			out.NetworkDifferences = &value
+		} else if value, err := m.NetworkResiduals(index); err == nil {
+			out.NetworkResiduals = &value
+		} else if value, err := m.FKPGradients(index); err == nil {
+			out.FKPGradients = &value
+		} else if value, err := m.PhysicalReferenceStation(index); err == nil {
+			out.PhysicalReferenceStation = &value
+		} else {
+			return RTCMMessage{}, err
+		}
+	case RTCMMessageTransformation:
+		if value, err := m.Projection(index); err == nil {
+			out.Projection = &value
+		} else if value, err := m.HelmertTransformation(index); err == nil {
+			out.HelmertTransformation = &value
+		} else if value, err := m.ResidualGrid(index); err == nil {
+			out.ResidualGrid = &value
+		} else {
+			return RTCMMessage{}, err
+		}
+	case RTCMMessageGLONASSCodePhaseBiases:
+		value, err := m.GLONASSCodePhaseBiases(index)
+		if err != nil {
+			return RTCMMessage{}, err
+		}
+		out.GLONASSCodePhaseBiases = &value
 	}
 	return out, nil
 }
@@ -925,6 +1062,15 @@ func (m *RTCMMessages) GalileoINavEphemeris(index int) (RTCMGalileoINavEphemeris
 	return rtcmGalileoINav(v), publicError(err)
 }
 
+// NavICEphemeris returns detached NavIC 1041 ephemeris.
+func (m *RTCMMessages) NavICEphemeris(index int) (RTCMNavICEphemeris, error) {
+	if m == nil || m.handle == nil {
+		return RTCMNavICEphemeris{}, ErrClosed
+	}
+	value, err := m.handle.NavICEphemeris(index)
+	return rtcmNavIC(value), publicError(err)
+}
+
 // RTCMAntennaStringField selects one optional antenna/receiver string field.
 type RTCMAntennaStringField uint32
 
@@ -985,6 +1131,18 @@ func rtcmGalileoFNav(v native.NativeRTCMGalileoFNavEphemeris) RTCMGalileoFNavEph
 }
 func rtcmGalileoINav(v native.NativeRTCMGalileoINavEphemeris) RTCMGalileoINavEphemeris {
 	return RTCMGalileoINavEphemeris{SatelliteID: v.SatelliteID, WeekNumber: v.WeekNumber, IodNav: v.IodNav, SISAIndex: v.SISAIndex, IDOT: v.IDOT, TOC: v.TOC, AF2: v.AF2, AF1: v.AF1, AF0: v.AF0, CRS: v.CRS, DeltaN: v.DeltaN, M0: v.M0, CUC: v.CUC, Eccentricity: v.Eccentricity, CUS: v.CUS, SqrtA: v.SqrtA, TOE: v.TOE, CIC: v.CIC, Omega0: v.Omega0, CIS: v.CIS, I0: v.I0, CRC: v.CRC, Omega: v.Omega, OmegaDot: v.OmegaDot, BGDE5AE1: v.BGDE5AE1, BGDE5BE1: v.BGDE5BE1, E5BSignalHealth: v.E5BSignalHealth, E5BDataValidity: v.E5BDataValidity, E1BSignalHealth: v.E1BSignalHealth, E1BDataValidity: v.E1BDataValidity, Reserved: v.Reserved}
+}
+
+func rtcmNavIC(value native.NativeRTCMNavICEphemeris) RTCMNavICEphemeris {
+	return RTCMNavICEphemeris{
+		SatelliteID: value.SatelliteID, WeekNumber: value.WeekNumber, AF0: value.AF0, AF1: value.AF1,
+		AF2: value.AF2, URA: value.URA, TOC: value.TOC, TGD: value.TGD, DeltaN: value.DeltaN,
+		IODEC: value.IODEC, Reserved: value.Reserved, L5Flag: value.L5Flag, SFlag: value.SFlag,
+		CUC: value.CUC, CUS: value.CUS, CIC: value.CIC, CIS: value.CIS, CRC: value.CRC, CRS: value.CRS,
+		IDOT: value.IDOT, M0: value.M0, TOE: value.TOE, Eccentricity: value.Eccentricity, SqrtA: value.SqrtA,
+		Omega0: value.Omega0, Omega: value.Omega, I0: value.I0, OmegaDot: value.OmegaDot,
+		SpareDF544: value.SpareDF544, SpareDF545: value.SpareDF545,
+	}
 }
 func rtcmGLONASS(v native.NativeRTCMGLONASSEphemeris) RTCMGLONASSEphemeris {
 	return RTCMGLONASSEphemeris{SatelliteID: v.SatelliteID, FrequencyChannel: v.FrequencyChannel, AlmanacHealth: v.AlmanacHealth, AlmanacHealthAvailability: v.AlmanacHealthAvailability, P1: v.P1, TK: v.TK, BNMSB: v.BNMSB, P2: v.P2, TB: v.TB, XNDot: v.XNDot, XN: v.XN, XNDotDot: v.XNDotDot, YNDot: v.YNDot, YN: v.YN, YNDotDot: v.YNDotDot, ZNDot: v.ZNDot, ZN: v.ZN, ZNDotDot: v.ZNDotDot, P3: v.P3, GammaN: v.GammaN, MP: v.MP, MLNThird: v.MLNThird, TauN: v.TauN, DeltaTauN: v.DeltaTauN, EN: v.EN, MP4: v.MP4, MFT: v.MFT, MNT: v.MNT, MM: v.MM, AdditionalDataAvailable: v.AdditionalDataAvailable, NA: v.NA, TauC: v.TauC, MN4: v.MN4, MTauGPS: v.MTauGPS, MLNFifth: v.MLNFifth, Reserved: v.Reserved}

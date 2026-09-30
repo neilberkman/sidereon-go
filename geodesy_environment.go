@@ -5,7 +5,7 @@ import (
 	"os"
 	"unsafe"
 
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
 )
 
 // GeoidPointDeg is a geoid query point expressed in degrees.
@@ -495,6 +495,8 @@ type DTEDHeightResult struct {
 	HasHeightM bool
 	// HeightM contains metres.
 	HeightM float64
+	// Error preserves the complete per-point terrain lookup failure.
+	Error TerrainLookupError
 }
 
 // LonLatDeg is a longitude-first DTED query point in degrees.
@@ -564,9 +566,6 @@ func (t *DTEDTerrain) HeightMWithOptions(longitudeDeg, latitudeDeg float64, opti
 	if t == nil || t.native == nil {
 		return 0, ErrClosed
 	}
-	if !validDTEDInterpolation(options.Interpolation) {
-		return 0, errors.New("sidereon: invalid DTED interpolation")
-	}
 	value, err := t.native.HeightMWithOptions(longitudeDeg, latitudeDeg, native.DtedLookupOptions{Interpolation: uint32(options.Interpolation)})
 	return value, publicError(err)
 }
@@ -592,7 +591,7 @@ func (t *DTEDTerrain) HeightBatch(points []LonLatDeg, options DTEDLookupOptions)
 	}
 	result := make([]DTEDHeightResult, len(value))
 	for i, item := range value {
-		result[i] = DTEDHeightResult{Status: StatusCode(item.Status), HasHeightM: item.HasHeightM, HeightM: item.HeightM}
+		result[i] = DTEDHeightResult{Status: StatusCode(item.Status), HasHeightM: item.HasHeightM, HeightM: item.HeightM, Error: item.Error}
 	}
 	return result, nil
 }
@@ -698,6 +697,8 @@ type MMapTerrainHeightResult struct {
 	HasOrthometricHeightM bool
 	// OrthometricHeightM contains metres.
 	OrthometricHeightM float64
+	// Error preserves the complete per-point terrain lookup failure.
+	Error TerrainLookupError
 }
 
 // TerrainStoreTileIndex describes one copied memory-mappable terrain tile.
@@ -810,9 +811,6 @@ func (t *MMapTerrain) HeightMWithOptions(longitudeDeg, latitudeDeg float64, opti
 	if t == nil || t.native == nil {
 		return 0, ErrClosed
 	}
-	if !validDTEDInterpolation(options.Interpolation) {
-		return 0, errors.New("sidereon: invalid DTED interpolation")
-	}
 	value, err := t.native.HeightMWithOptions(longitudeDeg, latitudeDeg, native.DtedLookupOptions{Interpolation: uint32(options.Interpolation)})
 	return value, publicError(err)
 }
@@ -830,9 +828,6 @@ func (t *MMapTerrain) OrthometricHeightM(longitudeDeg, latitudeDeg float64) (flo
 func (t *MMapTerrain) OrthometricHeightMWithOptions(longitudeDeg, latitudeDeg float64, options DTEDLookupOptions) (float64, error) {
 	if t == nil || t.native == nil {
 		return 0, ErrClosed
-	}
-	if !validDTEDInterpolation(options.Interpolation) {
-		return 0, errors.New("sidereon: invalid DTED interpolation")
 	}
 	value, err := t.native.OrthometricHeightMWithOptions(longitudeDeg, latitudeDeg, native.DtedLookupOptions{Interpolation: uint32(options.Interpolation)})
 	return value, publicError(err)
@@ -853,9 +848,6 @@ func (t *MMapTerrain) EllipsoidalHeightM(longitudeDeg, latitudeDeg float64) (flo
 func (t *MMapTerrain) EllipsoidalHeightMWithOptions(longitudeDeg, latitudeDeg float64, options DTEDLookupOptions) (float64, error) {
 	if t == nil || t.native == nil {
 		return 0, ErrClosed
-	}
-	if !validDTEDInterpolation(options.Interpolation) {
-		return 0, errors.New("sidereon: invalid DTED interpolation")
 	}
 	value, err := t.native.EllipsoidalHeightMWithOptions(longitudeDeg, latitudeDeg, native.DtedLookupOptions{Interpolation: uint32(options.Interpolation)})
 	return value, publicError(err)
@@ -924,7 +916,7 @@ func (t *MMapTerrain) heightBatch(points []LonLatDeg, options DTEDLookupOptions,
 	}
 	result := make([]MMapTerrainHeightResult, len(value))
 	for i, item := range value {
-		result[i] = MMapTerrainHeightResult{Status: StatusCode(item.Status), HasOrthometricHeightM: item.HasOrthometricHeightM, OrthometricHeightM: item.OrthometricHeightM}
+		result[i] = MMapTerrainHeightResult{Status: StatusCode(item.Status), HasOrthometricHeightM: item.HasOrthometricHeightM, OrthometricHeightM: item.OrthometricHeightM, Error: item.Error}
 	}
 	return result, nil
 }
@@ -1036,36 +1028,94 @@ const (
 	TerrainStoreErrorTileIDMismatch TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorTileIDMismatchValue)
 	// TerrainStoreErrorAttestedChecksumMismatch reports a mismatch against the attested checksum.
 	TerrainStoreErrorAttestedChecksumMismatch TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorAttestedChecksumMismatchValue)
+	// TerrainStoreErrorTileIDOutOfRange reports a tile id outside geographic bounds.
+	TerrainStoreErrorTileIDOutOfRange TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorTileIDOutOfRangeValue)
+	// TerrainStoreErrorTileBoundsMismatch reports tile bounds inconsistent with its id.
+	TerrainStoreErrorTileBoundsMismatch TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorTileBoundsMismatchValue)
+	// TerrainStoreErrorNonWgs84Tile reports a tile on a non-WGS84 datum.
+	TerrainStoreErrorNonWgs84Tile TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorNonWgs84TileValue)
+	// TerrainStoreErrorTile reports an invalid DTED tile with typed tile detail.
+	TerrainStoreErrorTile TerrainStoreErrorKind = TerrainStoreErrorKind(native.TerrainStoreErrorTileValue)
+)
+
+// GeoidErrorKind identifies a typed geoid parsing or construction failure.
+type GeoidErrorKind uint32
+
+const (
+	GeoidErrorNone              GeoidErrorKind = GeoidErrorKind(native.GeoidErrorNoneValue)
+	GeoidErrorInvalidDimensions GeoidErrorKind = GeoidErrorKind(native.GeoidErrorInvalidDimensionsValue)
+	GeoidErrorInvalidSpacing    GeoidErrorKind = GeoidErrorKind(native.GeoidErrorInvalidSpacingValue)
+	GeoidErrorNonFiniteValue    GeoidErrorKind = GeoidErrorKind(native.GeoidErrorNonFiniteValueValue)
+	GeoidErrorParse             GeoidErrorKind = GeoidErrorKind(native.GeoidErrorParseValue)
+	GeoidErrorUnknown           GeoidErrorKind = GeoidErrorKind(native.GeoidErrorUnknownValue)
+)
+
+// TerrainLookupErrorKind identifies a failed terrain lookup.
+type TerrainLookupErrorKind uint32
+
+const (
+	TerrainLookupErrorNone             TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorNoneValue)
+	TerrainLookupErrorInvalidInput     TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorInvalidInputValue)
+	TerrainLookupErrorMissingTile      TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorMissingTileValue)
+	TerrainLookupErrorUnknownElevation TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorUnknownElevationValue)
+	TerrainLookupErrorNonWgs84Tile     TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorNonWgs84TileValue)
+	TerrainLookupErrorParse            TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorParseValue)
+	TerrainLookupErrorTile             TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorTileValue)
+	TerrainLookupErrorTileOrigin       TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorTileOriginValue)
+	TerrainLookupErrorOther            TerrainLookupErrorKind = TerrainLookupErrorKind(native.TerrainLookupErrorOtherValue)
 )
 
 // TerrainDatumError is the typed terrain-datum detail captured from a failed terrain-datum operation.
 type TerrainDatumError struct {
 	Kind TerrainDatumErrorKind
-	// Path is the terrain-store filesystem path.
+	// Path is retained for source compatibility and populated from C's text accessor.
 	Path string
-	// Message is native diagnostic text describing the terrain-datum failure.
+	// Message is retained for source compatibility and populated from C's text accessor.
 	Message string
-	// Remediation describes the corrective action reported by the parser.
+	// Remediation is the native remediation text when this error supplies one.
 	Remediation string
+	// Terrain contains the nested typed terrain lookup failure.
+	Terrain TerrainLookupError
+	// Geoid contains the nested typed geoid failure.
+	Geoid GeoidError
 }
+
+// TerrainLookupError is the typed nested result of a terrain lookup failure.
+type TerrainLookupError = native.TerrainLookupError
+
+// GeoidError is the typed nested result of a geoid failure.
+type GeoidError = native.GeoidError
+
+// HorizontalDatum is the complete typed horizontal datum value carried by C.
+type HorizontalDatum = native.HorizontalDatum
+
+// DtedTileError is the complete typed DTED tile diagnostic carried by C.
+type DtedTileError = native.DtedTileError
 
 // TerrainStoreError is the typed terrain-store detail captured from a failed terrain-store operation.
 type TerrainStoreError struct {
 	Kind TerrainStoreErrorKind
-	// Path is the terrain-store filesystem path.
+	// Path is retained for source compatibility and populated from C's text accessor.
 	Path string
-	// Message is native diagnostic text describing the terrain-store failure.
+	// Message is retained for source compatibility and populated from C's text accessor.
 	Message string
-	// Reason is the terrain-store verification or parsing reason.
+	// Reason is the native terrain-store parsing reason when supplied.
 	Reason string
 	// Version is the tile format version.
 	Version uint16
 	// Tag is the tile record tag.
-	Tag              uint8
-	LatIndex         int32
-	LonIndex         int32
-	ExpectedChecksum uint64
-	FoundChecksum    uint64
+	Tag                uint8
+	LatIndex           int32
+	LonIndex           int32
+	ExpectedChecksum   uint64
+	FoundChecksum      uint64
+	ExpectedTileID     TerrainTileID
+	FoundTileID        TerrainTileID
+	Field              string
+	HasHorizontalDatum bool
+	HorizontalDatum    HorizontalDatum
+	HasTileError       bool
+	TileError          DtedTileError
 }
 
 // TerrainStoreChecksum64 returns the native FNV-1a checksum of data.

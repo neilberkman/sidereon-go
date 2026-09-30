@@ -1,6 +1,9 @@
 package sidereon
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"math"
 	"os"
@@ -10,9 +13,31 @@ import (
 
 func pppFixture(t *testing.T) (*SP3, PPPFloatConfig, PPPFixedConfig, PPPAutoInitOptions) {
 	t.Helper()
-	data, err := os.ReadFile("testdata/trimmed.sp3")
+	data, err := os.ReadFile("testdata/ppp-static-known-truth.sp3")
 	if err != nil {
 		t.Fatal(err)
+	}
+	manifestData, err := os.ReadFile("testdata/ppp-static-known-truth.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest struct {
+		FixtureSHA256 string    `json:"fixture_sha256"`
+		ReceiverM     []float64 `json:"receiver_ecef_m"`
+		Satellites    map[string]struct {
+			PositionM []float64 `json:"position_ecef_m"`
+			RangeM    float64   `json:"code_phase_range_m"`
+		} `json:"satellites"`
+	}
+	if err := json.Unmarshal(manifestData, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	fixtureHash := sha256.Sum256(data)
+	if hex.EncodeToString(fixtureHash[:]) != manifest.FixtureSHA256 {
+		t.Fatalf("known-truth SP3 SHA-256 = %x, manifest says %s", fixtureHash, manifest.FixtureSHA256)
+	}
+	if len(manifest.ReceiverM) != 3 || manifest.ReceiverM[0] != 4.5e6 || manifest.ReceiverM[1] != 0.5e6 || manifest.ReceiverM[2] != 4.5e6 {
+		t.Fatalf("known-truth manifest receiver = %v", manifest.ReceiverM)
 	}
 	sp3, err := LoadSP3(data)
 	if err != nil {
@@ -35,6 +60,9 @@ func pppFixture(t *testing.T) (*SP3, PPPFloatConfig, PPPFixedConfig, PPPAutoInit
 	if err != nil {
 		t.Fatal(err)
 	}
+	tropo.Enabled = false
+	tropo.EstimateZTD = false
+	tropo.EstimateTropoGradient = false
 	floatOptions, err := DefaultPPPFloatOptions()
 	if err != nil {
 		t.Fatal(err)
@@ -50,14 +78,20 @@ func pppFixture(t *testing.T) (*SP3, PPPFloatConfig, PPPFixedConfig, PPPAutoInit
 	wavelengths := make([]PPPFloatMapEntry, len(satellites))
 	offsets := make([]PPPFloatMapEntry, len(satellites))
 	for i, satellite := range satellites {
-		state, err := sp3.State(satellite, 1)
+		independent, ok := manifest.Satellites[satellite]
+		if !ok || len(independent.PositionM) != 3 || math.IsNaN(independent.RangeM) || math.IsInf(independent.RangeM, 0) || independent.RangeM <= 0 {
+			t.Fatalf("known-truth manifest row %q = %+v, present=%v", satellite, independent, ok)
+		}
+		state, err := sp3.State(satellite, 6)
 		if err != nil {
 			t.Fatal(err)
 		}
-		dx := state.PositionM[0] - receiver[0]
-		dy := state.PositionM[1] - receiver[1]
-		dz := state.PositionM[2] - receiver[2]
-		rangeM := math.Sqrt(dx*dx + dy*dy + dz*dz)
+		for axis := range state.PositionM {
+			if math.Float64bits(state.PositionM[axis]) != math.Float64bits(independent.PositionM[axis]) {
+				t.Fatalf("SP3 state %s axis %d = %.17g, independently frozen coordinate = %.17g", satellite, axis, state.PositionM[axis], independent.PositionM[axis])
+			}
+		}
+		rangeM := independent.RangeM
 		observations[i] = PPPObservation{SatelliteID: satellite, AmbiguityID: satellite, CodeM: rangeM, PhaseM: rangeM, Frequency1Hz: 1575420000, Frequency2Hz: 1227600000}
 		ambiguities[i] = PPPFloatMapEntry{ID: satellite}
 		wavelengths[i] = PPPFloatMapEntry{ID: satellite, Value: 0.19029367279836487}
@@ -111,9 +145,9 @@ func TestPPPDeterministicSP3Fixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantPosition := [3]float64{4629603.470231021, 413720.87281577487, 4428197.195378103}
+	wantPosition := [3]float64{4.5e6, 0.5e6, 4.5e6}
 	for i := range position {
-		if math.Abs(position[i]-wantPosition[i]) > 1e-6 {
+		if math.IsNaN(position[i]) || math.IsInf(position[i], 0) || math.Abs(position[i]-wantPosition[i]) > 1e-6 {
 			t.Fatalf("float position[%d] = %.17g, want %.17g", i, position[i], wantPosition[i])
 		}
 	}
@@ -149,7 +183,10 @@ func TestPPPDeterministicSP3Fixture(t *testing.T) {
 		}
 	})
 	fixedMetadata, err := fixedSolution.Metadata()
-	if err != nil || fixedMetadata.Status != PPPSolveStateTolerance || fixedMetadata.IntegerStatus != PPPIntegerNotFixed || fixedMetadata.FixedAmbiguityCount != 6 {
+	// The reference observations set code equal to phase and both ambiguity
+	// seeds and offsets to zero, so the six exact zero-cycle ambiguities are an
+	// admissible integer solution under the configured ratio test.
+	if err != nil || fixedMetadata.Status != PPPSolveStateTolerance || fixedMetadata.IntegerStatus != PPPIntegerFixed || fixedMetadata.FixedAmbiguityCount != 6 {
 		t.Fatalf("fixed metadata = %+v, err=%v", fixedMetadata, err)
 	}
 	if _, err := fixedSolution.Position(); err != nil {

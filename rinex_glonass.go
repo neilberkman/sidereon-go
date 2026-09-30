@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // FrequencyChannel maps a GLONASS slot to its FDMA channel number.
 type FrequencyChannel struct {
@@ -18,6 +18,8 @@ type GLONASSRecord struct {
 	SatelliteID string
 	// ToeUTCJ2000S is the toe utcj2000 s in seconds.
 	ToeUTCJ2000S float64
+	// EpochUTCJ2000S is the epoch as stated in the RINEX record.
+	EpochUTCJ2000S float64
 	// PositionM is the position m in metres.
 	PositionM [3]float64
 	// VelocityMPerS is the velocity m per s in metres per second.
@@ -32,10 +34,24 @@ type GLONASSRecord struct {
 	SVHealth float64
 	// FrequencyChannel is the GLONASS FDMA channel number.
 	FrequencyChannel int32
+	// StatedFrequencyChannel retains the encoded value before signed folding.
+	StatedFrequencyChannel  int32
+	HasMessageFrameTime     bool
+	MessageFrameTimeS       float64
+	HasAgeDays              bool
+	AgeDays                 float64
+	HasStatusFlags          bool
+	StatusFlags             float64
+	HasL1L2GroupDelayFieldS bool
+	L1L2GroupDelayFieldS    float64
+	HasURAI                 bool
+	URAI                    float64
+	HasHealthFlags          bool
+	HealthFlags             float64
 }
 
-// SkippedGLONASSRecord preserves the raw token of an extended GLONASS slot
-// that the core satellite identifier cannot represent.
+// SkippedGLONASSRecord preserves the raw satellite token of an unsupported or
+// malformed GLONASS record that the core satellite identifier cannot represent.
 type SkippedGLONASSRecord struct {
 	// SatelliteID is the GLONASS satellite identifier for the record.
 	SatelliteID string
@@ -102,7 +118,15 @@ func (r *RINEXGLONASSRecords) Skipped(index int) (SkippedGLONASSRecord, error) {
 }
 
 func glonassRecordFromNative(value native.NativeGlonassRecord) GLONASSRecord {
-	return GLONASSRecord{SatelliteID: value.SatelliteID, ToeUTCJ2000S: value.ToeUTCJ2000S, PositionM: value.PositionM, VelocityMPerS: value.VelocityMPerS, AccelerationMPerS2: value.AccelerationMPerS2, ClockBiasS: value.ClockBiasS, GammaN: value.GammaN, SVHealth: value.SVHealth, FrequencyChannel: value.FrequencyChannel}
+	return GLONASSRecord{
+		SatelliteID: value.SatelliteID, ToeUTCJ2000S: value.ToeUTCJ2000S, EpochUTCJ2000S: value.EpochUTCJ2000S,
+		PositionM: value.PositionM, VelocityMPerS: value.VelocityMPerS, AccelerationMPerS2: value.AccelerationMPerS2,
+		ClockBiasS: value.ClockBiasS, GammaN: value.GammaN, SVHealth: value.SVHealth, FrequencyChannel: value.FrequencyChannel,
+		StatedFrequencyChannel: value.StatedFrequencyChannel, HasMessageFrameTime: value.HasMessageFrameTime, MessageFrameTimeS: value.MessageFrameTimeS,
+		HasAgeDays: value.HasAgeDays, AgeDays: value.AgeDays, HasStatusFlags: value.HasStatusFlags, StatusFlags: value.StatusFlags,
+		HasL1L2GroupDelayFieldS: value.HasL1L2GroupDelayFieldS, L1L2GroupDelayFieldS: value.L1L2GroupDelayFieldS,
+		HasURAI: value.HasURAI, URAI: value.URAI, HasHealthFlags: value.HasHealthFlags, HealthFlags: value.HealthFlags,
+	}
 }
 
 // GLONASSFrequencyChannels returns the native broadcast slot/channel map.

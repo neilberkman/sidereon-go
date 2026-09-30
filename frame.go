@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 func nativeTimeScales(value TimeScales) native.TimeScales {
 	return native.TimeScales{

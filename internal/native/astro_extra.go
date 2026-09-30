@@ -322,8 +322,7 @@ func (s *SPK) State(target, center int32, etSecondsTDB float64) (SPKState, error
 			return C.sidereon_spk_state((*C.SidereonSpk)(pointer), C.int32_t(target), C.int32_t(center), C.double(etSecondsTDB), &out)
 		})
 	})
-	hasVelocity := bool(out.has_velocity_km_s)
-	result := SPKState{Target: int32(out.target), Center: int32(out.center), HasVelocity: hasVelocity, HasVelocityKmPerS: hasVelocity, Frame: int32(out.frame)}
+	result := SPKState{Target: int32(out.target), Center: int32(out.center), HasVelocity: true, HasVelocityKmPerS: true, Frame: int32(out.frame)}
 	for i := 0; i < 3; i++ {
 		result.PositionKm[i], result.VelocityKmPerS[i] = float64(out.position_km[i]), float64(out.velocity_km_s[i])
 	}

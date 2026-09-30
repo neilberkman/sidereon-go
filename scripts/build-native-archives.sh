@@ -3,8 +3,9 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 
 # Build the seven public sidereon-c static libraries consumed by sidereon-go.
-# The only source selector is internal/native/lib/sidereon-c.ref. It contains
-# the current C commit today and changes to v1.3.0 when that public tag exists.
+# The checked-in source selector is internal/native/lib/sidereon-c.ref. For a
+# clean pre-release source snapshot, pass both --source-dir and --source-ref;
+# the ref must be the exact commit in that local checkout.
 #
 # Target matrix:
 #   darwin/arm64       aarch64-apple-darwin
@@ -34,14 +35,17 @@ SIDEREON_C_REF=$(awk '
 SIDEREON_C_REF=$(printf '%s' "$SIDEREON_C_REF" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
 SIDEREON_C_REPOSITORY="${SIDEREON_C_REPOSITORY:-https://github.com/neilberkman/sidereon-c.git}"
 SIDEREON_C_SOURCE="${SIDEREON_C_SOURCE:-}"
-RELEASE_VERSION="${SIDEREON_RELEASE_VERSION:-2.1.0}"
+RELEASE_VERSION="${SIDEREON_RELEASE_VERSION:-3.0.0}"
 GLIBC_FLOOR="${SIDEREON_GLIBC_FLOOR:-2.17}"
-CARGO_ZIGBUILD_VERSION="${CARGO_ZIGBUILD_VERSION:-0.23.3}"
+CARGO_ZIGBUILD_VERSION="0.23.3"
 
 CARGO="${CARGO:-$HOME/.cargo/bin/cargo}"
 RUSTC="${RUSTC:-$HOME/.cargo/bin/rustc}"
 RUSTUP="${RUSTUP:-$HOME/.cargo/bin/rustup}"
 ZIG="$HOME/.local/share/mise/installs/zig/0.15.2/bin/zig"
+CARGO_ZIGBUILD_ZIG_COMMAND="$ZIG"
+CARGO_ZIGBUILD_ZIG_COMMAND_ARGS=""
+CARGO_ZIGBUILD_ZIG_VERSION="0.15.2"
 
 # Keep the requested tool precedence. CARGO_HOME/bin is appended so an
 # installed cargo-zigbuild is found without displacing the required paths.
@@ -55,16 +59,56 @@ export CARGO_TARGET_DIR="$TARGET_DIR"
 export ZIG_LOCAL_CACHE_DIR="$BUILD_ROOT/zig-local-cache"
 export ZIG_GLOBAL_CACHE_DIR="$BUILD_ROOT/zig-global-cache"
 export CARGO_ZIGBUILD_CACHE_DIR="$BUILD_ROOT/cargo-zigbuild-cache"
+export CARGO_ZIGBUILD_ZIG_COMMAND CARGO_ZIGBUILD_ZIG_COMMAND_ARGS CARGO_ZIGBUILD_ZIG_VERSION
 export RUSTC
+# The archive release toolchain is fixed; a caller's shell selection must not
+# silently change the compiler used for the seven published artifacts.
+export RUSTUP_TOOLCHAIN="1.98.1"
 
 MODE="build"
-if [[ "${1:-}" == "--verify" ]]; then
-  MODE="verify"
-  shift
-fi
-if [[ $# -ne 0 ]]; then
-  echo "usage: $0 [--verify]" >&2
-  exit 2
+CLI_SOURCE_DIR=""
+CLI_SOURCE_REF=""
+# A release build normally follows the checked-in ref file. Before that ref is
+# published, an operator may pin a clean local checkout by directory and full
+# commit hash. Requiring both values prevents an unpublished hash from being
+# fetched from the public remote by mistake.
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --verify)
+      MODE="verify"
+      shift
+      ;;
+    --source-dir)
+      [[ $# -ge 2 && -n "$2" ]] || { echo "native archive error: --source-dir requires a path" >&2; exit 2; }
+      CLI_SOURCE_DIR="$2"
+      shift 2
+      ;;
+    --source-ref)
+      [[ $# -ge 2 && -n "$2" ]] || { echo "native archive error: --source-ref requires a commit hash" >&2; exit 2; }
+      CLI_SOURCE_REF="$2"
+      shift 2
+      ;;
+    *)
+      echo "usage: $0 [--verify] [--source-dir PATH --source-ref COMMIT]" >&2
+      exit 2
+      ;;
+  esac
+done
+if [[ -n "$CLI_SOURCE_DIR" || -n "$CLI_SOURCE_REF" ]]; then
+  if [[ -z "$CLI_SOURCE_DIR" || -z "$CLI_SOURCE_REF" ]]; then
+    echo "native archive error: --source-dir and --source-ref must be supplied together" >&2
+    exit 2
+  fi
+  if [[ ! "$CLI_SOURCE_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+    echo "native archive error: --source-ref must be a full 40-character commit hash" >&2
+    exit 2
+  fi
+  if [[ ! -d "$CLI_SOURCE_DIR" ]]; then
+    echo "native archive error: --source-dir is not a directory: $CLI_SOURCE_DIR" >&2
+    exit 2
+  fi
+  SIDEREON_C_SOURCE="$CLI_SOURCE_DIR"
+  SIDEREON_C_REF=$(printf '%s' "$CLI_SOURCE_REF" | tr '[:upper:]' '[:lower:]')
 fi
 
 die() {
@@ -330,7 +374,16 @@ build_all() {
   [[ -x "$RUSTC" ]] || die "usable Rust compiler not found at $RUSTC"
   [[ -x "$RUSTUP" ]] || die "rustup not found at $RUSTUP"
   [[ -x "$ZIG" ]] || die "Zig 0.15.2 not found at $ZIG"
-  [[ "$($ZIG version)" == "0.15.2" ]] || die "unexpected Zig version at $ZIG"
+  [[ "$CARGO_ZIGBUILD_ZIG_COMMAND" == "$ZIG" && -z "$CARGO_ZIGBUILD_ZIG_COMMAND_ARGS" ]] || die "cargo-zigbuild must use the pinned Zig command without arguments"
+  [[ -x "$CARGO_ZIGBUILD_ZIG_COMMAND" ]] || die "cargo-zigbuild Zig command is not executable: $CARGO_ZIGBUILD_ZIG_COMMAND"
+  local zig_version
+  zig_version=$("$CARGO_ZIGBUILD_ZIG_COMMAND" version)
+  [[ "$zig_version" == "$CARGO_ZIGBUILD_ZIG_VERSION" ]] || die "unexpected Zig version at $CARGO_ZIGBUILD_ZIG_COMMAND: $zig_version"
+  local cargo_version rustc_version
+  cargo_version=$("$CARGO" --version)
+  rustc_version=$("$RUSTC" --version)
+  [[ "$cargo_version" =~ ^cargo[[:space:]]1\.98\.1([[:space:]]|$) ]] || die "Rust Cargo 1.98.1 is required; found: $cargo_version"
+  [[ "$rustc_version" =~ ^rustc[[:space:]]1\.98\.1([[:space:]]|$) ]] || die "Rust compiler 1.98.1 is required; found: $rustc_version"
 
   mkdir -p "$BUILD_ROOT" "$TARGET_DIR" "$LIB_DIR" "$GOPATH" "$GOMODCACHE" "$GOCACHE" "$ZIG_LOCAL_CACHE_DIR" "$ZIG_GLOBAL_CACHE_DIR" "$CARGO_ZIGBUILD_CACHE_DIR"
   SOURCE_TEMP_PARENT=""
@@ -362,7 +415,11 @@ build_all() {
   # record workstation-specific locations in Rust panic/debug strings.
   local remap_flags
   remap_flags="--remap-path-prefix=$SOURCE_DIR=__sidereon_c__ --remap-path-prefix=$CARGO_HOME=__cargo_home__ --remap-path-prefix=$ROOT_DIR=__sidereon_go__"
-  export RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }$remap_flags"
+  # This builder owns global rustc flags. Ignore inherited flags that can
+  # replace these remaps or select a host-specific linker. Explicit target
+  # triples and release mode remain selected per archive below.
+  unset RUSTFLAGS CARGO_ENCODED_RUSTFLAGS
+  export RUSTFLAGS="$remap_flags"
 
   if ! command -v cargo-zigbuild >/dev/null 2>&1; then
     note "installing cargo-zigbuild $CARGO_ZIGBUILD_VERSION into $CARGO_HOME"
@@ -371,7 +428,7 @@ build_all() {
   require_command cargo-zigbuild
   local cargo_zigbuild_version
   cargo_zigbuild_version=$(cargo-zigbuild --version)
-  [[ "$cargo_zigbuild_version" == *"$CARGO_ZIGBUILD_VERSION"* ]] || die "unexpected cargo-zigbuild version: $cargo_zigbuild_version"
+  [[ "$cargo_zigbuild_version" =~ ^cargo-zigbuild[[:space:]]+0\.23\.3([[:space:]]|$) ]] || die "cargo-zigbuild 0.23.3 is required; found: $cargo_zigbuild_version"
 
   local installed target
   for target in \
@@ -409,10 +466,9 @@ linux|arm64|musl|aarch64-unknown-linux-musl|zig|aarch64-unknown-linux-musl|libsi
 windows|amd64|gnu|x86_64-pc-windows-gnu|zig|x86_64-pc-windows-gnu|libsidereon_windows_amd64_gnu.a
 TARGETS
 
-  local cargo_version rustc_version zig_version
   cargo_version=$("$CARGO" --version)
   rustc_version=$("$RUSTC" --version)
-  zig_version=$("$ZIG" version)
+  zig_version=$("$CARGO_ZIGBUILD_ZIG_COMMAND" version)
   {
     printf '# sidereon-go static archive manifest\n'
     printf '# manifest_version=1\n'

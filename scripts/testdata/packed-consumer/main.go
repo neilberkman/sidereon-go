@@ -6,12 +6,11 @@ import (
 	"math"
 	"os"
 
-	"github.com/neilberkman/sidereon-go/v2"
+	"sidereon.dev/go/v3"
 )
 
-// This is the only implementation-dependent part of the packed consumer.
 // It performs a numerical SPP solve over in-memory bytes from the archived
-// module fixture.
+// module fixture and checks it against the pinned independent precise reference.
 func runSolve() (err error) {
 	sp3Bytes, err := os.ReadFile("trimmed.sp3")
 	if err != nil {
@@ -60,14 +59,19 @@ func runSolve() (err error) {
 	if err != nil {
 		return err
 	}
-	wantPosition := [3]uint64{0x41511b07ff83c7e9, 0x4120cd6b5ee8caf6, 0x41511e62229db722}
-	for axis, bits := range wantPosition {
-		if math.Float64bits(solution.PositionM[axis]) != bits {
-			return fmt.Errorf("position[%d] = %.17g, want frozen C value", axis, solution.PositionM[axis])
+	wantPosition := [3]float64{4484137.56180868, 550578.016017378, 4487569.615357698}
+	for axis, want := range wantPosition {
+		if math.IsNaN(solution.PositionM[axis]) || math.IsInf(solution.PositionM[axis], 0) ||
+			math.Abs(solution.PositionM[axis]-want) > 5e-5 {
+			return fmt.Errorf("position[%d] = %.17g, independent reference %.17g", axis,
+				solution.PositionM[axis], want)
 		}
 	}
-	if math.Float64bits(solution.ReceiverClockS) != 0x3f1a3b88360a8950 {
-		return fmt.Errorf("receiver clock = %.17g, want frozen C value", solution.ReceiverClockS)
+	const wantClockS = 0.00010009082050400748
+	if math.IsNaN(solution.ReceiverClockS) || math.IsInf(solution.ReceiverClockS, 0) ||
+		math.Abs(solution.ReceiverClockS-wantClockS) > 1e-12 {
+		return fmt.Errorf("receiver clock = %.17g, independent reference %.17g",
+			solution.ReceiverClockS, wantClockS)
 	}
 	if solution.UsedSatelliteCount != len(observations) {
 		return fmt.Errorf("used satellite count = %d, want %d", solution.UsedSatelliteCount, len(observations))

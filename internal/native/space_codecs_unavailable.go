@@ -36,23 +36,57 @@ type CodeDCBOptions struct {
 }
 type BiasSet struct{}
 
+type BiasNotice struct {
+	Kind           uint32
+	Departure      uint32
+	HasLine        bool
+	Line           int
+	First          int
+	Second         int
+	DeclaredCount  uint64
+	SolutionRows   int
+	BiasMode       uint32
+	UnknownVariant string
+}
+
 func ParseBiasSINEX([]byte, bool) (*BiasSet, error)                { return nil, unavailable() }
+func ParseBiasSINEXWithPolicy([]byte, uint32) (*BiasSet, error)    { return nil, unavailable() }
 func ParseCodeDCB([]byte, *CodeDCBOptions, bool) (*BiasSet, error) { return nil, unavailable() }
-func (*BiasSet) Close() error                                      { return nil }
-func (*BiasSet) RecordCount() (int, error)                         { return 0, unavailable() }
-func (*BiasSet) SkippedRecordCount() (int, error)                  { return 0, unavailable() }
-func (*BiasSet) WarningCount() (int, error)                        { return 0, unavailable() }
-func (*BiasSet) Record(int) (BiasRecord, error)                    { return BiasRecord{}, unavailable() }
+func ParseCodeDCBWithPolicy([]byte, *CodeDCBOptions, uint32) (*BiasSet, error) {
+	return nil, unavailable()
+}
+func (*BiasSet) Close() error                           { return nil }
+func (*BiasSet) RecordCount() (int, error)              { return 0, unavailable() }
+func (*BiasSet) SkippedRecordCount() (int, error)       { return 0, unavailable() }
+func (*BiasSet) WarningCount() (int, error)             { return 0, unavailable() }
+func (*BiasSet) NoticeCount() (int, error)              { return 0, unavailable() }
+func (*BiasSet) Notice(int) (BiasNotice, error)         { return BiasNotice{}, unavailable() }
+func (*BiasSet) NoticeText(int, uint32) (string, error) { return "", unavailable() }
+func (*BiasSet) BiasSINEXText() (string, error)         { return "", unavailable() }
+func (*BiasSet) BiasSINEXBytes() ([]byte, error)        { return nil, unavailable() }
+func (*BiasSet) CodeDCBText() (string, error)           { return "", unavailable() }
+func (*BiasSet) CodeDCBBytes() ([]byte, error)          { return nil, unavailable() }
+func (*BiasSet) Record(int) (BiasRecord, error)         { return BiasRecord{}, unavailable() }
 func (*BiasSet) CodeOSBSeconds(string, string, BiasEpoch) (float64, bool, error) {
 	return 0, false, unavailable()
+}
+func (*BiasSet) CodeOSBLookup(string, string, BiasEpoch) (NativeBiasLookup, error) {
+	return NativeBiasLookup{}, unavailable()
 }
 func (*BiasSet) PhaseOSBCycles(string, string, BiasEpoch) (float64, bool, error) {
 	return 0, false, unavailable()
 }
+func (*BiasSet) PhaseOSBLookup(string, string, BiasEpoch, bool, float64) (NativeBiasLookup, error) {
+	return NativeBiasLookup{}, unavailable()
+}
 func (*BiasSet) CodeDSBSeconds(string, string, string, BiasEpoch) (float64, bool, error) {
 	return 0, false, unavailable()
 }
-func (*BiasSet) Mode() (uint32, uint32, error) { return 0, 0, unavailable() }
+func (*BiasSet) CodeDSBLookup(string, string, string, BiasEpoch) (NativeBiasLookup, error) {
+	return NativeBiasLookup{}, unavailable()
+}
+func (*BiasSet) Mode() (uint32, uint32, error)         { return 0, 0, unavailable() }
+func (*BiasSet) ModeInfo() (NativeBiasModeInfo, error) { return NativeBiasModeInfo{}, unavailable() }
 
 type AllanSample struct {
 	Present bool
@@ -134,16 +168,18 @@ type OPM struct{}
 type SPK struct{}
 type TDM struct{}
 
-func ParseOEM([]byte, bool) (*OEM, error)   { return nil, unavailable() }
-func ParseOMM([]byte, uint32) (*OMM, error) { return nil, unavailable() }
-func ParseOPM([]byte, bool) (*OPM, error)   { return nil, unavailable() }
-func (*OEM) Close() error                   { return nil }
-func (*OMM) Close() error                   { return nil }
-func (*OPM) Close() error                   { return nil }
-func (*OEM) SegmentCount() (int, error)     { return 0, unavailable() }
-func (*OEM) Text(bool) ([]byte, error)      { return nil, unavailable() }
-func (*OMM) Text(uint32) ([]byte, error)    { return nil, unavailable() }
-func (*OPM) Text(bool) ([]byte, error)      { return nil, unavailable() }
+func ParseOEM([]byte, bool) (*OEM, error)            { return nil, unavailable() }
+func ParseOMM([]byte, uint32) (*OMM, error)          { return nil, unavailable() }
+func ParseOPM([]byte, bool) (*OPM, error)            { return nil, unavailable() }
+func (*OEM) Close() error                            { return nil }
+func (*OMM) Close() error                            { return nil }
+func (*OPM) Close() error                            { return nil }
+func (*OEM) SegmentCount() (int, error)              { return 0, unavailable() }
+func (*OEM) SkippedStateCount() (int, error)         { return 0, unavailable() }
+func (*OEM) SkippedStatePayload(int) ([]byte, error) { return nil, unavailable() }
+func (*OEM) Text(bool) ([]byte, error)               { return nil, unavailable() }
+func (*OMM) Text(uint32) ([]byte, error)             { return nil, unavailable() }
+func (*OPM) Text(bool) ([]byte, error)               { return nil, unavailable() }
 
 type ConstellationRecord struct {
 	System             uint32
@@ -157,6 +193,7 @@ type ConstellationRecord struct {
 	Usable             bool
 }
 type SkippedOMM struct {
+	NORADIDPresent    bool
 	NORADID           uint32
 	ObjectNamePresent bool
 	ObjectName        string
@@ -168,6 +205,7 @@ func (*OMMCatalog) Close() error                                 { return nil }
 func (*OMMCatalog) RecordCount() (int, error)                    { return 0, unavailable() }
 func (*OMMCatalog) SkippedCount() (int, error)                   { return 0, unavailable() }
 func (*OMMCatalog) MalformedCount() (int, error)                 { return 0, unavailable() }
+func (*OMMCatalog) MalformedRecord(int) (uint64, []byte, error)  { return 0, nil, unavailable() }
 func (*OMMCatalog) Record(int) (ConstellationRecord, error) {
 	return ConstellationRecord{}, unavailable()
 }
@@ -176,6 +214,7 @@ func (*OMMCatalog) Skipped(int) (SkippedOMM, error) { return SkippedOMM{}, unava
 type SPKState struct {
 	Target, Center    int32
 	PositionKm        [3]float64
+	HasVelocity       bool
 	HasVelocityKmPerS bool
 	VelocityKmPerS    [3]float64
 	Frame             int32

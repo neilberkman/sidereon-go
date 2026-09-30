@@ -288,13 +288,14 @@ func preciseObservableStates(h *positioningHandle, satellites []string, epochs [
 					ep = (*C.double)(epochMemory)
 				}
 			}
-			var status uint32
-			if shared {
-				status = uint32(C.sidereon_precise_ephemeris_interpolant_observable_states_at_shared_j2000_s((*C.SidereonPreciseEphemerisInterpolant)(pointer), (**C.char)(satPtr), count, C.double(epoch), pp, cp, hp, esp, sp))
-			} else {
-				status = uint32(C.sidereon_precise_ephemeris_interpolant_observable_states_at_j2000_s((*C.SidereonPreciseEphemerisInterpolant)(pointer), (**C.char)(satPtr), ep, count, pp, cp, hp, esp, sp))
-			}
-			if err := statusErrorLocked(status); err != nil {
+			rowErrors, err := callObservableRows(func() uint32 {
+				if shared {
+					return uint32(C.sidereon_precise_ephemeris_interpolant_observable_states_at_shared_j2000_s((*C.SidereonPreciseEphemerisInterpolant)(pointer), (**C.char)(satPtr), count, C.double(epoch), pp, cp, hp, esp, sp))
+				} else {
+					return uint32(C.sidereon_precise_ephemeris_interpolant_observable_states_at_j2000_s((*C.SidereonPreciseEphemerisInterpolant)(pointer), (**C.char)(satPtr), ep, count, pp, cp, hp, esp, sp))
+				}
+			}, n)
+			if err != nil {
 				return err
 			}
 			result = make([]NativeObservableStateRow, n)
@@ -310,6 +311,9 @@ func preciseObservableStates(h *positioningHandle, satellites []string, epochs [
 				for axis := range result[j].Position {
 					result[j].Position[axis] = float64(positions[j*3+axis])
 				}
+			}
+			if err := attachObservableRowErrors(result, rowErrors); err != nil {
+				return err
 			}
 			return nil
 		})
@@ -382,13 +386,14 @@ func preciseSourceObservable(source unsafe.Pointer, satellites []string, epochs 
 				ep = (*C.double)(epochMemory)
 			}
 		}
-		var status C.enum_SidereonStatus
-		if shared {
-			status = C.sidereon_precise_ephemeris_samples_observable_states_at_shared_j2000_s((*C.SidereonPreciseEphemerisSamples)(source), (**C.char)(satPtr), count, C.double(epoch), pp, cp, hp, esp, sp)
-		} else {
-			status = C.sidereon_precise_ephemeris_samples_observable_states_at_j2000_s((*C.SidereonPreciseEphemerisSamples)(source), (**C.char)(satPtr), ep, count, pp, cp, hp, esp, sp)
-		}
-		if err := statusErrorLocked(uint32(status)); err != nil {
+		rowErrors, err := callObservableRows(func() uint32 {
+			if shared {
+				return uint32(C.sidereon_precise_ephemeris_samples_observable_states_at_shared_j2000_s((*C.SidereonPreciseEphemerisSamples)(source), (**C.char)(satPtr), count, C.double(epoch), pp, cp, hp, esp, sp))
+			} else {
+				return uint32(C.sidereon_precise_ephemeris_samples_observable_states_at_j2000_s((*C.SidereonPreciseEphemerisSamples)(source), (**C.char)(satPtr), ep, count, pp, cp, hp, esp, sp))
+			}
+		}, n)
+		if err != nil {
 			return err
 		}
 		out := make([]NativeObservableStateRow, n)
@@ -404,6 +409,9 @@ func preciseSourceObservable(source unsafe.Pointer, satellites []string, epochs 
 			for axis := range out[j].Position {
 				out[j].Position[axis] = float64(positions[j*3+axis])
 			}
+		}
+		if err := attachObservableRowErrors(out, rowErrors); err != nil {
+			return err
 		}
 		*result = out
 		return nil

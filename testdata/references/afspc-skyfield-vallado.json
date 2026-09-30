@@ -1,0 +1,63 @@
+{
+  "generator": "python-sgp4 Vallado propagation + Skyfield UTC split",
+  "gravity_model": "WGS-72",
+  "opsmode": "a (AFSPC)",
+  "records": [
+    {
+      "error": 0,
+      "fraction_hex": "0x0.0p+0",
+      "jd_hex": "0x1.2c15f80000000p+21",
+      "position_km": [
+        -2662.3766086552882,
+        6207.721651310093,
+        622.0930876104023
+      ],
+      "position_km_hex": [
+        "-0x1.4ccc0d2d983b5p+11",
+        "0x1.83fb8be23e7f7p+12",
+        "0x1.370bea4b792bap+9"
+      ],
+      "utc": "2018-07-03T12:00:00Z",
+      "velocity_km_s": [
+        -4.609384293283934,
+        -1.3733418102804784,
+        -5.973787122230143
+      ],
+      "velocity_km_s_hex": [
+        "-0x1.270026fa966fcp+2",
+        "-0x1.5f9354316253dp+0",
+        "-0x1.7e528738cfa49p+2"
+      ]
+    },
+    {
+      "error": 0,
+      "fraction_hex": "0x1.6c16c16c16c16p-11",
+      "jd_hex": "0x1.2c15f80000000p+21",
+      "position_km": [
+        -2932.600951563247,
+        6111.099976505489,
+        262.50651944870447
+      ],
+      "position_km_hex": [
+        "-0x1.6e933afec5d40p+11",
+        "0x1.7df19980f6d72p+12",
+        "0x1.0681ab4232f94p+8"
+      ],
+      "utc": "2018-07-03T12:01:00Z",
+      "velocity_km_s": [
+        -4.394643410219572,
+        -1.84615042471225,
+        -6.007836384832771
+      ],
+      "velocity_km_s_hex": [
+        "-0x1.1941d66f1e660p+2",
+        "-0x1.d89d5071a2b84p+0",
+        "-0x1.8080642e24d70p+2"
+      ]
+    }
+  ],
+  "sgp4_version": "2.22",
+  "skyfield_version": "1.54",
+  "tle_path": "testdata/iss.tle",
+  "tle_sha256": "b7866a81fefe47fa04a271b86cc129064748b36d906a335061ca1b5cbc9dc10b"
+}

@@ -106,7 +106,7 @@ func validateSPPSatelliteID(value string) error {
 }
 
 func validateSPPMetadataEnums(status, tier uint32) error {
-	if status > uint32(C.SIDEREON_SPP_SOLVE_STATUS_MAX_EVALUATIONS) {
+	if status > uint32(C.SIDEREON_SPP_SOLVE_STATUS_OUTER_OSCILLATION) {
 		return invalidArgument("invalid SPP solve status returned by native code")
 	}
 	if tier > uint32(C.SIDEREON_OBSERVABILITY_TIER_NOMINAL) {
@@ -161,6 +161,55 @@ func (s *SBASCorrectionStore) SolveBroadcast(b *BroadcastEphemeris, geo string, 
 	return result, err
 }
 
+func (s *SBASCorrectionStore) SolveBroadcastAtExactEpoch(b *BroadcastEphemeris, geo string, mode uint32, config SPPConfig, receiveEpoch *ExactEpoch) (SPPSolution, error) {
+	if s == nil || s.resource == nil || b == nil || b.resource == nil || receiveEpoch == nil || receiveEpoch.handle == nil {
+		return SPPSolution{}, ErrClosed
+	}
+	if err := validateSBASSolveModeValue(mode); err != nil {
+		return SPPSolution{}, err
+	}
+	var result SPPSolution
+	err := b.resource.with(func(broadcastPointer unsafe.Pointer) error {
+		return s.resource.with(func(storePointer unsafe.Pointer) error {
+			return receiveEpoch.handle.with(func(epochPointer unsafe.Pointer) error {
+				return withSPPInputs(config, func(inputs *C.SidereonSppInputs) error {
+					if err := validateSPPSatelliteID(geo); err != nil {
+						return err
+					}
+					geoPointer := C.CString(geo)
+					if geoPointer == nil {
+						return errors.New("sidereon: unable to allocate native GEO ID")
+					}
+					defer C.free(unsafe.Pointer(geoPointer))
+					var solution *C.SidereonSppSolution
+					status := C.sidereon_sbas_solve_broadcast_at_exact_epoch(
+						(*C.SidereonBroadcastEphemeris)(broadcastPointer),
+						(*C.SidereonSbasCorrectionStore)(storePointer), geoPointer,
+						C.uint32_t(mode), inputs, (*C.SidereonExactEpoch)(epochPointer), &solution,
+					)
+					if err := statusErrorLocked(uint32(status)); err != nil {
+						if solution != nil {
+							C.sidereon_spp_solution_free(solution)
+						}
+						return err
+					}
+					if solution == nil {
+						return errors.New("sidereon: native SBAS exact-epoch solve returned no solution")
+					}
+					defer C.sidereon_spp_solution_free(solution)
+					var readErr error
+					result, readErr = readSPPSolutionLocked(solution)
+					return readErr
+				})
+			})
+		})
+	})
+	runtime.KeepAlive(receiveEpoch)
+	runtime.KeepAlive(s)
+	runtime.KeepAlive(b)
+	return result, err
+}
+
 func (s *SSRCorrectionStore) SolveBroadcast(b *BroadcastEphemeris, config SPPConfig, staleness float64, missing uint32, allowRegionalProvider bool, regionalProviderID uint16) (SPPSolution, error) {
 	if s == nil || s.resource == nil || b == nil || b.resource == nil {
 		return SPPSolution{}, ErrClosed
@@ -195,6 +244,51 @@ func (s *SSRCorrectionStore) SolveBroadcast(b *BroadcastEphemeris, config SPPCon
 			})
 		})
 	})
+	runtime.KeepAlive(s)
+	runtime.KeepAlive(b)
+	return result, err
+}
+
+func (s *SSRCorrectionStore) SolveBroadcastAtExactEpoch(b *BroadcastEphemeris, config SPPConfig, staleness float64, missing uint32, allowRegionalProvider bool, regionalProviderID uint16, sizePolicy uint32, receiveEpoch *ExactEpoch) (SPPSolution, error) {
+	if s == nil || s.resource == nil || b == nil || b.resource == nil || receiveEpoch == nil || receiveEpoch.handle == nil {
+		return SPPSolution{}, ErrClosed
+	}
+	if err := validateSSRMissingActionValue(missing); err != nil {
+		return SPPSolution{}, err
+	}
+	if sizePolicy != uint32(C.SIDEREON_SSR_CORRECTION_SIZE_POLICY_STRICT) && sizePolicy != uint32(C.SIDEREON_SSR_CORRECTION_SIZE_POLICY_LENIENT) {
+		return SPPSolution{}, invalidArgument("invalid SSR correction size policy")
+	}
+	var result SPPSolution
+	err := b.resource.with(func(broadcastPointer unsafe.Pointer) error {
+		return s.resource.with(func(storePointer unsafe.Pointer) error {
+			return receiveEpoch.handle.with(func(epochPointer unsafe.Pointer) error {
+				return withSPPInputs(config, func(inputs *C.SidereonSppInputs) error {
+					var solution *C.SidereonSppSolution
+					status := C.sidereon_ssr_solve_broadcast_at_exact_epoch(
+						(*C.SidereonBroadcastEphemeris)(broadcastPointer),
+						(*C.SidereonSsrCorrectionStore)(storePointer), C.double(staleness),
+						C.uint32_t(missing), C.bool(allowRegionalProvider), C.uint16_t(regionalProviderID),
+						C.uint32_t(sizePolicy), inputs, (*C.SidereonExactEpoch)(epochPointer), &solution,
+					)
+					if err := statusErrorLocked(uint32(status)); err != nil {
+						if solution != nil {
+							C.sidereon_spp_solution_free(solution)
+						}
+						return err
+					}
+					if solution == nil {
+						return errors.New("sidereon: native SSR exact-epoch solve returned no solution")
+					}
+					defer C.sidereon_spp_solution_free(solution)
+					var readErr error
+					result, readErr = readSPPSolutionLocked(solution)
+					return readErr
+				})
+			})
+		})
+	})
+	runtime.KeepAlive(receiveEpoch)
 	runtime.KeepAlive(s)
 	runtime.KeepAlive(b)
 	return result, err
@@ -295,6 +389,18 @@ func readSPPSolutionLocked(solution *C.SidereonSppSolution) (SPPSolution, error)
 	result.ResidualsM = make([]float64, writtenResiduals)
 	for i := range result.ResidualsM {
 		result.ResidualsM[i] = float64(residuals[i])
+	}
+	result.PseudorangeVariancesM2, err = copyNativeDoublesLocked("SPP pseudorange variances", func(out *C.double, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+		return C.sidereon_spp_solution_pseudorange_variances(solution, out, length, written, required)
+	})
+	if err != nil {
+		return SPPSolution{}, err
+	}
+	result.Weights, err = copyNativeDoublesLocked("SPP effective weights", func(out *C.double, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+		return C.sidereon_spp_solution_weights(solution, out, length, written, required)
+	})
+	if err != nil {
+		return SPPSolution{}, err
 	}
 
 	var metadata C.SidereonSppMetadata

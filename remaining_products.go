@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
 )
 
 // PreciseEphemerisSamples is a C-owned sample-backed ephemeris source.
@@ -374,6 +374,7 @@ func publicObservableStates(values []native.NativeObservableStateRow) []Observab
 	out := make([]ObservableStateRow, len(values))
 	for i, v := range values {
 		out[i] = ObservableStateRow{PositionECEFM: v.Position, ClockS: v.ClockS, HasClock: v.HasClock, ElementStatus: ObservableStateElementStatus(v.ElementStatus), ResultStatus: StatusCode(v.ResultStatus)}
+		out[i].Error = publicObservableRowError(v.Error)
 	}
 	return out
 }

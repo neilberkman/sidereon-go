@@ -184,8 +184,8 @@ The full official notice is reproduced in
 `LICENSES/IERS-Conventions-Software-License.txt` from the official
 [`DEHANTTIDEINEL.F`](https://iers-conventions.obspm.fr/content/chapter7/software/dehanttideinel/DEHANTTIDEINEL.F)
 source. The exact public non-test tide sources from the statically linked
-[sidereon-core 1.2.0 crate](https://crates.io/crates/sidereon-core/1.2.0)
-are distributed under `third_party_source/sidereon-core-1.2.0/tides/`.
+[sidereon-core 3.0.0 source](https://github.com/neilberkman/sidereon/tree/33f2cddcc2154afe14b54e31b40696ccc4176df9/crates/sidereon-core/src/tides)
+are distributed under `third_party_source/sidereon-core-3.0.0/tides/`.
 The source comments retain the derivation, renamed routines, IERS
 acknowledgment, and difference-from-original text.
 Published results obtained with these routines should acknowledge use of the

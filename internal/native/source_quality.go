@@ -628,6 +628,28 @@ func (s *SourcedSolution) BroadcastReason() (uint32, uint32, NativeStalenessMeta
 	return uint32(reason), uint32(selection), NativeStalenessMetadata{Kind: uint32(metadata.kind), RequestedEpochJ2000S: float64(metadata.requested_epoch_j2000_s), SourceEpochJ2000S: float64(metadata.source_epoch_j2000_s), StalenessS: float64(metadata.staleness_s), StalenessDays: float64(metadata.staleness_days)}, bool(present), nil
 }
 
+// BroadcastReasonDetail returns the complete owned fallback-reason JSON copied
+// from C while the handle is live. The caller owns the returned bytes.
+func (s *SourcedSolution) BroadcastReasonDetail() ([]byte, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	var result []byte
+	err := s.handle.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var copyErr error
+			result, copyErr = copyNativeBytesLocked("broadcast reason detail", func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+				return C.sidereon_sourced_solution_broadcast_reason_detail((*C.SidereonSourcedSolution)(pointer), out, length, written, required)
+			})
+			return copyErr
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (s *SourcedSolution) IsPreciseExact() (bool, error) {
 	if s == nil || s.handle == nil {
 		return false, ErrClosed
@@ -810,7 +832,7 @@ func PseudorangeVariance(elevation float64, options NativePseudorangeVarianceOpt
 		return 0, err
 	}
 	var output C.double
-	err = callStatus(func() uint32 { return uint32(C.sidereon_pseudorange_variance(C.double(elevation), &input, &output)) })
+	err = callQualityStatus(func() uint32 { return uint32(C.sidereon_pseudorange_variance(C.double(elevation), &input, &output)) })
 	return float64(output), err
 }
 

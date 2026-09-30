@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // TerrestrialFrame identifies one built-in ITRF/ETRF realization.
 type TerrestrialFrame uint32

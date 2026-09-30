@@ -582,7 +582,13 @@ func (s *SSRCorrectionStore) Ingest(messages *RtcmMessages, epoch NativeGnssWeek
 			defer C.free(memory)
 			week := (*C.SidereonGnssWeekTow)(memory)
 			*week = cWeek(epoch)
-			return statusErrorLocked(C.sidereon_ssr_store_ingest_messages((*C.SidereonSsrCorrectionStore)(sp), (*C.SidereonRtcmMessages)(mp), week))
+			return rtcmCallStatus(func() uint32 {
+				return uint32(C.sidereon_ssr_store_ingest_messages(
+					(*C.SidereonSsrCorrectionStore)(sp),
+					(*C.SidereonRtcmMessages)(mp),
+					week,
+				))
+			})
 		})
 	})
 }
@@ -619,22 +625,22 @@ func (s *SSRCorrectionStore) Clock(sat string) (NativeSSRClockCorrection, bool, 
 	}
 	return out, bool(p), err
 }
-func (s *SSRCorrectionStore) CodeBias(sat string, signal uint8) (float64, bool, error) {
+func (s *SSRCorrectionStore) CodeBias(sat string, source uint32, signal uint8) (float64, bool, error) {
 	var p C.bool
 	var v C.double
 	err := s.resource.with(func(sp unsafe.Pointer) error {
 		return withToken(sat, "satellite token", func(x *C.char) uint32 {
-			return C.sidereon_ssr_store_code_bias_m((*C.SidereonSsrCorrectionStore)(sp), x, C.uint8_t(signal), &p, &v)
+			return C.sidereon_ssr_store_code_bias_m((*C.SidereonSsrCorrectionStore)(sp), x, C.uint32_t(source), C.uint8_t(signal), &p, &v)
 		})
 	})
 	return float64(v), bool(p), err
 }
-func (s *SSRCorrectionStore) PhaseBias(sat string, signal uint8) (float64, bool, error) {
+func (s *SSRCorrectionStore) PhaseBias(sat string, source uint32, signal uint8) (float64, bool, error) {
 	var p C.bool
 	var v C.double
 	err := s.resource.with(func(sp unsafe.Pointer) error {
 		return withToken(sat, "satellite token", func(x *C.char) uint32 {
-			return C.sidereon_ssr_store_phase_bias_m((*C.SidereonSsrCorrectionStore)(sp), x, C.uint8_t(signal), &p, &v)
+			return C.sidereon_ssr_store_phase_bias_m((*C.SidereonSsrCorrectionStore)(sp), x, C.uint32_t(source), C.uint8_t(signal), &p, &v)
 		})
 	})
 	return float64(v), bool(p), err

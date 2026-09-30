@@ -11,18 +11,46 @@ import (
 func rinexRTKFixture(t *testing.T) (*SP3, *RINEXObservation, *RINEXObservation) {
 	t.Helper()
 	sp3Data := readPositioningFixture(t, "trimmed.sp3")
+	// Retiming the complete precise product by +12 h 15 min keeps the 13
+	// source epochs strictly increasing while placing original row 5 at the
+	// RINEX start epoch. The prior fixture edit retimed only the middle five
+	// rows, leaving the trailing rows earlier than their predecessors.
 	for _, replacement := range []struct{ from, to string }{
-		{"  2020  6 24 11 45  0.00000000", "  2020  6 25 00 00  0.00000000"},
-		{"  2020  6 24 12  0  0.00000000", "  2020  6 25 00 00 30.00000000"},
-		{"  2020  6 24 12 15  0.00000000", "  2020  6 25 00 01  0.00000000"},
-		{"  2020  6 24 12 30  0.00000000", "  2020  6 25 00 01 30.00000000"},
-		{"  2020  6 24 12 45  0.00000000", "  2020  6 25 00 02  0.00000000"},
+		{"#cP2020  6 24 10 30  0.00000000", "#cP2020  6 24 22 45  0.00000000"},
+		{"## 2111 297000.00000000   900.00000000 59024 0.4375000000000", "## 2111 341100.00000000   900.00000000 59024 0.9479166666667"},
+		{"  2020  6 24 10 30  0.00000000", "  2020  6 24 22 45  0.00000000"},
+		{"  2020  6 24 10 45  0.00000000", "  2020  6 24 23  0  0.00000000"},
+		{"  2020  6 24 11  0  0.00000000", "  2020  6 24 23 15  0.00000000"},
+		{"  2020  6 24 11 15  0.00000000", "  2020  6 24 23 30  0.00000000"},
+		{"  2020  6 24 11 30  0.00000000", "  2020  6 24 23 45  0.00000000"},
+		{"  2020  6 24 11 45  0.00000000", "  2020  6 25  0  0  0.00000000"},
+		{"  2020  6 24 12  0  0.00000000", "  2020  6 25  0 15  0.00000000"},
+		{"  2020  6 24 12 15  0.00000000", "  2020  6 25  0 30  0.00000000"},
+		{"  2020  6 24 12 30  0.00000000", "  2020  6 25  0 45  0.00000000"},
+		{"  2020  6 24 12 45  0.00000000", "  2020  6 25  1  0  0.00000000"},
+		{"  2020  6 24 13  0  0.00000000", "  2020  6 25  1 15  0.00000000"},
+		{"  2020  6 24 13 15  0.00000000", "  2020  6 25  1 30  0.00000000"},
+		{"  2020  6 24 13 30  0.00000000", "  2020  6 25  1 45  0.00000000"},
 	} {
+		if count := bytes.Count(sp3Data, []byte(replacement.from)); count != 1 {
+			t.Fatalf("SP3 timestamp source occurrence count for %q = %d, want 1", replacement.from, count)
+		}
 		sp3Data = bytes.ReplaceAll(sp3Data, []byte(replacement.from), []byte(replacement.to))
 	}
 	sp3, err := LoadSP3(sp3Data)
 	if err != nil {
 		t.Fatal(err)
+	}
+	epochs, err := sp3.Epochs()
+	if err != nil || len(epochs) != 13 || epochs[5] != 646315200 {
+		_ = sp3.Close()
+		t.Fatalf("retimed SP3 epochs = %v, %v", epochs, err)
+	}
+	for index := 1; index < len(epochs); index++ {
+		if epochs[index]-epochs[index-1] != 900 {
+			_ = sp3.Close()
+			t.Fatalf("retimed SP3 interval[%d] = %v, want 900 seconds", index, epochs[index]-epochs[index-1])
+		}
 	}
 	obsData := readObservationFixture(t, "ESBC00DNK_R_20201770000_01D_30S_MO_trim.rnx")
 	base, err := ParseRINEXObservation(obsData)
@@ -83,7 +111,11 @@ func TestRINEXRTKFixtureRoutes(t *testing.T) {
 		t.Fatalf("single shared positions = %+v, %v", positions, err)
 	}
 	basePositions, err := single.EpochBaseSatellitePositions(0)
-	if err != nil || len(basePositions) != 4 || math.Abs(basePositions[0].PositionM[0]-7093002.973882648) > 1e-6 {
+	// Pinned RTKLIB demo5 peph2pos reference for the same retimed SP3 and
+	// first-epoch G08 C1C pseudorange: 7093793.018806088 m. The measured
+	// Go/C46 difference is 8.91e-6 m; the 1 mm bound allows interpolation
+	// arithmetic variation while rejecting the stale 7093002.97 m golden.
+	if err != nil || len(basePositions) != 4 || math.Abs(basePositions[0].PositionM[0]-7093793.018806088) > 1e-3 {
 		t.Fatalf("single base positions = %+v, %v", basePositions, err)
 	}
 	roverPositions, err := single.EpochRoverSatellitePositions(0)
