@@ -547,7 +547,7 @@ type SSROrbitCorrection struct {
 	IODE uint32
 	// HasIODCRC distinguishes a transmitted zero CRC from absence.
 	HasIODCRC bool
-	// IODCRC is the native RTCM SBAS/BeiDou issue-of-data CRC when present.
+	// IODCRC is the native RTCM SBAS issue-of-data CRC when present.
 	IODCRC uint32
 	// Basis identifies the axes used by the RAC components.
 	Basis SSROrbitBasis
