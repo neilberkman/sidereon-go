@@ -113,11 +113,10 @@ direct_count=$(wc -l <"$work/direct" | tr -d ' ')
 composed_count=$(wc -l <"$work/composed" | tr -d ' ')
 excluded_count=$(wc -l <"$work/excluded" | tr -d ' ')
 
-# The reviewed header adds thirteen RINEX observation downgrade/header routes.
-# The exact disposition-union check below still requires a production call or
-# reviewed composition for every declaration; updating this pin excludes none.
-[[ "$header_count" == 2056 ]] || {
-    printf 'ABI coverage: expected 2056 pinned v3 header declarations, found %s\n' "$header_count" >&2
+# The reviewed header adds two complete SSR projection routes while retaining
+# their legacy projection symbols; the disposition union still covers every declaration.
+[[ "$header_count" == 2058 ]] || {
+    printf 'ABI coverage: expected 2058 pinned v3 header declarations, found %s\n' "$header_count" >&2
     exit 1
 }
 

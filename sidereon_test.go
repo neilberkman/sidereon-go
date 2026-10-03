@@ -20,7 +20,7 @@ func TestVendoredHeaderMatchesPinnedPublicHeader(t *testing.T) {
 		t.Fatal(err)
 	}
 	digest := sha256.Sum256(got)
-	if value := hex.EncodeToString(digest[:]); value != "aed401037b65e61bd929d403707a684299cd1fe8a55196d0f4b5363b3c98b556" {
+	if value := hex.EncodeToString(digest[:]); value != "1d461462ec13afabeccee5defaceca30c45424764cfebd2af8ff8b8a4b787515" {
 		t.Fatalf("vendored header digest = %s, want pinned digest", value)
 	}
 }

@@ -119,19 +119,160 @@ func TestSSRPublicOrbitCorrectionPreservesEveryField(t *testing.T) {
 	}
 	got, present, err := store.Orbit("G01")
 	want := SSROrbitCorrection{
-		Source: SSRSourceRTCM, ProviderID: 12, SolutionID: 3, IODE: 17, IODSSR: 4,
+		Source: SSRSourceRTCM, ProviderID: 12, SolutionID: 3,
+		NavMessage: SSRNavigationRTCM, Basis: SSROrbitBasisVelocityAligned,
+		IODE: 17, IODSSR: 4,
 		CRSRegional: true, ReferencePoint: SSRReferencePointCenterOfMass,
-		RadialM:         -float64(wantRecord.DeltaRadial) * 1e-4,
-		AlongM:          -float64(wantRecord.DeltaAlong) * 4e-4,
-		CrossM:          -float64(wantRecord.DeltaCross) * 4e-4,
-		RadialRateMPerS: -float64(wantRecord.DotDeltaRadial) * 1e-6,
-		AlongRateMPerS:  -float64(wantRecord.DotDeltaAlong) * 4e-6,
-		CrossRateMPerS:  -float64(wantRecord.DotDeltaCross) * 4e-6,
-		RefEpochJ2000S:  float64(week)*604800 + tow - 630763200 + 1,
-		UpdateIntervalS: 2,
+		RadialM:                -float64(wantRecord.DeltaRadial) * 1e-4,
+		AlongM:                 -float64(wantRecord.DeltaAlong) * 4e-4,
+		CrossM:                 -float64(wantRecord.DeltaCross) * 4e-4,
+		RadialRateMPerS:        -float64(wantRecord.DotDeltaRadial) * 1e-6,
+		AlongRateMPerS:         -float64(wantRecord.DotDeltaAlong) * 4e-6,
+		CrossRateMPerS:         -float64(wantRecord.DotDeltaCross) * 4e-6,
+		RefEpochJ2000S:         float64(week)*604800 + tow - 630763200 + 1,
+		TransmittedEpochJ2000S: float64(week)*604800 + tow - 630763200,
+		UpdateIntervalS:        2,
 	}
 	if err != nil || !present || !reflect.DeepEqual(got, want) {
 		t.Fatalf("Orbit(G01) = %#v, present=%t, err=%v; want %#v, present=true", got, present, err, want)
+	}
+}
+
+func TestSSRPublicOrbitIODCRCFromSBASFrame(t *testing.T) {
+	frame, decodeErr := hex.DecodeString("d3001d4e4abcde3e448d1010eaaca8643fe7e38181cfd2307fecb802697f6d70414ff7")
+	if decodeErr != nil {
+		t.Fatal(decodeErr)
+	}
+	store, err := NewSSRCorrectionStoreFromRTCM(frame, GNSSWeekTow{System: GPST, Week: 2400, TOWSeconds: 100000})
+	if err != nil {
+		t.Fatalf("NewSSRCorrectionStoreFromRTCM() error = %v", err)
+	}
+	closeAfterTest(t, store)
+	got, present, err := store.Orbit("S22")
+	record := RTCMSSROrbitRecord{DeltaRadial: -12345, DeltaAlong: 12345, DeltaCross: -23456, DotDeltaRadial: -1234, DotDeltaAlong: 1234, DotDeltaCross: -2345}
+	want := SSROrbitCorrection{
+		Source: SSRSourceRTCM, ProviderID: 0x1234, SolutionID: 4,
+		NavMessage: SSRNavigationRTCM, IODE: 0x155, HasIODCRC: true, IODCRC: 0x654321,
+		IODSSR: 9, Basis: SSROrbitBasisVelocityAligned, CRSRegional: true,
+		ReferencePoint: SSRReferencePointAntennaPhaseCenter,
+		RadialM:        -float64(record.DeltaRadial) * 1e-4, AlongM: -float64(record.DeltaAlong) * 4e-4, CrossM: -float64(record.DeltaCross) * 4e-4,
+		RadialRateMPerS: -float64(record.DotDeltaRadial) * 1e-6, AlongRateMPerS: -float64(record.DotDeltaAlong) * 4e-6, CrossRateMPerS: -float64(record.DotDeltaCross) * 4e-6,
+		RefEpochJ2000S: 820855715, TransmittedEpochJ2000S: 820855710,
+		UpdateIntervalS: 10,
+	}
+	if err != nil || !present || !reflect.DeepEqual(got, want) {
+		t.Fatalf("Orbit(S22) = %#v, present=%t, err=%v; want %#v", got, present, err, want)
+	}
+}
+
+func TestSSRPublicIGSSSR4076OrbitAndClockStore(t *testing.T) {
+	const week uint32 = 2400
+	const tow = 100000.0
+	info := RTCMSSRInfoV2{
+		MessageNumber: 4076, System: GNSSSystemGPS, Kind: RTCMSSRCombinedOrbitClock,
+		Header: RTCMSSRHeader{
+			EpochTimeS: uint32(tow), UpdateInterval: 0, IODSSR: 6,
+			ProviderID: 0x123, SolutionID: 7, HasSatelliteReferenceDatum: true,
+			SatelliteReferenceDatum: false, SatelliteCount: 1,
+		},
+		HasIGSSSRVersion: true, IGSSSRVersion: 1, OrbitCount: 1, ClockCount: 1,
+	}
+	orbitRecord := RTCMSSROrbitRecord{
+		SatelliteID: 1, IODE: 17, DeltaRadial: -3, DeltaAlong: 4, DeltaCross: -5,
+		DotDeltaRadial: 6, DotDeltaAlong: -7, DotDeltaCross: 8,
+	}
+	clockRecord := RTCMSSRClockRecord{SatelliteID: 1, C0: -10, C1: 20, C2: -30}
+	messages, err := BuildRTCMSSRMessageV2(info, []RTCMSSROrbitRecord{orbitRecord},
+		[]RTCMSSRClockRecord{clockRecord}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("BuildRTCMSSRMessageV2(4076) error = %v", err)
+	}
+	closeAfterTest(t, messages)
+	body, err := messages.Encode(0)
+	if err != nil {
+		t.Fatalf("Encode(4076) error = %v", err)
+	}
+	frame, err := EncodeRTCMFrame(body)
+	if err != nil {
+		t.Fatalf("EncodeRTCMFrame(4076) error = %v", err)
+	}
+	assertSSRPublicTransportFixture(t, body, "d30024fec22e30d40060123702088fffffa00009ffff600006ffff200023ffff60000a7ffffe20482165")
+	highRateInfo := info
+	highRateInfo.Kind = RTCMSSRHighRateClock
+	highRateInfo.OrbitCount = 0
+	highRateInfo.ClockCount = 1
+	highRateInfo.Header.HasSatelliteReferenceDatum = false
+	highRateInfo.Header.SatelliteReferenceDatum = false
+	highRateRecord := RTCMSSRClockRecord{SatelliteID: 1, C0: 77}
+	highRateMessages, err := BuildRTCMSSRMessageV2(highRateInfo, nil,
+		[]RTCMSSRClockRecord{highRateRecord}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("BuildRTCMSSRMessageV2(4076 high-rate) error = %v", err)
+	}
+	closeAfterTest(t, highRateMessages)
+	highRateBody, err := highRateMessages.Encode(0)
+	if err != nil {
+		t.Fatalf("Encode(4076 high-rate) error = %v", err)
+	}
+	highRateFrame, err := EncodeRTCMFrame(highRateBody)
+	if err != nil {
+		t.Fatalf("EncodeRTCMFrame(4076 high-rate) error = %v", err)
+	}
+	assertSSRPublicTransportFixture(t, highRateBody, "d3000efec23030d4006012370410001340495867")
+	frame = append(frame, highRateFrame...)
+	store, err := NewSSRCorrectionStoreFromRTCM(frame, GNSSWeekTow{System: GPST, Week: week, TOWSeconds: tow})
+	if err != nil {
+		t.Fatalf("NewSSRCorrectionStoreFromRTCM(4076) error = %v", err)
+	}
+	closeAfterTest(t, store)
+	gotOrbit, orbitPresent, orbitErr := store.Orbit("G01")
+	gotClock, clockPresent, clockErr := store.Clock("G01")
+	wantOrbit := SSROrbitCorrection{
+		Source: SSRSourceIGSSSR, ProviderID: 0x123, SolutionID: 7,
+		NavMessage: SSRNavigationIGS, IODE: 17, IODSSR: 6,
+		Basis: SSROrbitBasisVelocityAligned, ReferencePoint: SSRReferencePointAntennaPhaseCenter,
+		RadialM:         -float64(orbitRecord.DeltaRadial) * 1e-4,
+		AlongM:          -float64(orbitRecord.DeltaAlong) * 4e-4,
+		CrossM:          -float64(orbitRecord.DeltaCross) * 4e-4,
+		RadialRateMPerS: -float64(orbitRecord.DotDeltaRadial) * 1e-6,
+		AlongRateMPerS:  -float64(orbitRecord.DotDeltaAlong) * 4e-6,
+		CrossRateMPerS:  -float64(orbitRecord.DotDeltaCross) * 4e-6,
+		RefEpochJ2000S:  820856800, TransmittedEpochJ2000S: 820856800, UpdateIntervalS: 1,
+	}
+	wantClock := SSRClockCorrection{
+		Source: SSRSourceIGSSSR, ProviderID: 0x123, SolutionID: 7, IODSSR: 6,
+		NavMessage: SSRNavigationIGS, TransmittedEpochJ2000S: 820856800,
+		C0M:            float64(clockRecord.C0) * 1e-4,
+		C1MPerS:        float64(clockRecord.C1) * 1e-6,
+		C2MPerS2:       float64(clockRecord.C2) * 2e-8,
+		RefEpochJ2000S: 820856800, UpdateIntervalS: 1,
+		HasHighRate: true, HighRateC0M: float64(highRateRecord.C0) * 1e-4,
+		HighRateRefEpochJ2000S: 820856800, HighRateTransmittedEpochJ2000S: 820856800,
+		HighRateUpdateIntervalS: 1,
+	}
+	if orbitErr != nil || !orbitPresent || !reflect.DeepEqual(gotOrbit, wantOrbit) ||
+		clockErr != nil || !clockPresent || !reflect.DeepEqual(gotClock, wantClock) {
+		t.Fatalf("4076 store orbit=%#v present=%t err=%v want=%#v clock=%#v present=%t err=%v want=%#v",
+			gotOrbit, orbitPresent, orbitErr, wantOrbit, gotClock, clockPresent, clockErr, wantClock)
+	}
+}
+
+func TestSSRPublicEmptyStoreReturnsDeterministicOrbitAndClock(t *testing.T) {
+	store, err := NewSSRCorrectionStore(SSRReferencePointCenterOfMass)
+	if err != nil {
+		t.Fatalf("NewSSRCorrectionStore() error = %v", err)
+	}
+	closeAfterTest(t, store)
+	orbit, orbitPresent, orbitErr := store.Orbit("G01")
+	wantOrbit := SSROrbitCorrection{ReferencePoint: SSRReferencePointCenterOfMass}
+	if orbitErr != nil || orbitPresent || !reflect.DeepEqual(orbit, wantOrbit) {
+		t.Fatalf("Orbit(G01) = %#v, present=%t, err=%v; want %#v, present=false",
+			orbit, orbitPresent, orbitErr, wantOrbit)
+	}
+	clock, clockPresent, clockErr := store.Clock("G01")
+	if clockErr != nil || clockPresent || !reflect.DeepEqual(clock, SSRClockCorrection{}) {
+		t.Fatalf("Clock(G01) = %#v, present=%t, err=%v; want zero value, present=false",
+			clock, clockPresent, clockErr)
 	}
 }
 

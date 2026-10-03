@@ -1026,22 +1026,31 @@ type NativeSBASIGP struct {
 }
 type SBASCorrectionStore struct{}
 type NativeSSRClockCorrection struct {
-	Source                                                       uint32
-	ProviderID                                                   uint16
-	SolutionID, IODSSR                                           uint8
-	C0M, C1MPerS, C2MPerS2, RefEpochJ2000S, UpdateIntervalS      float64
-	HasHighRate                                                  bool
-	HighRateC0M, HighRateRefEpochJ2000S, HighRateUpdateIntervalS float64
+	Source                                                                                       uint32
+	ProviderID                                                                                   uint16
+	SolutionID, IODSSR                                                                           uint8
+	NavMessage                                                                                   uint32
+	HasNavigationMessageIndex                                                                    bool
+	NavigationMessageIndex                                                                       uint8
+	C0M, C1MPerS, C2MPerS2, RefEpochJ2000S, TransmittedEpochJ2000S, UpdateIntervalS              float64
+	HasHighRate                                                                                  bool
+	HighRateC0M, HighRateRefEpochJ2000S, HighRateTransmittedEpochJ2000S, HighRateUpdateIntervalS float64
 }
 type NativeSSROrbitCorrection struct {
-	Source                                                                                                    uint32
-	ProviderID                                                                                                uint16
-	SolutionID                                                                                                uint8
-	IODE                                                                                                      uint32
-	IODSSR                                                                                                    uint8
-	CRSRegional                                                                                               bool
-	ReferencePoint                                                                                            uint32
-	RadialM, AlongM, CrossM, RadialRateMPerS, AlongRateMPerS, CrossRateMPerS, RefEpochJ2000S, UpdateIntervalS float64
+	Source                                                                                                                            uint32
+	ProviderID                                                                                                                        uint16
+	SolutionID                                                                                                                        uint8
+	NavMessage                                                                                                                        uint32
+	HasNavigationMessageIndex                                                                                                         bool
+	NavigationMessageIndex                                                                                                            uint8
+	IODE                                                                                                                              uint32
+	HasIODCRC                                                                                                                         bool
+	IODCRC                                                                                                                            uint32
+	IODSSR                                                                                                                            uint8
+	Basis                                                                                                                             uint32
+	CRSRegional                                                                                                                       bool
+	ReferencePoint                                                                                                                    uint32
+	RadialM, AlongM, CrossM, RadialRateMPerS, AlongRateMPerS, CrossRateMPerS, RefEpochJ2000S, TransmittedEpochJ2000S, UpdateIntervalS float64
 }
 type SSRCorrectionStore struct{}
 
