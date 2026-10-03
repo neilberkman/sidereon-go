@@ -46,6 +46,11 @@ type NativeRinexObsHeader struct {
 	MarkerName          string
 }
 
+type NativeRinexObsHeaderSegment struct {
+	FirstEpochIndex int
+	Header          NativeRinexObsHeader
+}
+
 type NativeRinexObsCode struct {
 	System uint32
 	Code   string
@@ -115,6 +120,31 @@ func newRinexObs(pointer *C.SidereonRinexObs) (*RinexObs, error) {
 	}}}
 	handle.cleanup = runtime.AddCleanup(handle, cleanupResource, handle.resource)
 	return handle, nil
+}
+
+func nativeRinexObsHeaderFromC(value C.SidereonRinexObsHeader) (NativeRinexObsHeader, error) {
+	var marker string
+	for i := 0; i < len(value.marker_name); i++ {
+		if value.marker_name[i] == 0 {
+			break
+		}
+		marker += string(byte(value.marker_name[i]))
+	}
+	out := NativeRinexObsHeader{Version: float64(value.version), HasApproxPosition: bool(value.has_approx_position_m), HasAntennaDelta: bool(value.has_antenna_delta_hen_m), HasInterval: bool(value.has_interval_s), Interval: float64(value.interval_s), HasTimeOfFirstObs: bool(value.has_time_of_first_obs), TimeOfFirstObs: calendarEpochFromC(value.time_of_first_obs), TimeOfFirstObsScale: uint32(value.time_of_first_obs_scale), HasMarkerName: bool(value.has_marker_name), MarkerName: marker}
+	for i := range out.ApproxPosition {
+		out.ApproxPosition[i] = float64(value.approx_position_m[i])
+		out.AntennaDelta[i] = float64(value.antenna_delta_hen_m[i])
+	}
+	counts := []*int{&out.ObsCodeCount, &out.PhaseShiftCount, &out.ScaleFactorCount, &out.GLONASSSlotCount}
+	nativeCounts := []C.size_t{value.obs_code_count, value.phase_shift_count, value.scale_factor_count, value.glonass_slot_count}
+	for i := range counts {
+		count, err := checkedNativeCount(uint64(nativeCounts[i]))
+		if err != nil {
+			return NativeRinexObsHeader{}, err
+		}
+		*counts[i] = count
+	}
+	return out, nil
 }
 
 func ParseRinexObs(data []byte) (*RinexObs, error) {
@@ -193,29 +223,88 @@ func (obs *RinexObs) Header() (NativeRinexObsHeader, error) {
 	if err != nil {
 		return NativeRinexObsHeader{}, err
 	}
-	var marker string
-	for i := 0; i < len(value.marker_name); i++ {
-		if value.marker_name[i] == 0 {
-			break
-		}
-		marker += string(byte(value.marker_name[i]))
-	}
-	out := NativeRinexObsHeader{Version: float64(value.version), HasApproxPosition: bool(value.has_approx_position_m), HasAntennaDelta: bool(value.has_antenna_delta_hen_m), HasInterval: bool(value.has_interval_s), Interval: float64(value.interval_s), HasTimeOfFirstObs: bool(value.has_time_of_first_obs), TimeOfFirstObs: calendarEpochFromC(value.time_of_first_obs), TimeOfFirstObsScale: uint32(value.time_of_first_obs_scale), HasMarkerName: bool(value.has_marker_name), MarkerName: marker}
-	for i := range out.ApproxPosition {
-		out.ApproxPosition[i] = float64(value.approx_position_m[i])
-		out.AntennaDelta[i] = float64(value.antenna_delta_hen_m[i])
-	}
-	counts := []*int{&out.ObsCodeCount, &out.PhaseShiftCount, &out.ScaleFactorCount, &out.GLONASSSlotCount}
-	nativeCounts := []C.size_t{value.obs_code_count, value.phase_shift_count, value.scale_factor_count, value.glonass_slot_count}
-	for i := range counts {
-		count, err := checkedNativeCount(uint64(nativeCounts[i]))
-		if err != nil {
-			return NativeRinexObsHeader{}, err
-		}
-		*counts[i] = count
-	}
 	runtime.KeepAlive(obs)
-	return out, nil
+	return nativeRinexObsHeaderFromC(value)
+}
+
+func (obs *RinexObs) HeaderAt(epoch int) (NativeRinexObsHeader, error) {
+	if epoch < 0 {
+		return NativeRinexObsHeader{}, errNegativeIndex
+	}
+	var value C.SidereonRinexObsHeader
+	err := obs.with(func(pointer *C.SidereonRinexObs) error {
+		return callStatus(func() uint32 {
+			return C.sidereon_rinex_obs_header_at(pointer, C.size_t(epoch), &value)
+		})
+	})
+	runtime.KeepAlive(obs)
+	if err != nil {
+		return NativeRinexObsHeader{}, err
+	}
+	return nativeRinexObsHeaderFromC(value)
+}
+
+func (obs *RinexObs) HeaderTimeline() ([]NativeRinexObsHeaderSegment, error) {
+	var result []NativeRinexObsHeaderSegment
+	err := obs.with(func(pointer *C.SidereonRinexObs) error {
+		var written, required C.size_t
+		if err := callStatus(func() uint32 {
+			return C.sidereon_rinex_obs_header_timeline(pointer, nil, 0, &written, &required)
+		}); err != nil {
+			return err
+		}
+		n, err := validateNativeQuery("RINEX observation header timeline", uint64(written), uint64(required))
+		if err != nil {
+			return err
+		}
+		if _, err := checkedNativeAllocationSize(n, unsafe.Sizeof(C.SidereonRinexObsHeaderSegment{})); err != nil {
+			return err
+		}
+		values := make([]C.SidereonRinexObsHeaderSegment, n)
+		var out *C.SidereonRinexObsHeaderSegment
+		if n != 0 {
+			out = &values[0]
+		}
+		written, required = 0, 0
+		if err := callStatus(func() uint32 {
+			return C.sidereon_rinex_obs_header_timeline(pointer, out, C.size_t(n), &written, &required)
+		}); err != nil {
+			return err
+		}
+		count, err := validateTwoPassCounts("RINEX observation header timeline", n, n, uint64(written), uint64(required))
+		if err != nil {
+			return err
+		}
+		result = make([]NativeRinexObsHeaderSegment, count)
+		for i := range result {
+			first, err := checkedNativeCount(uint64(values[i].first_epoch_index))
+			if err != nil {
+				return err
+			}
+			header, err := nativeRinexObsHeaderFromC(values[i].header)
+			if err != nil {
+				return err
+			}
+			result[i] = NativeRinexObsHeaderSegment{FirstEpochIndex: first, Header: header}
+		}
+		return nil
+	})
+	runtime.KeepAlive(obs)
+	return result, err
+}
+
+func (obs *RinexObs) SkippedRecords() (int, error) {
+	var count C.size_t
+	err := obs.with(func(pointer *C.SidereonRinexObs) error {
+		return callStatus(func() uint32 {
+			return C.sidereon_rinex_obs_skipped_records(pointer, &count)
+		})
+	})
+	runtime.KeepAlive(obs)
+	if err != nil {
+		return 0, err
+	}
+	return checkedNativeCount(uint64(count))
 }
 
 func (obs *RinexObs) EpochCount() (int, error) {
@@ -410,6 +499,46 @@ type NativeRinexObsWriteOutcome struct {
 	Detail  string
 }
 
+type NativeRinexObsDowngradeChange struct {
+	Kind            uint32
+	HasNestedChange bool
+	Nested          *NativeRinexObsDowngradeChange
+	HasSystem       bool
+	System          uint32
+	HasEpochIndex   bool
+	EpochIndex      int
+	HasSatellite    bool
+	SatelliteID     string
+	HasFromIndex    bool
+	FromIndex       int
+	HasToIndex      bool
+	ToIndex         int
+	HasFromValue    bool
+	FromValue       float64
+	HasToValue      bool
+	ToValue         float64
+	HasPicoseconds  bool
+	Picoseconds     uint32
+	HasCount        bool
+	Count           int
+	HasCode         bool
+	Code            string
+	HasFromText     bool
+	From            string
+	HasToText       bool
+	To              string
+	HasLabel        bool
+	Label           string
+	Codes           []string
+	Records         []string
+	FromRecords     []string
+	ToRecords       []string
+}
+
+func nativeRinexObsWriteErrorFromC(e C.SidereonRinexObsWriteError) NativeRinexObsWriteError {
+	return NativeRinexObsWriteError{Kind: uint32(e.kind), HasSystem: bool(e.has_system), System: uint32(e.system), HasSatellite: bool(e.has_satellite), SatelliteID: tokenFromC(e.satellite), HasEpochIndex: bool(e.has_epoch_index), EpochIndex: uint64(e.epoch_index), HasPosition: bool(e.has_position), Position: uint64(e.position), HasFlag: bool(e.has_flag), Flag: uint8(e.flag), HasVersion: bool(e.has_version), Version: float64(e.version), HasCount: bool(e.has_count), Count: uint64(e.count), HasCodes: bool(e.has_codes), Codes: uint64(e.codes), HasValues: bool(e.has_values), Values: uint64(e.values), HasCode: bool(e.has_code), HasDetail: bool(e.has_detail)}
+}
+
 func (obs *RinexObs) RINEXTextWithOutcome() (NativeRinexObsWriteOutcome, error) {
 	var result NativeRinexObsWriteOutcome
 	err := obs.with(func(pointer *C.SidereonRinexObs) error {
@@ -426,8 +555,7 @@ func (obs *RinexObs) RINEXTextWithOutcome() (NativeRinexObsWriteOutcome, error) 
 			if err := callStatus(func() uint32 { return uint32(C.sidereon_rinex_obs_write_result_get_outcome(nativeResult, &raw)) }); err != nil {
 				return err
 			}
-			e := raw.error
-			result = NativeRinexObsWriteOutcome{IsOK: bool(raw.is_ok), Status: uint32(raw.status), Error: NativeRinexObsWriteError{Kind: uint32(e.kind), HasSystem: bool(e.has_system), System: uint32(e.system), HasSatellite: bool(e.has_satellite), SatelliteID: tokenFromC(e.satellite), HasEpochIndex: bool(e.has_epoch_index), EpochIndex: uint64(e.epoch_index), HasPosition: bool(e.has_position), Position: uint64(e.position), HasFlag: bool(e.has_flag), Flag: uint8(e.flag), HasVersion: bool(e.has_version), Version: float64(e.version), HasCount: bool(e.has_count), Count: uint64(e.count), HasCodes: bool(e.has_codes), Codes: uint64(e.codes), HasValues: bool(e.has_values), Values: uint64(e.values), HasCode: bool(e.has_code), HasDetail: bool(e.has_detail)}}
+			result = NativeRinexObsWriteOutcome{IsOK: bool(raw.is_ok), Status: uint32(raw.status), Error: nativeRinexObsWriteErrorFromC(raw.error)}
 			copyText := func(label string, call func(*C.uint8_t, C.size_t, *C.size_t, *C.size_t) C.enum_SidereonStatus) ([]byte, error) {
 				return copyNativeBytesLocked(label, call)
 			}
@@ -470,6 +598,200 @@ func (obs *RinexObs) RINEXTextWithOutcome() (NativeRinexObsWriteOutcome, error) 
 	})
 	runtime.KeepAlive(obs)
 	return result, err
+}
+
+func copyRinexObsDowngradeText(result *C.SidereonRinexObsDowngradeResult, changeIndex, depth int, field uint32) (string, error) {
+	value, err := copyNativeBytesLocked("RINEX observation downgrade change text", func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+		return C.sidereon_rinex_obs_downgrade_result_get_change_text(result, C.size_t(changeIndex), C.size_t(depth), C.uint32_t(field), out, length, written, required)
+	})
+	return string(value), err
+}
+
+func copyRinexObsDowngradeList(result *C.SidereonRinexObsDowngradeResult, changeIndex, depth int, list uint32, count int) ([]string, error) {
+	values := make([]string, count)
+	for i := range values {
+		value, err := copyNativeBytesLocked("RINEX observation downgrade change list item", func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+			return C.sidereon_rinex_obs_downgrade_result_get_change_list_item(result, C.size_t(changeIndex), C.size_t(depth), C.uint32_t(list), C.size_t(i), out, length, written, required)
+		})
+		if err != nil {
+			return nil, err
+		}
+		values[i] = string(value)
+	}
+	return values, nil
+}
+
+func readRinexObsDowngradeChange(result *C.SidereonRinexObsDowngradeResult, changeIndex, depth int) (NativeRinexObsDowngradeChange, error) {
+	if depth > 1024 {
+		return NativeRinexObsDowngradeChange{}, errors.New("sidereon: RINEX observation downgrade change nesting is too deep")
+	}
+	var raw C.SidereonRinexObsDowngradeChange
+	if err := callStatus(func() uint32 {
+		return C.sidereon_rinex_obs_downgrade_result_get_change(result, C.size_t(changeIndex), C.size_t(depth), &raw)
+	}); err != nil {
+		return NativeRinexObsDowngradeChange{}, err
+	}
+	convertCount := func(value C.size_t) (int, error) {
+		return checkedNativeCount(uint64(value))
+	}
+	epochIndex, err := convertCount(raw.epoch_index)
+	if err != nil {
+		return NativeRinexObsDowngradeChange{}, err
+	}
+	fromIndex, err := convertCount(raw.from_index)
+	if err != nil {
+		return NativeRinexObsDowngradeChange{}, err
+	}
+	toIndex, err := convertCount(raw.to_index)
+	if err != nil {
+		return NativeRinexObsDowngradeChange{}, err
+	}
+	count, err := convertCount(raw.count)
+	if err != nil {
+		return NativeRinexObsDowngradeChange{}, err
+	}
+	codesCount, err := convertCount(raw.codes_count)
+	if err != nil {
+		return NativeRinexObsDowngradeChange{}, err
+	}
+	recordsCount, err := convertCount(raw.records_count)
+	if err != nil {
+		return NativeRinexObsDowngradeChange{}, err
+	}
+	fromRecordsCount, err := convertCount(raw.from_records_count)
+	if err != nil {
+		return NativeRinexObsDowngradeChange{}, err
+	}
+	toRecordsCount, err := convertCount(raw.to_records_count)
+	if err != nil {
+		return NativeRinexObsDowngradeChange{}, err
+	}
+	out := NativeRinexObsDowngradeChange{Kind: uint32(raw.kind), HasNestedChange: bool(raw.has_nested_change), HasSystem: bool(raw.has_system), System: uint32(raw.system), HasEpochIndex: bool(raw.has_epoch_index), EpochIndex: epochIndex, HasSatellite: bool(raw.has_satellite), SatelliteID: tokenFromC(raw.satellite), HasFromIndex: bool(raw.has_from_index), FromIndex: fromIndex, HasToIndex: bool(raw.has_to_index), ToIndex: toIndex, HasFromValue: bool(raw.has_from_value), FromValue: float64(raw.from_value), HasToValue: bool(raw.has_to_value), ToValue: float64(raw.to_value), HasPicoseconds: bool(raw.has_picoseconds), Picoseconds: uint32(raw.picoseconds), HasCount: bool(raw.has_count), Count: count, HasCode: bool(raw.has_code), HasFromText: bool(raw.has_from_text), HasToText: bool(raw.has_to_text), HasLabel: bool(raw.has_label)}
+	if out.HasCode {
+		out.Code, err = copyRinexObsDowngradeText(result, changeIndex, depth, 0)
+		if err != nil {
+			return NativeRinexObsDowngradeChange{}, err
+		}
+	}
+	if out.HasFromText {
+		out.From, err = copyRinexObsDowngradeText(result, changeIndex, depth, 1)
+		if err != nil {
+			return NativeRinexObsDowngradeChange{}, err
+		}
+	}
+	if out.HasToText {
+		out.To, err = copyRinexObsDowngradeText(result, changeIndex, depth, 2)
+		if err != nil {
+			return NativeRinexObsDowngradeChange{}, err
+		}
+	}
+	if out.HasLabel {
+		out.Label, err = copyRinexObsDowngradeText(result, changeIndex, depth, 3)
+		if err != nil {
+			return NativeRinexObsDowngradeChange{}, err
+		}
+	}
+	if out.Codes, err = copyRinexObsDowngradeList(result, changeIndex, depth, 0, codesCount); err != nil {
+		return NativeRinexObsDowngradeChange{}, err
+	}
+	if out.Records, err = copyRinexObsDowngradeList(result, changeIndex, depth, 1, recordsCount); err != nil {
+		return NativeRinexObsDowngradeChange{}, err
+	}
+	if out.FromRecords, err = copyRinexObsDowngradeList(result, changeIndex, depth, 2, fromRecordsCount); err != nil {
+		return NativeRinexObsDowngradeChange{}, err
+	}
+	if out.ToRecords, err = copyRinexObsDowngradeList(result, changeIndex, depth, 3, toRecordsCount); err != nil {
+		return NativeRinexObsDowngradeChange{}, err
+	}
+	if out.HasNestedChange {
+		nested, err := readRinexObsDowngradeChange(result, changeIndex, depth+1)
+		if err != nil {
+			return NativeRinexObsDowngradeChange{}, err
+		}
+		out.Nested = &nested
+	}
+	return out, nil
+}
+
+func (obs *RinexObs) DowngradeToRINEX2(version float64) (*RinexObs, []NativeRinexObsDowngradeChange, NativeRinexObsWriteOutcome, error) {
+	var product *RinexObs
+	var changes []NativeRinexObsDowngradeChange
+	var outcome NativeRinexObsWriteOutcome
+	err := obs.with(func(pointer *C.SidereonRinexObs) error {
+		return withCThreadError(func() error {
+			var nativeResult *C.SidereonRinexObsDowngradeResult
+			if err := callStatus(func() uint32 {
+				return C.sidereon_rinex_obs_downgrade_to_rinex2(pointer, C.double(version), &nativeResult)
+			}); err != nil {
+				return err
+			}
+			if nativeResult == nil {
+				return missingNativeHandle("RINEX observation downgrade result")
+			}
+			defer C.sidereon_rinex_obs_downgrade_result_free(nativeResult)
+			var raw C.SidereonRinexObsDowngradeOutcome
+			if err := callStatus(func() uint32 {
+				return C.sidereon_rinex_obs_downgrade_result_get_outcome(nativeResult, &raw)
+			}); err != nil {
+				return err
+			}
+			outcome = NativeRinexObsWriteOutcome{IsOK: bool(raw.is_ok), Status: uint32(raw.status), Error: nativeRinexObsWriteErrorFromC(raw.error)}
+			copyResultText := func(label string, call func(*C.uint8_t, C.size_t, *C.size_t, *C.size_t) C.enum_SidereonStatus) (string, error) {
+				value, err := copyNativeBytesLocked(label, call)
+				return string(value), err
+			}
+			var err error
+			outcome.Message, err = copyResultText("RINEX observation downgrade message", func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+				return C.sidereon_rinex_obs_downgrade_result_get_message(nativeResult, out, length, written, required)
+			})
+			if err != nil {
+				return err
+			}
+			if outcome.Error.HasCode {
+				outcome.Code, err = copyResultText("RINEX observation downgrade code", func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+					return C.sidereon_rinex_obs_downgrade_result_get_code(nativeResult, out, length, written, required)
+				})
+				if err != nil {
+					return err
+				}
+			}
+			if outcome.Error.HasDetail {
+				outcome.Detail, err = copyResultText("RINEX observation downgrade detail", func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+					return C.sidereon_rinex_obs_downgrade_result_get_detail(nativeResult, out, length, written, required)
+				})
+				if err != nil {
+					return err
+				}
+			}
+			if !outcome.IsOK {
+				return nil
+			}
+			changeCount, err := checkedNativeCount(uint64(raw.change_count))
+			if err != nil {
+				return err
+			}
+			changes = make([]NativeRinexObsDowngradeChange, changeCount)
+			for i := range changes {
+				changes[i], err = readRinexObsDowngradeChange(nativeResult, i, 0)
+				if err != nil {
+					return err
+				}
+			}
+			var nativeProduct *C.SidereonRinexObs
+			if err := callStatus(func() uint32 {
+				return C.sidereon_rinex_obs_downgrade_result_take_obs(nativeResult, &nativeProduct)
+			}); err != nil {
+				return err
+			}
+			product, err = newRinexObs(nativeProduct)
+			if err != nil && nativeProduct != nil {
+				C.sidereon_rinex_obs_free(nativeProduct)
+			}
+			return err
+		})
+	})
+	runtime.KeepAlive(obs)
+	return product, changes, outcome, err
 }
 
 func (obs *RinexObs) CarrierPhaseConflicts(epoch, row int) ([]NativeRinexPhaseShiftCorrection, error) {

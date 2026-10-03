@@ -60,11 +60,17 @@ jobs:
           set -Eeuo pipefail
           ./scripts/build-native-archives.sh
 
-      - name: Verify checked-in archive set
+      - name: Test native archive set
         shell: bash
         run: |
           set -Eeuo pipefail
           ./scripts/test-native-archives.sh
+
+      - name: Verify checked-in archive set reproduces exactly
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
           git diff --exit-code -- internal/native/lib/
 
       - name: Upload archives

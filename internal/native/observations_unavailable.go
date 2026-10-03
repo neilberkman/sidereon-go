@@ -25,6 +25,10 @@ type NativeRinexObsHeader struct {
 	HasMarkerName                                                     bool
 	MarkerName                                                        string
 }
+type NativeRinexObsHeaderSegment struct {
+	FirstEpochIndex int
+	Header          NativeRinexObsHeader
+}
 type NativeObservableRowError struct {
 	Index       uint64
 	Status      uint32
@@ -115,6 +119,41 @@ type NativeRinexObsWriteOutcome struct {
 	Code    string
 	Detail  string
 }
+type NativeRinexObsDowngradeChange struct {
+	Kind            uint32
+	HasNestedChange bool
+	Nested          *NativeRinexObsDowngradeChange
+	HasSystem       bool
+	System          uint32
+	HasEpochIndex   bool
+	EpochIndex      int
+	HasSatellite    bool
+	SatelliteID     string
+	HasFromIndex    bool
+	FromIndex       int
+	HasToIndex      bool
+	ToIndex         int
+	HasFromValue    bool
+	FromValue       float64
+	HasToValue      bool
+	ToValue         float64
+	HasPicoseconds  bool
+	Picoseconds     uint32
+	HasCount        bool
+	Count           int
+	HasCode         bool
+	Code            string
+	HasFromText     bool
+	From            string
+	HasToText       bool
+	To              string
+	HasLabel        bool
+	Label           string
+	Codes           []string
+	Records         []string
+	FromRecords     []string
+	ToRecords       []string
+}
 type RinexObs struct{}
 
 func ParseRinexObs([]byte) (*RinexObs, error) { return nil, protocolUnavailable() }
@@ -123,6 +162,13 @@ func (*RinexObs) Version() (float64, error)   { return 0, protocolUnavailable() 
 func (*RinexObs) Header() (NativeRinexObsHeader, error) {
 	return NativeRinexObsHeader{}, protocolUnavailable()
 }
+func (*RinexObs) HeaderAt(int) (NativeRinexObsHeader, error) {
+	return NativeRinexObsHeader{}, protocolUnavailable()
+}
+func (*RinexObs) HeaderTimeline() ([]NativeRinexObsHeaderSegment, error) {
+	return nil, protocolUnavailable()
+}
+func (*RinexObs) SkippedRecords() (int, error)              { return 0, protocolUnavailable() }
 func (*RinexObs) EpochCount() (int, error)                  { return 0, protocolUnavailable() }
 func (*RinexObs) Codes() ([]NativeRinexObsCode, error)      { return nil, protocolUnavailable() }
 func (*RinexObs) Epochs() ([]NativeRinexObsEpoch, error)    { return nil, protocolUnavailable() }
@@ -135,6 +181,9 @@ func (*RinexObs) CarrierPhaseConflicts(int, int) ([]NativeRinexPhaseShiftCorrect
 }
 func (*RinexObs) RINEXTextWithOutcome() (NativeRinexObsWriteOutcome, error) {
 	return NativeRinexObsWriteOutcome{}, protocolUnavailable()
+}
+func (*RinexObs) DowngradeToRINEX2(float64) (*RinexObs, []NativeRinexObsDowngradeChange, NativeRinexObsWriteOutcome, error) {
+	return nil, nil, NativeRinexObsWriteOutcome{}, protocolUnavailable()
 }
 func (*RinexObs) Pseudoranges(int) ([]NativeRinexObsPseudorange, error) {
 	return nil, protocolUnavailable()

@@ -129,6 +129,82 @@ type RINEXObservationWriteOutcome struct {
 	Text []byte
 }
 
+// RINEXObservationDowngradeChangeKind identifies one ordered RINEX 2 conversion.
+// Unknown numeric values are retained for forward compatibility.
+type RINEXObservationDowngradeChangeKind uint32
+
+const (
+	// RINEXDowngradeCodeRenamed reports a code name replacement.
+	RINEXDowngradeCodeRenamed RINEXObservationDowngradeChangeKind = iota
+	// RINEXDowngradeCodeMoved reports a code-list index change.
+	RINEXDowngradeCodeMoved
+	// RINEXDowngradeCodeAdded reports a code inserted for version-2 compatibility.
+	RINEXDowngradeCodeAdded
+	// RINEXDowngradeCodeListRemoved reports a removed constellation code list.
+	RINEXDowngradeCodeListRemoved
+	// RINEXDowngradeValueRounded reports a rounded observation value.
+	RINEXDowngradeValueRounded
+	// RINEXDowngradeCycleSlipRounded reports a rounded cycle-slip value.
+	RINEXDowngradeCycleSlipRounded
+	// RINEXDowngradeScaleFactorsRemoved reports removed scale-factor records.
+	RINEXDowngradeScaleFactorsRemoved
+	// RINEXDowngradeEpochPicosecondsRemoved reports discarded epoch picoseconds.
+	RINEXDowngradeEpochPicosecondsRemoved
+	// RINEXDowngradeClockOffsetRounded reports a rounded receiver clock offset.
+	RINEXDowngradeClockOffsetRounded
+	// RINEXDowngradeInEventLists wraps a change made inside an event header.
+	RINEXDowngradeInEventLists
+	// RINEXDowngradeDeprecatedRecordsRemoved reports removed obsolete records.
+	RINEXDowngradeDeprecatedRecordsRemoved
+	// RINEXDowngradeEventRecordsRewritten reports rewritten event records.
+	RINEXDowngradeEventRecordsRewritten
+)
+
+// RINEXObservationDowngradeChange retains every field of one ordered downgrade
+// change. Presence flags distinguish absent values from valid zero values.
+type RINEXObservationDowngradeChange struct {
+	Kind            RINEXObservationDowngradeChangeKind
+	HasNestedChange bool
+	Nested          *RINEXObservationDowngradeChange
+	HasSystem       bool
+	System          GNSSSystem
+	HasEpochIndex   bool
+	EpochIndex      int
+	HasSatellite    bool
+	SatelliteID     string
+	HasFromIndex    bool
+	FromIndex       int
+	HasToIndex      bool
+	ToIndex         int
+	HasFromValue    bool
+	FromValue       float64
+	HasToValue      bool
+	ToValue         float64
+	HasPicoseconds  bool
+	Picoseconds     uint32
+	HasCount        bool
+	Count           int
+	HasCode         bool
+	Code            string
+	HasFromText     bool
+	From            string
+	HasToText       bool
+	To              string
+	HasLabel        bool
+	Label           string
+	Codes           []string
+	Records         []string
+	FromRecords     []string
+	ToRecords       []string
+}
+
+// RINEXObservationDowngrade contains an independently owned version-2 product
+// and a detached, ordered record of every conversion.
+type RINEXObservationDowngrade struct {
+	Observation *RINEXObservation
+	Changes     []RINEXObservationDowngradeChange
+}
+
 const (
 	// RINEXObservationPseudorange identifies a pseudorange observable.
 	RINEXObservationPseudorange RINEXObservationKind = 0
@@ -162,6 +238,13 @@ type RINEXObservationHeader struct {
 	GLONASSSlotCount     int
 	HasMarkerName        bool
 	MarkerName           string
+}
+
+// RINEXObservationHeaderSegment is one detached header snapshot and the first
+// epoch index for which it is effective.
+type RINEXObservationHeaderSegment struct {
+	FirstEpochIndex int
+	Header          RINEXObservationHeader
 }
 
 // RINEXObservationCode identifies one system/code pair.
@@ -251,6 +334,10 @@ func civilFromNative(value native.NativeCalendarEpoch) CivilDateTime {
 	return CivilDateTime{Year: int(value.Year), Month: int(value.Month), Day: int(value.Day), Hour: int(value.Hour), Minute: int(value.Minute), Second: value.Second}
 }
 
+func rinexObservationHeaderFromNative(v native.NativeRinexObsHeader) RINEXObservationHeader {
+	return RINEXObservationHeader{Version: v.Version, HasApproxPosition: v.HasApproxPosition, ApproxPositionM: v.ApproxPosition, HasAntennaDelta: v.HasAntennaDelta, AntennaDeltaHENM: v.AntennaDelta, HasInterval: v.HasInterval, IntervalS: v.Interval, HasTimeOfFirstObs: v.HasTimeOfFirstObs, TimeOfFirstObs: civilFromNative(v.TimeOfFirstObs), TimeOfFirstObsScale: TimeScale(v.TimeOfFirstObsScale), ObservationCodeCount: v.ObsCodeCount, PhaseShiftCount: v.PhaseShiftCount, ScaleFactorCount: v.ScaleFactorCount, GLONASSSlotCount: v.GLONASSSlotCount, HasMarkerName: v.HasMarkerName, MarkerName: v.MarkerName}
+}
+
 // RINEXObservation owns a parsed RINEX 3 observation product. Its read
 // methods copy native data. Read-only calls may run concurrently with Close;
 // Close waits for active calls, as required by the C handle contract.
@@ -305,7 +392,46 @@ func (obs *RINEXObservation) Header() (RINEXObservationHeader, error) {
 	if err != nil {
 		return RINEXObservationHeader{}, publicError(err)
 	}
-	return RINEXObservationHeader{Version: v.Version, HasApproxPosition: v.HasApproxPosition, ApproxPositionM: v.ApproxPosition, HasAntennaDelta: v.HasAntennaDelta, AntennaDeltaHENM: v.AntennaDelta, HasInterval: v.HasInterval, IntervalS: v.Interval, HasTimeOfFirstObs: v.HasTimeOfFirstObs, TimeOfFirstObs: civilFromNative(v.TimeOfFirstObs), TimeOfFirstObsScale: TimeScale(v.TimeOfFirstObsScale), ObservationCodeCount: v.ObsCodeCount, PhaseShiftCount: v.PhaseShiftCount, ScaleFactorCount: v.ScaleFactorCount, GLONASSSlotCount: v.GLONASSSlotCount, HasMarkerName: v.HasMarkerName, MarkerName: v.MarkerName}, nil
+	return rinexObservationHeaderFromNative(v), nil
+}
+
+// HeaderTimeline returns detached header snapshots in file order. The first
+// segment always begins at epoch zero; effective event headers add segments.
+func (obs *RINEXObservation) HeaderTimeline() ([]RINEXObservationHeaderSegment, error) {
+	if obs == nil || obs.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := obs.handle.HeaderTimeline()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	out := make([]RINEXObservationHeaderSegment, len(values))
+	for i, value := range values {
+		out[i] = RINEXObservationHeaderSegment{FirstEpochIndex: value.FirstEpochIndex, Header: rinexObservationHeaderFromNative(value.Header)}
+	}
+	return out, nil
+}
+
+// HeaderAt returns a detached summary of the header effective at epochIndex.
+func (obs *RINEXObservation) HeaderAt(epochIndex int) (RINEXObservationHeader, error) {
+	if obs == nil || obs.handle == nil {
+		return RINEXObservationHeader{}, ErrClosed
+	}
+	value, err := obs.handle.HeaderAt(epochIndex)
+	if err != nil {
+		return RINEXObservationHeader{}, publicError(err)
+	}
+	return rinexObservationHeaderFromNative(value), nil
+}
+
+// SkippedRecords returns the number of input records deliberately skipped by
+// the parser because their tokens were not representable.
+func (obs *RINEXObservation) SkippedRecords() (int, error) {
+	if obs == nil || obs.handle == nil {
+		return 0, ErrClosed
+	}
+	value, err := obs.handle.SkippedRecords()
+	return value, publicError(err)
 }
 
 // EpochCount returns the number of observation epochs.
@@ -462,10 +588,47 @@ func (obs *RINEXObservation) RINEXTextWithOutcome() (RINEXObservationWriteOutcom
 	}
 	result := RINEXObservationWriteOutcome{IsOK: value.IsOK, Status: StatusCode(value.Status), Text: append([]byte(nil), value.Text...)}
 	if !value.IsOK {
-		e := value.Error
-		result.Error = &RINEXObservationWriteError{Kind: RINEXObservationWriteErrorKind(e.Kind), HasSystem: e.HasSystem, System: e.System, HasSatellite: e.HasSatellite, SatelliteID: e.SatelliteID, HasEpochIndex: e.HasEpochIndex, EpochIndex: e.EpochIndex, HasPosition: e.HasPosition, Position: e.Position, HasFlag: e.HasFlag, Flag: e.Flag, HasVersion: e.HasVersion, Version: e.Version, HasCount: e.HasCount, Count: e.Count, HasCodes: e.HasCodes, Codes: e.Codes, HasValues: e.HasValues, Values: e.Values, HasCode: e.HasCode, Code: value.Code, HasDetail: e.HasDetail, Detail: value.Detail, Message: value.Message}
+		result.Error = rinexObservationWriteErrorFromNative(value)
 	}
 	return result, nil
+}
+
+func rinexObservationWriteErrorFromNative(value native.NativeRinexObsWriteOutcome) *RINEXObservationWriteError {
+	e := value.Error
+	return &RINEXObservationWriteError{Kind: RINEXObservationWriteErrorKind(e.Kind), HasSystem: e.HasSystem, System: e.System, HasSatellite: e.HasSatellite, SatelliteID: e.SatelliteID, HasEpochIndex: e.HasEpochIndex, EpochIndex: e.EpochIndex, HasPosition: e.HasPosition, Position: e.Position, HasFlag: e.HasFlag, Flag: e.Flag, HasVersion: e.HasVersion, Version: e.Version, HasCount: e.HasCount, Count: e.Count, HasCodes: e.HasCodes, Codes: e.Codes, HasValues: e.HasValues, Values: e.Values, HasCode: e.HasCode, Code: value.Code, HasDetail: e.HasDetail, Detail: value.Detail, Message: value.Message}
+}
+
+func rinexObservationDowngradeChangeFromNative(value native.NativeRinexObsDowngradeChange) RINEXObservationDowngradeChange {
+	out := RINEXObservationDowngradeChange{Kind: RINEXObservationDowngradeChangeKind(value.Kind), HasNestedChange: value.HasNestedChange, HasSystem: value.HasSystem, System: GNSSSystem(value.System), HasEpochIndex: value.HasEpochIndex, EpochIndex: value.EpochIndex, HasSatellite: value.HasSatellite, SatelliteID: value.SatelliteID, HasFromIndex: value.HasFromIndex, FromIndex: value.FromIndex, HasToIndex: value.HasToIndex, ToIndex: value.ToIndex, HasFromValue: value.HasFromValue, FromValue: value.FromValue, HasToValue: value.HasToValue, ToValue: value.ToValue, HasPicoseconds: value.HasPicoseconds, Picoseconds: value.Picoseconds, HasCount: value.HasCount, Count: value.Count, HasCode: value.HasCode, Code: value.Code, HasFromText: value.HasFromText, From: value.From, HasToText: value.HasToText, To: value.To, HasLabel: value.HasLabel, Label: value.Label, Codes: append([]string(nil), value.Codes...), Records: append([]string(nil), value.Records...), FromRecords: append([]string(nil), value.FromRecords...), ToRecords: append([]string(nil), value.ToRecords...)}
+	if value.Nested != nil {
+		nested := rinexObservationDowngradeChangeFromNative(*value.Nested)
+		out.Nested = &nested
+	}
+	return out
+}
+
+// DowngradeToRINEX2 returns a fresh independently owned version-2 product and
+// every ordered conversion. It leaves the source unchanged. Semantic refusals
+// are returned as *RINEXObservationWriteError.
+func (obs *RINEXObservation) DowngradeToRINEX2(version float64) (RINEXObservationDowngrade, error) {
+	if obs == nil || obs.handle == nil {
+		return RINEXObservationDowngrade{}, ErrClosed
+	}
+	product, values, outcome, err := obs.handle.DowngradeToRINEX2(version)
+	if err != nil {
+		return RINEXObservationDowngrade{}, publicError(err)
+	}
+	if !outcome.IsOK {
+		return RINEXObservationDowngrade{}, rinexObservationWriteErrorFromNative(outcome)
+	}
+	if product == nil {
+		return RINEXObservationDowngrade{}, fmt.Errorf("sidereon: native RINEX downgrade returned no product")
+	}
+	changes := make([]RINEXObservationDowngradeChange, len(values))
+	for i, value := range values {
+		changes[i] = rinexObservationDowngradeChangeFromNative(value)
+	}
+	return RINEXObservationDowngrade{Observation: &RINEXObservation{handle: product}, Changes: changes}, nil
 }
 
 // RINEXObservationFrequency returns a signal frequency in hertz. A nil

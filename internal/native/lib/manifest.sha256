@@ -1,10 +1,11 @@
 # sidereon-go static archive manifest
 # manifest_version=1
 # release_target=3.0.0
-# source_ref=626ef4a3baf89757a301654ec1dc7c7c779871f6
-# source_commit=626ef4a3baf89757a301654ec1dc7c7c779871f6
+# source_ref=40e9d180c976a047ac9aab343de088ae8bd08da4
+# source_commit=40e9d180c976a047ac9aab343de088ae8bd08da4
 # header_version=3.0.0
-# source_header_sha256=a1be66715adf022b3c679b5fe3083d8c7bfbc2424bde1463bab3eee09edb797f
+# source_header_sha256=aed401037b65e61bd929d403707a684299cd1fe8a55196d0f4b5363b3c98b556
+# archive_rows_pending_verified_rebuild=true
 # glibc_floor=2.17
 # cargo=cargo 1.98.1 (797e8a9bc 2026-08-05)
 # rustc=rustc 1.98.1 (48a229cea 2026-09-01)

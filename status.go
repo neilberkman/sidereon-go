@@ -809,6 +809,9 @@ func (e *StatusError) Unwrap() error {
 	if e.Engine != nil {
 		details = append(details, e.Engine)
 	}
+	if detail := e.TDMError(); detail != nil {
+		details = append(details, detail)
+	}
 	if e.TerrainDatum != nil {
 		details = append(details, e.TerrainDatum)
 	}
@@ -848,6 +851,17 @@ func (e *StatusError) EngineError() *EngineError {
 		return nil
 	}
 	return e.Engine
+}
+
+// TDMError returns the typed TDM detail captured with this native failure.
+func (e *StatusError) TDMError() *TDMErrorDetail {
+	if e == nil {
+		return nil
+	}
+	if e.Engine == nil || e.Engine.Family != EngineErrorFamilyTdm || e.Engine.CaptureError != nil {
+		return nil
+	}
+	return &TDMErrorDetail{Kind: e.Engine.Kind, Fields: publicEngineJSONFields(e.Engine.TypedFields), Display: e.Detail}
 }
 
 // ErrClosed is returned when an operation uses a handle after Close.

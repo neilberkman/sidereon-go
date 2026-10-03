@@ -102,6 +102,56 @@ func TestOMMSnapshotRetainsAllFieldsCommentsAndBridge(t *testing.T) {
 	if snapshot.ExactSGP4Epoch != nil || !snapshot.QuantizeTLEDerivedFields {
 		t.Fatalf("parsed OMM side channels = exact %v, quantize %t", snapshot.ExactSGP4Epoch, snapshot.QuantizeTLEDerivedFields)
 	}
+	assertString := func(name string, got *string, want string) {
+		t.Helper()
+		if got == nil || *got != want {
+			t.Fatalf("%s = %v, want %q", name, got, want)
+		}
+	}
+	assertFloat := func(name string, got *float64, want float64) {
+		t.Helper()
+		if got == nil || *got != want {
+			t.Fatalf("%s = %v, want %.17g", name, got, want)
+		}
+	}
+	assertInt32 := func(name string, got *int32, want int32) {
+		t.Helper()
+		if got == nil || *got != want {
+			t.Fatalf("%s = %v, want %d", name, got, want)
+		}
+	}
+	assertString("creation_date", snapshot.CreationDate, "2020-065T16:00:00")
+	assertString("originator", snapshot.Originator, "NOAA")
+	assertString("object_name", snapshot.ObjectName, "GOES 9")
+	assertString("object_id", snapshot.ObjectID, "1995-025A")
+	assertString("center_name", snapshot.CenterName, "EARTH")
+	assertString("ref_frame", snapshot.RefFrame, "TEME")
+	assertString("ref_frame_epoch", snapshot.RefFrameEpoch, "2020-064T00:00:00")
+	assertString("time_system", snapshot.TimeSystem, "UTC")
+	assertString("mean_element_theory", snapshot.MeanElementTheory, "SGP/SGP4")
+	if snapshot.SemiMajorAxisKM != nil {
+		t.Fatalf("semi_major_axis_km = %v, want absent when mean_motion is stated", *snapshot.SemiMajorAxisKM)
+	}
+	if snapshot.InclinationDeg != 3.0539 || snapshot.RAOfAscNodeDeg != 81.7939 || snapshot.ArgOfPericenterDeg != 249.2363 || snapshot.MeanAnomalyDeg != 150.1602 {
+		t.Fatalf("angular elements = inclination %.17g, RA %.17g, argument %.17g, anomaly %.17g", snapshot.InclinationDeg, snapshot.RAOfAscNodeDeg, snapshot.ArgOfPericenterDeg, snapshot.MeanAnomalyDeg)
+	}
+	assertFloat("gm_km3_s2", snapshot.GMKM3S2, 398600.8)
+	assertInt32("ephemeris_type", snapshot.EphemerisType, 0)
+	assertString("classification_type", snapshot.ClassificationType, "U")
+	if snapshot.NORADCatID == nil || *snapshot.NORADCatID != 23581 {
+		t.Fatalf("norad_cat_id = %v, want 23581", snapshot.NORADCatID)
+	}
+	assertInt32("element_set_no", snapshot.ElementSetNo, 925)
+	if snapshot.RevAtEpoch == nil || *snapshot.RevAtEpoch != 4316 {
+		t.Fatalf("rev_at_epoch = %v, want 4316", snapshot.RevAtEpoch)
+	}
+	assertFloat("bstar", snapshot.BStar, 0.0001)
+	if snapshot.BTermM2KG != nil {
+		t.Fatalf("bterm_m2_kg = %v, want absent", *snapshot.BTermM2KG)
+	}
+	if snapshot.AGOMM2KG != nil {
+		t.Fatalf("agom_m2_kg = %v, want absent", *snapshot.AGOMM2KG)
+	}
 	// Reconstruct through the lossless snapshot constructor and compare every
 	// declared field, including all optional presence, comment buckets and the
 	// complete 21-value covariance block.

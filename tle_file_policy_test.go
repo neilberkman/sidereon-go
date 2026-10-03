@@ -4,7 +4,62 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestTLEFileExplicitImprovedModeMatchesDirectPair(t *testing.T) {
+	const line1 = "1 23599U 95029B   06171.76535463  .00085586  12891-6  12956-2 0  2905"
+	const line2 = "2 23599   6.9327   0.2849 5782022 274.4436  25.2425  4.47796565123555"
+	raw := []byte("OPS MODE PROBE\n" + line1 + "\n" + line2 + "\n")
+
+	parsed, err := ParseTLEFileWithOpsMode(raw, OpsModeImproved)
+	if err != nil {
+		t.Fatalf("ParseTLEFileWithOpsMode: %v", err)
+	}
+	closeAfterTest(t, parsed)
+	if count, err := parsed.Count(); err != nil || count != 1 {
+		t.Fatalf("parsed count=%d err=%v", count, err)
+	}
+	if name, err := parsed.Name(0); err != nil || name != "OPS MODE PROBE" {
+		t.Fatalf("parsed name=%q err=%v", name, err)
+	}
+
+	fromFile, err := parsed.Satellite(0)
+	if err != nil {
+		t.Fatalf("parsed satellite: %v", err)
+	}
+	closeAfterTest(t, fromFile)
+	direct, err := ParseTLEWithOpsMode(line1, line2, OpsModeImproved)
+	if err != nil {
+		t.Fatalf("ParseTLEWithOpsMode: %v", err)
+	}
+	closeAfterTest(t, direct)
+
+	fileLines, err := fromFile.Lines()
+	if err != nil {
+		t.Fatalf("file TLE lines: %v", err)
+	}
+	directLines, err := direct.Lines()
+	if err != nil {
+		t.Fatalf("direct TLE lines: %v", err)
+	}
+	if fileLines != directLines {
+		t.Fatalf("file lines=%+v direct lines=%+v", fileLines, directLines)
+	}
+
+	epoch := time.UnixMicro(1_150_827_726_640_032 + 12*60*60*1_000_000).UTC()
+	fileStates, err := fromFile.Propagate([]time.Time{epoch})
+	if err != nil {
+		t.Fatalf("file TLE propagate: %v", err)
+	}
+	directStates, err := direct.Propagate([]time.Time{epoch})
+	if err != nil {
+		t.Fatalf("direct TLE propagate: %v", err)
+	}
+	if len(fileStates) != 1 || len(directStates) != 1 || fileStates[0] != directStates[0] {
+		t.Fatalf("file states=%+v direct states=%+v", fileStates, directStates)
+	}
+}
 
 func TestTLEFilePolicyAndRejectedRecordRetention(t *testing.T) {
 	bad := append([]byte(nil), readPositioningFixture(t, "iss.tle")...)

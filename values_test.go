@@ -236,13 +236,28 @@ func TestValueRoutesFixtureMetrics(t *testing.T) {
 	if metrics.SigmaEM != 3 || metrics.SigmaNM != 3 || metrics.SigmaUM != 3 || math.Abs(metrics.DRMS-4.242640687119285) > 1e-12 {
 		t.Fatalf("isotropic metrics = %#v", metrics)
 	}
+	repeated, repeatedKind, repeatedErr := ErrorMetricsFromENU(covariance)
+	if repeatedErr != nil || repeatedKind != ErrorMetricsNone || repeated != metrics {
+		t.Fatalf("repeated ErrorMetricsFromENU = %#v, %v, %v; want %#v", repeated, repeatedKind, repeatedErr, metrics)
+	}
+	if math.Abs(metrics.CEP.RadiusM-math.Sqrt(2*math.Log(2))*3) > 1e-12 ||
+		math.Abs(metrics.R99.RadiusM-math.Sqrt(-2*math.Log(1-0.99))*3) > 1e-12 ||
+		math.Abs(metrics.TwoDRMS-2*math.Sqrt(2)*3) > 1e-12 ||
+		math.Abs(metrics.VEP-0.674490*3) > 1e-12 ||
+		math.Abs(metrics.MRSE-math.Sqrt(3)*3) > 1e-12 {
+		t.Fatalf("complete isotropic metrics = %#v", metrics)
+	}
 	ellipse, kind, err := ErrorEllipseFromENU(covariance)
-	if err != nil || kind != ErrorMetricsNone || ellipse != (ErrorEllipse{SemiMajorM: 3, SemiMinorM: 3}) {
+	if err != nil || kind != ErrorMetricsNone || ellipse != (ErrorEllipse{SemiMajorM: 3, SemiMinorM: 3}) || metrics.Ellipse != ellipse {
 		t.Fatalf("ErrorEllipseFromENU = %#v, %v, %v", ellipse, kind, err)
 	}
 	radius, kind, err := HorizontalProtectionRadius(covariance, 0.95)
 	if err != nil || kind != ErrorMetricsNone || radius.RadiusM != metrics.R95.RadiusM || radius.Probability != 0.95 {
 		t.Fatalf("HorizontalProtectionRadius = %#v, %v, %v", radius, kind, err)
+	}
+	spherical, kind, err := SphericalProtectionRadius(covariance, 0.5)
+	if err != nil || kind != ErrorMetricsNone || spherical.RadiusM != metrics.SEP.RadiusM || spherical.Probability != 0.5 {
+		t.Fatalf("SphericalProtectionRadius = %#v, %v, %v", spherical, kind, err)
 	}
 	vertical, kind, err := VerticalProtectionRadius(9, 0.5)
 	if err != nil || kind != ErrorMetricsNone || math.Abs(vertical-2.023469250588245) > 1e-12 {

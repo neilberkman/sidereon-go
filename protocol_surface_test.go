@@ -212,68 +212,169 @@ func TestCommittedRTCMBuildersAnd1046(t *testing.T) {
 	if err := antenna.Close(); err != nil {
 		t.Fatal(err)
 	}
-	gps, err := BuildRTCMGPSEphemeris(RTCMGPSEphemeris{SatelliteID: 8, WeekNumber: 123, AF0: 12345, TOE: 7200, SqrtA: 2702336448})
+	gpsExpected := RTCMGPSEphemeris{
+		SatelliteID: 8, WeekNumber: 123, SVAccuracy: 1, CodeOnL2: 1, IDOT: -4_000,
+		IODE: 11, TOC: 7_200, AF2: -3, AF1: -12_345, AF0: 23_456, IODC: 57,
+		CRS: -1_000, DeltaN: 100, M0: 1_000_000_000, CUC: -50, Eccentricity: 4_459_564,
+		CUS: 51, SqrtA: 2_702_336_448, TOE: 3_600, CIC: -5, Omega0: 1_500_000_000,
+		CIS: 6, I0: 400_000_000, CRC: 100, Omega: -1_000_000_000, OmegaDot: -100,
+		TGD: -5, SVHealth: 7, L2PDataFlag: true, FitInterval: true,
+	}
+	gps, err := BuildRTCMGPSEphemeris(gpsExpected)
 	if err != nil {
 		t.Fatal(err)
 	}
 	gpsValue, err := gps.GPSEphemeris(0)
-	if err != nil || gpsValue.SatelliteID != 8 || gpsValue.WeekNumber != 123 || gpsValue.AF0 != 12345 || gpsValue.SqrtA != 2702336448 {
-		t.Fatalf("built 1019 = %+v, %v", gpsValue, err)
+	if err != nil || gpsValue != gpsExpected {
+		t.Fatalf("built 1019 = %+v, %v; want %+v", gpsValue, err, gpsExpected)
+	}
+	gpsMessage, err := gps.Message(0)
+	if err != nil || gpsMessage.Kind != RTCMMessageGPSEphemeris || gpsMessage.GPS == nil || *gpsMessage.GPS != gpsExpected {
+		t.Fatalf("decoded 1019 message = %+v, %v", gpsMessage, err)
 	}
 	if err := gps.Close(); err != nil {
 		t.Fatal(err)
 	}
-	glonass, err := BuildRTCMGLONASSEphemeris(RTCMGLONASSEphemeris{SatelliteID: 5, FrequencyChannel: 8, TB: 30, MNT: 700})
+	glonassExpected := RTCMGLONASSEphemeris{
+		SatelliteID: 5, FrequencyChannel: 8, AlmanacHealth: true, AlmanacHealthAvailability: true,
+		P1: 2, TK: 3_600, BNMSB: true, P2: true, TB: 30,
+		XNDot: -1_000, XN: 1_000_000, XNDotDot: -3,
+		YNDot: 2_000, YN: -2_000_000, YNDotDot: 4,
+		ZNDot: -3_000, ZN: 3_000_000, ZNDotDot: -5,
+		P3: true, GammaN: -100, MP: 2, MLNThird: true, TauN: -10_000,
+		DeltaTauN: -6, EN: 17, MP4: true, MFT: 9, MNT: 700, MM: 2,
+		AdditionalDataAvailable: true, NA: 1_000, TauC: -1_000_000, MN4: 17,
+		MTauGPS: 10_000, MLNFifth: true, Reserved: 63,
+	}
+	glonass, err := BuildRTCMGLONASSEphemeris(glonassExpected)
 	if err != nil {
 		t.Fatal(err)
 	}
 	glonassValue, err := glonass.GLONASSEphemeris(0)
-	if err != nil || glonassValue.SatelliteID != 5 || glonassValue.FrequencyChannel != 8 || glonassValue.TB != 30 || glonassValue.MNT != 700 {
-		t.Fatalf("built 1020 = %+v, %v", glonassValue, err)
+	if err != nil || glonassValue != glonassExpected {
+		t.Fatalf("built 1020 = %+v, %v; want %+v", glonassValue, err, glonassExpected)
+	}
+	glonassMessage, err := glonass.Message(0)
+	if err != nil || glonassMessage.Kind != RTCMMessageGLONASSEphemeris || glonassMessage.GLONASS == nil || *glonassMessage.GLONASS != glonassExpected {
+		t.Fatalf("decoded 1020 message = %+v, %v", glonassMessage, err)
+	}
+	glonassBody, err := glonass.Encode(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	glonassFrame, err := EncodeRTCMFrame(glonassBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	glonassDecoded, err := DecodeRTCM(glonassFrame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	glonassDecodedValue, err := glonassDecoded.GLONASSEphemeris(0)
+	if err != nil || glonassDecodedValue != glonassExpected {
+		t.Fatalf("encoded 1020 = %+v, %v", glonassDecodedValue, err)
+	}
+	if err := glonassDecoded.Close(); err != nil {
+		t.Fatal(err)
+	}
+	glonassPolicyBody, departures, err := glonass.EncodeWithPolicy(0, RTCMPolicyStrict)
+	if err != nil || !bytes.Equal(glonassPolicyBody, glonassBody) || len(departures) != 0 {
+		t.Fatalf("policy encoded 1020 = %x, %+v, %v", glonassPolicyBody, departures, err)
 	}
 	if err := glonass.Close(); err != nil {
 		t.Fatal(err)
 	}
-	beiDou, err := BuildRTCMBeiDouEphemeris(RTCMBeiDouEphemeris{SatelliteID: 19, WeekNumber: 902, AODE: 17, TOC: 12000, AF1: 12345, AF0: -45678, SqrtA: 2852448983, TOE: 12000})
+	beiDouExpected := RTCMBeiDouEphemeris{
+		SatelliteID: 19, WeekNumber: 902, SVURAI: 1, IDOT: -4_000, AODE: 17, TOC: 12_000,
+		AF2: -3, AF1: 12_345, AF0: -45_678, AODC: 12, CRS: -1_000, DeltaN: 100,
+		M0: 1_000_000_000, CUC: -50, Eccentricity: 4_459_564, CUS: 51,
+		SqrtA: 2_852_448_983, TOE: 12_000, CIC: -5, Omega0: 1_500_000_000,
+		CIS: 6, I0: 400_000_000, CRC: 100, Omega: -1_000_000_000, OmegaDot: -100,
+		TGD1: -5, TGD2: 7, SVHealth: true,
+	}
+	beiDou, err := BuildRTCMBeiDouEphemeris(beiDouExpected)
 	if err != nil {
 		t.Fatal(err)
 	}
 	beiDouValue, err := beiDou.BeiDouEphemeris(0)
-	if err != nil || beiDouValue.SatelliteID != 19 || beiDouValue.WeekNumber != 902 || beiDouValue.AODE != 17 || beiDouValue.AF0 != -45678 || beiDouValue.SqrtA != 2852448983 {
-		t.Fatalf("built 1042 = %+v, %v", beiDouValue, err)
+	if err != nil || beiDouValue != beiDouExpected {
+		t.Fatalf("built 1042 = %+v, %v; want %+v", beiDouValue, err, beiDouExpected)
+	}
+	beiDouMessage, err := beiDou.Message(0)
+	if err != nil || beiDouMessage.Kind != RTCMMessageBeiDouEphemeris || beiDouMessage.BeiDou == nil || *beiDouMessage.BeiDou != beiDouExpected {
+		t.Fatalf("decoded 1042 message = %+v, %v", beiDouMessage, err)
 	}
 	if err := beiDou.Close(); err != nil {
 		t.Fatal(err)
 	}
-	qzss, err := BuildRTCMQZSSEphemeris(RTCMQZSSEphemeris{SatelliteID: 3, WeekNumber: 123, IODE: 11, TOC: 7200, AF0: 23456, SqrtA: 2702336448, TOE: 3600, CodesOnL2: 1})
+	qzssExpected := RTCMQZSSEphemeris{
+		SatelliteID: 3, TOC: 7_200, AF2: -3, AF1: -12_345, AF0: 23_456, IODE: 11,
+		CRS: -1_000, DeltaN: 100, M0: 1_000_000_000, CUC: -50, Eccentricity: 4_459_564,
+		CUS: 51, SqrtA: 2_702_336_448, TOE: 3_600, CIC: -5, Omega0: 1_500_000_000,
+		CIS: 6, I0: 400_000_000, CRC: 100, Omega: -1_000_000_000, OmegaDot: -100,
+		IDOT: -4_000, CodesOnL2: 1, WeekNumber: 123, URA: 2, SVHealth: 7,
+		TGD: -5, IODC: 57, FitInterval: true,
+	}
+	qzss, err := BuildRTCMQZSSEphemeris(qzssExpected)
 	if err != nil {
 		t.Fatal(err)
 	}
 	qzssValue, err := qzss.QZSSEphemeris(0)
-	if err != nil || qzssValue.SatelliteID != 3 || qzssValue.WeekNumber != 123 || qzssValue.IODE != 11 || qzssValue.CodesOnL2 != 1 || qzssValue.SqrtA != 2702336448 {
-		t.Fatalf("built 1044 = %+v, %v", qzssValue, err)
+	if err != nil || qzssValue != qzssExpected {
+		t.Fatalf("built 1044 = %+v, %v; want %+v", qzssValue, err, qzssExpected)
+	}
+	qzssMessage, err := qzss.Message(0)
+	if err != nil || qzssMessage.Kind != RTCMMessageQZSSEphemeris || qzssMessage.QZSS == nil || *qzssMessage.QZSS != qzssExpected {
+		t.Fatalf("decoded 1044 message = %+v, %v", qzssMessage, err)
 	}
 	if err := qzss.Close(); err != nil {
 		t.Fatal(err)
 	}
-	fnav, err := BuildRTCMGalileoFNavEphemeris(RTCMGalileoFNavEphemeris{SatelliteID: 12, WeekNumber: 1402, IodNav: 7, SISA: 42, TOC: 5150, AF1: -151, AF0: -471483, SqrtA: 2852448983, TOE: 5150})
+	fnavExpected := RTCMGalileoFNavEphemeris{
+		SatelliteID: 12, WeekNumber: 1_402, IodNav: 7, SISA: 42, IDOT: 434, TOC: 5_150,
+		AF2: -3, AF1: -151, AF0: -471_483, CRS: -791, DeltaN: 9_274,
+		M0: 1_630_831_142, CUC: -707, Eccentricity: 4_459_564, CUS: 3_342,
+		SqrtA: 2_852_448_983, TOE: 5_150, CIC: -5, Omega0: 2_118_450_828,
+		CIS: -11, I0: 662_506_241, CRC: 6_692, Omega: 372_867_071,
+		OmegaDot: -15_832, BGDE5AE1: -5, E5ASignalHealth: 1, E5ADataValidity: true,
+		Reserved: 63,
+	}
+	fnav, err := BuildRTCMGalileoFNavEphemeris(fnavExpected)
 	if err != nil {
 		t.Fatal(err)
 	}
 	fnavValue, err := fnav.GalileoFNavEphemeris(0)
-	if err != nil || fnavValue.SatelliteID != 12 || fnavValue.WeekNumber != 1402 || fnavValue.IodNav != 7 || fnavValue.SISA != 42 || fnavValue.AF0 != -471483 || fnavValue.SqrtA != 2852448983 {
-		t.Fatalf("built 1045 = %+v, %v", fnavValue, err)
+	if err != nil || fnavValue != fnavExpected {
+		t.Fatalf("built 1045 = %+v, %v; want %+v", fnavValue, err, fnavExpected)
+	}
+	fnavMessage, err := fnav.Message(0)
+	if err != nil || fnavMessage.Kind != RTCMMessageGalileoFNavEphemeris || fnavMessage.GalileoFNav == nil || *fnavMessage.GalileoFNav != fnavExpected {
+		t.Fatalf("decoded 1045 message = %+v, %v", fnavMessage, err)
 	}
 	if err := fnav.Close(); err != nil {
 		t.Fatal(err)
 	}
-	inav, err := BuildRTCMGalileoINavEphemeris(RTCMGalileoINavEphemeris{SatelliteID: 3, WeekNumber: 1402, IodNav: 7, SISAIndex: 107, TOC: 5150, AF1: -151, AF0: -471483, SqrtA: 2852448983, TOE: 5150, BGDE5BE1: 7})
+	inavExpected := RTCMGalileoINavEphemeris{
+		SatelliteID: 3, WeekNumber: 1_402, IodNav: 7, SISAIndex: 107, IDOT: 434, TOC: 5_150,
+		AF2: -3, AF1: -151, AF0: -471_483, CRS: -791, DeltaN: 9_274,
+		M0: 1_630_831_142, CUC: -707, Eccentricity: 4_459_564, CUS: 3_342,
+		SqrtA: 2_852_448_983, TOE: 5_150, CIC: -5, Omega0: 2_118_450_828,
+		CIS: -11, I0: 662_506_241, CRC: 6_692, Omega: 372_867_071,
+		OmegaDot: -15_832, BGDE5AE1: -5, BGDE5BE1: 7,
+		E5BSignalHealth: 1, E5BDataValidity: true, E1BSignalHealth: 2, E1BDataValidity: true,
+		Reserved: 3,
+	}
+	inav, err := BuildRTCMGalileoINavEphemeris(inavExpected)
 	if err != nil {
 		t.Fatal(err)
 	}
 	inavValue, err := inav.GalileoINavEphemeris(0)
-	if err != nil || inavValue.SatelliteID != 3 || inavValue.WeekNumber != 1402 || inavValue.IodNav != 7 || inavValue.SISAIndex != 107 || inavValue.AF0 != -471483 || inavValue.SqrtA != 2852448983 || inavValue.BGDE5BE1 != 7 {
-		t.Fatalf("built 1046 = %+v, %v", inavValue, err)
+	if err != nil || inavValue != inavExpected {
+		t.Fatalf("built 1046 = %+v, %v; want %+v", inavValue, err, inavExpected)
+	}
+	inavMessage, err := inav.Message(0)
+	if err != nil || inavMessage.Kind != RTCMMessageGalileoINavEphemeris || inavMessage.GalileoINav == nil || *inavMessage.GalileoINav != inavExpected {
+		t.Fatalf("decoded 1046 message = %+v, %v", inavMessage, err)
 	}
 	if err := inav.Close(); err != nil {
 		t.Fatal(err)
