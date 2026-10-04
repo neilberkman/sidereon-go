@@ -84,6 +84,7 @@ type TimeScales struct {
 	JDUT1       float64
 	JDTT        float64
 	JDTDB       float64
+	UT1Degraded uint32
 }
 
 type DopplerRangeRate struct {

@@ -399,7 +399,8 @@ func sameTimeScales(got, want TimeScales) bool {
 		math.Abs(got.TDBFraction-want.TDBFraction) <= 1e-15 &&
 		math.Abs(got.JDUT1-want.JDUT1) <= 1e-9 &&
 		math.Abs(got.JDTT-want.JDTT) <= 1e-9 &&
-		math.Abs(got.JDTDB-want.JDTDB) <= 1e-9
+		math.Abs(got.JDTDB-want.JDTDB) <= 1e-9 &&
+		got.UT1Degraded == want.UT1Degraded
 }
 
 func sameMatrix(got, want Matrix3, tolerance float64) bool {

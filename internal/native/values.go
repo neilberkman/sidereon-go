@@ -92,6 +92,7 @@ type TimeScales struct {
 	JDUT1       float64
 	JDTT        float64
 	JDTDB       float64
+	UT1Degraded uint32
 }
 
 type DopplerRangeRate struct {
@@ -524,6 +525,7 @@ func TimeScalesFromUTC(value CivilDateTime) (TimeScales, error) {
 		JDWhole: float64(output.jd_whole), UT1Fraction: float64(output.ut1_fraction),
 		TTFraction: float64(output.tt_fraction), TDBFraction: float64(output.tdb_fraction),
 		JDUT1: float64(output.jd_ut1), JDTT: float64(output.jd_tt), JDTDB: float64(output.jd_tdb),
+		UT1Degraded: uint32(output.ut1_degraded),
 	}, nil
 }
 
@@ -743,6 +745,7 @@ func cTimeScales(value TimeScales) C.SidereonTimeScales {
 		jd_whole: C.double(value.JDWhole), ut1_fraction: C.double(value.UT1Fraction),
 		tt_fraction: C.double(value.TTFraction), tdb_fraction: C.double(value.TDBFraction),
 		jd_ut1: C.double(value.JDUT1), jd_tt: C.double(value.JDTT), jd_tdb: C.double(value.JDTDB),
+		ut1_degraded: C.uint32_t(value.UT1Degraded),
 	}
 }
 
