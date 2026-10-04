@@ -6,6 +6,8 @@ All notable changes to this module are documented here.
 
 - Preserve UT1 table-coverage status in time-scale values so frame and Doppler
   operations reject dates outside the supported UT1 table.
+- Add opt-in HTTP transport diagnostics that report bounded concrete type and
+  function-name metadata without exposing request data, error text, or panic values.
 
 ## 3.0.0 - 2026-10-04
 
