@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"reflect"
 	"sync"
 	"testing"
 )
@@ -60,6 +61,56 @@ func readObservationFixture(t *testing.T, name string) []byte {
 		t.Fatal(err)
 	}
 	return b
+}
+
+func TestRINEXLintFindingEpochOrderDetails(t *testing.T) {
+	data := readObservationFixture(t, "ESBC00DNK_R_20201770000_01D_30S_MO_trim.rnx")
+	first := []byte("> 2020 06 25 00 00 00.0000000  0 43")
+	second := []byte("> 2020 06 25 00 00 30.0000000  0 43")
+	if !bytes.Contains(data, first) || !bytes.Contains(data, second) {
+		t.Fatal("fixture lacks the expected adjacent epochs")
+	}
+	marker := bytes.Repeat([]byte{'X'}, len(first))
+	if len(marker) != len(first) {
+		t.Fatal("epoch marker length mismatch")
+	}
+	reordered := bytes.Replace(data, first, marker, 1)
+	reordered = bytes.Replace(reordered, second, first, 1)
+	reordered = bytes.Replace(reordered, marker, second, 1)
+	report, err := LintRINEXObservation(reordered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := report.Close(); err != nil {
+			t.Errorf("close lint report: %v", err)
+		}
+	}()
+	findings, err := report.Findings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := report.Close(); err != nil {
+		t.Fatal(err)
+	}
+	var got *RINEXLintFinding
+	for i := range findings {
+		if findings[i].Code == "OBS-B01" {
+			got = &findings[i]
+			break
+		}
+	}
+	if got == nil {
+		t.Fatalf("missing epoch-order finding in %+v", findings)
+	}
+	if got.Kind != "ObsEpochOrder" || got.SpecRef != "RINEX 3.05 Table A3" || !got.HasEpochIndex || got.EpochIndex != 1 {
+		t.Fatalf("epoch-order identity/location=%+v", *got)
+	}
+	wantPrevious := map[string]any{"year": json.Number("2020"), "month": json.Number("6"), "day": json.Number("25"), "hour": json.Number("0"), "minute": json.Number("0"), "second": json.Number("30.0")}
+	wantCurrent := map[string]any{"year": json.Number("2020"), "month": json.Number("6"), "day": json.Number("25"), "hour": json.Number("0"), "minute": json.Number("0"), "second": json.Number("0.0")}
+	if !reflect.DeepEqual(got.Details, map[string]any{"previous": wantPrevious, "current": wantCurrent}) {
+		t.Fatalf("epoch-order detail=%#v", got.Details)
+	}
 }
 
 func TestCommittedObservationFixtureHashesAndInventory(t *testing.T) {
@@ -950,21 +1001,21 @@ func TestObservationQualityLintRepairAndSignalValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantFindings := []RINEXLintFinding{
-		{Code: "OBS-H90", Severity: RINEXLintInfo, HasField: true, Field: "header"},
-		{Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R05", HasField: true, Field: "GLONASS SLOT / FRQ #"},
-		{Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R06", HasField: true, Field: "GLONASS SLOT / FRQ #"},
-		{Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R07", HasField: true, Field: "GLONASS SLOT / FRQ #"},
-		{Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R09", HasField: true, Field: "GLONASS SLOT / FRQ #"},
-		{Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R15", HasField: true, Field: "GLONASS SLOT / FRQ #"},
-		{Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R16", HasField: true, Field: "GLONASS SLOT / FRQ #"},
-		{Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R17", HasField: true, Field: "GLONASS SLOT / FRQ #"},
-		{Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R24", HasField: true, Field: "GLONASS SLOT / FRQ #"},
+		{Kind: "ObsUnretainedHeader", SpecRef: "RINEX 3.05 section 6.6", Details: map[string]any{"label": "WAVELENGTH FACT L1/2"}, Code: "OBS-H90", Severity: RINEXLintInfo, HasField: true, Field: "header"},
+		{Kind: "ObsGlonassSlotIssue", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"satellite": "R05", "issue": "missing slot"}, Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R05", HasField: true, Field: "GLONASS SLOT / FRQ #"},
+		{Kind: "ObsGlonassSlotIssue", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"satellite": "R06", "issue": "missing slot"}, Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R06", HasField: true, Field: "GLONASS SLOT / FRQ #"},
+		{Kind: "ObsGlonassSlotIssue", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"satellite": "R07", "issue": "missing slot"}, Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R07", HasField: true, Field: "GLONASS SLOT / FRQ #"},
+		{Kind: "ObsGlonassSlotIssue", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"satellite": "R09", "issue": "missing slot"}, Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R09", HasField: true, Field: "GLONASS SLOT / FRQ #"},
+		{Kind: "ObsGlonassSlotIssue", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"satellite": "R15", "issue": "missing slot"}, Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R15", HasField: true, Field: "GLONASS SLOT / FRQ #"},
+		{Kind: "ObsGlonassSlotIssue", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"satellite": "R16", "issue": "missing slot"}, Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R16", HasField: true, Field: "GLONASS SLOT / FRQ #"},
+		{Kind: "ObsGlonassSlotIssue", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"satellite": "R17", "issue": "missing slot"}, Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R17", HasField: true, Field: "GLONASS SLOT / FRQ #"},
+		{Kind: "ObsGlonassSlotIssue", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"satellite": "R24", "issue": "missing slot"}, Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R24", HasField: true, Field: "GLONASS SLOT / FRQ #"},
 	}
 	if len(findings) != len(wantFindings) {
 		t.Fatalf("lint findings=%+v", findings)
 	}
 	for index := range wantFindings {
-		if findings[index] != wantFindings[index] {
+		if !reflect.DeepEqual(findings[index], wantFindings[index]) {
 			t.Fatalf("lint finding[%d]=%+v want %+v", index, findings[index], wantFindings[index])
 		}
 	}

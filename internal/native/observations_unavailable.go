@@ -261,6 +261,8 @@ type NativeRINEXLintSummary struct {
 	IsClean, DecodedFromCRINEX                                    bool
 }
 type NativeRINEXLintFinding struct {
+	Kind, SpecRef             string
+	Details                   map[string]any
 	Code                      string
 	Severity                  uint32
 	Repairable, HasEpochIndex bool

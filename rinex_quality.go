@@ -37,7 +37,15 @@ type RINEXLintSummary struct {
 // RINEXLintFinding is one detached lint finding. Optional fields are guarded by
 // their Has* values; EpochIndex is an epoch ordinal, not a time in seconds.
 type RINEXLintFinding struct {
-	// Code is the observable code.
+	// Kind is the stable PascalCase core variant name.
+	Kind string
+	// SpecRef identifies the standards reference associated with the finding.
+	SpecRef string
+	// Details contains detached variant-specific values. JSON numbers use
+	// json.Number; non-finite floating-point values are the strings NaN,
+	// Infinity, or -Infinity.
+	Details map[string]any
+	// Code identifies the lint rule.
 	Code string
 	// Severity classifies the finding as fatal, error, warning, or informational.
 	Severity RINEXLintSeverity
@@ -109,7 +117,7 @@ func (r *RINEXLintReport) Findings() ([]RINEXLintFinding, error) {
 	}
 	out := make([]RINEXLintFinding, len(v))
 	for i, x := range v {
-		out[i] = RINEXLintFinding{Code: x.Code, Severity: RINEXLintSeverity(x.Severity), Repairable: x.Repairable, HasEpochIndex: x.HasEpochIndex, EpochIndex: x.EpochIndex, HasSatellite: x.HasSatellite, Satellite: x.Satellite, HasField: x.HasField, Field: x.Field}
+		out[i] = RINEXLintFinding{Kind: x.Kind, SpecRef: x.SpecRef, Details: x.Details, Code: x.Code, Severity: RINEXLintSeverity(x.Severity), Repairable: x.Repairable, HasEpochIndex: x.HasEpochIndex, EpochIndex: x.EpochIndex, HasSatellite: x.HasSatellite, Satellite: x.Satellite, HasField: x.HasField, Field: x.Field}
 	}
 	return out, nil
 }
