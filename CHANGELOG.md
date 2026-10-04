@@ -4,6 +4,8 @@ All notable changes to this module are documented here.
 
 ## Unreleased
 
+## 3.0.0 - 2026-10-04
+
 - Module path is now `sidereon.dev/go/v3`, as Go semantic
   import versioning requires for major version 3. Import the package as
   `sidereon.dev/go/v3`; the package name is unchanged.
