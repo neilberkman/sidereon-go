@@ -65,6 +65,13 @@ type AcquiredProduct struct {
 type HTTPAcquirer struct {
 	// Client is the HTTP client to clone for requests; nil uses http.DefaultClient.
 	Client *http.Client
+	// OnTransportDiagnostic, when non-nil, observes RoundTripper errors and
+	// panics with bounded type and function-name metadata only. The observer
+	// receives no request, response, URL, error, panic value, or source location.
+	// Calls may be concurrent. An observer panic is ignored; a transport panic
+	// is re-panicked unchanged and returned transport errors keep their normal
+	// retry and error-wrapping behavior.
+	OnTransportDiagnostic func(HTTPTransportDiagnostic)
 	// MaxArchiveBytes is the maximum archive size in bytes.
 	MaxArchiveBytes int64
 	// MaxProductBytes is the maximum extracted product size in bytes.
@@ -315,6 +322,15 @@ func (a *HTTPAcquirer) fetch(ctx context.Context, rawURL string, allowed map[str
 		return nil, nil, err
 	}
 	client := *a.Client
+	if a.OnTransportDiagnostic != nil {
+		transport := client.Transport
+		if transport == nil {
+			transport = http.DefaultTransport
+		}
+		client.Transport = diagnosticRoundTripper{
+			next: transport, observer: a.OnTransportDiagnostic,
+		}
+	}
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		if len(via) >= 8 {
 			return &RedirectPolicyError{URL: req.URL.String()}
