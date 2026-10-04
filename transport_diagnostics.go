@@ -32,6 +32,7 @@ type diagnosticRoundTripper struct {
 	observer func(HTTPTransportDiagnostic)
 }
 
+// RoundTrip forwards the request and reports failures through the optional observer.
 func (t diagnosticRoundTripper) RoundTrip(request *http.Request) (response *http.Response, err error) {
 	defer func() {
 		if failure := recover(); failure != nil {
