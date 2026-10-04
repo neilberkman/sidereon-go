@@ -92,7 +92,11 @@ func TestRINEXClockHeaderFieldPublicPayloads(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer clock.Close()
+			t.Cleanup(func() {
+				if err := clock.Close(); err != nil {
+					t.Error(err)
+				}
+			})
 			got, err := clock.HeaderRecords()
 			if err != nil {
 				t.Fatal(err)
@@ -124,7 +128,9 @@ func TestRINEXClockHeaderFieldPublicOptionalPresence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	clock.Close()
+	if err := clock.Close(); err != nil {
+		t.Fatal(err)
+	}
 	var refs []RINEXClockHeaderRecord
 	for _, r := range records {
 		if r.FieldKind == RINEXClockHeaderFieldClockRefCount {
@@ -143,7 +149,9 @@ func TestRINEXClockHeaderFieldPublicOptionalPresence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	clock.Close()
+	if err := clock.Close(); err != nil {
+		t.Fatal(err)
+	}
 	for _, r := range records {
 		if r.FieldKind == RINEXClockHeaderFieldAnalysisClockRef && r.TextParts[0] == "USNO" && r.TextParts[1] == "40451S003" {
 			if r.HasConstraintS {
