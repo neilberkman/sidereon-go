@@ -4,6 +4,9 @@ All notable changes to this module are documented here.
 
 ## Unreleased
 
+- Preserve UT1 table-coverage status in time-scale values so frame and Doppler
+  operations reject dates outside the supported UT1 table.
+
 ## 3.0.0 - 2026-10-04
 
 - Module path is now `sidereon.dev/go/v3`, as Go semantic

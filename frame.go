@@ -6,6 +6,7 @@ func nativeTimeScales(value TimeScales) native.TimeScales {
 	return native.TimeScales{
 		JDWhole: value.JDWhole, UT1Fraction: value.UT1Fraction, TTFraction: value.TTFraction,
 		TDBFraction: value.TDBFraction, JDUT1: value.JDUT1, JDTT: value.JDTT, JDTDB: value.JDTDB,
+		UT1Degraded: value.UT1Degraded,
 	}
 }
 
@@ -44,19 +45,13 @@ func PolarMotionMatrix(xpArcsec, ypArcsec float64) (Matrix3, error) {
 // GCRSToITRSMatrix returns the C row-major rotation matrix for the supplied
 // time scales.
 func GCRSToITRSMatrix(scales TimeScales) (Matrix3, error) {
-	value, err := native.GCRSToITRSMatrix(native.TimeScales{
-		JDWhole: scales.JDWhole, UT1Fraction: scales.UT1Fraction, TTFraction: scales.TTFraction,
-		TDBFraction: scales.TDBFraction, JDUT1: scales.JDUT1, JDTT: scales.JDTT, JDTDB: scales.JDTDB,
-	})
+	value, err := native.GCRSToITRSMatrix(nativeTimeScales(scales))
 	return Matrix3(value), publicError(err)
 }
 
 // ITRSToGCRSMatrix returns the inverse-direction C row-major rotation matrix.
 func ITRSToGCRSMatrix(scales TimeScales) (Matrix3, error) {
-	value, err := native.ITRSToGCRSMatrix(native.TimeScales{
-		JDWhole: scales.JDWhole, UT1Fraction: scales.UT1Fraction, TTFraction: scales.TTFraction,
-		TDBFraction: scales.TDBFraction, JDUT1: scales.JDUT1, JDTT: scales.JDTT, JDTDB: scales.JDTDB,
-	})
+	value, err := native.ITRSToGCRSMatrix(nativeTimeScales(scales))
 	return Matrix3(value), publicError(err)
 }
 
@@ -69,20 +64,14 @@ func MatrixVectorMultiply(matrix Matrix3, vector [3]float64) ([3]float64, error)
 // GCRSToITRS transforms a GCRS position in kilometres to ITRS/ECEF
 // kilometres. skyfieldCompatible selects the C compatibility path.
 func GCRSToITRS(positionKm [3]float64, scales TimeScales, skyfieldCompatible bool) ([3]float64, error) {
-	value, err := native.GCRSToITRS(positionKm, native.TimeScales{
-		JDWhole: scales.JDWhole, UT1Fraction: scales.UT1Fraction, TTFraction: scales.TTFraction,
-		TDBFraction: scales.TDBFraction, JDUT1: scales.JDUT1, JDTT: scales.JDTT, JDTDB: scales.JDTDB,
-	}, skyfieldCompatible)
+	value, err := native.GCRSToITRS(positionKm, nativeTimeScales(scales), skyfieldCompatible)
 	return value, publicError(err)
 }
 
 // ITRSToGCRS transforms an ITRS/ECEF position in kilometres to GCRS
 // kilometres.
 func ITRSToGCRS(positionKm [3]float64, scales TimeScales) ([3]float64, error) {
-	value, err := native.ITRSToGCRS(positionKm, native.TimeScales{
-		JDWhole: scales.JDWhole, UT1Fraction: scales.UT1Fraction, TTFraction: scales.TTFraction,
-		TDBFraction: scales.TDBFraction, JDUT1: scales.JDUT1, JDTT: scales.JDTT, JDTDB: scales.JDTDB,
-	})
+	value, err := native.ITRSToGCRS(positionKm, nativeTimeScales(scales))
 	return value, publicError(err)
 }
 
@@ -91,10 +80,7 @@ func ITRSToGCRS(positionKm [3]float64, scales TimeScales) ([3]float64, error) {
 func GCRSToTopocentric(positionKm [3]float64, station GroundStation, scales TimeScales, skyfieldCompatible bool) (Topocentric, error) {
 	value, err := native.GCRSToTopocentric(
 		positionKm, station.LatitudeDeg, station.LongitudeDeg, station.AltitudeKm,
-		native.TimeScales{
-			JDWhole: scales.JDWhole, UT1Fraction: scales.UT1Fraction, TTFraction: scales.TTFraction,
-			TDBFraction: scales.TDBFraction, JDUT1: scales.JDUT1, JDTT: scales.JDTT, JDTDB: scales.JDTDB,
-		}, skyfieldCompatible,
+		nativeTimeScales(scales), skyfieldCompatible,
 	)
 	return Topocentric{AzimuthDeg: value[0], ElevationDeg: value[1], RangeKm: value[2]}, publicError(err)
 }
@@ -246,10 +232,7 @@ type DopplerShift struct {
 func ComputeDopplerRangeRate(positionKm, velocityKmS [3]float64, station GroundStation, scales TimeScales) (DopplerRangeRate, error) {
 	value, err := native.ComputeDopplerRangeRate(
 		positionKm, velocityKmS, station.LatitudeDeg, station.LongitudeDeg, station.AltitudeKm,
-		native.TimeScales{
-			JDWhole: scales.JDWhole, UT1Fraction: scales.UT1Fraction, TTFraction: scales.TTFraction,
-			TDBFraction: scales.TDBFraction, JDUT1: scales.JDUT1, JDTT: scales.JDTT, JDTDB: scales.JDTDB,
-		},
+		nativeTimeScales(scales),
 	)
 	return DopplerRangeRate{RangeRateKmS: value.RangeRateKmS, DopplerRatio: value.DopplerRatio}, publicError(err)
 }
@@ -259,10 +242,7 @@ func ComputeDopplerRangeRate(positionKm, velocityKmS [3]float64, station GroundS
 func ComputeDopplerShift(positionKm, velocityKmS [3]float64, station GroundStation, scales TimeScales, frequencyHz float64) (DopplerShift, error) {
 	value, err := native.ComputeDopplerShift(
 		positionKm, velocityKmS, station.LatitudeDeg, station.LongitudeDeg, station.AltitudeKm,
-		native.TimeScales{
-			JDWhole: scales.JDWhole, UT1Fraction: scales.UT1Fraction, TTFraction: scales.TTFraction,
-			TDBFraction: scales.TDBFraction, JDUT1: scales.JDUT1, JDTT: scales.JDTT, JDTDB: scales.JDTDB,
-		}, frequencyHz,
+		nativeTimeScales(scales), frequencyHz,
 	)
 	return DopplerShift{RangeRateKmS: value.RangeRateKmS, DopplerHz: value.DopplerHz, DopplerRatio: value.DopplerRatio}, publicError(err)
 }

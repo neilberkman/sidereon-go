@@ -32,6 +32,9 @@ type TimeScales struct {
 	JDUT1       float64
 	JDTT        float64
 	JDTDB       float64
+	// UT1Degraded is 0 for table-backed UT1, 1 before table coverage, or 2 after it.
+	// Frame transforms that read UT1 reject nonzero values.
+	UT1Degraded uint32
 }
 
 // GNSSWeekSeconds is the result of splitting continuous seconds into a GNSS
@@ -152,6 +155,7 @@ func TimeScalesFromUTC(value CivilDateTime) (TimeScales, error) {
 	return TimeScales{
 		JDWhole: result.JDWhole, UT1Fraction: result.UT1Fraction, TTFraction: result.TTFraction,
 		TDBFraction: result.TDBFraction, JDUT1: result.JDUT1, JDTT: result.JDTT, JDTDB: result.JDTDB,
+		UT1Degraded: result.UT1Degraded,
 	}, publicError(err)
 }
 
