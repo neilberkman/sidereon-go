@@ -14,15 +14,14 @@ The shared C source ref is the one-line file
 check consume that file. Keep it to one non-empty line and do not add a second
 source-ref setting.
 
-The current checked-in `3.0.0` archive set was built from C source commit
-`fd1665a8ab7ea8c8906fc316be47e27a1ae3b6b4`, with the matching generated
-header. This is the candidate build source identity; it does not assert that a
-release tag exists. Before release, set the single C source ref to the final
-reviewed C release ref, verify that it resolves to the intended source, and
-rebuild and validate all seven archives against that ref and its generated
-header. Keep the ref, header, manifest, and archives synchronized. A successful
-archive-format verification alone does not establish that each target builds
-or links correctly.
+The prior `3.0.0` archive set was built from C tag `v3.0.0` at commit
+`a41ef678f8c81ce1ce58221bb3128ccd64511f23`, with its matching generated
+header. For each release, set the single C source ref to the final reviewed C
+release tag, verify that it resolves to the intended source, and rebuild and
+validate all seven archives against that ref and its generated header. Keep the
+ref, header, manifest, and archives synchronized. A successful archive-format
+verification alone does not establish that each target builds or links
+correctly.
 
 For a release candidate, run the normal checks and the packed consumer check:
 
