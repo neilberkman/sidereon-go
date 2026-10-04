@@ -68,6 +68,7 @@ const (
 	SSRReferencePointCenterOfMassValue                   = uint32(1)
 	SSRSourceRTCMValue                                   = uint32(0)
 	SSRSourceGalileoHASValue                             = uint32(1)
+	SSRSourceIGSSSRValue                                 = uint32(2)
 	SSRMissingDeclineValue                               = uint32(0)
 	SSRMissingFallbackValue                              = uint32(1)
 

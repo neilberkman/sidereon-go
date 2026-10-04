@@ -78,6 +78,7 @@ const (
 	SSRReferencePointCenterOfMassValue                   = uint32(C.SIDEREON_SSR_REFERENCE_POINT_CENTER_OF_MASS)
 	SSRSourceRTCMValue                                   = uint32(0)
 	SSRSourceGalileoHASValue                             = uint32(1)
+	SSRSourceIGSSSRValue                                 = uint32(2)
 	SSRMissingDeclineValue                               = uint32(C.SIDEREON_SSR_MISSING_CORRECTION_ACTION_DECLINE)
 	SSRMissingFallbackValue                              = uint32(C.SIDEREON_SSR_MISSING_CORRECTION_ACTION_FALL_BACK_TO_BROADCAST)
 

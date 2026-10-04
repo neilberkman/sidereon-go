@@ -246,22 +246,31 @@ type SBASCorrectionStore struct {
 	cleanup  runtime.Cleanup
 }
 type NativeSSRClockCorrection struct {
-	Source                                                       uint32
-	ProviderID                                                   uint16
-	SolutionID, IODSSR                                           uint8
-	C0M, C1MPerS, C2MPerS2, RefEpochJ2000S, UpdateIntervalS      float64
-	HasHighRate                                                  bool
-	HighRateC0M, HighRateRefEpochJ2000S, HighRateUpdateIntervalS float64
+	Source                                                                                       uint32
+	ProviderID                                                                                   uint16
+	SolutionID, IODSSR                                                                           uint8
+	NavMessage                                                                                   uint32
+	HasNavigationMessageIndex                                                                    bool
+	NavigationMessageIndex                                                                       uint8
+	C0M, C1MPerS, C2MPerS2, RefEpochJ2000S, TransmittedEpochJ2000S, UpdateIntervalS              float64
+	HasHighRate                                                                                  bool
+	HighRateC0M, HighRateRefEpochJ2000S, HighRateTransmittedEpochJ2000S, HighRateUpdateIntervalS float64
 }
 type NativeSSROrbitCorrection struct {
-	Source                                                                                                    uint32
-	ProviderID                                                                                                uint16
-	SolutionID                                                                                                uint8
-	IODE                                                                                                      uint32
-	IODSSR                                                                                                    uint8
-	CRSRegional                                                                                               bool
-	ReferencePoint                                                                                            uint32
-	RadialM, AlongM, CrossM, RadialRateMPerS, AlongRateMPerS, CrossRateMPerS, RefEpochJ2000S, UpdateIntervalS float64
+	Source                                                                                                                            uint32
+	ProviderID                                                                                                                        uint16
+	SolutionID                                                                                                                        uint8
+	NavMessage                                                                                                                        uint32
+	HasNavigationMessageIndex                                                                                                         bool
+	NavigationMessageIndex                                                                                                            uint8
+	IODE                                                                                                                              uint32
+	HasIODCRC                                                                                                                         bool
+	IODCRC                                                                                                                            uint32
+	IODSSR                                                                                                                            uint8
+	Basis                                                                                                                             uint32
+	CRSRegional                                                                                                                       bool
+	ReferencePoint                                                                                                                    uint32
+	RadialM, AlongM, CrossM, RadialRateMPerS, AlongRateMPerS, CrossRateMPerS, RefEpochJ2000S, TransmittedEpochJ2000S, UpdateIntervalS float64
 }
 type SSRCorrectionStore struct {
 	_        noCopy
@@ -905,18 +914,38 @@ func (s *SSRCorrectionStore) EvaluateVTEC(receiverECEFM, satelliteTransmitECEFM 
 func (s *SSRCorrectionStore) Orbit(sat string) (NativeSSROrbitCorrection, bool, error) {
 	var p C.bool
 	var v C.SidereonSsrOrbitCorrection
+	var m C.SidereonSsrOrbitMetadata
 	err := s.resource.with(func(sp unsafe.Pointer) error {
 		return withToken(sat, "satellite token", func(x *C.char) uint32 {
-			return C.sidereon_ssr_store_orbit((*C.SidereonSsrCorrectionStore)(sp), x, &p, &v)
+			return C.sidereon_ssr_store_orbit_full((*C.SidereonSsrCorrectionStore)(sp), x, &p, &v, &m)
 		})
 	})
-	out := NativeSSROrbitCorrection{Source: uint32(v.source), ProviderID: uint16(v.provider_id), SolutionID: uint8(v.solution_id), IODE: uint32(v.iode), IODSSR: uint8(v.iod_ssr), CRSRegional: bool(v.crs_regional), ReferencePoint: uint32(v.reference_point), RadialM: float64(v.radial_m), AlongM: float64(v.along_m), CrossM: float64(v.cross_m), RadialRateMPerS: float64(v.radial_rate_m_s), AlongRateMPerS: float64(v.along_rate_m_s), CrossRateMPerS: float64(v.cross_rate_m_s), RefEpochJ2000S: float64(v.ref_epoch_j2000_s), UpdateIntervalS: float64(v.update_interval_s)}
+	nav := uint32(0)
+	switch uint32(v.source) {
+	case SSRSourceRTCMValue:
+		if v.has_nav_message || v.has_nav_message_index != 0 {
+			return NativeSSROrbitCorrection{}, false, invalidArgument("RTCM SSR orbit unexpectedly carries a navigation-message tag")
+		}
+	case SSRSourceGalileoHASValue:
+		if !v.has_nav_message {
+			return NativeSSROrbitCorrection{}, false, invalidArgument("HAS SSR orbit is missing its navigation-message tag")
+		}
+		nav = 2
+	case SSRSourceIGSSSRValue:
+		if !v.has_nav_message || v.has_nav_message_index != 0 {
+			return NativeSSROrbitCorrection{}, false, invalidArgument("IGS SSR orbit has an invalid navigation-message tag")
+		}
+		nav = 1
+	default:
+		return NativeSSROrbitCorrection{}, false, invalidArgument("invalid SSR source returned by native code")
+	}
+	out := NativeSSROrbitCorrection{Source: uint32(v.source), ProviderID: uint16(v.provider_id), SolutionID: uint8(v.solution_id), NavMessage: nav, HasNavigationMessageIndex: uint32(v.source) == SSRSourceGalileoHASValue, NavigationMessageIndex: uint8(v.has_nav_message_index), IODE: uint32(v.iode), HasIODCRC: bool(m.has_iod_crc), IODCRC: uint32(m.iod_crc), IODSSR: uint8(v.iod_ssr), Basis: uint32(m.basis), CRSRegional: bool(v.crs_regional), ReferencePoint: uint32(v.reference_point), RadialM: float64(v.radial_m), AlongM: float64(v.along_m), CrossM: float64(v.cross_m), RadialRateMPerS: float64(v.radial_rate_m_s), AlongRateMPerS: float64(v.along_rate_m_s), CrossRateMPerS: float64(v.cross_rate_m_s), RefEpochJ2000S: float64(v.ref_epoch_j2000_s), TransmittedEpochJ2000S: float64(m.transmitted_epoch_j2000_s), UpdateIntervalS: float64(v.update_interval_s)}
 	if err == nil {
 		if err = validateSSRReferencePointValue(out.ReferencePoint); err != nil {
 			return NativeSSROrbitCorrection{}, false, err
 		}
-		if out.Source != SSRSourceRTCMValue && out.Source != SSRSourceGalileoHASValue {
-			return NativeSSROrbitCorrection{}, false, invalidArgument("invalid SSR source returned by native code")
+		if out.NavMessage > 2 || out.Basis != 0 || (!out.HasIODCRC && out.IODCRC != 0) {
+			return NativeSSROrbitCorrection{}, false, invalidArgument("invalid SSR orbit metadata returned by native code")
 		}
 	}
 	return out, bool(p), err
@@ -924,14 +953,34 @@ func (s *SSRCorrectionStore) Orbit(sat string) (NativeSSROrbitCorrection, bool, 
 func (s *SSRCorrectionStore) Clock(sat string) (NativeSSRClockCorrection, bool, error) {
 	var p C.bool
 	var v C.SidereonSsrClockCorrection
+	var m C.SidereonSsrClockMetadata
 	err := s.resource.with(func(sp unsafe.Pointer) error {
 		return withToken(sat, "satellite token", func(x *C.char) uint32 {
-			return C.sidereon_ssr_store_clock((*C.SidereonSsrCorrectionStore)(sp), x, &p, &v)
+			return C.sidereon_ssr_store_clock_full((*C.SidereonSsrCorrectionStore)(sp), x, &p, &v, &m)
 		})
 	})
-	out := NativeSSRClockCorrection{Source: uint32(v.source), ProviderID: uint16(v.provider_id), SolutionID: uint8(v.solution_id), IODSSR: uint8(v.iod_ssr), C0M: float64(v.c0_m), C1MPerS: float64(v.c1_m_s), C2MPerS2: float64(v.c2_m_s2), RefEpochJ2000S: float64(v.ref_epoch_j2000_s), UpdateIntervalS: float64(v.update_interval_s), HasHighRate: bool(v.has_high_rate), HighRateC0M: float64(v.high_rate_c0_m), HighRateRefEpochJ2000S: float64(v.high_rate_ref_epoch_j2000_s), HighRateUpdateIntervalS: float64(v.high_rate_update_interval_s)}
-	if err == nil && out.Source != SSRSourceRTCMValue && out.Source != SSRSourceGalileoHASValue {
+	nav := uint32(0)
+	switch uint32(v.source) {
+	case SSRSourceRTCMValue:
+		if v.has_nav_message || v.has_nav_message_index != 0 {
+			return NativeSSRClockCorrection{}, false, invalidArgument("RTCM SSR clock unexpectedly carries a navigation-message tag")
+		}
+	case SSRSourceGalileoHASValue:
+		if !v.has_nav_message {
+			return NativeSSRClockCorrection{}, false, invalidArgument("HAS SSR clock is missing its navigation-message tag")
+		}
+		nav = 2
+	case SSRSourceIGSSSRValue:
+		if !v.has_nav_message || v.has_nav_message_index != 0 {
+			return NativeSSRClockCorrection{}, false, invalidArgument("IGS SSR clock has an invalid navigation-message tag")
+		}
+		nav = 1
+	default:
 		return NativeSSRClockCorrection{}, false, invalidArgument("invalid SSR source returned by native code")
+	}
+	out := NativeSSRClockCorrection{Source: uint32(v.source), ProviderID: uint16(v.provider_id), SolutionID: uint8(v.solution_id), IODSSR: uint8(v.iod_ssr), NavMessage: nav, HasNavigationMessageIndex: uint32(v.source) == SSRSourceGalileoHASValue, NavigationMessageIndex: uint8(v.has_nav_message_index), C0M: float64(v.c0_m), C1MPerS: float64(v.c1_m_s), C2MPerS2: float64(v.c2_m_s2), RefEpochJ2000S: float64(v.ref_epoch_j2000_s), TransmittedEpochJ2000S: float64(m.transmitted_epoch_j2000_s), UpdateIntervalS: float64(v.update_interval_s), HasHighRate: bool(v.has_high_rate), HighRateC0M: float64(v.high_rate_c0_m), HighRateRefEpochJ2000S: float64(v.high_rate_ref_epoch_j2000_s), HighRateTransmittedEpochJ2000S: float64(m.high_rate_transmitted_epoch_j2000_s), HighRateUpdateIntervalS: float64(v.high_rate_update_interval_s)}
+	if err == nil && !out.HasHighRate && out.HighRateTransmittedEpochJ2000S != 0 {
+		return NativeSSRClockCorrection{}, false, invalidArgument("absent SSR high-rate clock carries a transmitted epoch")
 	}
 	return out, bool(p), err
 }

@@ -463,8 +463,10 @@ const (
 	SSRSourceRTCM SSRSource = SSRSource(native.SSRSourceRTCMValue)
 	// SSRSourceGalileoHAS identifies Galileo High Accuracy Service corrections.
 	SSRSourceGalileoHAS SSRSource = SSRSource(native.SSRSourceGalileoHASValue)
-	// SSRSourceIGS identifies IGS SSR correction records.
-	SSRSourceIGS SSRSource = 2
+	// SSRSourceIGSSSR identifies IGS SSR correction records.
+	SSRSourceIGSSSR SSRSource = SSRSource(2)
+	// SSRSourceIGS is a shorter alias for SSRSourceIGSSSR.
+	SSRSourceIGS SSRSource = SSRSourceIGSSSR
 )
 
 // SSRReferencePoint selects the datum for orbit corrections.
@@ -486,13 +488,44 @@ type SSRClockCorrection struct {
 	ProviderID uint16
 	// SolutionID identifies the provider solution; IODSSR identifies the SSR issue of data.
 	SolutionID, IODSSR uint8
-	// C0M is the clock-polynomial bias in metres; C1MPerS is its drift in metres per second; C2MPerS2 is its drift rate in metres per second squared; RefEpochJ2000S is the polynomial reference epoch in seconds from J2000; UpdateIntervalS is the update interval in seconds.
-	C0M, C1MPerS, C2MPerS2, RefEpochJ2000S, UpdateIntervalS float64
+	// NavMessage identifies the RTCM, IGS SSR, or HAS navigation-message convention.
+	NavMessage SSRNavigationMessage
+	// HasNavigationMessageIndex distinguishes a transmitted HAS index of zero from absence.
+	HasNavigationMessageIndex bool
+	// NavigationMessageIndex is the transmitted HAS index when present.
+	NavigationMessageIndex uint8
+	// C0M is the clock-polynomial bias in metres; C1MPerS is its drift in metres per second; C2MPerS2 is its drift rate in metres per second squared; RefEpochJ2000S is the polynomial reference epoch in seconds from J2000.
+	C0M, C1MPerS, C2MPerS2, RefEpochJ2000S float64
+	// TransmittedEpochJ2000S is the transmitted message epoch in seconds from J2000. For RTCM SSR, update-interval index 0 uses this as the reference epoch; other indices place RefEpochJ2000S half an interval later.
+	TransmittedEpochJ2000S float64
+	// UpdateIntervalS is the update interval in seconds.
+	UpdateIntervalS float64
 	// HasHighRate reports whether the has high rate field is present.
 	HasHighRate bool
-	// HighRateC0M is the high-rate clock bias in metres; HighRateRefEpochJ2000S is its reference epoch in seconds from J2000; HighRateUpdateIntervalS is its update interval in seconds.
-	HighRateC0M, HighRateRefEpochJ2000S, HighRateUpdateIntervalS float64
+	// HighRateC0M is the high-rate clock bias in metres; HighRateRefEpochJ2000S is its reference epoch in seconds from J2000; HighRateTransmittedEpochJ2000S is the transmitted epoch (equal to the reference epoch because there are no rate terms); HighRateUpdateIntervalS is its update interval in seconds.
+	HighRateC0M, HighRateRefEpochJ2000S, HighRateTransmittedEpochJ2000S, HighRateUpdateIntervalS float64
 }
+
+// SSRNavigationMessage identifies the broadcast navigation message associated
+// with a stored SSR orbit or clock correction.
+type SSRNavigationMessage uint32
+
+const (
+	// SSRNavigationRTCM identifies the RTCM broadcast-message convention.
+	SSRNavigationRTCM SSRNavigationMessage = iota
+	// SSRNavigationIGS identifies the IGS SSR issue convention.
+	SSRNavigationIGS
+	// SSRNavigationHAS identifies the HAS navigation-message index convention.
+	SSRNavigationHAS
+)
+
+// SSROrbitBasis identifies the axes used for the stored RAC components.
+type SSROrbitBasis uint32
+
+const (
+	// SSROrbitBasisVelocityAligned is the velocity-aligned radial/along/cross basis.
+	SSROrbitBasisVelocityAligned SSROrbitBasis = 0
+)
 
 // SSROrbitCorrection contains copied orbit corrections in the radial,
 // along-track, and cross-track frame. Distances are metres and epochs are
@@ -504,16 +537,32 @@ type SSROrbitCorrection struct {
 	ProviderID uint16
 	// SolutionID identifies the provider solution.
 	SolutionID uint8
+	// NavMessage identifies the RTCM, IGS SSR, or HAS navigation-message convention.
+	NavMessage SSRNavigationMessage
+	// HasNavigationMessageIndex distinguishes a transmitted HAS index of zero from absence.
+	HasNavigationMessageIndex bool
+	// NavigationMessageIndex is the transmitted HAS index when present.
+	NavigationMessageIndex uint8
 	// IODE identifies the orbit ephemeris issue of data.
 	IODE uint32
+	// HasIODCRC distinguishes a transmitted zero CRC from absence.
+	HasIODCRC bool
+	// IODCRC is the native RTCM SBAS issue-of-data CRC when present.
+	IODCRC uint32
+	// Basis identifies the axes used by the RAC components.
+	Basis SSROrbitBasis
 	// IODSSR identifies the SSR issue of data.
 	IODSSR uint8
 	// CRSRegional reports whether the correction uses a regional coordinate reference system.
 	CRSRegional bool
 	// ReferencePoint identifies whether orbit corrections reference the antenna phase centre or centre of mass.
 	ReferencePoint SSRReferencePoint
-	// RadialM, AlongM, and CrossM are orbit corrections in the radial, along-track, and cross-track frame, in metres; RadialRateMPerS, AlongRateMPerS, and CrossRateMPerS are their rates in metres per second; RefEpochJ2000S is the correction reference epoch in seconds from J2000; UpdateIntervalS is the update interval in seconds.
-	RadialM, AlongM, CrossM, RadialRateMPerS, AlongRateMPerS, CrossRateMPerS, RefEpochJ2000S, UpdateIntervalS float64
+	// RadialM, AlongM, and CrossM are orbit corrections in the radial, along-track, and cross-track frame, in metres; RadialRateMPerS, AlongRateMPerS, and CrossRateMPerS are their rates in metres per second; RefEpochJ2000S is the correction reference epoch in seconds from J2000.
+	RadialM, AlongM, CrossM, RadialRateMPerS, AlongRateMPerS, CrossRateMPerS, RefEpochJ2000S float64
+	// TransmittedEpochJ2000S is the transmitted message epoch in seconds from J2000. For RTCM SSR, update-interval index 0 uses this as the reference epoch; other indices place RefEpochJ2000S half an interval later.
+	TransmittedEpochJ2000S float64
+	// UpdateIntervalS is the update interval in seconds.
+	UpdateIntervalS float64
 }
 
 // SSRIngestRefusal is a detached description of a decoded RTCM message refused by the store.
@@ -714,7 +763,7 @@ func (s *SSRCorrectionStore) Orbit(satellite string) (SSROrbitCorrection, bool, 
 		return SSROrbitCorrection{}, false, ErrClosed
 	}
 	v, p, e := s.handle.Orbit(satellite)
-	return SSROrbitCorrection{Source: SSRSource(v.Source), ProviderID: v.ProviderID, SolutionID: v.SolutionID, IODE: v.IODE, IODSSR: v.IODSSR, CRSRegional: v.CRSRegional, ReferencePoint: SSRReferencePoint(v.ReferencePoint), RadialM: v.RadialM, AlongM: v.AlongM, CrossM: v.CrossM, RadialRateMPerS: v.RadialRateMPerS, AlongRateMPerS: v.AlongRateMPerS, CrossRateMPerS: v.CrossRateMPerS, RefEpochJ2000S: v.RefEpochJ2000S, UpdateIntervalS: v.UpdateIntervalS}, p, publicError(e)
+	return SSROrbitCorrection{Source: SSRSource(v.Source), ProviderID: v.ProviderID, SolutionID: v.SolutionID, NavMessage: SSRNavigationMessage(v.NavMessage), HasNavigationMessageIndex: v.HasNavigationMessageIndex, NavigationMessageIndex: v.NavigationMessageIndex, IODE: v.IODE, HasIODCRC: v.HasIODCRC, IODCRC: v.IODCRC, IODSSR: v.IODSSR, Basis: SSROrbitBasis(v.Basis), CRSRegional: v.CRSRegional, ReferencePoint: SSRReferencePoint(v.ReferencePoint), RadialM: v.RadialM, AlongM: v.AlongM, CrossM: v.CrossM, RadialRateMPerS: v.RadialRateMPerS, AlongRateMPerS: v.AlongRateMPerS, CrossRateMPerS: v.CrossRateMPerS, RefEpochJ2000S: v.RefEpochJ2000S, TransmittedEpochJ2000S: v.TransmittedEpochJ2000S, UpdateIntervalS: v.UpdateIntervalS}, p, publicError(e)
 }
 
 // Clock returns a copied optional clock correction in metres and metre-based
@@ -724,7 +773,7 @@ func (s *SSRCorrectionStore) Clock(satellite string) (SSRClockCorrection, bool, 
 		return SSRClockCorrection{}, false, ErrClosed
 	}
 	v, p, e := s.handle.Clock(satellite)
-	return SSRClockCorrection{Source: SSRSource(v.Source), ProviderID: v.ProviderID, SolutionID: v.SolutionID, IODSSR: v.IODSSR, C0M: v.C0M, C1MPerS: v.C1MPerS, C2MPerS2: v.C2MPerS2, RefEpochJ2000S: v.RefEpochJ2000S, UpdateIntervalS: v.UpdateIntervalS, HasHighRate: v.HasHighRate, HighRateC0M: v.HighRateC0M, HighRateRefEpochJ2000S: v.HighRateRefEpochJ2000S, HighRateUpdateIntervalS: v.HighRateUpdateIntervalS}, p, publicError(e)
+	return SSRClockCorrection{Source: SSRSource(v.Source), ProviderID: v.ProviderID, SolutionID: v.SolutionID, IODSSR: v.IODSSR, NavMessage: SSRNavigationMessage(v.NavMessage), HasNavigationMessageIndex: v.HasNavigationMessageIndex, NavigationMessageIndex: v.NavigationMessageIndex, C0M: v.C0M, C1MPerS: v.C1MPerS, C2MPerS2: v.C2MPerS2, RefEpochJ2000S: v.RefEpochJ2000S, TransmittedEpochJ2000S: v.TransmittedEpochJ2000S, UpdateIntervalS: v.UpdateIntervalS, HasHighRate: v.HasHighRate, HighRateC0M: v.HighRateC0M, HighRateRefEpochJ2000S: v.HighRateRefEpochJ2000S, HighRateTransmittedEpochJ2000S: v.HighRateTransmittedEpochJ2000S, HighRateUpdateIntervalS: v.HighRateUpdateIntervalS}, p, publicError(e)
 }
 
 // CodeBias returns an optional code bias in metres for the explicit correction source.
