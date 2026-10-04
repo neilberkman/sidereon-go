@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // RINEXLintSeverity classifies a native RINEX lint finding.
 type RINEXLintSeverity uint32
@@ -37,7 +37,15 @@ type RINEXLintSummary struct {
 // RINEXLintFinding is one detached lint finding. Optional fields are guarded by
 // their Has* values; EpochIndex is an epoch ordinal, not a time in seconds.
 type RINEXLintFinding struct {
-	// Code is the observable code.
+	// Kind is the stable PascalCase core variant name.
+	Kind string
+	// SpecRef identifies the standards reference associated with the finding.
+	SpecRef string
+	// Details contains detached variant-specific values. JSON numbers use
+	// json.Number; non-finite floating-point values are the strings NaN,
+	// Infinity, or -Infinity.
+	Details map[string]any
+	// Code identifies the lint rule.
 	Code string
 	// Severity classifies the finding as fatal, error, warning, or informational.
 	Severity RINEXLintSeverity
@@ -109,7 +117,7 @@ func (r *RINEXLintReport) Findings() ([]RINEXLintFinding, error) {
 	}
 	out := make([]RINEXLintFinding, len(v))
 	for i, x := range v {
-		out[i] = RINEXLintFinding{Code: x.Code, Severity: RINEXLintSeverity(x.Severity), Repairable: x.Repairable, HasEpochIndex: x.HasEpochIndex, EpochIndex: x.EpochIndex, HasSatellite: x.HasSatellite, Satellite: x.Satellite, HasField: x.HasField, Field: x.Field}
+		out[i] = RINEXLintFinding{Kind: x.Kind, SpecRef: x.SpecRef, Details: x.Details, Code: x.Code, Severity: RINEXLintSeverity(x.Severity), Repairable: x.Repairable, HasEpochIndex: x.HasEpochIndex, EpochIndex: x.EpochIndex, HasSatellite: x.HasSatellite, Satellite: x.Satellite, HasField: x.HasField, Field: x.Field}
 	}
 	return out, nil
 }
@@ -225,6 +233,23 @@ func (r *RINEXRepair) RINEXText() ([]byte, error) {
 	}
 	v, e := r.handle.Text()
 	return v, publicError(e)
+}
+
+// RINEXTextWithOutcome returns repaired bytes or the complete typed writer refusal.
+func (r *RINEXRepair) RINEXTextWithOutcome() (RINEXObservationWriteOutcome, error) {
+	if r == nil || r.handle == nil {
+		return RINEXObservationWriteOutcome{}, ErrClosed
+	}
+	v, err := r.handle.TextWithOutcome()
+	if err != nil {
+		return RINEXObservationWriteOutcome{}, publicError(err)
+	}
+	out := RINEXObservationWriteOutcome{IsOK: v.IsOK, Status: StatusCode(v.Status), Text: append([]byte(nil), v.Text...)}
+	if !v.IsOK {
+		e := v.Error
+		out.Error = &RINEXObservationWriteError{Kind: RINEXObservationWriteErrorKind(e.Kind), HasSystem: e.HasSystem, System: e.System, HasSatellite: e.HasSatellite, SatelliteID: e.SatelliteID, HasEpochIndex: e.HasEpochIndex, EpochIndex: e.EpochIndex, HasPosition: e.HasPosition, Position: e.Position, HasFlag: e.HasFlag, Flag: e.Flag, HasVersion: e.HasVersion, Version: e.Version, HasCount: e.HasCount, Count: e.Count, HasCodes: e.HasCodes, Codes: e.Codes, HasValues: e.HasValues, Values: e.Values, HasCode: e.HasCode, Code: v.Code, HasDetail: e.HasDetail, Detail: v.Detail, Message: v.Message}
+	}
+	return out, nil
 }
 
 // CRINEXText returns detached repaired CRINEX representation.

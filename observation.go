@@ -1,13 +1,209 @@
 package sidereon
 
 import (
+	"fmt"
 	"os"
 
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
 )
 
 // RINEXObservationKind is the C observation classification.
 type RINEXObservationKind uint32
+
+// RINEXObservationWriteErrorKind identifies a refused observation serialization.
+type RINEXObservationWriteErrorKind uint32
+
+const (
+	// RINEXWriteErrorNone indicates a successful serialization.
+	RINEXWriteErrorNone RINEXObservationWriteErrorKind = 0
+	// RINEXWriteErrorCodeListsNotVersionTwo reports nonuniform version-2 code lists.
+	RINEXWriteErrorCodeListsNotVersionTwo RINEXObservationWriteErrorKind = 1
+	// RINEXWriteErrorNotVersionTwo reports a downgrade target other than version 2.
+	RINEXWriteErrorNotVersionTwo RINEXObservationWriteErrorKind = 2
+	// RINEXWriteErrorScaleFactorsInVersionTwo reports scale-factor records in version 2.
+	RINEXWriteErrorScaleFactorsInVersionTwo RINEXObservationWriteErrorKind = 3
+	// RINEXWriteErrorValuesWithoutCodes reports values beyond declared code lists.
+	RINEXWriteErrorValuesWithoutCodes RINEXObservationWriteErrorKind = 4
+	// RINEXWriteErrorCountsWithoutCodes reports counts beyond declared code lists.
+	RINEXWriteErrorCountsWithoutCodes RINEXObservationWriteErrorKind = 5
+	// RINEXWriteErrorCodeListNotStated reports a version-2 code list it cannot write.
+	RINEXWriteErrorCodeListNotStated RINEXObservationWriteErrorKind = 6
+	// RINEXWriteErrorEpochFlagTooWide reports an epoch flag that does not fit.
+	RINEXWriteErrorEpochFlagTooWide RINEXObservationWriteErrorKind = 7
+	// RINEXWriteErrorEpochTimeMissing reports an observation epoch without time.
+	RINEXWriteErrorEpochTimeMissing RINEXObservationWriteErrorKind = 8
+	// RINEXWriteErrorEpochPicosecondsNotInVersion reports unsupported epoch precision.
+	RINEXWriteErrorEpochPicosecondsNotInVersion RINEXObservationWriteErrorKind = 9
+	// RINEXWriteErrorTooManyObservationTypes reports a code count wider than the format.
+	RINEXWriteErrorTooManyObservationTypes RINEXObservationWriteErrorKind = 10
+	// RINEXWriteErrorCodeListsNotUnion reports lists inconsistent with event declarations.
+	RINEXWriteErrorCodeListsNotUnion RINEXObservationWriteErrorKind = 11
+	// RINEXWriteErrorValueOutsideDeclaredList reports a value using an undeclared code.
+	RINEXWriteErrorValueOutsideDeclaredList RINEXObservationWriteErrorKind = 12
+	// RINEXWriteErrorDeclaredListNotStated reports a version-2 list the format cannot state.
+	RINEXWriteErrorDeclaredListNotStated RINEXObservationWriteErrorKind = 13
+	// RINEXWriteErrorEventRecordsUnreadable reports an event header that cannot be read.
+	RINEXWriteErrorEventRecordsUnreadable RINEXObservationWriteErrorKind = 14
+	// RINEXWriteErrorObservableNotRepresentable reports a code unsupported by the target version.
+	RINEXWriteErrorObservableNotRepresentable RINEXObservationWriteErrorKind = 15
+	// RINEXWriteErrorLeapSecondsTimeSystemNotInVersion reports an unsupported leap-second system.
+	RINEXWriteErrorLeapSecondsTimeSystemNotInVersion RINEXObservationWriteErrorKind = 16
+	// RINEXWriteErrorInvalidLeapSecondsTimeSystem reports a malformed time-system identifier.
+	RINEXWriteErrorInvalidLeapSecondsTimeSystem RINEXObservationWriteErrorKind = 17
+	// RINEXWriteErrorReadBackMismatch reports text that does not read back losslessly.
+	RINEXWriteErrorReadBackMismatch RINEXObservationWriteErrorKind = 18
+)
+
+// RINEXObservationWriteError retains every optional field and text detail from C.
+type RINEXObservationWriteError struct {
+	// Kind identifies the native refusal; unrecognized numeric values are retained.
+	Kind RINEXObservationWriteErrorKind
+	// HasSystem marks System as the affected constellation.
+	HasSystem bool
+	// System is the affected native GNSS system code.
+	System uint32
+	// HasSatellite marks SatelliteID as the affected satellite.
+	HasSatellite bool
+	// SatelliteID is the affected satellite token.
+	SatelliteID string
+	// HasEpochIndex marks EpochIndex as the affected zero-based epoch.
+	HasEpochIndex bool
+	// EpochIndex is the affected zero-based epoch index.
+	EpochIndex uint64
+	// HasPosition marks Position as a code-list position.
+	HasPosition bool
+	// Position is a zero-based code-list offset or the list length.
+	Position uint64
+	// HasFlag marks Flag as the affected epoch flag.
+	HasFlag bool
+	// Flag is the epoch flag value.
+	Flag uint8
+	// HasVersion marks Version as the source or requested output version.
+	HasVersion bool
+	// Version is the source or requested RINEX version.
+	Version float64
+	// HasCount marks Count as the affected count.
+	HasCount bool
+	// Count is the affected record or observation-type count.
+	Count uint64
+	// HasCodes marks Codes as the constellation's code count.
+	HasCodes bool
+	// Codes is the constellation's declared code count.
+	Codes uint64
+	// HasValues marks Values as the affected value or count length.
+	HasValues bool
+	// Values is the number of values held by the affected row.
+	Values uint64
+	// HasCode reports whether Code names the refused observation code.
+	HasCode bool
+	// Code is the refused observation code when present.
+	Code string
+	// HasDetail reports whether Detail contains a source-specific explanation.
+	HasDetail bool
+	// Detail is the reader text, time-system identifier, or changed field.
+	Detail string
+	// Message is the detached native refusal description.
+	Message string
+}
+
+// Error returns the native refusal message.
+func (e *RINEXObservationWriteError) Error() string {
+	if e == nil {
+		return "sidereon: RINEX observation write refused"
+	}
+	if e.Message != "" {
+		return e.Message
+	}
+	return fmt.Sprintf("sidereon: RINEX observation write refused (kind %d)", e.Kind)
+}
+
+// RINEXObservationWriteOutcome retains either written bytes or a typed refusal.
+type RINEXObservationWriteOutcome struct {
+	// IsOK reports whether native code wrote a lossless product.
+	IsOK bool
+	// Status is the native status associated with the result.
+	Status StatusCode
+	// Error is the complete refusal, or nil on success.
+	Error *RINEXObservationWriteError
+	// Text contains detached RINEX bytes after successful writing.
+	Text []byte
+}
+
+// RINEXObservationDowngradeChangeKind identifies one ordered RINEX 2 conversion.
+// Unknown numeric values are retained for forward compatibility.
+type RINEXObservationDowngradeChangeKind uint32
+
+const (
+	// RINEXDowngradeCodeRenamed reports a code name replacement.
+	RINEXDowngradeCodeRenamed RINEXObservationDowngradeChangeKind = iota
+	// RINEXDowngradeCodeMoved reports a code-list index change.
+	RINEXDowngradeCodeMoved
+	// RINEXDowngradeCodeAdded reports a code inserted for version-2 compatibility.
+	RINEXDowngradeCodeAdded
+	// RINEXDowngradeCodeListRemoved reports a removed constellation code list.
+	RINEXDowngradeCodeListRemoved
+	// RINEXDowngradeValueRounded reports a rounded observation value.
+	RINEXDowngradeValueRounded
+	// RINEXDowngradeCycleSlipRounded reports a rounded cycle-slip value.
+	RINEXDowngradeCycleSlipRounded
+	// RINEXDowngradeScaleFactorsRemoved reports removed scale-factor records.
+	RINEXDowngradeScaleFactorsRemoved
+	// RINEXDowngradeEpochPicosecondsRemoved reports discarded epoch picoseconds.
+	RINEXDowngradeEpochPicosecondsRemoved
+	// RINEXDowngradeClockOffsetRounded reports a rounded receiver clock offset.
+	RINEXDowngradeClockOffsetRounded
+	// RINEXDowngradeInEventLists wraps a change made inside an event header.
+	RINEXDowngradeInEventLists
+	// RINEXDowngradeDeprecatedRecordsRemoved reports removed obsolete records.
+	RINEXDowngradeDeprecatedRecordsRemoved
+	// RINEXDowngradeEventRecordsRewritten reports rewritten event records.
+	RINEXDowngradeEventRecordsRewritten
+)
+
+// RINEXObservationDowngradeChange retains every field of one ordered downgrade
+// change. Presence flags distinguish absent values from valid zero values.
+type RINEXObservationDowngradeChange struct {
+	Kind            RINEXObservationDowngradeChangeKind
+	HasNestedChange bool
+	Nested          *RINEXObservationDowngradeChange
+	HasSystem       bool
+	System          GNSSSystem
+	HasEpochIndex   bool
+	EpochIndex      int
+	HasSatellite    bool
+	SatelliteID     string
+	HasFromIndex    bool
+	FromIndex       int
+	HasToIndex      bool
+	ToIndex         int
+	HasFromValue    bool
+	FromValue       float64
+	HasToValue      bool
+	ToValue         float64
+	HasPicoseconds  bool
+	Picoseconds     uint32
+	HasCount        bool
+	Count           int
+	HasCode         bool
+	Code            string
+	HasFromText     bool
+	From            string
+	HasToText       bool
+	To              string
+	HasLabel        bool
+	Label           string
+	Codes           []string
+	Records         []string
+	FromRecords     []string
+	ToRecords       []string
+}
+
+// RINEXObservationDowngrade contains an independently owned version-2 product
+// and a detached, ordered record of every conversion.
+type RINEXObservationDowngrade struct {
+	Observation *RINEXObservation
+	Changes     []RINEXObservationDowngradeChange
+}
 
 const (
 	// RINEXObservationPseudorange identifies a pseudorange observable.
@@ -44,6 +240,13 @@ type RINEXObservationHeader struct {
 	MarkerName           string
 }
 
+// RINEXObservationHeaderSegment is one detached header snapshot and the first
+// epoch index for which it is effective.
+type RINEXObservationHeaderSegment struct {
+	FirstEpochIndex int
+	Header          RINEXObservationHeader
+}
+
 // RINEXObservationCode identifies one system/code pair.
 type RINEXObservationCode struct {
 	// System identifies the constellation; Code is the RINEX observation code.
@@ -77,6 +280,27 @@ type RINEXPseudorange struct {
 	PseudorangeM float64
 }
 
+// RINEXCorrectionStatus reports the status of the phase-shift correction in
+// effect for one carrier-phase signal.
+type RINEXCorrectionStatus uint32
+
+const (
+	// RINEXCorrectionAvailable reports one usable correction, including zero.
+	RINEXCorrectionAvailable RINEXCorrectionStatus = 0
+	// RINEXCorrectionUnknown reports a header declaration with unknown correction.
+	RINEXCorrectionUnknown RINEXCorrectionStatus = 1
+	// RINEXCorrectionAmbiguous reports multiple conflicting header corrections.
+	RINEXCorrectionAmbiguous RINEXCorrectionStatus = 2
+)
+
+// RINEXPhaseShiftCorrection retains one correction from an ambiguous header.
+type RINEXPhaseShiftCorrection struct {
+	// HasCycles reports whether the header record supplied a correction value.
+	HasCycles bool
+	// Cycles is the correction in cycles when HasCycles is true.
+	Cycles float64
+}
+
 // RINEXCarrierPhase contains carrier phase in cycles and derived metres.
 // Value, frequency, and wavelength each have independent presence flags.
 type RINEXCarrierPhase struct {
@@ -92,6 +316,10 @@ type RINEXCarrierPhase struct {
 	HasValueM         bool
 	ValueM            float64
 	PhaseShiftCycles  float64
+	// PhaseShiftStatus distinguishes available, unknown, and conflicting corrections.
+	PhaseShiftStatus RINEXCorrectionStatus
+	// PhaseShiftConflictCount is the number of alternatives available by row index.
+	PhaseShiftConflictCount int
 }
 
 // ReceiverClockPhaseSample contains an optional receiver-clock phase in
@@ -104,6 +332,10 @@ type ReceiverClockPhaseSample struct {
 
 func civilFromNative(value native.NativeCalendarEpoch) CivilDateTime {
 	return CivilDateTime{Year: int(value.Year), Month: int(value.Month), Day: int(value.Day), Hour: int(value.Hour), Minute: int(value.Minute), Second: value.Second}
+}
+
+func rinexObservationHeaderFromNative(v native.NativeRinexObsHeader) RINEXObservationHeader {
+	return RINEXObservationHeader{Version: v.Version, HasApproxPosition: v.HasApproxPosition, ApproxPositionM: v.ApproxPosition, HasAntennaDelta: v.HasAntennaDelta, AntennaDeltaHENM: v.AntennaDelta, HasInterval: v.HasInterval, IntervalS: v.Interval, HasTimeOfFirstObs: v.HasTimeOfFirstObs, TimeOfFirstObs: civilFromNative(v.TimeOfFirstObs), TimeOfFirstObsScale: TimeScale(v.TimeOfFirstObsScale), ObservationCodeCount: v.ObsCodeCount, PhaseShiftCount: v.PhaseShiftCount, ScaleFactorCount: v.ScaleFactorCount, GLONASSSlotCount: v.GLONASSSlotCount, HasMarkerName: v.HasMarkerName, MarkerName: v.MarkerName}
 }
 
 // RINEXObservation owns a parsed RINEX 3 observation product. Its read
@@ -160,7 +392,46 @@ func (obs *RINEXObservation) Header() (RINEXObservationHeader, error) {
 	if err != nil {
 		return RINEXObservationHeader{}, publicError(err)
 	}
-	return RINEXObservationHeader{Version: v.Version, HasApproxPosition: v.HasApproxPosition, ApproxPositionM: v.ApproxPosition, HasAntennaDelta: v.HasAntennaDelta, AntennaDeltaHENM: v.AntennaDelta, HasInterval: v.HasInterval, IntervalS: v.Interval, HasTimeOfFirstObs: v.HasTimeOfFirstObs, TimeOfFirstObs: civilFromNative(v.TimeOfFirstObs), TimeOfFirstObsScale: TimeScale(v.TimeOfFirstObsScale), ObservationCodeCount: v.ObsCodeCount, PhaseShiftCount: v.PhaseShiftCount, ScaleFactorCount: v.ScaleFactorCount, GLONASSSlotCount: v.GLONASSSlotCount, HasMarkerName: v.HasMarkerName, MarkerName: v.MarkerName}, nil
+	return rinexObservationHeaderFromNative(v), nil
+}
+
+// HeaderTimeline returns detached header snapshots in file order. The first
+// segment always begins at epoch zero; effective event headers add segments.
+func (obs *RINEXObservation) HeaderTimeline() ([]RINEXObservationHeaderSegment, error) {
+	if obs == nil || obs.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := obs.handle.HeaderTimeline()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	out := make([]RINEXObservationHeaderSegment, len(values))
+	for i, value := range values {
+		out[i] = RINEXObservationHeaderSegment{FirstEpochIndex: value.FirstEpochIndex, Header: rinexObservationHeaderFromNative(value.Header)}
+	}
+	return out, nil
+}
+
+// HeaderAt returns a detached summary of the header effective at epochIndex.
+func (obs *RINEXObservation) HeaderAt(epochIndex int) (RINEXObservationHeader, error) {
+	if obs == nil || obs.handle == nil {
+		return RINEXObservationHeader{}, ErrClosed
+	}
+	value, err := obs.handle.HeaderAt(epochIndex)
+	if err != nil {
+		return RINEXObservationHeader{}, publicError(err)
+	}
+	return rinexObservationHeaderFromNative(value), nil
+}
+
+// SkippedRecords returns the number of input records deliberately skipped by
+// the parser because their tokens were not representable.
+func (obs *RINEXObservation) SkippedRecords() (int, error) {
+	if obs == nil || obs.handle == nil {
+		return 0, ErrClosed
+	}
+	value, err := obs.handle.SkippedRecords()
+	return value, publicError(err)
 }
 
 // EpochCount returns the number of observation epochs.
@@ -231,7 +502,25 @@ func (obs *RINEXObservation) CarrierPhase(epoch int) ([]RINEXCarrierPhase, error
 	}
 	out := make([]RINEXCarrierPhase, len(values))
 	for i, v := range values {
-		out[i] = RINEXCarrierPhase{SatelliteID: v.SatelliteID, Code: v.Code, HasValueCycles: v.HasValueCycles, ValueCycles: v.ValueCycles, LLI: v.LLI, SSI: v.SSI, HasFrequency: v.HasFrequency, FrequencyHz: v.FrequencyHz, HasWavelength: v.HasWavelength, WavelengthM: v.WavelengthM, HasValueM: v.HasValueM, ValueM: v.ValueM, PhaseShiftCycles: v.PhaseShiftCycles}
+		status := RINEXCorrectionStatus(v.PhaseShiftStatus)
+		out[i] = RINEXCarrierPhase{SatelliteID: v.SatelliteID, Code: v.Code, HasValueCycles: v.HasValueCycles, ValueCycles: v.ValueCycles, LLI: v.LLI, SSI: v.SSI, HasFrequency: v.HasFrequency, FrequencyHz: v.FrequencyHz, HasWavelength: v.HasWavelength, WavelengthM: v.WavelengthM, HasValueM: v.HasValueM, ValueM: v.ValueM, PhaseShiftCycles: v.PhaseShiftCycles, PhaseShiftStatus: status, PhaseShiftConflictCount: v.ConflictCount}
+	}
+	return out, nil
+}
+
+// CarrierPhaseConflicts returns the ordered correction records for a row
+// whose phase-shift status is ambiguous. Other statuses return an empty slice.
+func (obs *RINEXObservation) CarrierPhaseConflicts(epochIndex, rowIndex int) ([]RINEXPhaseShiftCorrection, error) {
+	if obs == nil || obs.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := obs.handle.CarrierPhaseConflicts(epochIndex, rowIndex)
+	if err != nil {
+		return nil, publicError(err)
+	}
+	out := make([]RINEXPhaseShiftCorrection, len(values))
+	for i, value := range values {
+		out[i] = RINEXPhaseShiftCorrection{HasCycles: value.HasCycles, Cycles: value.Cycles}
 	}
 	return out, nil
 }
@@ -286,6 +575,60 @@ func (obs *RINEXObservation) RINEXText() ([]byte, error) {
 	}
 	out, err := obs.handle.Text()
 	return out, publicError(err)
+}
+
+// RINEXTextWithOutcome returns a lossless write result or its complete typed refusal.
+func (obs *RINEXObservation) RINEXTextWithOutcome() (RINEXObservationWriteOutcome, error) {
+	if obs == nil || obs.handle == nil {
+		return RINEXObservationWriteOutcome{}, ErrClosed
+	}
+	value, err := obs.handle.RINEXTextWithOutcome()
+	if err != nil {
+		return RINEXObservationWriteOutcome{}, publicError(err)
+	}
+	result := RINEXObservationWriteOutcome{IsOK: value.IsOK, Status: StatusCode(value.Status), Text: append([]byte(nil), value.Text...)}
+	if !value.IsOK {
+		result.Error = rinexObservationWriteErrorFromNative(value)
+	}
+	return result, nil
+}
+
+func rinexObservationWriteErrorFromNative(value native.NativeRinexObsWriteOutcome) *RINEXObservationWriteError {
+	e := value.Error
+	return &RINEXObservationWriteError{Kind: RINEXObservationWriteErrorKind(e.Kind), HasSystem: e.HasSystem, System: e.System, HasSatellite: e.HasSatellite, SatelliteID: e.SatelliteID, HasEpochIndex: e.HasEpochIndex, EpochIndex: e.EpochIndex, HasPosition: e.HasPosition, Position: e.Position, HasFlag: e.HasFlag, Flag: e.Flag, HasVersion: e.HasVersion, Version: e.Version, HasCount: e.HasCount, Count: e.Count, HasCodes: e.HasCodes, Codes: e.Codes, HasValues: e.HasValues, Values: e.Values, HasCode: e.HasCode, Code: value.Code, HasDetail: e.HasDetail, Detail: value.Detail, Message: value.Message}
+}
+
+func rinexObservationDowngradeChangeFromNative(value native.NativeRinexObsDowngradeChange) RINEXObservationDowngradeChange {
+	out := RINEXObservationDowngradeChange{Kind: RINEXObservationDowngradeChangeKind(value.Kind), HasNestedChange: value.HasNestedChange, HasSystem: value.HasSystem, System: GNSSSystem(value.System), HasEpochIndex: value.HasEpochIndex, EpochIndex: value.EpochIndex, HasSatellite: value.HasSatellite, SatelliteID: value.SatelliteID, HasFromIndex: value.HasFromIndex, FromIndex: value.FromIndex, HasToIndex: value.HasToIndex, ToIndex: value.ToIndex, HasFromValue: value.HasFromValue, FromValue: value.FromValue, HasToValue: value.HasToValue, ToValue: value.ToValue, HasPicoseconds: value.HasPicoseconds, Picoseconds: value.Picoseconds, HasCount: value.HasCount, Count: value.Count, HasCode: value.HasCode, Code: value.Code, HasFromText: value.HasFromText, From: value.From, HasToText: value.HasToText, To: value.To, HasLabel: value.HasLabel, Label: value.Label, Codes: append([]string(nil), value.Codes...), Records: append([]string(nil), value.Records...), FromRecords: append([]string(nil), value.FromRecords...), ToRecords: append([]string(nil), value.ToRecords...)}
+	if value.Nested != nil {
+		nested := rinexObservationDowngradeChangeFromNative(*value.Nested)
+		out.Nested = &nested
+	}
+	return out
+}
+
+// DowngradeToRINEX2 returns a fresh independently owned version-2 product and
+// every ordered conversion. It leaves the source unchanged. Semantic refusals
+// are returned as *RINEXObservationWriteError.
+func (obs *RINEXObservation) DowngradeToRINEX2(version float64) (RINEXObservationDowngrade, error) {
+	if obs == nil || obs.handle == nil {
+		return RINEXObservationDowngrade{}, ErrClosed
+	}
+	product, values, outcome, err := obs.handle.DowngradeToRINEX2(version)
+	if err != nil {
+		return RINEXObservationDowngrade{}, publicError(err)
+	}
+	if !outcome.IsOK {
+		return RINEXObservationDowngrade{}, rinexObservationWriteErrorFromNative(outcome)
+	}
+	if product == nil {
+		return RINEXObservationDowngrade{}, fmt.Errorf("sidereon: native RINEX downgrade returned no product")
+	}
+	changes := make([]RINEXObservationDowngradeChange, len(values))
+	for i, value := range values {
+		changes[i] = rinexObservationDowngradeChangeFromNative(value)
+	}
+	return RINEXObservationDowngrade{Observation: &RINEXObservation{handle: product}, Changes: changes}, nil
 }
 
 // RINEXObservationFrequency returns a signal frequency in hertz. A nil

@@ -82,6 +82,14 @@ func releaseEphemeris(pointer unsafe.Pointer) {
 }
 
 func PropagateState(config NativePropagationConfig, times []float64) (*Ephemeris, error) {
+	return propagateState(config, times, nil)
+}
+
+func PropagateStateWithTideSystem(config NativePropagationConfig, times []float64, tideSystem uint32) (*Ephemeris, error) {
+	return propagateState(config, times, &tideSystem)
+}
+
+func propagateState(config NativePropagationConfig, times []float64, tideSystem *uint32) (*Ephemeris, error) {
 	if len(times) == 0 {
 		return nil, invalidArgument("propagation time list is empty")
 	}
@@ -94,7 +102,12 @@ func PropagateState(config NativePropagationConfig, times []float64) (*Ephemeris
 	var output *C.SidereonEphemeris
 	var operationErr error
 	withCThread(func() {
-		status := C.sidereon_propagate_state(&cConfig, (*C.double)(timesPointer), timesLength, &output)
+		var status C.enum_SidereonStatus
+		if tideSystem == nil {
+			status = C.sidereon_propagate_state(&cConfig, (*C.double)(timesPointer), timesLength, &output)
+		} else {
+			status = C.sidereon_propagate_state_with_tide_system(&cConfig, C.uint32_t(*tideSystem), (*C.double)(timesPointer), timesLength, &output)
+		}
 		operationErr = statusErrorLocked(uint32(status))
 		if operationErr != nil && output != nil {
 			C.sidereon_ephemeris_free(output)

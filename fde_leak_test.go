@@ -17,7 +17,7 @@ func TestFDEInvalidLaterWeightDoesNotLeakEarlierCString(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	options.UnitWeights = false
+	options.WeightsMode = FDEWeightsSolution
 	options.Weights = map[string]float64{"A": 1, "Z\x00bad": 1}
 	robust := SPPRobustConfig{HuberK: 1.5, ScaleFloorM: 1, MaxOuter: 1, OuterToleranceM: 1e-3}
 	for i := 0; i < 4096; i++ {

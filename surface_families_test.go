@@ -3,6 +3,8 @@ package sidereon
 import (
 	"errors"
 	"math"
+	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -73,7 +75,7 @@ func TestDeterministicTRLSAndILS(t *testing.T) {
 
 func TestDeterministicFDEOptionsDefault(t *testing.T) {
 	options, err := DefaultFDEOptions()
-	if err != nil || options.PFA <= 0 || options.PFA >= 1 || !options.UnitWeights {
+	if err != nil || options.PFA <= 0 || options.PFA >= 1 || options.WeightsMode != FDEWeightsSolution || options.MaxExclusions == nil || *options.MaxExclusions != 1 || options.MaxExclusionRMSM == nil || *options.MaxExclusionRMSM != 100 {
 		t.Fatalf("FDE defaults = %+v, %v", options, err)
 	}
 }
@@ -228,18 +230,29 @@ func TestDeterministicReducedAndFDE(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = sp3.Close() })
-	fde, err := SolveFDE(sp3, usedSPPConfig(), FDEOptions{PFA: 1e-3, MaxIterations: 8, UnitWeights: true})
-	if err != nil {
-		t.Fatal(err)
+	_, err = SolveFDE(sp3, usedSPPConfig(), FDEOptions{PFA: 1e-3, WeightsMode: FDEWeightsUnit})
+	var unresolved *FDEUnresolvedError
+	if !errors.As(err, &unresolved) {
+		t.Fatalf("FDE with the default one-exclusion budget = %T %v, want typed unresolved error", err, err)
 	}
-	t.Cleanup(func() { _ = fde.Close() })
-	diagnostics, err := fde.Diagnostics()
-	if err != nil || diagnostics.Iterations != 0 || len(diagnostics.ExcludedSatelliteIDs) != 0 {
-		t.Fatalf("FDE diagnostics = %+v, %v", diagnostics, err)
+	if unresolved.Reason != FDEUnresolvedExclusionBudgetExhausted || unresolved.CaptureError != nil ||
+		!unresolved.HasSolution || !unresolved.HasExcluded || !unresolved.HasRAIM || !unresolved.HasNormalizedResiduals ||
+		unresolved.Iterations != 1 || len(unresolved.Excluded) != 1 || unresolved.Excluded[0] != "G21" {
+		t.Fatalf("default-budget FDE unresolved payload = %+v", unresolved)
 	}
-	solution, err := fde.Solution()
-	if err != nil || solution.UsedSatelliteCount < 4 || solution.PositionM == [3]float64{} {
-		t.Fatalf("FDE solution = %+v, %v", solution, err)
+	wantRetained := []string{"G08", "G10", "G16", "G18", "G20", "G26", "G27"}
+	if unresolved.Solution.UsedSatelliteCount != len(wantRetained) || !reflect.DeepEqual(unresolved.Solution.UsedSatelliteIDs, wantRetained) ||
+		len(unresolved.Solution.ResidualsM) != len(wantRetained) || len(unresolved.Solution.PseudorangeVariancesM2) != len(wantRetained) || len(unresolved.Solution.Weights) != len(wantRetained) {
+		t.Fatalf("default-budget FDE last solution lost aligned rows: %+v", unresolved.Solution)
+	}
+	if !unresolved.RAIM.FaultDetected || !unresolved.RAIM.Testable || !unresolved.RAIM.HasThreshold ||
+		!(unresolved.RAIM.TestStatistic > unresolved.RAIM.Threshold) || !unresolved.RAIM.HasWorstSatellite || unresolved.RAIM.WorstSatellite != "G20" ||
+		len(unresolved.NormalizedResiduals) != unresolved.Solution.UsedSatelliteCount {
+		t.Fatalf("default-budget FDE retained RAIM payload = %+v, rows=%d", unresolved.RAIM, len(unresolved.NormalizedResiduals))
+	}
+	var status *StatusError
+	if !errors.As(err, &status) || status.Code != StatusSolve || !strings.Contains(status.Detail, "ExclusionBudgetExhausted") || !strings.Contains(status.Detail, `after excluding ["G21"]`) {
+		t.Fatalf("default-budget FDE status cause = %T %v, want retained solve status", err, err)
 	}
 }
 
@@ -273,7 +286,7 @@ func TestDeterministicReliabilityARAIMAndRangeFDE(t *testing.T) {
 		{ID: "rx_clock", ResidualM: 0, DesignRow: []float64{1, 0}, Weight: 1},
 		{ID: "range_a", ResidualM: 0.1, DesignRow: []float64{0, 1}, Weight: 1},
 		{ID: "range_b", ResidualM: -0.1, DesignRow: []float64{0, 1}, Weight: 1},
-	}, RangeFDEOptions{PFA: 1e-3, MaxExclusions: 1, MinRedundancy: 1})
+	}, RangeFDEOptions{PFA: 1e-3, MaxExclusions: func() *uint64 { v := uint64(1); return &v }(), MinRedundancy: func() *uint64 { v := uint64(1); return &v }()})
 	if err != nil {
 		t.Fatal(err)
 	}

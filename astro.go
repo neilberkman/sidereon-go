@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // EclipseStatus is the C eclipse classification.
 type EclipseStatus uint32

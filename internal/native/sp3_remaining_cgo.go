@@ -31,6 +31,9 @@ const (
 	Sp3MergeFlagSingleSource                  = uint32(C.SIDEREON_SP3_MERGE_FLAG_KIND_SINGLE_SOURCE)
 	Sp3MergeFlagPositionOutlier               = uint32(C.SIDEREON_SP3_MERGE_FLAG_KIND_POSITION_OUTLIER)
 	Sp3MergeFlagClockOutlier                  = uint32(C.SIDEREON_SP3_MERGE_FLAG_KIND_CLOCK_OUTLIER)
+	Sp3ProvenanceModeOff                      = uint32(C.SIDEREON_SP3_PROVENANCE_MODE_OFF)
+	Sp3ProvenanceModeSummary                  = uint32(C.SIDEREON_SP3_PROVENANCE_MODE_SUMMARY)
+	Sp3ProvenanceModeFull                     = uint32(C.SIDEREON_SP3_PROVENANCE_MODE_FULL)
 )
 
 func validateExactSp3Coverage(value uint32) error {
@@ -279,6 +282,7 @@ type NativeSp3MergeOptions struct {
 	Systems                        []uint32
 	AssertedFrameLabelSets         [][]string
 	HelmertFrameReconciliation     bool
+	ProvenanceMode                 uint32
 }
 
 func cSp3MergeOptions(a *sp3Arena, value NativeSp3MergeOptions) (*C.SidereonSp3MergeOptions, error) {
@@ -287,6 +291,9 @@ func cSp3MergeOptions(a *sp3Arena, value NativeSp3MergeOptions) (*C.SidereonSp3M
 	}
 	if err := validateSp3MergePrecedenceScope(value.PrecedenceScope); err != nil {
 		return nil, err
+	}
+	if value.ProvenanceMode > Sp3ProvenanceModeFull {
+		return nil, invalidArgument("invalid SP3 merge provenance mode")
 	}
 	if value.MinAgree < 0 || value.ClockMinCommon < 0 {
 		return nil, invalidArgument("SP3 merge counts must not be negative")
@@ -326,6 +333,7 @@ func cSp3MergeOptions(a *sp3Arena, value NativeSp3MergeOptions) (*C.SidereonSp3M
 	out.target_epoch_interval_s_enabled = cBool(value.TargetEpochIntervalEnabled)
 	out.target_epoch_interval_s = C.double(value.TargetEpochIntervalS)
 	out.helmert_frame_reconciliation = cBool(value.HelmertFrameReconciliation)
+	out.provenance_mode = C.uint32_t(value.ProvenanceMode)
 	if len(value.Systems) != 0 {
 		systemsPointer, err := a.malloc(len(value.Systems), unsafe.Sizeof(C.uint32_t(0)))
 		if err != nil {
@@ -368,7 +376,7 @@ func cSp3MergeOptions(a *sp3Arena, value NativeSp3MergeOptions) (*C.SidereonSp3M
 
 func Sp3MergeOptionsInit() (NativeSp3MergeOptions, error) {
 	var value C.SidereonSp3MergeOptions
-	err := callStatus(func() uint32 { return uint32(C.sidereon_sp3_merge_options_init(&value)) })
+	err := callStatusWithSp3Diagnostics(func() uint32 { return uint32(C.sidereon_sp3_merge_options_init(&value)) })
 	if err != nil {
 		return NativeSp3MergeOptions{}, err
 	}
@@ -390,7 +398,7 @@ func Sp3MergeOptionsInit() (NativeSp3MergeOptions, error) {
 		return NativeSp3MergeOptions{}, invalidArgument("invalid SP3 merge option boolean returned by native code")
 	}
 	return NativeSp3MergeOptions{
-		PositionToleranceM: float64(value.position_tolerance_m), ClockToleranceS: float64(value.clock_tolerance_s), MinAgree: minAgree, ClockMinCommon: clockMinCommon, Combine: uint32(value.combine), PrecedenceScope: uint32(value.precedence_scope), OutlierRejectEnabled: value.outlier_reject_enabled != 0, OutlierRejectPositionTolerance: float64(value.outlier_reject_position_tolerance_m), OutlierRejectClockTolerance: float64(value.outlier_reject_clock_tolerance_s), TargetEpochIntervalEnabled: value.target_epoch_interval_s_enabled != 0, TargetEpochIntervalS: float64(value.target_epoch_interval_s), HelmertFrameReconciliation: value.helmert_frame_reconciliation != 0,
+		PositionToleranceM: float64(value.position_tolerance_m), ClockToleranceS: float64(value.clock_tolerance_s), MinAgree: minAgree, ClockMinCommon: clockMinCommon, Combine: uint32(value.combine), PrecedenceScope: uint32(value.precedence_scope), OutlierRejectEnabled: value.outlier_reject_enabled != 0, OutlierRejectPositionTolerance: float64(value.outlier_reject_position_tolerance_m), OutlierRejectClockTolerance: float64(value.outlier_reject_clock_tolerance_s), TargetEpochIntervalEnabled: value.target_epoch_interval_s_enabled != 0, TargetEpochIntervalS: float64(value.target_epoch_interval_s), HelmertFrameReconciliation: value.helmert_frame_reconciliation != 0, ProvenanceMode: uint32(value.provenance_mode),
 	}, nil
 }
 
@@ -424,7 +432,7 @@ func ExactSp3RequestNew(year int, month, day uint8, issue, span, sample, expecte
 				return
 			}
 		}
-		err = statusErrorLocked(uint32(C.sidereon_sp3_exact_request_new(cYear, C.uint8_t(month), C.uint8_t(day), issuePointer, spanPointer, samplePointer, agencyPointer, &out)))
+		err = statusSp3ErrorLocked(uint32(C.sidereon_sp3_exact_request_new(cYear, C.uint8_t(month), C.uint8_t(day), issuePointer, spanPointer, samplePointer, agencyPointer, &out)))
 		if err != nil && out != nil {
 			C.sidereon_sp3_exact_request_free(out)
 			out = nil
@@ -443,7 +451,7 @@ func ExactSp3RequestFromIdentity(identity ProductIdentity) (*ExactSp3Request, er
 	}
 	var out *C.SidereonExactSp3Request
 	withCThread(func() {
-		err = statusErrorLocked(uint32(C.sidereon_sp3_exact_request_from_identity(&cIdentity, &out)))
+		err = statusSp3ErrorLocked(uint32(C.sidereon_sp3_exact_request_from_identity(&cIdentity, &out)))
 		if err != nil && out != nil {
 			C.sidereon_sp3_exact_request_free(out)
 			out = nil
@@ -466,7 +474,7 @@ func LoadExactSP3(data []byte, request *ExactSp3Request) (*SP3, uint32, error) {
 	err := request.handle.with(func(requestPointer unsafe.Pointer) error {
 		return withInputError(data, func(bytes *C.uint8_t, length C.size_t) error {
 			withCThread(func() {
-				operationErr = statusErrorLocked(uint32(C.sidereon_sp3_load_exact(bytes, length, (*C.SidereonExactSp3Request)(requestPointer), &out, &coverage)))
+				operationErr = statusSp3ErrorLocked(uint32(C.sidereon_sp3_load_exact(bytes, length, (*C.SidereonExactSp3Request)(requestPointer), &out, &coverage)))
 				if operationErr != nil && out != nil {
 					C.sidereon_sp3_free(out)
 					out = nil
@@ -502,7 +510,7 @@ func LoadExactSP3WithGapThresholdFactor(data []byte, request *ExactSp3Request, g
 	err := request.handle.with(func(requestPointer unsafe.Pointer) error {
 		return withInputError(data, func(bytes *C.uint8_t, length C.size_t) error {
 			withCThread(func() {
-				operationErr = statusErrorLocked(uint32(C.sidereon_sp3_load_exact_with_gap_threshold_factor(bytes, length, (*C.SidereonExactSp3Request)(requestPointer), C.double(gapThresholdFactor), &out, &coverage)))
+				operationErr = statusSp3ErrorLocked(uint32(C.sidereon_sp3_load_exact_with_gap_threshold_factor(bytes, length, (*C.SidereonExactSp3Request)(requestPointer), C.double(gapThresholdFactor), &out, &coverage)))
 				if operationErr != nil && out != nil {
 					C.sidereon_sp3_free(out)
 					out = nil
@@ -537,7 +545,7 @@ func ValidateExactSP3(sp3 *SP3, request *ExactSp3Request) (uint32, error) {
 		var operationErr error
 		withCThread(func() {
 			var coverage C.enum_SidereonExactSp3Coverage
-			operationErr = statusErrorLocked(uint32(C.sidereon_sp3_validate_exact((*C.SidereonSp3)(pointers[0]), (*C.SidereonExactSp3Request)(pointers[1]), &coverage)))
+			operationErr = statusSp3ErrorLocked(uint32(C.sidereon_sp3_validate_exact((*C.SidereonSp3)(pointers[0]), (*C.SidereonExactSp3Request)(pointers[1]), &coverage)))
 			if operationErr == nil {
 				operationErr = validateExactSp3Coverage(uint32(coverage))
 				coverageValue = uint32(coverage)
@@ -589,7 +597,7 @@ func MergeSP3(sources []*SP3, options *NativeSp3MergeOptions) (*SP3, *Sp3MergeRe
 			sourcesPointer = (**C.SidereonSp3)(sourceMemory)
 		}
 		withCThread(func() {
-			err = statusErrorLocked(uint32(C.sidereon_sp3_merge(sourcesPointer, count, optionPointer, &out, &report)))
+			err = statusSp3ErrorLocked(uint32(C.sidereon_sp3_merge(sourcesPointer, count, optionPointer, &out, &report)))
 			if err != nil {
 				if out != nil {
 					C.sidereon_sp3_free(out)
@@ -709,7 +717,7 @@ func MergeInputIdentity(contributors []NativeSp3ArtifactIdentity, options *Nativ
 	}
 	var out *C.SidereonSp3MergeInputIdentity
 	withCThread(func() {
-		err = statusErrorLocked(uint32(C.sidereon_sp3_merge_input_identity(contributorPointer, count, optionPointer, &out)))
+		err = statusSp3ErrorLocked(uint32(C.sidereon_sp3_merge_input_identity(contributorPointer, count, optionPointer, &out)))
 		if err != nil && out != nil {
 			C.sidereon_sp3_merge_input_identity_free(out)
 			out = nil
@@ -973,17 +981,16 @@ func (r *Sp3MergeReport) ContinuityVerdictJSON(merged *SP3, from, through float6
 		return nil, ErrClosed
 	}
 	var result []byte
-	err := withPositioningHandleSet([]*positioningHandle{r.handle, merged.handle}, func(pointers []unsafe.Pointer) error {
+	err := r.handle.with(func(reportPointer unsafe.Pointer) error {
 		return withCThreadError(func() error {
 			var copyErr error
 			result, copyErr = copyNativeBytesLocked("SP3 merge continuity verdict", func(out *C.uint8_t, n C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
-				return C.sidereon_sp3_merge_report_continuity_verdict_json((*C.SidereonSp3MergeReport)(pointers[0]), (*C.SidereonSp3)(pointers[1]), C.double(from), C.double(through), out, n, written, required)
+				return C.sidereon_sp3_merge_report_continuity_verdict_json((*C.SidereonSp3MergeReport)(reportPointer), C.double(from), C.double(through), out, n, written, required)
 			})
 			return copyErr
 		})
 	})
 	runtime.KeepAlive(r)
-	runtime.KeepAlive(merged)
 	return result, err
 }
 
@@ -1321,13 +1328,14 @@ func sp3ObservableStates(h *positioningHandle, satellites []string, epochs []flo
 					epochPointer = (*C.double)(epochMemory)
 				}
 			}
-			var status uint32
-			if shared {
-				status = uint32(C.sidereon_sp3_observable_states_at_shared_j2000_s((*C.SidereonSp3)(pointer), ids, count, C.double(epoch), positionPointer, clockPointer, hasClockPointer, elementPointer, statusPointer))
-			} else {
-				status = uint32(C.sidereon_sp3_observable_states_at_j2000_s((*C.SidereonSp3)(pointer), ids, (*C.double)(epochPointer), count, positionPointer, clockPointer, hasClockPointer, elementPointer, statusPointer))
-			}
-			if err := statusErrorLocked(status); err != nil {
+			rowErrors, err := callObservableRows(func() uint32 {
+				if shared {
+					return uint32(C.sidereon_sp3_observable_states_at_shared_j2000_s((*C.SidereonSp3)(pointer), ids, count, C.double(epoch), positionPointer, clockPointer, hasClockPointer, elementPointer, statusPointer))
+				} else {
+					return uint32(C.sidereon_sp3_observable_states_at_j2000_s((*C.SidereonSp3)(pointer), ids, (*C.double)(epochPointer), count, positionPointer, clockPointer, hasClockPointer, elementPointer, statusPointer))
+				}
+			}, n)
+			if err != nil {
 				return err
 			}
 			result = make([]NativeObservableStateRow, n)
@@ -1343,6 +1351,9 @@ func sp3ObservableStates(h *positioningHandle, satellites []string, epochs []flo
 				for axis := range result[i].Position {
 					result[i].Position[axis] = float64(positions[i*3+axis])
 				}
+			}
+			if err := attachObservableRowErrors(result, rowErrors); err != nil {
+				return err
 			}
 			return nil
 		})

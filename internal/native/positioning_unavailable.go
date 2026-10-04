@@ -4,7 +4,19 @@ package native
 
 import "time"
 
-type SP3State struct{}
+type SP3State struct {
+	PositionM      [3]float64
+	HasClock       bool
+	ClockS         float64
+	HasVelocity    bool
+	VelocityMPerS  [3]float64
+	HasClockRate   bool
+	ClockRateSPerS float64
+	ClockEvent     bool
+	ClockPredicted bool
+	Maneuver       bool
+	OrbitPredicted bool
+}
 
 type SP3PredictionSummary struct{}
 
@@ -38,11 +50,17 @@ type SPPConfig struct {
 	Ionosphere      bool
 	Troposphere     bool
 	WithGeodetic    bool
+	Models          NativeSPPModelOptions
+}
+
+type NativeSPPModelOptions struct {
+	QZSSClock, TroposphereModel uint32
 }
 
 type SPPGeometryQuality struct{}
 type SPPMetadata struct{}
 type SPPSolution struct{}
+type SppSolutionHandle struct{}
 
 type StaticPositionEpochInput struct {
 	Inputs  SppInputsV2
@@ -68,6 +86,7 @@ type NativeSPPSolvePolicy struct {
 }
 type SppInputsV2 struct {
 	Base                    SPPConfig
+	Models                  NativeSPPModelOptions
 	BeidouEnabled           bool
 	BeidouAlpha, BeidouBeta [4]float64
 	RobustEnabled           bool
@@ -85,6 +104,7 @@ type StaticPositionOptionsInput struct {
 	WithGeodetic     bool
 	RobustEnabled    bool
 	Robust           NativeSPPRobustConfig
+	Models           NativeSPPModelOptions
 }
 type RtkRinexStaticBaselineConfig struct{}
 type StaticReferenceStationRinexConfigInput struct {
@@ -105,6 +125,12 @@ type StaticReferenceEpochDiagnostic struct{}
 type StaticReferenceStationMetadata struct{}
 type StaticReferenceModeReport struct{}
 type StaticPositionSolution struct{}
+type NativeSPPRejectedSatelliteV2 struct {
+	SatelliteID    string
+	Reason         uint32
+	HasSize        bool
+	OrbitM, ClockM float64
+}
 type StaticReferenceStationSolution struct{}
 
 func StaticPositionOptionsInit() (StaticPositionOptionsInput, error) {
@@ -115,6 +141,12 @@ func SolveStaticPositionBroadcast(*BroadcastEphemeris, []StaticPositionEpochInpu
 }
 func SolveStaticPositionSP3(*SP3, []StaticPositionEpochInput, *StaticPositionOptionsInput) (*StaticPositionSolution, uint32, error) {
 	return nil, 0, unavailable()
+}
+func SolveBroadcastV2AtExactEpoch(*BroadcastEphemeris, SppInputsV2, *ExactEpoch) (*SppSolutionHandle, error) {
+	return nil, unavailable()
+}
+func SolveBroadcastV2(*BroadcastEphemeris, SppInputsV2) (*SppSolutionHandle, error) {
+	return nil, unavailable()
 }
 func (s *StaticPositionSolution) Close() error                  { return nil }
 func (s *StaticPositionSolution) Position() ([3]float64, error) { return [3]float64{}, unavailable() }
@@ -137,6 +169,9 @@ func (s *StaticPositionSolution) Metadata() (StaticPositionMetadata, error) {
 	return StaticPositionMetadata{}, unavailable()
 }
 func (s *StaticPositionSolution) RejectedSats(int) ([]StaticPositionRejectedSat, error) {
+	return nil, unavailable()
+}
+func (s *StaticPositionSolution) RejectedSatsV2(int) ([]NativeSPPRejectedSatelliteV2, error) {
 	return nil, unavailable()
 }
 func (s *StaticPositionSolution) Residuals() ([]StaticPositionResidual, error) {
@@ -180,21 +215,39 @@ func (s *StaticReferenceStationSolution) ModeReports() ([]StaticReferenceModeRep
 
 func (*SP3) Solve(SPPConfig) (SPPSolution, error) { return SPPSolution{}, unavailable() }
 
-type TLEMetadata struct{}
-type TLELines struct{}
-type TEMEState struct{}
+type TLEMetadata struct {
+	CatalogNumber, Classification, InternationalDesignator       string
+	EpochYear, EphemerisType, ElementSetNumber, RevolutionNumber int
+	EpochDayOfYear, InclinationDeg, RAANDeg, Eccentricity        float64
+	ArgumentOfPerigeeDeg, MeanAnomalyDeg, MeanMotionRevPerDay    float64
+	MeanMotionDot, MeanMotionDoubleDot, BStar                    float64
+}
+type TLELines struct{ Line1, Line2 string }
+type TEMEState struct {
+	EpochJ2000S                float64
+	PositionKm, VelocityKmPerS [3]float64
+}
 type TLE struct{}
+type TLEChecksumWarning struct {
+	LineNumber uint8
+	Kind       uint32
+	Found      uint8
+	Computed   uint8
+	Expected   uint8
+}
 
 const (
 	TLEOpsModeAFSPCValue    uint32 = 0
 	TLEOpsModeImprovedValue uint32 = 1
 )
 
-func ParseTLE(string, string) (*TLE, error)        { return nil, unavailable() }
-func LoadTLE(string, string, uint32) (*TLE, error) { return nil, unavailable() }
-func (*TLE) Close() error                          { return nil }
-func (*TLE) Metadata() (TLEMetadata, error)        { return TLEMetadata{}, unavailable() }
-func (*TLE) Lines() (TLELines, error)              { return TLELines{}, unavailable() }
+func ParseTLE(string, string) (*TLE, error)                          { return nil, unavailable() }
+func LoadTLE(string, string, uint32) (*TLE, error)                   { return nil, unavailable() }
+func LoadTLEWithPolicy(string, string, uint32, uint32) (*TLE, error) { return nil, unavailable() }
+func (*TLE) Close() error                                            { return nil }
+func (*TLE) Metadata() (TLEMetadata, error)                          { return TLEMetadata{}, unavailable() }
+func (*TLE) Lines() (TLELines, error)                                { return TLELines{}, unavailable() }
+func (*TLE) ChecksumWarnings() ([]TLEChecksumWarning, error)         { return nil, unavailable() }
 func (*TLE) Propagate([]time.Time) ([]TEMEState, error) {
 	return nil, unavailable()
 }

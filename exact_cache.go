@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
 )
 
 // ExactCacheControlDirectory is the engine-defined directory containing

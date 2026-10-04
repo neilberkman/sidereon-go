@@ -26,6 +26,13 @@ type RtkRinexArcPosition struct {
 	PositionM   [3]float64
 }
 
+type RtkRinexUnresolvedCarrier struct {
+	Receiver       uint32
+	EpochIndex     int
+	SatelliteID    string
+	ObservableCode string
+}
+
 type RtkRinexArcEpochMetadata struct {
 	BaseCount, RoverCount, SatellitePositionCount           int
 	BaseSatellitePositionCount, RoverSatellitePositionCount int
@@ -522,6 +529,82 @@ func copyRtkRinexArcPositions(label string, call rtkRinexArcPositionCall) ([]Rtk
 		}
 	}
 	return result, nil
+}
+
+type rtkRinexUnresolvedCarrierCall func(*C.SidereonRtkRinexUnresolvedCarrier, C.size_t, *C.size_t, *C.size_t) C.enum_SidereonStatus
+
+func copyRtkRinexUnresolvedCarriers(label string, call rtkRinexUnresolvedCarrierCall) ([]RtkRinexUnresolvedCarrier, error) {
+	var written, required C.size_t
+	if err := statusErrorLocked(uint32(call(nil, 0, &written, &required))); err != nil {
+		return nil, err
+	}
+	count, err := validateNativeQuery(label, uint64(written), uint64(required))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := checkedNativeAllocationSize(count, unsafe.Sizeof(C.SidereonRtkRinexUnresolvedCarrier{})); err != nil {
+		return nil, err
+	}
+	capacity, err := cSize(count, label+" output capacity")
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]C.SidereonRtkRinexUnresolvedCarrier, count)
+	var output *C.SidereonRtkRinexUnresolvedCarrier
+	if count != 0 {
+		output = &rows[0]
+	}
+	written, required = 0, 0
+	if err := statusErrorLocked(uint32(call(output, capacity, &written, &required))); err != nil {
+		return nil, err
+	}
+	writtenCount, err := validateTwoPassCounts(label, count, count, uint64(written), uint64(required))
+	if err != nil {
+		return nil, err
+	}
+	result := make([]RtkRinexUnresolvedCarrier, writtenCount)
+	for index := range result {
+		epoch, err := checkedNativeCount(uint64(rows[index].epoch_index))
+		if err != nil {
+			return nil, err
+		}
+		result[index] = RtkRinexUnresolvedCarrier{Receiver: uint32(rows[index].receiver), EpochIndex: epoch, SatelliteID: tokenFromC(rows[index].sat_id), ObservableCode: observationFixedString(rows[index].observable_code[:])}
+	}
+	return result, nil
+}
+
+func (a *RtkRinexArc) UnresolvedCarriers() ([]RtkRinexUnresolvedCarrier, error) {
+	if a == nil || a.handle == nil {
+		return nil, ErrClosed
+	}
+	var result []RtkRinexUnresolvedCarrier
+	var err error
+	err = a.handle.read(func(pointer unsafe.Pointer) error {
+		withCThread(func() {
+			result, err = copyRtkRinexUnresolvedCarriers("RTK RINEX unresolved carriers", func(out *C.SidereonRtkRinexUnresolvedCarrier, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+				return C.sidereon_rtk_rinex_arc_unresolved_carriers((*C.SidereonRtkRinexArc)(pointer), out, length, written, required)
+			})
+		})
+		return err
+	})
+	return result, err
+}
+
+func (a *RtkRinexDualFrequencyArc) UnresolvedCarriers() ([]RtkRinexUnresolvedCarrier, error) {
+	if a == nil || a.handle == nil {
+		return nil, ErrClosed
+	}
+	var result []RtkRinexUnresolvedCarrier
+	var err error
+	err = a.handle.read(func(pointer unsafe.Pointer) error {
+		withCThread(func() {
+			result, err = copyRtkRinexUnresolvedCarriers("RTK dual RINEX unresolved carriers", func(out *C.SidereonRtkRinexUnresolvedCarrier, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+				return C.sidereon_rtk_rinex_dual_frequency_arc_unresolved_carriers((*C.SidereonRtkRinexDualFrequencyArc)(pointer), out, length, written, required)
+			})
+		})
+		return err
+	})
+	return result, err
 }
 
 func copyRtkRinexMapValues(label string, call rtkRinexMapValueCall) ([]RtkRinexMapValue, error) {

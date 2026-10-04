@@ -7,9 +7,21 @@ const (
 	OMMFormatXMLValue  uint32 = 1
 	OMMFormatJSONValue uint32 = 2
 
+	BiasReadPolicyStrictValue        uint32 = 0
+	BiasReadPolicyLenientValue       uint32 = 1
 	BiasModeAbsoluteValue            uint32 = 0
 	BiasModeRelativeValue            uint32 = 1
 	BiasModeUnspecifiedValue         uint32 = 2
+	BiasLookupAvailableValue         uint32 = 0
+	BiasLookupAbsentValue            uint32 = 1
+	BiasLookupUnsupportedScaleValue  uint32 = 2
+	BiasLookupAmbiguousValue         uint32 = 3
+	BiasLookupCarrierRequiredValue   uint32 = 4
+	BiasLookupInvalidCarrierValue    uint32 = 5
+	BiasLookupCarrierUnknownValue    uint32 = 6
+	BiasLookupUndefinedSlopeValue    uint32 = 7
+	BiasLookupInvalidEpochValue      uint32 = 8
+	BiasLookupUnknownValue           uint32 = 999
 	BiasKindOSBValue                 uint32 = 0
 	BiasKindDSBValue                 uint32 = 1
 	BiasKindISBValue                 uint32 = 2

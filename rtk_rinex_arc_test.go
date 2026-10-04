@@ -3,26 +3,212 @@ package sidereon
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math"
+	"reflect"
+	"strings"
 	"sync"
 	"testing"
 )
 
+// rtkR28Channel7Observations extends the checked-in mixed-system fixture with
+// the same out-of-allocation GLONASS channel used by core's RINEX arc test.
+func rtkR28Channel7Observations(t *testing.T) []byte {
+	t.Helper()
+	lines := bytes.Split(readObservationFixture(t, "ESBC00DNK_R_20201770000_01D_30S_MO_trim.rnx"), []byte("\n"))
+	countUpdated, lastSlotLine := false, -1
+	for i, line := range lines {
+		text := string(line)
+		if strings.Contains(text, "GLONASS SLOT / FRQ #") {
+			lastSlotLine = i
+			if strings.HasPrefix(text, " 23 ") {
+				lines[i] = []byte(strings.Replace(text, " 23 ", " 24 ", 1))
+				countUpdated = true
+			}
+		}
+	}
+	if !countUpdated || lastSlotLine < 0 {
+		t.Fatal("GLONASS slot count/header lines were not found")
+	}
+	lines = append(lines[:lastSlotLine+1], append([][]byte{[]byte(fmt.Sprintf("%-60s%-20s", "    R28  7", "GLONASS SLOT / FRQ #"))}, lines[lastSlotLine+1:]...)...)
+	var firstEpoch, insertedObservation bool
+	for i, line := range lines {
+		text := string(line)
+		if strings.HasPrefix(text, ">") {
+			if firstEpoch {
+				break
+			}
+			firstEpoch = true
+			if !strings.HasSuffix(text, " 43") {
+				t.Fatalf("first epoch satellite count changed: %q", text)
+			}
+			lines[i] = []byte(strings.TrimSuffix(text, " 43") + " 44")
+			continue
+		}
+		if firstEpoch && strings.HasPrefix(text, "S23") {
+			fields := make([]string, 20)
+			for n := range fields {
+				fields[n] = strings.Repeat(" ", 16)
+			}
+			fields[0] = fmt.Sprintf("%14.3f  ", 20_000_000.0) // C1C
+			fields[2] = fmt.Sprintf("%14.3f  ", 20_000_010.0) // C2C
+			fields[10] = fmt.Sprintf("%14.3f  ", 100_000.0)   // L1C
+			fields[12] = fmt.Sprintf("%14.3f  ", 90_000.0)    // L2C
+			row := []byte("R28" + strings.Join(fields, ""))
+			lines = append(lines[:i], append([][]byte{row}, lines[i:]...)...)
+			insertedObservation = true
+			break
+		}
+	}
+	if !firstEpoch || !insertedObservation {
+		t.Fatal("first epoch or insertion point for R28 was not found")
+	}
+	return bytes.Join(lines, []byte("\n"))
+}
+
+func TestRINEXRTKUnresolvedCarriersRetainNonemptyNativeFixture(t *testing.T) {
+	sp3, originalBase, originalRover := rinexRTKFixture(t)
+	closeAfterTest(t, originalBase)
+	closeAfterTest(t, originalRover)
+	observationBytes := rtkR28Channel7Observations(t)
+	base, err := ParseRINEXObservation(observationBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsedValues, err := base.Values(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r28Values []RINEXObservationValue
+	for _, value := range parsedValues {
+		if value.SatelliteID == "R28" {
+			r28Values = append(r28Values, value)
+		}
+	}
+	if len(r28Values) == 0 {
+		for _, line := range bytes.Split(observationBytes, []byte("\n")) {
+			if bytes.HasPrefix(line, []byte("R28")) {
+				t.Fatalf("fixture row parsed without R28 values; raw row length=%d prefix=%q", len(line), line[:min(len(line), 48)])
+			}
+		}
+		t.Fatal("fixture has no R28 row")
+	}
+	closeAfterTest(t, base)
+	rover, err := ParseRINEXObservation(observationBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeAfterTest(t, rover)
+	wantSingle := []RTKRINEXUnresolvedCarrier{
+		{Receiver: RTKRINEXReceiverBase, EpochIndex: 0, SatelliteID: "R28", ObservableCode: "L1C"},
+		{Receiver: RTKRINEXReceiverRover, EpochIndex: 0, SatelliteID: "R28", ObservableCode: "L1C"},
+	}
+	single, err := BuildRINEXRTKArc(sp3, base, rover, &RTKRINEXArcOptions{
+		SignalPairs: []RTKRINEXSignalPair{
+			{System: GNSSSystemGPS, CodeObservable: "C1C", PhaseObservable: "L1C"},
+			{System: GNSSSystemGLONASS, CodeObservable: "C1C", PhaseObservable: "L1C"},
+		},
+		HasMaxEpochs: true, MaxEpochs: 1, MinCommonSatellites: 4,
+	})
+	if err != nil {
+		t.Fatalf("single-frequency mixed-constellation arc: %v; R28 values=%+v", err, r28Values)
+	}
+	closeAfterTest(t, single)
+	if rows, err := single.UnresolvedCarriers(); err != nil || !reflect.DeepEqual(rows, wantSingle) {
+		t.Fatalf("single unresolved carriers = %+v, %v; want %+v", rows, err, wantSingle)
+	} else {
+		wantSingle = append([]RTKRINEXUnresolvedCarrier(nil), rows...)
+	}
+	wantDual := []RTKRINEXUnresolvedCarrier{
+		{Receiver: RTKRINEXReceiverBase, EpochIndex: 0, SatelliteID: "R28", ObservableCode: "L1C"},
+		{Receiver: RTKRINEXReceiverBase, EpochIndex: 0, SatelliteID: "R28", ObservableCode: "L2C"},
+		{Receiver: RTKRINEXReceiverRover, EpochIndex: 0, SatelliteID: "R28", ObservableCode: "L1C"},
+		{Receiver: RTKRINEXReceiverRover, EpochIndex: 0, SatelliteID: "R28", ObservableCode: "L2C"},
+	}
+	dual, err := BuildDualFrequencyRINEXRTKArc(sp3, base, rover, &RTKRINEXDualArcOptions{
+		SignalPairs: []RTKRINEXDualSignalPair{
+			{System: GNSSSystemGPS, Code1Observable: "C1C", Phase1Observable: "L1C", Code2Observable: "C2W", Phase2Observable: "L2W"},
+			{System: GNSSSystemGLONASS, Code1Observable: "C1C", Phase1Observable: "L1C", Code2Observable: "C2C", Phase2Observable: "L2C"},
+		},
+		HasMaxEpochs: true, MaxEpochs: 1, MinCommonSatellites: 4,
+	})
+	if err != nil {
+		t.Fatalf("dual-frequency GLONASS arc: %v", err)
+	}
+	closeAfterTest(t, dual)
+	if rows, err := dual.UnresolvedCarriers(); err != nil || !reflect.DeepEqual(rows, wantDual) {
+		t.Fatalf("dual unresolved carriers = %+v, %v; want %+v", rows, err, wantDual)
+	} else {
+		wantDual = append([]RTKRINEXUnresolvedCarrier(nil), rows...)
+	}
+	if err := single.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := dual.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := base.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := rover.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(wantSingle, []RTKRINEXUnresolvedCarrier{
+		{Receiver: RTKRINEXReceiverBase, EpochIndex: 0, SatelliteID: "R28", ObservableCode: "L1C"},
+		{Receiver: RTKRINEXReceiverRover, EpochIndex: 0, SatelliteID: "R28", ObservableCode: "L1C"},
+	}) || !reflect.DeepEqual(wantDual, []RTKRINEXUnresolvedCarrier{
+		{Receiver: RTKRINEXReceiverBase, EpochIndex: 0, SatelliteID: "R28", ObservableCode: "L1C"},
+		{Receiver: RTKRINEXReceiverBase, EpochIndex: 0, SatelliteID: "R28", ObservableCode: "L2C"},
+		{Receiver: RTKRINEXReceiverRover, EpochIndex: 0, SatelliteID: "R28", ObservableCode: "L1C"},
+		{Receiver: RTKRINEXReceiverRover, EpochIndex: 0, SatelliteID: "R28", ObservableCode: "L2C"},
+	}) {
+		t.Fatalf("detached unresolved records changed after closing product and observation handles: single=%+v dual=%+v", wantSingle, wantDual)
+	}
+}
+
 func rinexRTKFixture(t *testing.T) (*SP3, *RINEXObservation, *RINEXObservation) {
 	t.Helper()
 	sp3Data := readPositioningFixture(t, "trimmed.sp3")
+	// Retiming the complete precise product by +12 h 15 min keeps the 13
+	// source epochs strictly increasing while placing original row 5 at the
+	// RINEX start epoch. The prior fixture edit retimed only the middle five
+	// rows, leaving the trailing rows earlier than their predecessors.
 	for _, replacement := range []struct{ from, to string }{
-		{"  2020  6 24 11 45  0.00000000", "  2020  6 25 00 00  0.00000000"},
-		{"  2020  6 24 12  0  0.00000000", "  2020  6 25 00 00 30.00000000"},
-		{"  2020  6 24 12 15  0.00000000", "  2020  6 25 00 01  0.00000000"},
-		{"  2020  6 24 12 30  0.00000000", "  2020  6 25 00 01 30.00000000"},
-		{"  2020  6 24 12 45  0.00000000", "  2020  6 25 00 02  0.00000000"},
+		{"#cP2020  6 24 10 30  0.00000000", "#cP2020  6 24 22 45  0.00000000"},
+		{"## 2111 297000.00000000   900.00000000 59024 0.4375000000000", "## 2111 341100.00000000   900.00000000 59024 0.9479166666667"},
+		{"  2020  6 24 10 30  0.00000000", "  2020  6 24 22 45  0.00000000"},
+		{"  2020  6 24 10 45  0.00000000", "  2020  6 24 23  0  0.00000000"},
+		{"  2020  6 24 11  0  0.00000000", "  2020  6 24 23 15  0.00000000"},
+		{"  2020  6 24 11 15  0.00000000", "  2020  6 24 23 30  0.00000000"},
+		{"  2020  6 24 11 30  0.00000000", "  2020  6 24 23 45  0.00000000"},
+		{"  2020  6 24 11 45  0.00000000", "  2020  6 25  0  0  0.00000000"},
+		{"  2020  6 24 12  0  0.00000000", "  2020  6 25  0 15  0.00000000"},
+		{"  2020  6 24 12 15  0.00000000", "  2020  6 25  0 30  0.00000000"},
+		{"  2020  6 24 12 30  0.00000000", "  2020  6 25  0 45  0.00000000"},
+		{"  2020  6 24 12 45  0.00000000", "  2020  6 25  1  0  0.00000000"},
+		{"  2020  6 24 13  0  0.00000000", "  2020  6 25  1 15  0.00000000"},
+		{"  2020  6 24 13 15  0.00000000", "  2020  6 25  1 30  0.00000000"},
+		{"  2020  6 24 13 30  0.00000000", "  2020  6 25  1 45  0.00000000"},
 	} {
+		if count := bytes.Count(sp3Data, []byte(replacement.from)); count != 1 {
+			t.Fatalf("SP3 timestamp source occurrence count for %q = %d, want 1", replacement.from, count)
+		}
 		sp3Data = bytes.ReplaceAll(sp3Data, []byte(replacement.from), []byte(replacement.to))
 	}
 	sp3, err := LoadSP3(sp3Data)
 	if err != nil {
 		t.Fatal(err)
+	}
+	epochs, err := sp3.Epochs()
+	if err != nil || len(epochs) != 13 || epochs[5] != 646315200 {
+		_ = sp3.Close()
+		t.Fatalf("retimed SP3 epochs = %v, %v", epochs, err)
+	}
+	for index := 1; index < len(epochs); index++ {
+		if epochs[index]-epochs[index-1] != 900 {
+			_ = sp3.Close()
+			t.Fatalf("retimed SP3 interval[%d] = %v, want 900 seconds", index, epochs[index]-epochs[index-1])
+		}
 	}
 	obsData := readObservationFixture(t, "ESBC00DNK_R_20201770000_01D_30S_MO_trim.rnx")
 	base, err := ParseRINEXObservation(obsData)
@@ -61,6 +247,9 @@ func TestRINEXRTKFixtureRoutes(t *testing.T) {
 	if skipped, err := single.SkippedEpochCount(); err != nil || skipped != 0 {
 		t.Fatalf("single skipped count = %d, %v", skipped, err)
 	}
+	if unresolved, err := single.UnresolvedCarriers(); err != nil || len(unresolved) != 0 {
+		t.Fatalf("single unresolved carriers = %+v, %v", unresolved, err)
+	}
 	metadata, err := single.EpochMetadata(0)
 	if err != nil {
 		t.Fatal(err)
@@ -83,7 +272,11 @@ func TestRINEXRTKFixtureRoutes(t *testing.T) {
 		t.Fatalf("single shared positions = %+v, %v", positions, err)
 	}
 	basePositions, err := single.EpochBaseSatellitePositions(0)
-	if err != nil || len(basePositions) != 4 || math.Abs(basePositions[0].PositionM[0]-7093002.973882648) > 1e-6 {
+	// Pinned RTKLIB demo5 peph2pos reference for the same retimed SP3 and
+	// first-epoch G08 C1C pseudorange: 7093793.018806088 m. The measured
+	// Go/C46 difference is 8.91e-6 m; the 1 mm bound allows interpolation
+	// arithmetic variation while rejecting the stale 7093002.97 m golden.
+	if err != nil || len(basePositions) != 4 || math.Abs(basePositions[0].PositionM[0]-7093793.018806088) > 1e-3 {
 		t.Fatalf("single base positions = %+v, %v", basePositions, err)
 	}
 	roverPositions, err := single.EpochRoverSatellitePositions(0)
@@ -109,6 +302,9 @@ func TestRINEXRTKFixtureRoutes(t *testing.T) {
 	}
 	if skipped, err := dual.SkippedEpochCount(); err != nil || skipped != 0 {
 		t.Fatalf("dual skipped count = %d, %v", skipped, err)
+	}
+	if unresolved, err := dual.UnresolvedCarriers(); err != nil || len(unresolved) != 0 {
+		t.Fatalf("dual unresolved carriers = %+v, %v", unresolved, err)
 	}
 	dualMetadata, err := dual.EpochMetadata(0)
 	if err != nil {

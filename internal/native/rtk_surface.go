@@ -6,6 +6,17 @@ package native
 #cgo CFLAGS: -I${SRCDIR}/include
 #include <sidereon.h>
 #include <stdlib.h>
+enum SidereonStatus sidereon_detect_cycle_slips_v2(
+    const SidereonArcEpochV2 *, size_t,
+    const struct SidereonCycleSlipOptions *, struct SidereonSlipResult *, size_t, size_t *, size_t *);
+enum SidereonStatus sidereon_smooth_code_v2(
+    const SidereonArcEpochV2 *, size_t,
+    const struct SidereonCycleSlipOptions *, size_t,
+    struct SidereonSmoothCodeResult *, size_t, size_t *, size_t *);
+enum SidereonStatus sidereon_smooth_iono_free_code_v2(
+    const SidereonArcEpochV2 *, size_t,
+    const struct SidereonCycleSlipOptions *, size_t,
+    struct SidereonIonoFreeSmoothResult *, size_t, size_t *, size_t *);
 */
 import "C"
 
@@ -27,6 +38,7 @@ type ArcEpoch struct {
 	LLI2                   int64
 	F1Hz, F2Hz             float64
 	GapTimeS               float64
+	GapEpoch               *ExactEpoch
 }
 
 type CycleSlipOptions struct {
@@ -81,6 +93,51 @@ func copyArcEpochs(input []ArcEpoch) ([]C.SidereonArcEpoch, error) {
 	return result, nil
 }
 
+func withArcEpochInputs(input []ArcEpoch, legacy []C.SidereonArcEpoch, fn func(*C.SidereonArcEpoch, *C.SidereonArcEpochV2, C.size_t, bool) error) error {
+	count, err := checkedNativeSize(len(input))
+	if err != nil {
+		return err
+	}
+	var legacyPointer *C.SidereonArcEpoch
+	if len(legacy) != 0 {
+		legacyPointer = &legacy[0]
+	}
+	var handles []*positioningHandle
+	for _, epoch := range input {
+		if epoch.GapEpoch == nil {
+			continue
+		}
+		if epoch.GapEpoch.handle == nil {
+			return ErrClosed
+		}
+		handles = append(handles, epoch.GapEpoch.handle)
+	}
+	if len(handles) == 0 {
+		return fn(legacyPointer, nil, count, false)
+	}
+	return withPositioningHandles(handles, func(pointers []unsafe.Pointer) error {
+		if _, err := checkedNativeAllocationSize(len(input), unsafe.Sizeof(C.SidereonArcEpochV2{})); err != nil {
+			return err
+		}
+		rows := make([]C.SidereonArcEpochV2, len(input))
+		pointerIndex := 0
+		for index, epoch := range input {
+			var gap *C.SidereonExactEpoch
+			if epoch.GapEpoch != nil {
+				gap = (*C.SidereonExactEpoch)(pointers[pointerIndex])
+				pointerIndex++
+			}
+			rows[index] = C.SidereonArcEpochV2{legacy: legacy[index], has_gap_epoch: C.bool(gap != nil), gap_epoch: gap}
+		}
+		var exactPointer *C.SidereonArcEpochV2
+		if len(rows) != 0 {
+			exactPointer = &rows[0]
+		}
+		defer runtime.KeepAlive(input)
+		return fn(nil, exactPointer, count, true)
+	})
+}
+
 func DetectCycleSlips(input []ArcEpoch, options *CycleSlipOptions) ([]SlipResult, error) {
 	epochs, err := copyArcEpochs(input)
 	if err != nil {
@@ -88,57 +145,60 @@ func DetectCycleSlips(input []ArcEpoch, options *CycleSlipOptions) ([]SlipResult
 	}
 	var out []C.SidereonSlipResult
 	var operationErr error
-	withCThread(func() {
-		n, sizeErr := checkedNativeSize(len(input))
-		if sizeErr != nil {
-			operationErr = sizeErr
-			return
-		}
-		var epochPointer *C.SidereonArcEpoch
-		if len(epochs) != 0 {
-			epochPointer = &epochs[0]
-		}
-		var option C.SidereonCycleSlipOptions
-		var optionPointer *C.SidereonCycleSlipOptions
-		if options != nil {
-			option = C.SidereonCycleSlipOptions{gf_threshold_m: C.double(options.GFThresholdM), mw_threshold_cycles: C.double(options.MWThresholdCycles), min_arc_gap_s: C.double(options.MinArcGapS)}
-			optionPointer = &option
-		}
-		if _, err := checkedNativeAllocationSize(len(input), unsafe.Sizeof(C.SidereonSlipResult{})); err != nil {
-			operationErr = err
-			return
-		}
-		out = make([]C.SidereonSlipResult, len(input))
-		var outPointer *C.SidereonSlipResult
-		if len(out) != 0 {
-			outPointer = &out[0]
-		}
-		var written, required C.size_t
-		status := C.sidereon_detect_cycle_slips(epochPointer, n, optionPointer, nil, 0, &written, &required)
-		if operationErr = statusErrorLocked(uint32(status)); operationErr != nil {
-			return
-		}
-		count, queryErr := validateNativeQuery("cycle-slip results", uint64(written), uint64(required))
-		if queryErr != nil || count != len(input) {
-			if queryErr != nil {
-				operationErr = queryErr
-			} else {
-				operationErr = fmt.Errorf("sidereon: native cycle-slip result count %d does not match input count %d", count, len(input))
+	operationErr = withArcEpochInputs(input, epochs, func(epochPointer *C.SidereonArcEpoch, exactPointer *C.SidereonArcEpochV2, n C.size_t, useExact bool) error {
+		withCThread(func() {
+			var option C.SidereonCycleSlipOptions
+			var optionPointer *C.SidereonCycleSlipOptions
+			if options != nil {
+				option = C.SidereonCycleSlipOptions{gf_threshold_m: C.double(options.GFThresholdM), mw_threshold_cycles: C.double(options.MWThresholdCycles), min_arc_gap_s: C.double(options.MinArcGapS)}
+				optionPointer = &option
 			}
-			return
-		}
-		written, required = 0, 0
-		status = C.sidereon_detect_cycle_slips(epochPointer, n, optionPointer, outPointer, C.size_t(len(out)), &written, &required)
-		if operationErr = statusErrorLocked(uint32(status)); operationErr != nil {
-			return
-		}
-		var countErr error
-		count, countErr = validateTwoPassCounts("cycle-slip results", len(out), len(input), uint64(written), uint64(required))
-		if countErr != nil {
-			operationErr = countErr
-			return
-		}
-		out = out[:count]
+			if _, err := checkedNativeAllocationSize(len(input), unsafe.Sizeof(C.SidereonSlipResult{})); err != nil {
+				operationErr = err
+				return
+			}
+			out = make([]C.SidereonSlipResult, len(input))
+			var outPointer *C.SidereonSlipResult
+			if len(out) != 0 {
+				outPointer = &out[0]
+			}
+			var written, required C.size_t
+			var status C.enum_SidereonStatus
+			if useExact {
+				status = C.sidereon_detect_cycle_slips_v2(exactPointer, n, optionPointer, nil, 0, &written, &required)
+			} else {
+				status = C.sidereon_detect_cycle_slips(epochPointer, n, optionPointer, nil, 0, &written, &required)
+			}
+			if operationErr = statusErrorLocked(uint32(status)); operationErr != nil {
+				return
+			}
+			count, queryErr := validateNativeQuery("cycle-slip results", uint64(written), uint64(required))
+			if queryErr != nil || count != len(input) {
+				if queryErr != nil {
+					operationErr = queryErr
+				} else {
+					operationErr = fmt.Errorf("sidereon: native cycle-slip result count %d does not match input count %d", count, len(input))
+				}
+				return
+			}
+			written, required = 0, 0
+			if useExact {
+				status = C.sidereon_detect_cycle_slips_v2(exactPointer, n, optionPointer, outPointer, C.size_t(len(out)), &written, &required)
+			} else {
+				status = C.sidereon_detect_cycle_slips(epochPointer, n, optionPointer, outPointer, C.size_t(len(out)), &written, &required)
+			}
+			if operationErr = statusErrorLocked(uint32(status)); operationErr != nil {
+				return
+			}
+			var countErr error
+			count, countErr = validateTwoPassCounts("cycle-slip results", len(out), len(input), uint64(written), uint64(required))
+			if countErr != nil {
+				operationErr = countErr
+				return
+			}
+			out = out[:count]
+		})
+		return operationErr
 	})
 	runtime.KeepAlive(input)
 	if operationErr != nil {
@@ -161,52 +221,60 @@ func SmoothCode(input []ArcEpoch, options *CycleSlipOptions, hatchWindowCap int)
 	}
 	var out []C.SidereonSmoothCodeResult
 	var operationErr error
-	withCThread(func() {
-		var option C.SidereonCycleSlipOptions
-		var optionPointer *C.SidereonCycleSlipOptions
-		if options != nil {
-			option = C.SidereonCycleSlipOptions{gf_threshold_m: C.double(options.GFThresholdM), mw_threshold_cycles: C.double(options.MWThresholdCycles), min_arc_gap_s: C.double(options.MinArcGapS)}
-			optionPointer = &option
-		}
-		var epochPointer *C.SidereonArcEpoch
-		if len(epochs) != 0 {
-			epochPointer = &epochs[0]
-		}
-		if _, err := checkedNativeAllocationSize(len(input), unsafe.Sizeof(C.SidereonSmoothCodeResult{})); err != nil {
-			operationErr = err
-			return
-		}
-		out = make([]C.SidereonSmoothCodeResult, len(input))
-		var output *C.SidereonSmoothCodeResult
-		if len(out) != 0 {
-			output = &out[0]
-		}
-		var written, required C.size_t
-		status := C.sidereon_smooth_code(epochPointer, C.size_t(len(input)), optionPointer, C.size_t(hatchWindowCap), nil, 0, &written, &required)
-		if operationErr = statusErrorLocked(uint32(status)); operationErr != nil {
-			return
-		}
-		count, queryErr := validateNativeQuery("smoothed-code results", uint64(written), uint64(required))
-		if queryErr != nil || count != len(input) {
-			if queryErr != nil {
-				operationErr = queryErr
-			} else {
-				operationErr = fmt.Errorf("sidereon: native smoothed-code result count %d does not match input count %d", count, len(input))
+	operationErr = withArcEpochInputs(input, epochs, func(epochPointer *C.SidereonArcEpoch, exactPointer *C.SidereonArcEpochV2, nativeCount C.size_t, useExact bool) error {
+		withCThread(func() {
+			var option C.SidereonCycleSlipOptions
+			var optionPointer *C.SidereonCycleSlipOptions
+			if options != nil {
+				option = C.SidereonCycleSlipOptions{gf_threshold_m: C.double(options.GFThresholdM), mw_threshold_cycles: C.double(options.MWThresholdCycles), min_arc_gap_s: C.double(options.MinArcGapS)}
+				optionPointer = &option
 			}
-			return
-		}
-		written, required = 0, 0
-		status = C.sidereon_smooth_code(epochPointer, C.size_t(len(input)), optionPointer, C.size_t(hatchWindowCap), output, C.size_t(len(out)), &written, &required)
-		if operationErr = statusErrorLocked(uint32(status)); operationErr != nil {
-			return
-		}
-		var countErr error
-		count, countErr = validateTwoPassCounts("smoothed-code results", len(out), len(input), uint64(written), uint64(required))
-		if countErr != nil {
-			operationErr = countErr
-			return
-		}
-		out = out[:count]
+			if _, err := checkedNativeAllocationSize(len(input), unsafe.Sizeof(C.SidereonSmoothCodeResult{})); err != nil {
+				operationErr = err
+				return
+			}
+			out = make([]C.SidereonSmoothCodeResult, len(input))
+			var output *C.SidereonSmoothCodeResult
+			if len(out) != 0 {
+				output = &out[0]
+			}
+			var written, required C.size_t
+			var status C.enum_SidereonStatus
+			if useExact {
+				status = C.sidereon_smooth_code_v2(exactPointer, nativeCount, optionPointer, C.size_t(hatchWindowCap), nil, 0, &written, &required)
+			} else {
+				status = C.sidereon_smooth_code(epochPointer, nativeCount, optionPointer, C.size_t(hatchWindowCap), nil, 0, &written, &required)
+			}
+			if operationErr = statusErrorLocked(uint32(status)); operationErr != nil {
+				return
+			}
+			count, queryErr := validateNativeQuery("smoothed-code results", uint64(written), uint64(required))
+			if queryErr != nil || count != len(input) {
+				if queryErr != nil {
+					operationErr = queryErr
+				} else {
+					operationErr = fmt.Errorf("sidereon: native smoothed-code result count %d does not match input count %d", count, len(input))
+				}
+				return
+			}
+			written, required = 0, 0
+			if useExact {
+				status = C.sidereon_smooth_code_v2(exactPointer, nativeCount, optionPointer, C.size_t(hatchWindowCap), output, C.size_t(len(out)), &written, &required)
+			} else {
+				status = C.sidereon_smooth_code(epochPointer, nativeCount, optionPointer, C.size_t(hatchWindowCap), output, C.size_t(len(out)), &written, &required)
+			}
+			if operationErr = statusErrorLocked(uint32(status)); operationErr != nil {
+				return
+			}
+			var countErr error
+			count, countErr = validateTwoPassCounts("smoothed-code results", len(out), len(input), uint64(written), uint64(required))
+			if countErr != nil {
+				operationErr = countErr
+				return
+			}
+			out = out[:count]
+		})
+		return operationErr
 	})
 	runtime.KeepAlive(input)
 	if operationErr != nil {
@@ -229,52 +297,60 @@ func SmoothIonoFreeCode(input []ArcEpoch, options *CycleSlipOptions, hatchWindow
 	}
 	var out []C.SidereonIonoFreeSmoothResult
 	var operationErr error
-	withCThread(func() {
-		var option C.SidereonCycleSlipOptions
-		var optionPointer *C.SidereonCycleSlipOptions
-		if options != nil {
-			option = C.SidereonCycleSlipOptions{gf_threshold_m: C.double(options.GFThresholdM), mw_threshold_cycles: C.double(options.MWThresholdCycles), min_arc_gap_s: C.double(options.MinArcGapS)}
-			optionPointer = &option
-		}
-		var epochPointer *C.SidereonArcEpoch
-		if len(epochs) != 0 {
-			epochPointer = &epochs[0]
-		}
-		if _, err := checkedNativeAllocationSize(len(input), unsafe.Sizeof(C.SidereonIonoFreeSmoothResult{})); err != nil {
-			operationErr = err
-			return
-		}
-		out = make([]C.SidereonIonoFreeSmoothResult, len(input))
-		var output *C.SidereonIonoFreeSmoothResult
-		if len(out) != 0 {
-			output = &out[0]
-		}
-		var written, required C.size_t
-		status := C.sidereon_smooth_iono_free_code(epochPointer, C.size_t(len(input)), optionPointer, C.size_t(hatchWindowCap), nil, 0, &written, &required)
-		if operationErr = statusErrorLocked(uint32(status)); operationErr != nil {
-			return
-		}
-		count, queryErr := validateNativeQuery("ionosphere-free smoothed-code results", uint64(written), uint64(required))
-		if queryErr != nil || count != len(input) {
-			if queryErr != nil {
-				operationErr = queryErr
-			} else {
-				operationErr = fmt.Errorf("sidereon: native ionosphere-free result count %d does not match input count %d", count, len(input))
+	operationErr = withArcEpochInputs(input, epochs, func(epochPointer *C.SidereonArcEpoch, exactPointer *C.SidereonArcEpochV2, nativeCount C.size_t, useExact bool) error {
+		withCThread(func() {
+			var option C.SidereonCycleSlipOptions
+			var optionPointer *C.SidereonCycleSlipOptions
+			if options != nil {
+				option = C.SidereonCycleSlipOptions{gf_threshold_m: C.double(options.GFThresholdM), mw_threshold_cycles: C.double(options.MWThresholdCycles), min_arc_gap_s: C.double(options.MinArcGapS)}
+				optionPointer = &option
 			}
-			return
-		}
-		written, required = 0, 0
-		status = C.sidereon_smooth_iono_free_code(epochPointer, C.size_t(len(input)), optionPointer, C.size_t(hatchWindowCap), output, C.size_t(len(out)), &written, &required)
-		if operationErr = statusErrorLocked(uint32(status)); operationErr != nil {
-			return
-		}
-		var countErr error
-		count, countErr = validateTwoPassCounts("ionosphere-free smoothed-code results", len(out), len(input), uint64(written), uint64(required))
-		if countErr != nil {
-			operationErr = countErr
-			return
-		}
-		out = out[:count]
+			if _, err := checkedNativeAllocationSize(len(input), unsafe.Sizeof(C.SidereonIonoFreeSmoothResult{})); err != nil {
+				operationErr = err
+				return
+			}
+			out = make([]C.SidereonIonoFreeSmoothResult, len(input))
+			var output *C.SidereonIonoFreeSmoothResult
+			if len(out) != 0 {
+				output = &out[0]
+			}
+			var written, required C.size_t
+			var status C.enum_SidereonStatus
+			if useExact {
+				status = C.sidereon_smooth_iono_free_code_v2(exactPointer, nativeCount, optionPointer, C.size_t(hatchWindowCap), nil, 0, &written, &required)
+			} else {
+				status = C.sidereon_smooth_iono_free_code(epochPointer, nativeCount, optionPointer, C.size_t(hatchWindowCap), nil, 0, &written, &required)
+			}
+			if operationErr = statusErrorLocked(uint32(status)); operationErr != nil {
+				return
+			}
+			count, queryErr := validateNativeQuery("ionosphere-free smoothed-code results", uint64(written), uint64(required))
+			if queryErr != nil || count != len(input) {
+				if queryErr != nil {
+					operationErr = queryErr
+				} else {
+					operationErr = fmt.Errorf("sidereon: native ionosphere-free result count %d does not match input count %d", count, len(input))
+				}
+				return
+			}
+			written, required = 0, 0
+			if useExact {
+				status = C.sidereon_smooth_iono_free_code_v2(exactPointer, nativeCount, optionPointer, C.size_t(hatchWindowCap), output, C.size_t(len(out)), &written, &required)
+			} else {
+				status = C.sidereon_smooth_iono_free_code(epochPointer, nativeCount, optionPointer, C.size_t(hatchWindowCap), output, C.size_t(len(out)), &written, &required)
+			}
+			if operationErr = statusErrorLocked(uint32(status)); operationErr != nil {
+				return
+			}
+			var countErr error
+			count, countErr = validateTwoPassCounts("ionosphere-free smoothed-code results", len(out), len(input), uint64(written), uint64(required))
+			if countErr != nil {
+				operationErr = countErr
+				return
+			}
+			out = out[:count]
+		})
+		return operationErr
 	})
 	runtime.KeepAlive(input)
 	if operationErr != nil {

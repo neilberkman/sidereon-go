@@ -23,6 +23,44 @@ func protocolFixture(t *testing.T, relative ...string) []byte {
 	return data
 }
 
+func TestBroadcastRecordIssuePresenceConversion(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		present bool
+		issue   uint32
+	}{
+		{name: "absent zero"},
+		{name: "present zero", present: true},
+		{name: "present one", present: true, issue: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got := broadcastRecordFromNative(broadcastRecordToNative(BroadcastRecord{HasIssue: test.present, Issue: test.issue}))
+			if got.HasIssue != test.present || got.Issue != test.issue {
+				t.Fatalf("issue presence/value = (%t,%d), want (%t,%d)", got.HasIssue, got.Issue, test.present, test.issue)
+			}
+		})
+	}
+}
+
+func TestBroadcastRecordOptionalFieldsConversion(t *testing.T) {
+	want := BroadcastRecord{
+		HasIssue: true, HasSVAccuracyM: true,
+		Stated: StatedNavFields{
+			HasOrbit5Field2: true, Orbit5Field2: 0,
+			HasOrbit5Field4: true, Orbit5Field4: 7.25,
+			HasOrbit6Field4: true, Orbit6Field4: 12,
+			HasTransmissionTimeSOW: true, TransmissionTimeSOW: 345678.125,
+			HasOrbit7Field2: true, Orbit7Field2: 0,
+			HasOrbit7Field3: true, Orbit7Field3: 123.5,
+			HasOrbit7Field4: true, Orbit7Field4: -456.25,
+		},
+	}
+	got := broadcastRecordFromNative(broadcastRecordToNative(want))
+	if got != want {
+		t.Fatalf("optional broadcast fields conversion = %+v, want %+v", got, want)
+	}
+}
+
 func TestRINEXNavAndClockPublicSmoke(t *testing.T) {
 	nav := protocolFixture(t, "nav", "ESBC00DNK_R_20201770000_01D_MN.rnx")
 	clockText := protocolFixture(t, "clk", "synthetic_rinex_clock.clk")
@@ -46,8 +84,11 @@ func TestRINEXNavAndClockPublicSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if record.SatelliteID != "C05" || record.Message != 8 || record.Issue != 1 || record.Week != 755 {
+	if record.SatelliteID != "C05" || record.Message != 8 || !record.HasIssue || record.Issue != 1 || record.Week != 755 {
 		t.Fatalf("unexpected first NAV identity: %+v", record)
+	}
+	if !record.HasSVAccuracyM || record.SVAccuracyM != 2 || !record.Stated.HasOrbit5Field2 || !record.Stated.HasTransmissionTimeSOW || !record.Stated.HasOrbit7Field2 || record.Stated.Orbit7Field2 != 0 {
+		t.Fatalf("unexpected stated/optional NAV fields: accuracy=%t/%g stated=%+v", record.HasSVAccuracyM, record.SVAccuracyM, record.Stated)
 	}
 	if record.Toe.System != BDT || record.Toe.Week != 755 || math.Float64bits(record.Toe.TOWSeconds) != 0x4114a78000000000 {
 		t.Fatalf("unexpected first NAV epoch: %+v", record.Toe)
@@ -63,8 +104,12 @@ func TestRINEXNavAndClockPublicSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(encoded) != 810 || !bytes.HasSuffix(encoded, []byte("\n")) {
-		t.Fatalf("encoded NAV length = %d, want 810", len(encoded))
+	if !bytes.HasSuffix(encoded, []byte("\n")) {
+		t.Fatal("encoded NAV is missing its final newline")
+	}
+	lines := bytes.Split(bytes.TrimSuffix(encoded, []byte("\n")), []byte("\n"))
+	if len(lines) != 11 || !bytes.HasSuffix(lines[0], []byte("RINEX VERSION / TYPE")) || !bytes.Contains(lines[1], []byte("sidereon")) || !bytes.HasSuffix(lines[1], []byte("PGM / RUN BY / DATE")) || !bytes.HasSuffix(lines[2], []byte("END OF HEADER")) || !bytes.HasPrefix(lines[3], []byte("C05")) {
+		t.Fatalf("encoded NAV header/body structure is invalid: %d lines, prefix=%q", len(lines), encoded[:min(len(encoded), 240)])
 	}
 	reparsed, err := ParseRINEXNavRecords(encoded)
 	if err != nil {
@@ -79,8 +124,73 @@ func TestRINEXNavAndClockPublicSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if !reparsedRecord.HasIssue || reparsedRecord.Issue != record.Issue {
+		t.Fatalf("NAV round trip changed issue-of-data presence/value: before=(%t,%d) after=(%t,%d)", record.HasIssue, record.Issue, reparsedRecord.HasIssue, reparsedRecord.Issue)
+	}
+	reparsedRecord.HasIssue = false
+	reparsedRecord.Issue = 99
+	storedRecord, err := reparsed.Record(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !storedRecord.HasIssue || storedRecord.Issue != record.Issue {
+		t.Fatalf("mutating detached NAV record changed stored issue: got (%t,%d), want (%t,%d)", storedRecord.HasIssue, storedRecord.Issue, record.HasIssue, record.Issue)
+	}
 	if math.Float64bits(reparsedRecord.Elements.SqrtA) != math.Float64bits(record.Elements.SqrtA) || math.Float64bits(reparsedRecord.Clock.AF0) != math.Float64bits(record.Clock.AF0) {
 		t.Fatalf("NAV round trip changed representative values: %+v", reparsedRecord)
+	}
+	if reparsedRecord.HasSVAccuracyM != record.HasSVAccuracyM || math.Float64bits(reparsedRecord.SVAccuracyM) != math.Float64bits(record.SVAccuracyM) || reparsedRecord.Stated != record.Stated {
+		t.Fatalf("NAV round trip changed accuracy/stated columns: before=(%t,%.17g,%+v) after=(%t,%.17g,%+v)", record.HasSVAccuracyM, record.SVAccuracyM, record.Stated, reparsedRecord.HasSVAccuracyM, reparsedRecord.SVAccuracyM, reparsedRecord.Stated)
+	}
+	zeroIssueRecord := record
+	zeroIssueRecord.HasIssue = true
+	zeroIssueRecord.Issue = 0
+	zeroIssueNAV, err := EncodeRINEXNav([]BroadcastRecord{zeroIssueRecord})
+	if err != nil {
+		t.Fatalf("encode present-zero issue record: %v", err)
+	}
+	zeroIssueRecords, err := ParseRINEXNavRecords(zeroIssueNAV)
+	if err != nil {
+		t.Fatalf("parse present-zero issue record: %v", err)
+	}
+	zeroIssueParsed, err := zeroIssueRecords.Record(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !zeroIssueParsed.HasIssue || zeroIssueParsed.Issue != 0 {
+		t.Fatalf("present-zero issue was not retained: (%t,%d)", zeroIssueParsed.HasIssue, zeroIssueParsed.Issue)
+	}
+	if err := zeroIssueRecords.Close(); err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name    string
+		present bool
+	}{
+		{name: "accuracy absent"},
+		{name: "accuracy present zero", present: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			variant := record
+			variant.HasSVAccuracyM = test.present
+			variant.SVAccuracyM = 0
+			encodedVariant, err := EncodeRINEXNav([]BroadcastRecord{variant})
+			if err != nil {
+				t.Fatalf("encode accuracy variant: %v", err)
+			}
+			parsedVariant, err := ParseRINEXNavLenient(encodedVariant)
+			if err != nil {
+				t.Fatalf("parse accuracy variant: %v", err)
+			}
+			closeAfterTest(t, parsedVariant)
+			rows, err := parsedVariant.Records()
+			if err != nil || len(rows) != 1 {
+				t.Fatalf("accuracy variant rows = %d, %v", len(rows), err)
+			}
+			if rows[0].HasSVAccuracyM != test.present {
+				t.Fatalf("accuracy presence = %t, want %t; row=%+v", rows[0].HasSVAccuracyM, test.present, rows[0])
+			}
+		})
 	}
 
 	badNAV := bytes.Replace(navOriginal, []byte("C05 2020"), []byte("C05 XXXX"), 1)
@@ -114,6 +224,12 @@ func TestRINEXNavAndClockPublicSmoke(t *testing.T) {
 		t.Fatal("strict NAV parse unexpectedly accepted malformed block")
 	}
 
+	firstClockLine := string(bytes.SplitN(clockText, []byte("\n"), 2)[0])
+	strictClock, strictOutcome, strictErr := ParseRINEXClockWithOutcome(clockText)
+	if strictErr != nil || strictClock == nil || !strictOutcome.IsOK || strictOutcome.Failure != nil {
+		t.Fatalf("typed strict clock parse = product %v, outcome %+v, err %v", strictClock, strictOutcome, strictErr)
+	}
+	closeAfterTest(t, strictClock)
 	clock, err := ParseRINEXClock(clockText)
 	if err != nil {
 		t.Fatal(err)
@@ -133,6 +249,44 @@ func TestRINEXNavAndClockPublicSmoke(t *testing.T) {
 	}
 	if count, err := clock.SeriesCount(); err != nil || count != 2 {
 		t.Fatalf("clock series count = %d, %v; want 2", count, err)
+	}
+	clockRecords, err := clock.Records()
+	if err != nil || len(clockRecords) != 6 || clockRecords[0].RecordType != RINEXClockRecordAR || clockRecords[0].Name != "ONSA" || !clockRecords[0].HasEpoch || len(clockRecords[1].Values) == 0 || clockRecords[1].RecordType != RINEXClockRecordAS || clockRecords[1].Name != "G05" {
+		t.Fatalf("typed clock records = %#v, %v", clockRecords, err)
+	}
+	if !clockRecords[2].HasEpoch || len(clockRecords[2].Values) == 0 {
+		t.Fatalf("fixture lacks exact second G05 sample: %+v", clockRecords[2])
+	}
+	if bias, available, err := clock.BiasAtEpoch("G05", clockRecords[2].Epoch); err != nil || !available || math.Float64bits(bias) != math.Float64bits(clockRecords[2].Values[0]) {
+		t.Fatalf("exact-epoch bias = %.17g, %v, %v", bias, available, err)
+	}
+	convertedEpoch, available, err := RINEXClockEpochFromCivil(clockRecords[2].Epoch.Scale, clockRecords[2].CivilEpoch)
+	if err != nil || !available {
+		t.Fatalf("civil-to-clock epoch = %+v, %v, %v", convertedEpoch, available, err)
+	}
+	if bias, available, err := clock.BiasAtEpoch("G05", convertedEpoch); err != nil || !available || math.Float64bits(bias) != math.Float64bits(clockRecords[2].Values[0]) {
+		t.Fatalf("converted-epoch bias = %.17g, %v, %v", bias, available, err)
+	}
+	if bias, available, err := clock.BiasAtCivil("G05", clockRecords[2].CivilEpoch); err != nil || !available || math.Float64bits(bias) != math.Float64bits(clockRecords[2].Values[0]) {
+		t.Fatalf("civil-epoch bias = %.17g, %v, %v", bias, available, err)
+	}
+	headerRecords, err := clock.HeaderRecords()
+	if err != nil || len(headerRecords) == 0 || headerRecords[0].LineText == "" || headerRecords[0].Label == "" {
+		t.Fatalf("typed clock header records = %#v, %v", headerRecords, err)
+	}
+	line, present, err := clock.SourceLine(1)
+	if err != nil || !present || line != firstClockLine {
+		t.Fatalf("source line 1 = %q, %v, %v", line, present, err)
+	}
+	if line, present, err = clock.SourceLine(^uint64(0)); err != nil || present || line != "" {
+		t.Fatalf("out-of-range source line = %q, %v, %v", line, present, err)
+	}
+	if count, err := clock.RecordCount(); err != nil || count != len(clockRecords) {
+		t.Fatalf("clock data-record count = %d, %v", count, err)
+	}
+	clockInfo, err := clock.Info()
+	if err != nil || !clockInfo.HasVersion || !clockInfo.HasTimeScale || clockInfo.RecordCount != len(clockRecords) || clockInfo.SeriesCount != 2 || clockInfo.SampleCount != 5 || clockInfo.HeaderRecordCount != len(headerRecords) {
+		t.Fatalf("clock info = %+v, %v", clockInfo, err)
 	}
 	sampleCount, err := clock.SampleCount()
 	if err != nil || sampleCount != 5 {
@@ -185,36 +339,196 @@ func TestRINEXNavAndClockPublicSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	writeResult, err := clock.Write(RINEXClockWritePolicy{})
+	if err != nil || !bytes.Equal(writeResult.Text, serialized) || len(writeResult.Departures) != 0 {
+		t.Fatalf("strict clock write = departures %#v, err %v", writeResult.Departures, err)
+	}
+	if err := clock.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if len(clockRecords) != 6 || clockRecords[1].Name != "G05" || len(headerRecords) == 0 || headerRecords[0].LineText == "" {
+		t.Fatalf("clock snapshots changed after source close: %#v / %#v", clockRecords, headerRecords)
+	}
+	if line, present, err := clock.SourceLine(1); !errors.Is(err, ErrClosed) || present || line != "" {
+		t.Fatalf("source line after close = %q, %v, %v", line, present, err)
+	}
 	roundTripClock, err := ParseRINEXClock(serialized)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := roundTripClock.Close(); err != nil {
-			t.Errorf("round-trip clock Close: %v", err)
-		}
-	})
+	closeAfterTest(t, roundTripClock)
 	roundTripCount, err := roundTripClock.SampleCount()
 	if err != nil || roundTripCount != 5 {
 		t.Fatalf("clock round-trip sample count = %d, %v", roundTripCount, err)
+	}
+	beforeEdit, err := roundTripClock.RecordCount()
+	if err != nil || beforeEdit != len(clockRecords) {
+		t.Fatalf("record count before edit = %d, %v", beforeEdit, err)
+	}
+	originalValues := append([]float64(nil), clockRecords[1].Values...)
+	changedValues := append([]float64(nil), originalValues...)
+	changedValues[0] -= 0.000001
+	if err := roundTripClock.SetRecordValues(1, changedValues); err != nil {
+		t.Fatalf("set changed clock record values: %v", err)
+	}
+	changedRows, err := roundTripClock.Records()
+	if err != nil || len(changedRows) <= 1 || changedRows[1].Values[0] != changedValues[0] {
+		t.Fatalf("changed clock values were not retained: %#v, %v", changedRows, err)
+	}
+	refusedValues := []float64{math.MaxFloat64, originalValues[1]}
+	if err := roundTripClock.SetRecordValues(1, refusedValues); err == nil {
+		t.Fatal("unwritable clock value was accepted")
+	} else {
+		var writeError *RINEXClockWriteError
+		if !errors.As(err, &writeError) || writeError.Kind != RINEXClockErrorInvalidInput || writeError.Message == "" {
+			t.Fatalf("clock edit refusal = %T %v, want typed invalid-input details", err, err)
+		}
+	}
+	afterRefusal, err := roundTripClock.Records()
+	if err != nil || len(afterRefusal) <= 1 || afterRefusal[1].Values[0] != changedValues[0] {
+		t.Fatalf("refused clock edit changed product: %#v, %v", afterRefusal, err)
+	}
+	if err := roundTripClock.SetRecordValues(1, originalValues); err != nil {
+		t.Fatalf("restore clock record values: %v", err)
+	}
+	secondValues := append([]float64(nil), clockRecords[2].Values...)
+	secondValues[0] += 0.000001
+	if edited, err := roundTripClock.SetRecordsValues([]RINEXClockRecordValuesEdit{{Index: 1, Values: changedValues}, {Index: 2, Values: secondValues}}); err != nil || edited != 2 {
+		t.Fatalf("batch clock edit changed %d rows: %v", edited, err)
+	}
+	batchRows, err := roundTripClock.Records()
+	if err != nil || batchRows[1].Values[0] != changedValues[0] || batchRows[2].Values[0] != secondValues[0] {
+		t.Fatalf("batch values not retained: %+v, %v", batchRows, err)
+	}
+	if _, err := roundTripClock.SetRecordsValues([]RINEXClockRecordValuesEdit{{Index: 1, Values: originalValues}, {Index: 1, Values: changedValues}}); err == nil {
+		t.Fatal("conflicting duplicate batch edits were accepted")
+	}
+	batchRows, err = roundTripClock.Records()
+	if err != nil || batchRows[1].Values[0] != changedValues[0] {
+		t.Fatalf("refused batch edit changed product: %+v, %v", batchRows, err)
+	}
+	if edited, err := roundTripClock.SetRecordsValues([]RINEXClockRecordValuesEdit{{Index: 1, Values: originalValues}, {Index: 2, Values: clockRecords[2].Values}}); err != nil || edited != 2 {
+		t.Fatalf("restore batch clock values = %d, %v", edited, err)
+	}
+	if err := roundTripClock.InsertRecord(beforeEdit, RINEXClockRecordAS, clockRecords[1].Name, clockRecords[1].CivilEpoch, clockRecords[1].Values); err != nil {
+		t.Fatalf("insert clock record: %v", err)
+	}
+	if got, err := roundTripClock.RecordCount(); err != nil || got != beforeEdit+1 {
+		t.Fatalf("record count after insert = %d, %v", got, err)
+	}
+	removed, present, err := roundTripClock.RemoveRecordWithValue(beforeEdit)
+	if err != nil || !present || removed.Name != clockRecords[1].Name || len(removed.Values) != len(clockRecords[1].Values) || removed.Values[0] != clockRecords[1].Values[0] {
+		t.Fatalf("remove inserted clock record: %v", err)
+	}
+	if err := roundTripClock.SetTimeSystem(RINEXClockTimeSystemGPS); err != nil {
+		t.Fatalf("set clock time system: %v", err)
+	}
+	if err := roundTripClock.InsertRecord(beforeEdit, RINEXClockRecordAS, "G05", CivilDateTime{Year: 2026, Month: 257, Day: 13}, []float64{1}); err == nil {
+		t.Fatal("month outside native field range was accepted")
+	} else {
+		var statusError *StatusError
+		if !errors.As(err, &statusError) || statusError.Code != StatusInvalidArgument {
+			t.Fatalf("out-of-range clock civil epoch error = %v", err)
+		}
+	}
+	if err := roundTripClock.InsertRecord(beforeEdit, RINEXClockRecordAS, "G\x005", CivilDateTime{Year: 2026, Month: 5, Day: 13}, []float64{1}); err == nil {
+		t.Fatal("clock record name with NUL was accepted")
+	} else {
+		var statusError *StatusError
+		if !errors.As(err, &statusError) || statusError.Code != StatusInvalidArgument {
+			t.Fatalf("NUL clock name error = %v", err)
+		}
+	}
+	if got, err := roundTripClock.RecordCount(); err != nil || got != beforeEdit {
+		t.Fatalf("record count after remove = %d, %v", got, err)
+	}
+	var editReaders sync.WaitGroup
+	editErrors := make(chan error, 4)
+	for worker := 0; worker < 4; worker++ {
+		editReaders.Add(1)
+		go func(worker int) {
+			defer editReaders.Done()
+			for iteration := 0; iteration < 8; iteration++ {
+				if worker%2 == 0 {
+					if err := roundTripClock.SetRecordValues(1, originalValues); err != nil {
+						editErrors <- err
+						return
+					}
+				} else if _, err := roundTripClock.Records(); err != nil {
+					editErrors <- err
+					return
+				}
+			}
+		}(worker)
+	}
+	editReaders.Wait()
+	close(editErrors)
+	for err := range editErrors {
+		t.Fatalf("concurrent clock read/edit: %v", err)
+	}
+	if removed, err := roundTripClock.RemoveRecords([]int{1, 1}); err != nil || removed != 1 {
+		t.Fatalf("batch duplicate remove = %d, %v", removed, err)
+	}
+	if count, err := roundTripClock.RecordCount(); err != nil || count != beforeEdit-1 {
+		t.Fatalf("batch remove record count = %d, %v", count, err)
 	}
 
 	malformedClock := []byte("     3.00           C                                       RINEX VERSION / TYPE\n" +
 		"                    GPS                                                         TIME SYSTEM ID\n" +
 		"                                                                        END OF HEADER\n" +
-		"AS G05  2026 05 13 00 00  bad-second  1   2.0e-04\n")
+		"AS G05  2026 05 13 00 00  bad-second  1   2.0e-04\n" +
+		"AR RCV1 2026 05 13 00 00 00.000000 1  2.0e-04\n")
+	strictProduct, parseOutcome, parseErr := ParseRINEXClockWithOutcome(malformedClock)
+	if parseErr != nil || strictProduct != nil || parseOutcome.IsOK || parseOutcome.Failure == nil || parseOutcome.Failure.Kind == RINEXClockErrorNone || !parseOutcome.Failure.HasLine || parseOutcome.Failure.Line != 4 || parseOutcome.Failure.Message == "" {
+		t.Fatalf("typed strict parse outcome = product %v, %+v, %v", strictProduct, parseOutcome, parseErr)
+	}
 	lossy, err := ParseRINEXClockLossy(malformedClock)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := lossy.Close(); err != nil {
-			t.Errorf("lossy clock Close: %v", err)
-		}
-	})
+	closeAfterTest(t, lossy)
 	lossyCount, err := lossy.SampleCount()
 	if err != nil || lossyCount != 0 {
 		t.Fatalf("lossy malformed clock count = %d, %v", lossyCount, err)
+	}
+	diagnostics, err := lossy.Diagnostics()
+	if err != nil || len(diagnostics) != 1 || !diagnostics[0].HasLine || diagnostics[0].Line != 4 || !diagnostics[0].HasErrorLine || diagnostics[0].ErrorLine != 4 || diagnostics[0].Message == "" || diagnostics[0].HasReason {
+		t.Fatalf("lossy clock diagnostic = %#v, %v", diagnostics, err)
+	}
+	clockSkipped, err := lossy.SkippedRecords()
+	if err != nil || len(clockSkipped) != 1 || clockSkipped[0].Line != 5 || clockSkipped[0].RecordType != RINEXClockRecordAR {
+		t.Fatalf("lossy skipped record = %#v, %v", clockSkipped, err)
+	}
+	if err := lossy.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if diagnostics[0].Message == "" || diagnostics[0].HasReason || diagnostics[0].Reason != "" || clockSkipped[0].RecordType != RINEXClockRecordAR {
+		t.Fatalf("clock diagnostic snapshots changed after close: %#v / %#v", diagnostics, clockSkipped)
+	}
+	noticeInput := strings.Replace(string(malformedClock), "     3.00", "     3.04", 1)
+	noticeInput = strings.Replace(noticeInput, "                    GPS                                                         TIME SYSTEM ID\n", "", 1)
+	noticeClock, err := ParseRINEXClockLossy([]byte(noticeInput))
+	if err != nil {
+		t.Fatalf("parse clock with missing v3.04 time system: %v", err)
+	}
+	closeAfterTest(t, noticeClock)
+	notices, err := noticeClock.Notices()
+	missingSystemNotice := false
+	for _, notice := range notices {
+		if notice.Kind == RINEXClockNoticeTimeSystemMissing {
+			missingSystemNotice = true
+		}
+	}
+	if err != nil || !missingSystemNotice {
+		t.Fatalf("missing-time-system notice = %#v, %v", notices, err)
+	}
+	if err := noticeClock.Close(); err != nil {
+		t.Fatal(err)
+	}
+	for _, notice := range notices {
+		if notice.Kind == RINEXClockNoticeTimeSystemMissing && notice.KindUnknownVariant != "" {
+			t.Fatalf("known notice unexpectedly has future name %q", notice.KindUnknownVariant)
+		}
 	}
 	if _, err := ParseRINEXClock(malformedClock); err == nil {
 		t.Fatal("strict clock parse unexpectedly accepted malformed row")
@@ -288,6 +602,20 @@ func TestSBASAndBareSSRSurface(t *testing.T) {
 	}
 	if prn, present, err := SatelliteIDToSBASPRN("S20"); err != nil || !present || prn != 120 {
 		t.Fatalf("SBAS reverse mapping = %d, %v, %v", prn, present, err)
+	}
+	if prn, present, err := SatelliteIDToSBASPRN("S01"); err != nil || present || prn != 0 {
+		t.Fatalf("valid non-SBAS token should have no PRN: %d, %v, %v", prn, present, err)
+	}
+	if prn, present, err := SatelliteIDToSBASPRN("not-a-satellite"); err == nil || present || prn != 0 {
+		t.Fatalf("malformed satellite token should retain native refusal: %d, %v, %v", prn, present, err)
+	}
+	for _, malformed := range []string{"", "G100"} {
+		if prn, present, err := SatelliteIDToSBASPRN(malformed); err == nil || present || prn != 0 {
+			t.Errorf("malformed satellite token %q should retain native refusal: %d, %v, %v", malformed, prn, present, err)
+		}
+	}
+	if _, _, err := SatelliteIDToSBASPRN("S20\x00suffix"); err == nil {
+		t.Fatal("embedded NUL satellite token was truncated and accepted")
 	}
 	if _, present, err := SBASPRNToSatelliteID(119); err != nil || present {
 		t.Fatalf("absent SBAS PRN mapping = present=%v, err=%v", present, err)

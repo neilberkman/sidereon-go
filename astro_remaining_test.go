@@ -1,6 +1,8 @@
 package sidereon
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"math"
 	"sync"
@@ -145,6 +147,77 @@ func TestRemainingCoverageFixtureAndCloseRace(t *testing.T) {
 		t.Fatalf("coverage use after close = %v", err)
 	}
 	_ = tle.Close()
+}
+
+func TestCoverageCellErrorPayloadIsOwnedAndTyped(t *testing.T) {
+	tle, err := ParseTLE(fixtureISSLine1, fixtureISSLine2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeAfterTest(t, tle)
+	grid, err := CoverageLookAngles([]*TLE{tle}, []PassStation{
+		{LatitudeDeg: 51.5, LongitudeDeg: -0.1, AltitudeM: 80},
+		{LatitudeDeg: 91, LongitudeDeg: 0, AltitudeM: 0},
+	}, time.Unix(1530000000, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cell, err := grid.LookAngle(0, 0); err != nil || !cell.OK {
+		t.Fatalf("valid coverage cell = %+v, %v", cell, err)
+	}
+	if _, err := grid.LookAngleErrorPayload(0, 0); err == nil {
+		t.Fatal("successful cell unexpectedly had an error payload")
+	}
+	payload, err := grid.LookAngleErrorPayload(0, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	typed, err := grid.LookAngleError(0, 1)
+	if err != nil || typed.Kind != "invalid_input" || typed.Fields.Field != "ground_station.latitude_deg" || len(typed.Raw) == 0 {
+		t.Fatalf("typed cell error = %+v, %v", typed, err)
+	}
+	if err := grid.Close(); err != nil {
+		t.Fatal(err)
+	}
+	var detail struct {
+		Kind   string `json:"kind"`
+		Fields struct {
+			Field  string `json:"field"`
+			Reason string `json:"reason"`
+		} `json:"fields"`
+	}
+	if err := json.Unmarshal(payload, &detail); err != nil {
+		t.Fatalf("decode detached cell payload: %v", err)
+	}
+	if detail.Kind != "invalid_input" || detail.Fields.Field != "ground_station.latitude_deg" || detail.Fields.Reason == "" {
+		t.Fatalf("cell payload lost typed cause: %s", payload)
+	}
+	if !bytes.Equal(typed.Raw, payload) {
+		t.Fatal("typed cell error did not retain the exact detached payload")
+	}
+
+	strictGrid, err := CoverageLookAngles([]*TLE{tle}, []PassStation{{LatitudeDeg: 51.5, LongitudeDeg: -0.1, AltitudeM: 80}}, time.Unix(-2208988800, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	strictDetail, err := strictGrid.LookAngleError(0, 0)
+	if err != nil || strictDetail.Kind != "frame_transform" || strictDetail.Fields.Cause == nil || strictDetail.Fields.Cause.Kind != "ut1_outside_coverage" || strictDetail.Fields.Cause.Fields.Reason != "before_coverage" || len(strictDetail.Fields.Cause.Raw) == 0 {
+		t.Fatalf("strict-UT1 nested coverage cause = %+v, %v", strictDetail, err)
+	}
+	if err := strictGrid.Close(); err != nil {
+		t.Fatal(err)
+	}
+	var strictRaw struct {
+		Fields struct {
+			Cause json.RawMessage `json:"cause"`
+		} `json:"fields"`
+	}
+	if err := json.Unmarshal(strictDetail.Raw, &strictRaw); err != nil {
+		t.Fatal(err)
+	}
+	if len(strictDetail.Fields.Cause.Raw) == 0 || !json.Valid(strictDetail.Fields.Cause.Raw) || !bytes.Equal(strictDetail.Fields.Cause.Raw, strictRaw.Fields.Cause) {
+		t.Fatal("nested UT1 cause was not retained after grid close")
+	}
 }
 
 func TestRemainingCoverageInverseOrder(t *testing.T) {

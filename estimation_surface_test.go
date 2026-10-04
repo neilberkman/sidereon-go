@@ -63,7 +63,7 @@ func TestEstimationValidationAndOwnership(t *testing.T) {
 	if _, err := LambdaILS([]float64{1, 2}, []float64{1, 0, 0, 1}, 3); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := RAIM(RAIMInput{SatelliteIDs: []string{"G01", "G02", "G03", "G04", "G05"}, ResidualsM: []float64{0, 0, 0, 0, 0}}, RAIMOptions{PFA: 0.001, UnitWeights: true}); err != nil {
+	if _, _, err := RAIM(RAIMInput{SatelliteIDs: []string{"G01", "G02", "G03", "G04", "G05"}, ResidualsM: []float64{0, 0, 0, 0, 0}}, RAIMOptions{PFA: 0.001, WeightsMode: FDEWeightsUnit}); err != nil {
 		t.Fatal(err)
 	}
 	sigmas, err := PseudorangeSigmas([]WeightEntry{{SatelliteID: "G01", ElevationDeg: 90}}, PseudorangeVarianceOptions{AM: 1, BM: 1, Model: PseudorangeVarianceElevation})

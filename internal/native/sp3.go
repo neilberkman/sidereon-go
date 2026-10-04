@@ -60,7 +60,7 @@ func LoadSP3(data []byte) (*SP3, error) {
 			}
 			defer C.free(cdata)
 		}
-		err = statusErrorLocked(C.sidereon_sp3_load(
+		err = statusSp3ErrorLocked(C.sidereon_sp3_load(
 			(*C.uint8_t)(cdata), C.size_t(len(data)), &pointer,
 		))
 		if err != nil && pointer != nil {
@@ -96,7 +96,7 @@ func LoadSP3WithGapThresholdFactor(data []byte, gapThresholdFactor float64) (*SP
 			}
 			defer C.free(cdata)
 		}
-		err = statusErrorLocked(C.sidereon_sp3_load_with_gap_threshold_factor(
+		err = statusSp3ErrorLocked(C.sidereon_sp3_load_with_gap_threshold_factor(
 			(*C.uint8_t)(cdata), C.size_t(len(data)), C.double(gapThresholdFactor), &pointer,
 		))
 		if err != nil && pointer != nil {

@@ -349,7 +349,7 @@ type NativeWTestNoncentrality struct{ Delta0, Lambda0 float64 }
 
 func WTestNoncentrality(alpha, beta float64) (NativeWTestNoncentrality, error) {
 	var out C.SidereonWTestNoncentrality
-	err := callStatus(func() uint32 { return uint32(C.sidereon_wtest_noncentrality(C.double(alpha), C.double(beta), &out)) })
+	err := callQualityStatus(func() uint32 { return uint32(C.sidereon_wtest_noncentrality(C.double(alpha), C.double(beta), &out)) })
 	return NativeWTestNoncentrality{float64(out.delta0), float64(out.lambda0)}, err
 }
 
@@ -964,6 +964,17 @@ type NativeRaimNormalizedResidual struct {
 	NormalizedResidual float64
 }
 
+func nativeRaimResult(result C.SidereonRaimResult) NativeRaimResult {
+	return NativeRaimResult{
+		FaultDetected: bool(result.fault_detected), TestStatistic: float64(result.test_statistic),
+		HasThreshold: bool(result.has_threshold), Threshold: float64(result.threshold),
+		HasReducedChiSquare: bool(result.has_reduced_chi_square), ReducedChiSquare: float64(result.reduced_chi_square),
+		RMSM: float64(result.rms_m), DOF: int64(result.dof), Testable: bool(result.testable),
+		NormalizedResidualCount: uint64(result.normalized_residual_count), HasWorstSatellite: bool(result.has_worst_sat),
+		WorstSatellite: tokenChars(result.worst_sat[:]),
+	}
+}
+
 func makeFDERaimWeights(values []NativeFDERaimWeight) (unsafe.Pointer, C.size_t, [](*C.char), error) {
 	length, err := cSize(len(values), "RAIM weight count")
 	if err != nil {
@@ -1000,9 +1011,15 @@ func makeFDERaimWeights(values []NativeFDERaimWeight) (unsafe.Pointer, C.size_t,
 	return memory, length, ids, nil
 }
 
-func RAIM(ids []string, residuals []float64, weights []NativeFDERaimWeight, pfa float64, unitWeights, systemsEnabled bool, systems int64) (NativeRaimResult, []NativeRaimNormalizedResidual, error) {
+func RAIM(ids []string, residuals, variances []float64, weights []NativeFDERaimWeight, pfa float64, weightsMode uint32, systemsEnabled bool, systems int64) (NativeRaimResult, []NativeRaimNormalizedResidual, error) {
 	if len(ids) != len(residuals) {
 		return NativeRaimResult{}, nil, errors.New("sidereon: RAIM satellite and residual lengths differ")
+	}
+	if weightsMode == uint32(0) && variances != nil && len(variances) != len(ids) {
+		return NativeRaimResult{}, nil, &StatusError{Code: 2, Text: "invalid argument", Detail: "sidereon: RAIM variances must align with satellite IDs", QualityKind: 13}
+	}
+	if weightsMode != uint32(0) {
+		variances = nil
 	}
 	idCount, err := cSize(len(ids), "RAIM observation count")
 	if err != nil {
@@ -1019,6 +1036,13 @@ func RAIM(ids []string, residuals []float64, weights []NativeFDERaimWeight, pfa 
 	}
 	if residualPointer != nil {
 		defer C.free(residualPointer)
+	}
+	variancePointer, _, err := cFloats(variances, "RAIM variances")
+	if err != nil {
+		return NativeRaimResult{}, nil, err
+	}
+	if variancePointer != nil {
+		defer C.free(variancePointer)
 	}
 	weightMemory, weightLength, weightIDs, err := makeFDERaimWeights(weights)
 	if err != nil {
@@ -1040,18 +1064,18 @@ func RAIM(ids []string, residuals []float64, weights []NativeFDERaimWeight, pfa 
 	var status C.enum_SidereonStatus
 	var operationErr error
 	withCThread(func() {
-		status = C.sidereon_raim(idPointer, (*C.double)(residualPointer), idCount, C.double(pfa), C.bool(unitWeights), weightPointer, weightLength, C.bool(systemsEnabled), C.int64_t(systems), &result)
-		operationErr = statusErrorLocked(uint32(status))
+		status = C.sidereon_raim(idPointer, (*C.double)(residualPointer), (*C.double)(variancePointer), idCount, C.double(pfa), C.uint32_t(weightsMode), weightPointer, weightLength, C.bool(systemsEnabled), C.int64_t(systems), &result)
+		operationErr = qualityStatusErrorLocked(uint32(status))
 	})
 	if operationErr != nil {
 		return NativeRaimResult{}, nil, operationErr
 	}
-	nativeResult := NativeRaimResult{bool(result.fault_detected), float64(result.test_statistic), bool(result.has_threshold), float64(result.threshold), bool(result.has_reduced_chi_square), float64(result.reduced_chi_square), float64(result.rms_m), int64(result.dof), bool(result.testable), uint64(result.normalized_residual_count), bool(result.has_worst_sat), tokenChars(result.worst_sat[:])}
+	nativeResult := nativeRaimResult(result)
 	var written, required C.size_t
 	var status2 C.enum_SidereonStatus
 	withCThread(func() {
-		status2 = C.sidereon_raim_normalized_residuals(idPointer, (*C.double)(residualPointer), idCount, C.double(pfa), C.bool(unitWeights), weightPointer, weightLength, C.bool(systemsEnabled), C.int64_t(systems), nil, 0, &written, &required)
-		operationErr = statusErrorLocked(uint32(status2))
+		status2 = C.sidereon_raim_normalized_residuals(idPointer, (*C.double)(residualPointer), (*C.double)(variancePointer), idCount, C.double(pfa), C.uint32_t(weightsMode), weightPointer, weightLength, C.bool(systemsEnabled), C.int64_t(systems), nil, 0, &written, &required)
+		operationErr = qualityStatusErrorLocked(uint32(status2))
 	})
 	if operationErr != nil {
 		return nativeResult, nil, operationErr
@@ -1077,8 +1101,8 @@ func RAIM(ids []string, residuals []float64, weights []NativeFDERaimWeight, pfa 
 	}
 	written, required = 0, 0
 	withCThread(func() {
-		status2 = C.sidereon_raim_normalized_residuals(idPointer, (*C.double)(residualPointer), idCount, C.double(pfa), C.bool(unitWeights), weightPointer, weightLength, C.bool(systemsEnabled), C.int64_t(systems), output, outputLength, &written, &required)
-		operationErr = statusErrorLocked(uint32(status2))
+		status2 = C.sidereon_raim_normalized_residuals(idPointer, (*C.double)(residualPointer), (*C.double)(variancePointer), idCount, C.double(pfa), C.uint32_t(weightsMode), weightPointer, weightLength, C.bool(systemsEnabled), C.int64_t(systems), output, outputLength, &written, &required)
+		operationErr = qualityStatusErrorLocked(uint32(status2))
 	})
 	if operationErr != nil {
 		return nativeResult, nil, operationErr

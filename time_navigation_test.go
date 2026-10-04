@@ -3,6 +3,7 @@ package sidereon
 import (
 	"errors"
 	"math"
+	"reflect"
 	"sync"
 	"testing"
 )
@@ -153,5 +154,65 @@ func TestPropagatedEphemerisOwnershipAndClose(t *testing.T) {
 	wg.Wait()
 	if _, err := e.EpochCount(); !errors.Is(err, ErrClosed) {
 		t.Fatalf("EpochCount after Close = %v", err)
+	}
+}
+
+func TestExplicitGravityTideSystemRoutes(t *testing.T) {
+	config, err := DefaultPropagationConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	config.PositionKm = [3]float64{7000, 0, 0}
+	config.VelocityKmPerS = [3]float64{0, 7.5, 0}
+	config.ForceModel = PropagationForceModelTwoBodyJ2
+	times := []float64{0, 60, 120}
+	legacy, err := PropagateState(config, times)
+	if err != nil {
+		t.Fatal(err)
+	}
+	explicit, err := PropagateStateWithTideSystem(config, times, GravityTideSystemTideFree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeAfterTest(t, legacy)
+	closeAfterTest(t, explicit)
+	legacyStates, err := legacy.States()
+	if err != nil {
+		t.Fatal(err)
+	}
+	explicitStates, err := explicit.States()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(legacyStates, explicitStates) {
+		t.Fatalf("explicit tide-free states differ from legacy default: legacy=%+v explicit=%+v", legacyStates, explicitStates)
+	}
+	if _, err := PropagateStateWithTideSystem(config, times, GravityTideSystem(999)); err == nil {
+		t.Fatal("unknown gravity tide system unexpectedly succeeded")
+	}
+	covariance, err := CovarianceFromDiagonal([]float64{1, 2, 3, 4, 5, 6})
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyCovariance, err := PropagateCovariance(config, covariance, times, CovarianceInertial, CovarianceInertial, ProcessNoise{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	explicitCovariance, err := PropagateCovarianceWithTideSystem(config, covariance, times, CovarianceInertial, CovarianceInertial, ProcessNoise{}, GravityTideSystemTideFree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeAfterTest(t, legacyCovariance)
+	closeAfterTest(t, explicitCovariance)
+	legacyMatrix, err := legacyCovariance.CovarianceAt(120)
+	if err != nil {
+		t.Fatal(err)
+	}
+	explicitMatrix, err := explicitCovariance.CovarianceAt(120)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacyMatrix != explicitMatrix {
+		t.Fatalf("explicit tide-free covariance differs from legacy default: legacy=%+v explicit=%+v", legacyMatrix, explicitMatrix)
 	}
 }

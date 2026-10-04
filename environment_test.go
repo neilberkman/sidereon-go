@@ -158,7 +158,7 @@ func TestEnvironmentTerrainDiagnosticsStayWithFailedOperation(t *testing.T) {
 				results <- errors.New("malformed EGM96 DAC did not preserve terrain datum detail")
 				return
 			}
-			if detail.Kind != TerrainDatumErrorGeoid || detail.Message == "" {
+			if detail.Kind != TerrainDatumErrorGeoid || detail.Message == "" || detail.Geoid.Kind != uint32(GeoidErrorParse) || detail.Geoid.Reason != "EGM96 WW15MGH.DAC must be 2076480 bytes (721 x 1440 big-endian int16), got 1" {
 				results <- errors.New("malformed EGM96 DAC returned incomplete terrain datum detail")
 				return
 			}
@@ -172,6 +172,14 @@ func TestEnvironmentTerrainDiagnosticsStayWithFailedOperation(t *testing.T) {
 	close(results)
 	for err := range results {
 		t.Fatal(err)
+	}
+	if _, err := MMapTerrainFromBytes([]byte{0}); err == nil {
+		t.Fatal("short terrain store unexpectedly succeeded")
+	} else {
+		var detail *TerrainStoreError
+		if !errors.As(err, &detail) || detail.Kind != TerrainStoreErrorParse || detail.Reason != "store has 1 bytes but needs at least 64" {
+			t.Fatalf("short terrain store typed refusal = %#v, %v", detail, err)
+		}
 	}
 
 	storeBytes, err := DTEDTreeToMMapStore("testdata/dted/tiles")
@@ -382,6 +390,30 @@ func TestEnvironmentDTEDAndMMapFixtures(t *testing.T) {
 		}
 		assertFloatBits(t, got, item.BilinearBits)
 	}
+	mixedPoints := []LonLatDeg{points[0], {LongitudeDeg: 0, LatitudeDeg: 91}}
+	mixedResults, err := terrain.HeightBatch(mixedPoints, options)
+	if err != nil || len(mixedResults) != 2 || !mixedResults[0].HasHeightM || mixedResults[1].HasHeightM || mixedResults[1].Status != StatusInvalidArgument || mixedResults[1].Error.Kind != uint32(TerrainLookupErrorInvalidInput) || mixedResults[1].Error.Message == "" {
+		t.Fatalf("DTED mixed batch typed refusal = %#v, %v", mixedResults, err)
+	}
+	if _, err := terrain.HeightMWithOptions(0, 91, options); err == nil {
+		t.Fatal("invalid DTED scalar lookup unexpectedly succeeded")
+	} else {
+		var status *StatusError
+		if !errors.As(err, &status) || status.TerrainLookup == nil || status.TerrainLookup.Kind != uint32(TerrainLookupErrorInvalidInput) || status.TerrainLookup.Message == "" {
+			t.Fatalf("DTED scalar typed refusal = %#v, %v", status, err)
+		}
+	}
+	if _, err := terrain.HeightM(0, 91); err == nil {
+		t.Fatal("invalid DTED lookup did not seed the sequential diagnostic control")
+	}
+	if _, err := terrain.HeightMWithOptions(0, 0, DTEDLookupOptions{Interpolation: DTEDInterpolation(99)}); err == nil {
+		t.Fatal("invalid DTED interpolation unexpectedly succeeded")
+	} else {
+		var status *StatusError
+		if !errors.As(err, &status) || status.Code != StatusInvalidArgument || status.TerrainLookup != nil || status.TerrainDatum != nil {
+			t.Fatalf("invalid DTED interpolation status or stale diagnostics = %#v, %v", status, err)
+		}
+	}
 	options.Interpolation = DTEDNearestPosting
 	nearest, err := terrain.HeightBatch(points, options)
 	if err != nil {
@@ -404,6 +436,9 @@ func TestEnvironmentDTEDAndMMapFixtures(t *testing.T) {
 	}
 	if got, err := tile.Elevation(points[0].LongitudeDeg, points[0].LatitudeDeg); err != nil || got != -20 {
 		t.Fatalf("DTED tile elevation = %d, %v; want -20", got, err)
+	}
+	if datum, err := tile.HorizontalDatum(); err != nil || datum.Kind != 2 || datum.Text != "" || !datum.WGS84Compatible {
+		t.Fatalf("DTED fixture datum = %+v, %v; want blank/Unstated datum compatible with WGS84", datum, err)
 	}
 	runEnvironmentReads(t, 8, func() error {
 		_, err := tile.Elevation(points[0].LongitudeDeg, points[0].LatitudeDeg)
@@ -483,6 +518,30 @@ func TestEnvironmentDTEDAndMMapFixtures(t *testing.T) {
 			t.Fatalf("mmap %s has no height", item.CaseID)
 		}
 		assertFloatBits(t, batch[i].OrthometricHeightM, item.BilinearBits)
+	}
+	mmapMixedPoints := []LonLatDeg{points[0], {LongitudeDeg: 0, LatitudeDeg: 91}}
+	mmapMixedResults, err := store.HeightBatch(mmapMixedPoints, DTEDLookupOptions{Interpolation: DTEDBilinear})
+	if err != nil || len(mmapMixedResults) != 2 || !mmapMixedResults[0].HasOrthometricHeightM || mmapMixedResults[1].HasOrthometricHeightM || mmapMixedResults[1].Status != StatusInvalidArgument || mmapMixedResults[1].Error.Kind != uint32(TerrainLookupErrorInvalidInput) || mmapMixedResults[1].Error.Message == "" {
+		t.Fatalf("mmap mixed batch typed refusal = %#v, %v", mmapMixedResults, err)
+	}
+	if _, err := store.HeightM(0, 91); err == nil {
+		t.Fatal("invalid mmap scalar lookup unexpectedly succeeded")
+	} else {
+		var status *StatusError
+		if !errors.As(err, &status) || status.TerrainLookup == nil || status.TerrainLookup.Kind != uint32(TerrainLookupErrorInvalidInput) || status.TerrainLookup.Message == "" {
+			t.Fatalf("mmap scalar typed refusal = %#v, %v", status, err)
+		}
+	}
+	if _, err := store.HeightMWithOptions(0, 91, DTEDLookupOptions{Interpolation: DTEDBilinear}); err == nil {
+		t.Fatal("invalid mmap lookup did not seed the sequential diagnostic control")
+	}
+	if _, err := store.HeightMWithOptions(0, 0, DTEDLookupOptions{Interpolation: DTEDInterpolation(99)}); err == nil {
+		t.Fatal("invalid mmap interpolation unexpectedly succeeded")
+	} else {
+		var status *StatusError
+		if !errors.As(err, &status) || status.Code != StatusInvalidArgument || status.TerrainLookup != nil || status.TerrainDatum != nil {
+			t.Fatalf("invalid mmap interpolation status or stale diagnostics = %#v, %v", status, err)
+		}
 	}
 	zeroDAC := make([]byte, 721*1440*2)
 	fifteenInput := append([]byte(nil), zeroDAC...)
@@ -612,6 +671,25 @@ func TestEnvironmentGeoidFixtures(t *testing.T) {
 		_, err := GeoidUndulationsDeg([]GeoidPointDeg{{LatitudeDeg: 0, LongitudeDeg: 0}})
 		return err
 	})
+}
+
+func TestEnvironmentSpaceWeatherPolicyInitializers(t *testing.T) {
+	strict, err := DefaultSpaceWeatherPolicy()
+	if err != nil {
+		t.Fatalf("default policy: %v", err)
+	}
+	wantStrict := SpaceWeatherPolicy{AllowInterpolated: true, AllowDailyPredicted: true, AllowMonthlyPredicted: true, RequireGeomagnetic: true}
+	if strict != wantStrict {
+		t.Fatalf("default policy = %+v, want %+v", strict, wantStrict)
+	}
+	lenient, err := LenientSpaceWeatherPolicy()
+	if err != nil {
+		t.Fatalf("lenient policy: %v", err)
+	}
+	wantLenient := SpaceWeatherPolicy{AllowNotObserved: true, AllowInterpolated: true, AllowDailyPredicted: true, AllowMonthlyPredicted: true}
+	if lenient != wantLenient {
+		t.Fatalf("lenient policy = %+v, want %+v", lenient, wantLenient)
+	}
 }
 
 func TestEnvironmentSpaceWeatherFixtures(t *testing.T) {

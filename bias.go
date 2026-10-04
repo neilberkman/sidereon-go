@@ -6,8 +6,19 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
+)
+
+// BiasReadPolicy selects the validation policy for bias product titles and records.
+type BiasReadPolicy uint32
+
+const (
+	// BiasReadPolicyStrict rejects titles and records that violate the declared product conventions.
+	BiasReadPolicyStrict BiasReadPolicy = BiasReadPolicy(native.BiasReadPolicyStrictValue)
+	// BiasReadPolicyLenient accepts recoverable deviations and exposes them as parser notices.
+	BiasReadPolicyLenient BiasReadPolicy = BiasReadPolicy(native.BiasReadPolicyLenientValue)
 )
 
 // BiasMode identifies whether a bias product is absolute, relative, or
@@ -22,6 +33,54 @@ const (
 	// BiasModeUnspecified reports that the product did not declare its mode.
 	BiasModeUnspecified BiasMode = BiasMode(native.BiasModeUnspecifiedValue)
 )
+
+// BiasLookupStatus is the exact outcome of one bias lookup.
+type BiasLookupStatus uint32
+
+const (
+	// BiasLookupAvailable means a matching bias record covers the requested observable and epoch.
+	BiasLookupAvailable BiasLookupStatus = BiasLookupStatus(native.BiasLookupAvailableValue)
+	// BiasLookupAbsent means no matching record covers the requested observable and epoch.
+	BiasLookupAbsent BiasLookupStatus = BiasLookupStatus(native.BiasLookupAbsentValue)
+	// BiasLookupUnsupportedScale means the record and query time scales cannot be compared.
+	BiasLookupUnsupportedScale BiasLookupStatus = BiasLookupStatus(native.BiasLookupUnsupportedScaleValue)
+	// BiasLookupAmbiguous means multiple equally applicable records match the query.
+	BiasLookupAmbiguous BiasLookupStatus = BiasLookupStatus(native.BiasLookupAmbiguousValue)
+	// BiasLookupCarrierRequired means phase-bias evaluation needs a carrier frequency.
+	BiasLookupCarrierRequired BiasLookupStatus = BiasLookupStatus(native.BiasLookupCarrierRequiredValue)
+	// BiasLookupInvalidCarrier means the carrier is invalid for the requested observable.
+	BiasLookupInvalidCarrier BiasLookupStatus = BiasLookupStatus(native.BiasLookupInvalidCarrierValue)
+	// BiasLookupCarrierUnknown means the carrier frequency is not known for the observable.
+	BiasLookupCarrierUnknown BiasLookupStatus = BiasLookupStatus(native.BiasLookupCarrierUnknownValue)
+	// BiasLookupUndefinedSlope means time adjustment requires a slope that the record does not provide.
+	BiasLookupUndefinedSlope BiasLookupStatus = BiasLookupStatus(native.BiasLookupUndefinedSlopeValue)
+	// BiasLookupInvalidEpoch means the query epoch cannot be represented for the selected product.
+	BiasLookupInvalidEpoch BiasLookupStatus = BiasLookupStatus(native.BiasLookupInvalidEpochValue)
+	// BiasLookupUnknown preserves an unrecognized native value.
+	BiasLookupUnknown BiasLookupStatus = BiasLookupStatus(native.BiasLookupUnknownValue)
+)
+
+// BiasLookup retains every field returned by the native OSB/DSB query.
+type BiasLookup struct {
+	Status                  BiasLookupStatus
+	Value                   float64
+	RecordIndices           []uint64
+	OverriddenRecordIndices []uint64
+	RecordIndex             uint64
+	HasProductTimeScale     bool
+	ProductTimeScale        TimeScale
+	HasQueryTimeScale       bool
+	QueryTimeScale          TimeScale
+	Observable              string
+	UnknownVariant          string
+}
+
+// BiasSetModeInfo retains whether the source product actually declared a time scale.
+type BiasSetModeInfo struct {
+	Mode         BiasMode
+	HasTimeScale bool
+	TimeScale    TimeScale
+}
 
 // BiasKind identifies an observable-bias relationship. Values are C ABI
 // discriminants; the bias values themselves are seconds for code and cycles
@@ -138,6 +197,227 @@ type BiasSet struct {
 	native *native.BiasSet
 }
 
+// BiasNoticeKind identifies a non-fatal parser notice for a bias product.
+type BiasNoticeKind uint32
+
+const (
+	// BiasNoticeDeparture reports a recoverable departure from the bias-product convention.
+	BiasNoticeDeparture BiasNoticeKind = iota
+	// BiasNoticeInvalidUTF8 reports invalid UTF-8 in the input product.
+	BiasNoticeInvalidUTF8
+	// BiasNoticeRepeatedDeclaration reports a repeated metadata declaration.
+	BiasNoticeRepeatedDeclaration
+	// BiasNoticeConflictingDeclaration reports metadata declarations that disagree.
+	BiasNoticeConflictingDeclaration
+	// BiasNoticeOverlap reports records with overlapping validity intervals.
+	BiasNoticeOverlap
+	// BiasNoticeDcbTimeSystemAssumed reports that a missing DCB time system was assumed.
+	BiasNoticeDcbTimeSystemAssumed
+	// BiasNoticeDcbTimeSystemAlias reports normalization of a DCB time-system alias.
+	BiasNoticeDcbTimeSystemAlias
+	// BiasNoticeUnknown preserves an unrecognized native value.
+	BiasNoticeUnknown BiasNoticeKind = 999
+)
+
+// BiasDepartureKind classifies a recoverable departure from the bias-product convention.
+type BiasDepartureKind uint32
+
+const (
+	// BiasDepartureNone means the parser found no product departure.
+	BiasDepartureNone BiasDepartureKind = iota
+	// BiasDepartureHeaderLayout identifies an unsupported header layout.
+	BiasDepartureHeaderLayout
+	// BiasDepartureOtherVersion identifies a product version outside the supported set.
+	BiasDepartureOtherVersion
+	// BiasDepartureMissingFooter identifies a missing required footer.
+	BiasDepartureMissingFooter
+	// BiasDepartureContentAfterFooter identifies content after the terminal footer.
+	BiasDepartureContentAfterFooter
+	// BiasDepartureUnexpectedControlLine identifies a control record in an invalid parser state.
+	BiasDepartureUnexpectedControlLine
+	// BiasDepartureUnclosedBlock identifies a block with no matching end marker.
+	BiasDepartureUnclosedBlock
+	// BiasDepartureUnopenedBlockEnd identifies an end marker without an open block.
+	BiasDepartureUnopenedBlockEnd
+	// BiasDepartureMismatchedBlockEnd identifies an end marker for a different block.
+	BiasDepartureMismatchedBlockEnd
+	// BiasDepartureNestedBlock identifies a block opened before its parent closed.
+	BiasDepartureNestedBlock
+	// BiasDepartureMissingBlock identifies a required bias block that is absent.
+	BiasDepartureMissingBlock
+	// BiasDepartureUnknownBlock identifies a block name the parser does not recognize.
+	BiasDepartureUnknownBlock
+	// BiasDepartureBlockStartSuffix identifies extra text on a block-start record.
+	BiasDepartureBlockStartSuffix
+	// BiasDepartureDataOutsideBlock identifies a data record outside a required block.
+	BiasDepartureDataOutsideBlock
+	// BiasDepartureMissingDeclaration identifies a required declaration that is absent.
+	BiasDepartureMissingDeclaration
+	// BiasDepartureUnsupportedBiasMode identifies a bias mode this reader cannot interpret.
+	BiasDepartureUnsupportedBiasMode
+	// BiasDepartureNonStandardTimeSystem identifies a non-standard declared time system.
+	BiasDepartureNonStandardTimeSystem
+	// BiasDepartureHeaderModeMismatch identifies a record mode that conflicts with the header.
+	BiasDepartureHeaderModeMismatch
+	// BiasDepartureUnknownDcbTimeSystem identifies an unrecognized DCB time system.
+	BiasDepartureUnknownDcbTimeSystem
+	// BiasDepartureEstimateCountMismatch identifies a mismatch between declared and parsed estimate counts.
+	BiasDepartureEstimateCountMismatch
+	// BiasDepartureUnknown preserves an unrecognized native value.
+	BiasDepartureUnknown BiasDepartureKind = 999
+)
+
+// BiasNoticeText selects a text component associated with a parser notice.
+type BiasNoticeText uint32
+
+const (
+	// BiasNoticeTextKeyword selects the parser notice keyword bytes.
+	BiasNoticeTextKeyword BiasNoticeText = iota
+	// BiasNoticeTextLabel selects the parser notice label bytes.
+	BiasNoticeTextLabel
+	// BiasNoticeTextName selects the affected name bytes.
+	BiasNoticeTextName
+	// BiasNoticeTextOpen selects the opening block token bytes.
+	BiasNoticeTextOpen
+	// BiasNoticeTextClose selects the closing block token bytes.
+	BiasNoticeTextClose
+	// BiasNoticeTextInner selects the inner notice text bytes.
+	BiasNoticeTextInner
+	// BiasNoticeTextVersion selects the product version text.
+	BiasNoticeTextVersion
+	// BiasNoticeTextReason selects the explanatory reason text.
+	BiasNoticeTextReason
+	// BiasNoticeTextHeader selects the associated header text.
+	BiasNoticeTextHeader
+)
+
+// BiasNotice contains a parser notice and any associated line/count details.
+type BiasNotice struct {
+	Kind           BiasNoticeKind
+	Departure      BiasDepartureKind
+	HasLine        bool
+	Line           int
+	First          int
+	Second         int
+	DeclaredCount  uint64
+	SolutionRows   int
+	BiasMode       BiasMode
+	UnknownVariant string
+}
+
+// BiasErrorKind identifies a typed Bias-SINEX or CODE DCB failure.
+type BiasErrorKind uint32
+
+const (
+	// BiasErrorNone means no typed bias failure occurred.
+	BiasErrorNone BiasErrorKind = iota
+	// BiasErrorInvalidInput identifies invalid caller input.
+	BiasErrorInvalidInput
+	// BiasErrorInvalidEpoch identifies an epoch that cannot be represented for this operation.
+	BiasErrorInvalidEpoch
+	// BiasErrorUnknownObservable identifies an observable that the bias product does not define.
+	BiasErrorUnknownObservable
+	// BiasErrorUnsupportedVersion identifies a product version the reader does not support.
+	BiasErrorUnsupportedVersion
+	// BiasErrorMissingDcbMetadata identifies missing metadata needed to interpret DCB records.
+	BiasErrorMissingDcbMetadata
+	// BiasErrorMissingClockReference identifies a missing clock reference.
+	BiasErrorMissingClockReference
+	// BiasErrorMissingWriterMetadata identifies required writer metadata that is absent.
+	BiasErrorMissingWriterMetadata
+	// BiasErrorUTF8 identifies text that is not valid UTF-8.
+	BiasErrorUTF8
+	// BiasErrorDeparture identifies a fatal product-convention departure.
+	BiasErrorDeparture
+	// BiasErrorInvalidUTF8Line identifies a record line containing invalid UTF-8.
+	BiasErrorInvalidUTF8Line
+	// BiasErrorUnsupportedTimeSystem identifies a time system this operation cannot compare.
+	BiasErrorUnsupportedTimeSystem
+	// BiasErrorDcbRecordMismatch identifies DCB metadata that conflicts with its record.
+	BiasErrorDcbRecordMismatch
+	// BiasErrorUnknown preserves an unrecognized native value.
+	BiasErrorUnknown BiasErrorKind = 999
+)
+
+// BiasErrorText selects a text field copied from a typed bias failure.
+type BiasErrorText uint32
+
+const (
+	// BiasErrorTextMessage selects the complete error message.
+	BiasErrorTextMessage BiasErrorText = iota
+	// BiasErrorTextField selects the field name associated with the failure.
+	BiasErrorTextField
+	// BiasErrorTextReason selects the explanatory reason text.
+	BiasErrorTextReason
+	// BiasErrorTextCode selects the external error code text.
+	BiasErrorTextCode
+	// BiasErrorTextVersion selects the product version text.
+	BiasErrorTextVersion
+	// BiasErrorTextDepartureNotice selects the parser-departure notice text.
+	BiasErrorTextDepartureNotice
+)
+
+// BiasError preserves a native bias failure's structured fields and exact text bytes.
+type BiasError struct {
+	Kind          BiasErrorKind
+	Line          int
+	Record        int
+	HasTimeScale  bool
+	TimeScale     TimeScale
+	Departure     BiasNotice
+	Message       []byte
+	Field         []byte
+	Reason        []byte
+	Code          []byte
+	Version       []byte
+	DepartureText [9][]byte
+}
+
+// Error returns the BiasError message.
+func (err *BiasError) Error() string {
+	if err == nil {
+		return "sidereon: bias error"
+	}
+	if len(err.Message) != 0 {
+		return string(err.Message)
+	}
+	return "sidereon: bias error"
+}
+
+// TextBytes returns an independent copy of one error text field.
+func (err *BiasError) TextBytes(part BiasErrorText, departurePart BiasNoticeText) ([]byte, error) {
+	if err == nil {
+		return nil, ErrClosed
+	}
+	var value []byte
+	switch part {
+	case BiasErrorTextMessage:
+		value = err.Message
+	case BiasErrorTextField:
+		value = err.Field
+	case BiasErrorTextReason:
+		value = err.Reason
+	case BiasErrorTextCode:
+		value = err.Code
+	case BiasErrorTextVersion:
+		value = err.Version
+	case BiasErrorTextDepartureNotice:
+		if departurePart > BiasNoticeTextHeader {
+			return nil, invalidArgument("invalid bias departure text part")
+		}
+		value = err.DepartureText[departurePart]
+	default:
+		return nil, invalidArgument("invalid bias error text part")
+	}
+	return append([]byte(nil), value...), nil
+}
+
+// Text returns one error text field as a byte-preserving Go string.
+func (err *BiasError) Text(part BiasErrorText, departurePart BiasNoticeText) (string, error) {
+	value, errText := err.TextBytes(part, departurePart)
+	return string(value), errText
+}
+
 func newBiasSet(value *native.BiasSet, err error) (*BiasSet, error) {
 	if err != nil {
 		return nil, publicError(err)
@@ -154,6 +434,19 @@ func ParseBiasSINEX(data []byte) (*BiasSet, error) {
 	return newBiasSet(native.ParseBiasSINEX(data, false))
 }
 
+// ParseBiasSINEXWithPolicy parses a SINEX bias stream using an explicit native read policy.
+// The strict policy is equivalent to ParseBiasSINEX; lenient departures are returned in BiasParsed.
+func ParseBiasSINEXWithPolicy(data []byte, policy BiasReadPolicy) (*BiasParsed, error) {
+	if policy != BiasReadPolicyStrict && policy != BiasReadPolicyLenient {
+		return nil, errors.New("sidereon: invalid bias read policy")
+	}
+	set, err := newBiasSet(native.ParseBiasSINEXWithPolicy(data, uint32(policy)))
+	if err != nil {
+		return nil, err
+	}
+	return newBiasParsed(set)
+}
+
 // ParseBiasSINEXLossy parses a SINEX bias byte stream while retaining native
 // skipped-record and warning diagnostics. Input bytes are copied.
 func ParseBiasSINEXLossy(data []byte) (*BiasParsed, error) {
@@ -168,20 +461,47 @@ func ParseBiasSINEXLossy(data []byte) (*BiasParsed, error) {
 // are intentionally not used: path reads, gzip transport, and the byte-parser
 // ownership boundary remain in one place.
 func readBiasPath(path string) ([]byte, error) {
-	data, err := os.ReadFile(path)
+	return readBiasPathWithLimits(path, 64*1024*1024, 500*1024*1024)
+}
+
+func readBiasPathWithLimits(path string, maxCompressedBytes, maxDecompressedBytes int64) ([]byte, error) {
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.HasPrefix(data, []byte{0x1f, 0x8b}) {
-		return data, nil
+	compressed := filepath.Ext(path) == ".gz"
+	inputLimit := maxDecompressedBytes
+	if compressed {
+		inputLimit = maxCompressedBytes
 	}
-	reader, err := gzip.NewReader(bytes.NewReader(data))
+	input, readErr := io.ReadAll(io.LimitReader(file, inputLimit+1))
+	closeErr := file.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		return nil, err
+	}
+	if int64(len(input)) > inputLimit {
+		kind := "Bias-SINEX product"
+		if compressed {
+			kind = "compressed Bias-SINEX product"
+		}
+		return nil, &SizeLimitError{Kind: kind, Limit: inputLimit}
+	}
+	if !compressed {
+		return input, nil
+	}
+	reader, err := gzip.NewReader(bytes.NewReader(input))
 	if err != nil {
 		return nil, err
 	}
-	decoded, readErr := io.ReadAll(reader)
-	closeErr := reader.Close()
-	return decoded, errors.Join(readErr, closeErr)
+	decoded, readErr := io.ReadAll(io.LimitReader(reader, maxDecompressedBytes+1))
+	closeErr = reader.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		return nil, err
+	}
+	if int64(len(decoded)) > maxDecompressedBytes {
+		return nil, &SizeLimitError{Kind: "decompressed Bias-SINEX product", Limit: maxDecompressedBytes}
+	}
+	return decoded, nil
 }
 
 // LoadBiasSINEX reads a plain or gzip-compressed SINEX file in Go and passes
@@ -192,6 +512,15 @@ func LoadBiasSINEX(path string) (*BiasSet, error) {
 		return nil, err
 	}
 	return ParseBiasSINEX(data)
+}
+
+// LoadBiasSINEXWithPolicy reads a plain or gzip-compressed file using an explicit read policy.
+func LoadBiasSINEXWithPolicy(path string, policy BiasReadPolicy) (*BiasParsed, error) {
+	data, err := readBiasPath(path)
+	if err != nil {
+		return nil, err
+	}
+	return ParseBiasSINEXWithPolicy(data, policy)
 }
 
 // LoadBiasSINEXLossy reads a plain or gzip-compressed SINEX file through the
@@ -214,6 +543,22 @@ func ParseCodeDCB(data []byte, options *CodeDCBOptions) (*BiasSet, error) {
 	return newBiasSet(native.ParseCodeDCB(data, value, false))
 }
 
+// ParseCodeDCBWithPolicy parses a code DCB byte stream under an explicit native read policy.
+func ParseCodeDCBWithPolicy(data []byte, options *CodeDCBOptions, policy BiasReadPolicy) (*BiasParsed, error) {
+	if policy != BiasReadPolicyStrict && policy != BiasReadPolicyLenient {
+		return nil, errors.New("sidereon: invalid bias read policy")
+	}
+	value, err := nativeCodeDCBOptions(options)
+	if err != nil {
+		return nil, err
+	}
+	set, err := newBiasSet(native.ParseCodeDCBWithPolicy(data, value, uint32(policy)))
+	if err != nil {
+		return nil, err
+	}
+	return newBiasParsed(set)
+}
+
 // ParseCodeDCBLossy parses a code DCB stream and retains native diagnostics.
 func ParseCodeDCBLossy(data []byte, options *CodeDCBOptions) (*BiasParsed, error) {
 	value, err := nativeCodeDCBOptions(options)
@@ -227,22 +572,77 @@ func ParseCodeDCBLossy(data []byte, options *CodeDCBOptions) (*BiasParsed, error
 	return newBiasParsed(set)
 }
 
-// LoadCodeDCB reads a code DCB file in Go and strictly parses its bytes.
+// LoadCodeDCB reads a plain or gzip-compressed code DCB file in Go and strictly parses its bytes.
 func LoadCodeDCB(path string, options *CodeDCBOptions) (*BiasSet, error) {
-	data, err := os.ReadFile(path)
+	data, err := readCodeDCBPath(path)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCodeDCB(data, options)
 }
 
-// LoadCodeDCBLossy reads a code DCB file in Go and returns lossy diagnostics.
+// LoadCodeDCBWithPolicy reads a plain or gzip-compressed code DCB file under an explicit read policy.
+func LoadCodeDCBWithPolicy(path string, options *CodeDCBOptions, policy BiasReadPolicy) (*BiasParsed, error) {
+	data, err := readCodeDCBPath(path)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCodeDCBWithPolicy(data, options, policy)
+}
+
+// LoadCodeDCBLossy reads a plain or gzip-compressed code DCB file in Go and returns lossy diagnostics.
 func LoadCodeDCBLossy(path string, options *CodeDCBOptions) (*BiasParsed, error) {
-	data, err := os.ReadFile(path)
+	data, err := readCodeDCBPath(path)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCodeDCBLossy(data, options)
+}
+
+// readCodeDCBPath matches the bounded file transport used by the native
+// CODE DCB loaders while keeping filesystem ownership in Go.
+func readCodeDCBPath(path string) ([]byte, error) {
+	return readCodeDCBPathWithLimits(path, 64*1024*1024, 500*1024*1024)
+}
+
+func readCodeDCBPathWithLimits(path string, maxCompressedBytes, maxDecompressedBytes int64) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	compressed := filepath.Ext(path) == ".gz"
+	inputLimit := maxDecompressedBytes
+	if compressed {
+		inputLimit = maxCompressedBytes
+	}
+	input, readErr := io.ReadAll(io.LimitReader(file, inputLimit+1))
+	closeErr := file.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		return nil, err
+	}
+	if int64(len(input)) > inputLimit {
+		kind := "CODE DCB product"
+		if compressed {
+			kind = "compressed CODE DCB product"
+		}
+		return nil, &SizeLimitError{Kind: kind, Limit: inputLimit}
+	}
+	if !compressed {
+		return input, nil
+	}
+	reader, err := gzip.NewReader(bytes.NewReader(input))
+	if err != nil {
+		return nil, err
+	}
+	decoded, readErr := io.ReadAll(io.LimitReader(reader, maxDecompressedBytes+1))
+	closeErr = reader.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		return nil, err
+	}
+	if int64(len(decoded)) > maxDecompressedBytes {
+		return nil, &SizeLimitError{Kind: "decompressed CODE DCB product", Limit: maxDecompressedBytes}
+	}
+	return decoded, nil
 }
 
 func nativeCodeDCBOptions(value *CodeDCBOptions) (*native.CodeDCBOptions, error) {
@@ -252,7 +652,7 @@ func nativeCodeDCBOptions(value *CodeDCBOptions) (*native.CodeDCBOptions, error)
 	return &native.CodeDCBOptions{Obs1: value.Obs1, Obs2: value.Obs2, Year: value.Year, Month: value.Month, TimeScale: uint32(value.TimeScale), HasReceiverSystem: value.HasReceiverSystem, ReceiverSystem: uint32(value.ReceiverSystem)}, nil
 }
 
-// BiasParsed contains a lossy parse result and its native diagnostics.
+// BiasParsed contains a parsed bias product and its native diagnostics.
 type BiasParsed struct {
 	_ noCopy
 	// Value is the owned parsed product; it is closed by Close.
@@ -320,6 +720,72 @@ func (s *BiasSet) WarningCount() (int, error) {
 	return v, publicError(err)
 }
 
+// NoticeCount returns the number of structured lenient-parse notices.
+func (s *BiasSet) NoticeCount() (int, error) {
+	if s == nil || s.native == nil {
+		return 0, ErrClosed
+	}
+	value, err := s.native.NoticeCount()
+	return value, publicError(err)
+}
+
+// Notice returns structured notice fields, including typed Bias-SINEX departure reasons.
+func (s *BiasSet) Notice(index int) (BiasNotice, error) {
+	if s == nil || s.native == nil {
+		return BiasNotice{}, ErrClosed
+	}
+	value, err := s.native.Notice(index)
+	if err != nil {
+		return BiasNotice{}, publicError(err)
+	}
+	return BiasNotice{Kind: BiasNoticeKind(value.Kind), Departure: BiasDepartureKind(value.Departure), HasLine: value.HasLine, Line: value.Line, First: value.First, Second: value.Second, DeclaredCount: value.DeclaredCount, SolutionRows: value.SolutionRows, BiasMode: BiasMode(value.BiasMode), UnknownVariant: value.UnknownVariant}, nil
+}
+
+// NoticeText copies one structured notice text component without parsing debug output.
+func (s *BiasSet) NoticeText(index int, part BiasNoticeText) (string, error) {
+	if s == nil || s.native == nil {
+		return "", ErrClosed
+	}
+	value, err := s.native.NoticeText(index, uint32(part))
+	return value, publicError(err)
+}
+
+// BiasSINEXText writes the set as Bias-SINEX UTF-8 text.
+func (s *BiasSet) BiasSINEXText() (string, error) {
+	if s == nil || s.native == nil {
+		return "", ErrClosed
+	}
+	value, err := s.native.BiasSINEXText()
+	return value, publicError(err)
+}
+
+// BiasSINEXBytes writes Bias-SINEX bytes, preserving retained non-UTF-8 source lines.
+func (s *BiasSet) BiasSINEXBytes() ([]byte, error) {
+	if s == nil || s.native == nil {
+		return nil, ErrClosed
+	}
+	value, err := s.native.BiasSINEXBytes()
+	return value, publicError(err)
+}
+
+// CodeDCBText writes the set as CODE DCB UTF-8 text.
+func (s *BiasSet) CodeDCBText() (string, error) {
+	if s == nil || s.native == nil {
+		return "", ErrClosed
+	}
+	value, err := s.native.CodeDCBText()
+	return value, publicError(err)
+}
+
+// CodeDCBBytes writes CODE DCB bytes, preserving retained non-UTF-8 source lines.
+func (s *BiasSet) CodeDCBBytes() ([]byte, error) {
+	if s == nil || s.native == nil {
+		return nil, ErrClosed
+	}
+	value, err := s.native.CodeDCBBytes()
+	return value, publicError(err)
+}
+
 // Record returns an independent copy of the retained record at index.
 func (s *BiasSet) Record(index int) (BiasRecord, error) {
 	if s == nil || s.native == nil {
@@ -352,6 +818,52 @@ func (s *BiasSet) Mode() (BiasMode, TimeScale, error) {
 	}
 	mode, scale, err := s.native.Mode()
 	return BiasMode(mode), TimeScale(scale), publicError(err)
+}
+
+// ModeInfo reports product mode and the exact presence of its time scale.
+func (s *BiasSet) ModeInfo() (BiasSetModeInfo, error) {
+	if s == nil || s.native == nil {
+		return BiasSetModeInfo{}, ErrClosed
+	}
+	value, err := s.native.ModeInfo()
+	return BiasSetModeInfo{Mode: BiasMode(value.Mode), HasTimeScale: value.HasTimeScale, TimeScale: TimeScale(value.TimeScale)}, publicError(err)
+}
+
+func publicBiasLookup(value native.NativeBiasLookup) BiasLookup {
+	return BiasLookup{
+		Status: BiasLookupStatus(value.Status), Value: value.Value,
+		RecordIndices: value.RecordIndices, OverriddenRecordIndices: value.OverriddenRecordIndices,
+		RecordIndex: value.RecordIndex, HasProductTimeScale: value.HasProductTimeScale,
+		ProductTimeScale: TimeScale(value.ProductTimeScale), HasQueryTimeScale: value.HasQueryTimeScale,
+		QueryTimeScale: TimeScale(value.QueryTimeScale), Observable: value.Observable, UnknownVariant: value.UnknownVariant,
+	}
+}
+
+// CodeOSBLookup returns the complete outcome and record provenance for a code OSB query.
+func (s *BiasSet) CodeOSBLookup(satellite, observation string, epoch BiasEpoch) (BiasLookup, error) {
+	if s == nil || s.native == nil {
+		return BiasLookup{}, ErrClosed
+	}
+	value, err := s.native.CodeOSBLookup(satellite, observation, native.BiasEpoch{Year: epoch.Year, DayOfYear: epoch.DayOfYear, SecondOfDay: epoch.SecondOfDay})
+	return publicBiasLookup(value), publicError(err)
+}
+
+// PhaseOSBLookup returns the complete outcome and record provenance. Supply an explicit carrier frequency only when one is known.
+func (s *BiasSet) PhaseOSBLookup(satellite, observation string, epoch BiasEpoch, hasCarrier bool, carrierHz float64) (BiasLookup, error) {
+	if s == nil || s.native == nil {
+		return BiasLookup{}, ErrClosed
+	}
+	value, err := s.native.PhaseOSBLookup(satellite, observation, native.BiasEpoch{Year: epoch.Year, DayOfYear: epoch.DayOfYear, SecondOfDay: epoch.SecondOfDay}, hasCarrier, carrierHz)
+	return publicBiasLookup(value), publicError(err)
+}
+
+// CodeDSBLookup returns the complete outcome and record provenance for a code DSB query.
+func (s *BiasSet) CodeDSBLookup(satellite, observation1, observation2 string, epoch BiasEpoch) (BiasLookup, error) {
+	if s == nil || s.native == nil {
+		return BiasLookup{}, ErrClosed
+	}
+	value, err := s.native.CodeDSBLookup(satellite, observation1, observation2, native.BiasEpoch{Year: epoch.Year, DayOfYear: epoch.DayOfYear, SecondOfDay: epoch.SecondOfDay})
+	return publicBiasLookup(value), publicError(err)
 }
 
 // TimeScale returns the product's declared time scale.

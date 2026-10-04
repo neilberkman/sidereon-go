@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // Ephemeris is an owning, read-only state-propagation result.
 type Ephemeris struct {
@@ -11,15 +11,17 @@ type Ephemeris struct {
 // PropagateState propagates an initial Cartesian state at the requested TDB
 // offsets, in seconds. All numerical work is performed by the C engine.
 func PropagateState(config PropagationConfig, timesS []float64) (*Ephemeris, error) {
-	value, err := native.PropagateState(native.NativePropagationConfig{
-		Epoch: config.EpochTDBSeconds, Position: config.PositionKm, Velocity: config.VelocityKmPerS,
-		ForceModel: uint32(config.ForceModel), Integrator: uint32(config.Integrator),
-		AbsTol: config.AbsTol, RelTol: config.RelTol, InitialStep: config.InitialStepS,
-		MinStep: config.MinStepS, MaxStep: config.MaxStepS, MaxSteps: config.MaxSteps,
-		MuEnabled: config.MuEnabled, Mu: config.MuKm3S2, HasDrag: config.HasDrag,
-		Drag:            native.DragParameters{BCFactorM2PerKg: config.Drag.BCFactorM2PerKg, Weather: nativeSpaceWeather(config.Drag.Weather), CutoffAltitudeKm: config.Drag.CutoffAltitudeKm},
-		ForceComponents: nativeForceComponents(config.ForceComponents),
-	}, append([]float64(nil), timesS...))
+	value, err := native.PropagateState(nativePropagationConfig(config), append([]float64(nil), timesS...))
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return &Ephemeris{handle: value}, nil
+}
+
+// PropagateStateWithTideSystem propagates states using an explicit Earth
+// gravity tide convention. PropagateState retains the engine's legacy default.
+func PropagateStateWithTideSystem(config PropagationConfig, timesS []float64, tideSystem GravityTideSystem) (*Ephemeris, error) {
+	value, err := native.PropagateStateWithTideSystem(nativePropagationConfig(config), append([]float64(nil), timesS...), uint32(tideSystem))
 	if err != nil {
 		return nil, publicError(err)
 	}

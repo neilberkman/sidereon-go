@@ -5,14 +5,24 @@ package native
 /*
 #include <sidereon.h>
 #include <stdlib.h>
+enum SidereonStatus sidereon_bias_sinex_to_text(const struct SidereonBiasSet *, uint8_t *, size_t, size_t *, size_t *);
+enum SidereonStatus sidereon_bias_sinex_to_bytes(const struct SidereonBiasSet *, uint8_t *, size_t, size_t *, size_t *);
+enum SidereonStatus sidereon_code_dcb_to_text(const struct SidereonBiasSet *, uint8_t *, size_t, size_t *, size_t *);
+enum SidereonStatus sidereon_code_dcb_to_bytes(const struct SidereonBiasSet *, uint8_t *, size_t, size_t *, size_t *);
 */
 import "C"
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"runtime"
 	"unsafe"
+)
+
+const (
+	BiasReadPolicyStrictValue  uint32 = uint32(C.SIDEREON_BIAS_READ_POLICY_STRICT)
+	BiasReadPolicyLenientValue uint32 = uint32(C.SIDEREON_BIAS_READ_POLICY_LENIENT)
 )
 
 // The native protocol handles are protected by positioningHandle. This keeps
@@ -75,12 +85,12 @@ func parseBias(data []byte, lossy bool) (*BiasSet, error) {
 		return nil, err
 	}
 	var pointer *C.SidereonBiasSet
-	err := withInput(data, func(value *C.uint8_t, length C.size_t) uint32 {
+	err := withInputStatus(data, func(value *C.uint8_t, length C.size_t) uint32 {
 		if lossy {
 			return uint32(C.sidereon_bias_sinex_parse_lossy(value, length, &pointer))
 		}
 		return uint32(C.sidereon_bias_sinex_parse(value, length, &pointer))
-	})
+	}, biasErrorLocked)
 	if err != nil {
 		if pointer != nil {
 			withCThread(func() { C.sidereon_bias_set_free(pointer) })
@@ -91,6 +101,26 @@ func parseBias(data []byte, lossy bool) (*BiasSet, error) {
 }
 
 func ParseBiasSINEX(data []byte, lossy bool) (*BiasSet, error) { return parseBias(data, lossy) }
+
+func ParseBiasSINEXWithPolicy(data []byte, policy uint32) (*BiasSet, error) {
+	if err := rejectEmbeddedNULBytes(data, "bias data"); err != nil {
+		return nil, err
+	}
+	if policy != BiasReadPolicyStrictValue && policy != BiasReadPolicyLenientValue {
+		return nil, errors.New("sidereon: invalid Bias-SINEX read policy")
+	}
+	var pointer *C.SidereonBiasSet
+	err := withInputStatus(data, func(value *C.uint8_t, length C.size_t) uint32 {
+		return uint32(C.sidereon_bias_sinex_parse_with_policy(value, length, C.uint32_t(policy), &pointer))
+	}, biasErrorLocked)
+	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_bias_set_free(pointer) })
+		}
+		return nil, err
+	}
+	return newBiasSet(pointer)
+}
 
 func codeDCBOptions(value *CodeDCBOptions) (*C.SidereonCodeDcbOptions, func(), error) {
 	if value == nil {
@@ -168,7 +198,7 @@ func parseCodeDCB(data []byte, options *CodeDCBOptions, lossy bool) (*BiasSet, e
 		} else {
 			status = uint32(C.sidereon_code_dcb_parse((*C.uint8_t)(input), C.size_t(len(data)), coptions, &pointer))
 		}
-		result = statusErrorLocked(status)
+		result = biasErrorLocked(status)
 		if result != nil && pointer != nil {
 			C.sidereon_bias_set_free(pointer)
 			pointer = nil
@@ -185,12 +215,54 @@ func ParseCodeDCB(data []byte, options *CodeDCBOptions, lossy bool) (*BiasSet, e
 	return parseCodeDCB(data, options, lossy)
 }
 
+func ParseCodeDCBWithPolicy(data []byte, options *CodeDCBOptions, policy uint32) (*BiasSet, error) {
+	if err := rejectEmbeddedNULBytes(data, "DCB data"); err != nil {
+		return nil, err
+	}
+	if _, err := checkedNativeAllocationSize(len(data), 1); err != nil {
+		return nil, err
+	}
+	if policy != BiasReadPolicyStrictValue && policy != BiasReadPolicyLenientValue {
+		return nil, errors.New("sidereon: invalid CODE DCB read policy")
+	}
+	var pointer *C.SidereonBiasSet
+	var result error
+	withCThread(func() {
+		coptions, cleanup, err := codeDCBOptions(options)
+		if err != nil {
+			result = err
+			return
+		}
+		defer cleanup()
+		var input unsafe.Pointer
+		if len(data) != 0 {
+			input = C.CBytes(data)
+			if input == nil {
+				result = errors.New("sidereon: unable to allocate native input buffer")
+				return
+			}
+			defer C.free(input)
+		}
+		status := uint32(C.sidereon_code_dcb_parse_with_policy((*C.uint8_t)(input), C.size_t(len(data)), coptions, C.uint32_t(policy), &pointer))
+		result = biasErrorLocked(status)
+		if result != nil && pointer != nil {
+			C.sidereon_bias_set_free(pointer)
+			pointer = nil
+		}
+	})
+	runtime.KeepAlive(data)
+	if result != nil {
+		return nil, result
+	}
+	return newBiasSet(pointer)
+}
+
 func (s *BiasSet) Close() error { return s.handle.close() }
 
 func (s *BiasSet) count(which func(*C.SidereonBiasSet, *C.size_t) uint32) (int, error) {
 	var count C.size_t
 	err := s.handle.with(func(pointer unsafe.Pointer) error {
-		return callStatus(func() uint32 { return which((*C.SidereonBiasSet)(pointer), &count) })
+		return biasCallStatus(func() uint32 { return which((*C.SidereonBiasSet)(pointer), &count) })
 	})
 	if err != nil {
 		return 0, err
@@ -256,97 +328,218 @@ func (s *BiasSet) Record(index int) (BiasRecord, error) {
 	}
 	var value C.SidereonBiasRecord
 	err = s.handle.with(func(pointer unsafe.Pointer) error {
-		return callStatus(func() uint32 {
+		return biasCallStatus(func() uint32 {
 			return C.sidereon_bias_set_record((*C.SidereonBiasSet)(pointer), nativeIndex, &value)
 		})
 	})
 	return biasRecordFromC(value), err
 }
 
-func biasLookup(s *BiasSet, sat, obs string, epoch BiasEpoch, phase bool) (float64, bool, error) {
-	if err := validateNativeCString(sat, "satellite identifier"); err != nil {
-		return 0, false, err
+type biasLookupCall func(unsafe.Pointer, *C.SidereonBiasLookup, *C.size_t, C.size_t, *C.size_t, C.size_t) C.enum_SidereonStatus
+
+func biasLookupAll(s *BiasSet, call biasLookupCall) (NativeBiasLookup, error) {
+	if s == nil || s.handle == nil {
+		return NativeBiasLookup{}, ErrClosed
 	}
-	if err := validateNativeCString(obs, "bias observation"); err != nil {
-		return 0, false, err
-	}
-	var value C.double
-	var present C.bool
-	var result error
-	withCThread(func() {
-		csat, cobs := C.CString(sat), C.CString(obs)
-		if csat == nil || cobs == nil {
-			if csat != nil {
-				C.free(unsafe.Pointer(csat))
+	var result NativeBiasLookup
+	err := s.handle.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var lookup C.SidereonBiasLookup
+			status := call(pointer, &lookup, nil, 0, nil, 0)
+			if err := biasErrorLocked(uint32(status)); err != nil {
+				return err
 			}
-			if cobs != nil {
-				C.free(unsafe.Pointer(cobs))
+			recordCount, err := checkedNativeCount(uint64(lookup.record_count))
+			if err != nil {
+				return err
 			}
-			result = errors.New("sidereon: unable to allocate bias lookup strings")
-			return
-		}
-		defer C.free(unsafe.Pointer(csat))
-		defer C.free(unsafe.Pointer(cobs))
-		result = s.handle.with(func(pointer unsafe.Pointer) error {
-			cepoch := C.SidereonBiasEpoch{year: C.int32_t(epoch.Year), day_of_year: C.uint16_t(epoch.DayOfYear), second_of_day: C.uint32_t(epoch.SecondOfDay)}
-			if phase {
-				return statusErrorLocked(uint32(C.sidereon_bias_set_phase_osb_cycles((*C.SidereonBiasSet)(pointer), csat, cobs, cepoch, &present, &value)))
+			if _, err := checkedNativeAllocationSize(recordCount, unsafe.Sizeof(C.size_t(0))); err != nil {
+				return err
 			}
-			return statusErrorLocked(uint32(C.sidereon_bias_set_code_osb_seconds((*C.SidereonBiasSet)(pointer), csat, cobs, cepoch, &present, &value)))
+			overriddenCount, err := checkedNativeCount(uint64(lookup.overridden_count))
+			if err != nil {
+				return err
+			}
+			if _, err := checkedNativeAllocationSize(overriddenCount, unsafe.Sizeof(C.size_t(0))); err != nil {
+				return err
+			}
+			records := make([]C.size_t, recordCount)
+			overridden := make([]C.size_t, overriddenCount)
+			var recordPointer, overriddenPointer *C.size_t
+			if len(records) != 0 {
+				recordPointer = &records[0]
+			}
+			if len(overridden) != 0 {
+				overriddenPointer = &overridden[0]
+			}
+			status = call(pointer, &lookup, recordPointer, C.size_t(len(records)), overriddenPointer, C.size_t(len(overridden)))
+			if err := biasErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			if uint64(lookup.record_count) != uint64(len(records)) || uint64(lookup.overridden_count) != uint64(len(overridden)) {
+				return errors.New("sidereon: bias lookup changed between count and copy calls")
+			}
+			result = NativeBiasLookup{
+				Status: uint32(lookup.status), Value: float64(lookup.value), RecordIndex: uint64(lookup.record),
+				HasProductTimeScale: bool(lookup.has_product_time_scale), ProductTimeScale: uint32(lookup.product_time_scale),
+				HasQueryTimeScale: bool(lookup.has_query_time_scale), QueryTimeScale: uint32(lookup.query_time_scale),
+				Observable: C.GoString(&lookup.observable[0]), UnknownVariant: C.GoString(&lookup.unknown_variant[0]),
+				RecordIndices: make([]uint64, len(records)), OverriddenRecordIndices: make([]uint64, len(overridden)),
+			}
+			for i, value := range records {
+				result.RecordIndices[i] = uint64(value)
+			}
+			for i, value := range overridden {
+				result.OverriddenRecordIndices[i] = uint64(value)
+			}
+			return nil
 		})
 	})
-	return float64(value), bool(present), result
+	runtime.KeepAlive(s)
+	return result, err
+}
+
+func biasLookup(s *BiasSet, sat, obs string, epoch BiasEpoch, phase, hasCarrier bool, carrierHz float64) (NativeBiasLookup, error) {
+	if err := validateNativeCString(sat, "satellite identifier"); err != nil {
+		return NativeBiasLookup{}, err
+	}
+	if err := validateNativeCString(obs, "bias observation"); err != nil {
+		return NativeBiasLookup{}, err
+	}
+	csat, cobs := C.CString(sat), C.CString(obs)
+	if csat == nil || cobs == nil {
+		if csat != nil {
+			C.free(unsafe.Pointer(csat))
+		}
+		if cobs != nil {
+			C.free(unsafe.Pointer(cobs))
+		}
+		return NativeBiasLookup{}, errors.New("sidereon: unable to allocate bias lookup strings")
+	}
+	defer C.free(unsafe.Pointer(csat))
+	defer C.free(unsafe.Pointer(cobs))
+	return biasLookupAll(s, func(pointer unsafe.Pointer, lookup *C.SidereonBiasLookup, records *C.size_t, recordsLen C.size_t, overridden *C.size_t, overriddenLen C.size_t) C.enum_SidereonStatus {
+		epochC := C.SidereonBiasEpoch{year: C.int32_t(epoch.Year), day_of_year: C.uint16_t(epoch.DayOfYear), second_of_day: C.uint32_t(epoch.SecondOfDay)}
+		if phase {
+			return C.sidereon_bias_set_phase_osb_cycles((*C.SidereonBiasSet)(pointer), csat, cobs, epochC, C.bool(hasCarrier), C.double(carrierHz), lookup, records, recordsLen, overridden, overriddenLen)
+		}
+		return C.sidereon_bias_set_code_osb_seconds((*C.SidereonBiasSet)(pointer), csat, cobs, epochC, lookup, records, recordsLen, overridden, overriddenLen)
+	})
 }
 
 func (s *BiasSet) CodeOSBSeconds(sat, obs string, epoch BiasEpoch) (float64, bool, error) {
-	return biasLookup(s, sat, obs, epoch, false)
+	value, err := biasLookup(s, sat, obs, epoch, false, false, 0)
+	return value.Value, err == nil && value.Status == uint32(C.SIDEREON_BIAS_LOOKUP_STATUS_AVAILABLE), err
 }
 func (s *BiasSet) PhaseOSBCycles(sat, obs string, epoch BiasEpoch) (float64, bool, error) {
-	return biasLookup(s, sat, obs, epoch, true)
+	value, err := biasLookup(s, sat, obs, epoch, true, false, 0)
+	return value.Value, err == nil && value.Status == uint32(C.SIDEREON_BIAS_LOOKUP_STATUS_AVAILABLE), err
+}
+
+func (s *BiasSet) CodeOSBLookup(sat, obs string, epoch BiasEpoch) (NativeBiasLookup, error) {
+	return biasLookup(s, sat, obs, epoch, false, false, 0)
+}
+
+func (s *BiasSet) PhaseOSBLookup(sat, obs string, epoch BiasEpoch, hasCarrier bool, carrierHz float64) (NativeBiasLookup, error) {
+	return biasLookup(s, sat, obs, epoch, true, hasCarrier, carrierHz)
 }
 
 func (s *BiasSet) CodeDSBSeconds(sat, obs1, obs2 string, epoch BiasEpoch) (float64, bool, error) {
+	value, err := s.CodeDSBLookup(sat, obs1, obs2, epoch)
+	return value.Value, err == nil && value.Status == uint32(C.SIDEREON_BIAS_LOOKUP_STATUS_AVAILABLE), err
+}
+
+func (s *BiasSet) CodeDSBLookup(sat, obs1, obs2 string, epoch BiasEpoch) (NativeBiasLookup, error) {
 	for name, value := range map[string]string{"satellite identifier": sat, "bias observation 1": obs1, "bias observation 2": obs2} {
 		if err := validateNativeCString(value, name); err != nil {
-			return 0, false, err
+			return NativeBiasLookup{}, err
 		}
 	}
-	var value C.double
-	var present C.bool
-	var result error
-	withCThread(func() {
-		csat, cobs1, cobs2 := C.CString(sat), C.CString(obs1), C.CString(obs2)
-		if csat == nil || cobs1 == nil || cobs2 == nil {
-			if csat != nil {
-				C.free(unsafe.Pointer(csat))
-			}
-			if cobs1 != nil {
-				C.free(unsafe.Pointer(cobs1))
-			}
-			if cobs2 != nil {
-				C.free(unsafe.Pointer(cobs2))
-			}
-			result = errors.New("sidereon: unable to allocate bias lookup strings")
-			return
+	csat, cobs1, cobs2 := C.CString(sat), C.CString(obs1), C.CString(obs2)
+	if csat == nil || cobs1 == nil || cobs2 == nil {
+		if csat != nil {
+			C.free(unsafe.Pointer(csat))
 		}
-		defer C.free(unsafe.Pointer(csat))
-		defer C.free(unsafe.Pointer(cobs1))
-		defer C.free(unsafe.Pointer(cobs2))
-		result = s.handle.with(func(pointer unsafe.Pointer) error {
-			cepoch := C.SidereonBiasEpoch{year: C.int32_t(epoch.Year), day_of_year: C.uint16_t(epoch.DayOfYear), second_of_day: C.uint32_t(epoch.SecondOfDay)}
-			return statusErrorLocked(uint32(C.sidereon_bias_set_code_dsb_seconds((*C.SidereonBiasSet)(pointer), csat, cobs1, cobs2, cepoch, &present, &value)))
-		})
+		if cobs1 != nil {
+			C.free(unsafe.Pointer(cobs1))
+		}
+		if cobs2 != nil {
+			C.free(unsafe.Pointer(cobs2))
+		}
+		return NativeBiasLookup{}, errors.New("sidereon: unable to allocate bias lookup strings")
+	}
+	defer C.free(unsafe.Pointer(csat))
+	defer C.free(unsafe.Pointer(cobs1))
+	defer C.free(unsafe.Pointer(cobs2))
+	return biasLookupAll(s, func(pointer unsafe.Pointer, lookup *C.SidereonBiasLookup, records *C.size_t, recordsLen C.size_t, overridden *C.size_t, overriddenLen C.size_t) C.enum_SidereonStatus {
+		epochC := C.SidereonBiasEpoch{year: C.int32_t(epoch.Year), day_of_year: C.uint16_t(epoch.DayOfYear), second_of_day: C.uint32_t(epoch.SecondOfDay)}
+		return C.sidereon_bias_set_code_dsb_seconds((*C.SidereonBiasSet)(pointer), csat, cobs1, cobs2, epochC, lookup, records, recordsLen, overridden, overriddenLen)
 	})
-	return float64(value), bool(present), result
 }
 
 func (s *BiasSet) Mode() (mode, scale uint32, err error) {
+	value, err := s.ModeInfo()
+	return value.Mode, value.TimeScale, err
+}
+
+func (s *BiasSet) ModeInfo() (NativeBiasModeInfo, error) {
+	if s == nil || s.handle == nil {
+		return NativeBiasModeInfo{}, ErrClosed
+	}
 	var cmode C.enum_SidereonBiasMode
+	var hasScale C.bool
 	var cscale C.uint32_t
-	err = s.handle.with(func(pointer unsafe.Pointer) error {
-		return callStatus(func() uint32 { return C.sidereon_bias_set_mode((*C.SidereonBiasSet)(pointer), &cmode, &cscale) })
+	err := s.handle.with(func(pointer unsafe.Pointer) error {
+		return biasCallStatus(func() uint32 {
+			return uint32(C.sidereon_bias_set_mode((*C.SidereonBiasSet)(pointer), &cmode, &hasScale, &cscale))
+		})
 	})
-	return uint32(cmode), uint32(cscale), err
+	return NativeBiasModeInfo{Mode: uint32(cmode), HasTimeScale: bool(hasScale), TimeScale: uint32(cscale)}, err
+}
+
+func (s *BiasSet) write(writer uint32, label string) ([]byte, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	var result []byte
+	var operationErr error
+	err := s.handle.with(func(pointer unsafe.Pointer) error {
+		withCThread(func() {
+			result, operationErr = copyNativeBytesLockedWithStatus(label, func(out *C.uint8_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+				set := (*C.SidereonBiasSet)(pointer)
+				switch writer {
+				case 0:
+					return C.sidereon_bias_sinex_to_text(set, out, length, written, required)
+				case 1:
+					return C.sidereon_bias_sinex_to_bytes(set, out, length, written, required)
+				case 2:
+					return C.sidereon_code_dcb_to_text(set, out, length, written, required)
+				default:
+					return C.sidereon_code_dcb_to_bytes(set, out, length, written, required)
+				}
+			}, biasErrorLocked)
+		})
+		return operationErr
+	})
+	return result, err
+}
+
+func (s *BiasSet) BiasSINEXText() (string, error) {
+	value, err := s.write(0, "Bias-SINEX text")
+	return string(value), err
+}
+
+func (s *BiasSet) BiasSINEXBytes() ([]byte, error) {
+	return s.write(1, "Bias-SINEX bytes")
+}
+
+func (s *BiasSet) CodeDCBText() (string, error) {
+	value, err := s.write(2, "CODE DCB text")
+	return string(value), err
+}
+
+func (s *BiasSet) CodeDCBBytes() ([]byte, error) {
+	return s.write(3, "CODE DCB bytes")
 }
 
 type AllanSample struct {
@@ -1006,6 +1199,30 @@ func (o *OEM) SegmentCount() (int, error) {
 	return checkedNativeCount(uint64(n))
 }
 
+func (o *OEM) SkippedStateCount() (int, error) {
+	var n C.size_t
+	err := o.handle.with(func(p unsafe.Pointer) error {
+		return callStatus(func() uint32 { return C.sidereon_oem_skipped_state_count((*C.SidereonOem)(p), &n) })
+	})
+	if err != nil {
+		return 0, err
+	}
+	return checkedNativeCount(uint64(n))
+}
+
+func (o *OEM) SkippedStatePayload(index int) ([]byte, error) {
+	if index < 0 {
+		return nil, errNegativeIndex
+	}
+	nativeIndex, err := checkedNativeSize(index)
+	if err != nil {
+		return nil, err
+	}
+	return copyHandleText(o.handle, func(pointer unsafe.Pointer, out *C.uint8_t, length C.size_t, written, required *C.size_t) uint32 {
+		return uint32(C.sidereon_oem_skipped_state((*C.SidereonOem)(pointer), nativeIndex, out, length, written, required))
+	})
+}
+
 func copyHandleText(handle *positioningHandle, call func(unsafe.Pointer, *C.uint8_t, C.size_t, *C.size_t, *C.size_t) uint32) ([]byte, error) {
 	var buffer []C.uint8_t
 	err := handle.with(func(pointer unsafe.Pointer) error {
@@ -1090,6 +1307,7 @@ type ConstellationRecord struct {
 }
 
 type SkippedOMM struct {
+	NORADIDPresent    bool
 	NORADID           uint32
 	ObjectNamePresent bool
 	ObjectName        string
@@ -1144,6 +1362,33 @@ func (c *OMMCatalog) MalformedCount() (int, error) {
 	return c.count(func(pointer *C.SidereonOmmCatalog, count *C.size_t) uint32 {
 		return uint32(C.sidereon_omm_catalog_malformed_count(pointer, count))
 	})
+}
+
+func (c *OMMCatalog) MalformedRecord(index int) (uint64, []byte, error) {
+	if index < 0 {
+		return 0, nil, errNegativeIndex
+	}
+	nativeIndex, err := checkedNativeSize(index)
+	if err != nil {
+		return 0, nil, err
+	}
+	var recordIndex C.size_t
+	payload, err := copyHandleText(c.handle, func(pointer unsafe.Pointer, out *C.uint8_t, length C.size_t, written, required *C.size_t) uint32 {
+		return uint32(C.sidereon_omm_catalog_malformed_record((*C.SidereonOmmCatalog)(pointer), nativeIndex, &recordIndex, out, length, written, required))
+	})
+	if err != nil {
+		return 0, nil, err
+	}
+	var envelope struct {
+		Index uint64 `json:"index"`
+	}
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		return 0, nil, err
+	}
+	if envelope.Index != uint64(recordIndex) {
+		return 0, nil, fmt.Errorf("sidereon: OMM malformed record index disagrees with payload")
+	}
+	return uint64(recordIndex), payload, nil
 }
 func constellationRecordFromC(v C.SidereonConstellationRecord) ConstellationRecord {
 	return ConstellationRecord{System: uint32(v.system), PRN: uint16(v.prn), SVNPresent: bool(v.svn_present), SVN: uint16(v.svn), NORADID: uint32(v.norad_id), FDMAChannelPresent: bool(v.fdma_channel_present), FDMAChannel: int8(v.fdma_channel), Active: bool(v.active), Usable: bool(v.usable)}
@@ -1220,7 +1465,7 @@ func (c *OMMCatalog) Skipped(index int) (SkippedOMM, error) {
 		return SkippedOMM{}, err
 	}
 	name, err := cSkippedObjectName(c, index)
-	return SkippedOMM{NORADID: uint32(v.norad_id), ObjectNamePresent: bool(v.object_name_present), ObjectName: name}, err
+	return SkippedOMM{NORADIDPresent: bool(v.norad_id_present), NORADID: uint32(v.norad_id), ObjectNamePresent: bool(v.object_name_present), ObjectName: name}, err
 }
 
 type TDMParticipant struct {

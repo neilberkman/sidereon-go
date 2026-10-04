@@ -6,10 +6,12 @@ package native
 #cgo CFLAGS: -I${SRCDIR}/include
 #include <sidereon.h>
 #include <stdlib.h>
+enum SidereonStatus sidereon_spp_solution_rejected_sats_v2(const struct SidereonSppSolution *, SidereonSppRejectedSatV2 *, size_t, size_t *, size_t *);
 */
 import "C"
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"runtime"
@@ -20,6 +22,7 @@ import (
 // materialized by each call and is never retained by C after that call.
 type SppInputsV2 struct {
 	Base            SPPConfig
+	Models          NativeSPPModelOptions
 	BeidouEnabled   bool
 	BeidouAlpha     [4]float64
 	BeidouBeta      [4]float64
@@ -52,6 +55,7 @@ type NativeRinexSPPOptions struct {
 	PressureHPA, TemperatureK, RelativeHumidity  float64
 	RobustEnabled                                bool
 	Robust                                       NativeSPPRobustConfig
+	Models                                       NativeSPPModelOptions
 }
 
 type NativeRinexSPPEpoch struct {
@@ -62,6 +66,13 @@ type NativeRinexSPPEpoch struct {
 type NativeSPPRejectedSatellite struct {
 	SatelliteID string
 	Reason      uint32
+}
+
+type NativeSPPRejectedSatelliteV2 struct {
+	SatelliteID    string
+	Reason         uint32
+	HasSize        bool
+	OrbitM, ClockM float64
 }
 
 type NativeSPPSystemClock struct {
@@ -291,6 +302,13 @@ func fillSppV2(dst *C.SidereonSppInputsV2, value SppInputsV2, alloc *cRtkAlloc) 
 	}
 	dst.glonass_channel_count = count
 	return nil
+}
+
+func makeSppModels(value NativeSPPModelOptions) (*C.SidereonSppModelOptions, error) {
+	if value.QZSSClock > 1 || value.TroposphereModel > 1 {
+		return nil, invalidArgument("invalid SPP model selector")
+	}
+	return &C.SidereonSppModelOptions{qzss_clock: C.uint32_t(value.QZSSClock), troposphere_model: C.uint32_t(value.TroposphereModel)}, nil
 }
 
 func makeSppV2(value SppInputsV2, alloc *cRtkAlloc) (*C.SidereonSppInputsV2, error) {
@@ -789,6 +807,149 @@ func (b *SPPBatch) Error(index int) (string, error) {
 	})
 	return out, err
 }
+func sppRowEngineErrorLocked(
+	label string,
+	infoQuery func(*C.SidereonEngineErrorInfo) C.enum_SidereonStatus,
+	payloadQuery func(*C.uint8_t, C.size_t, *C.size_t, *C.size_t) C.enum_SidereonStatus,
+) (*EngineError, error) {
+	var info C.SidereonEngineErrorInfo
+	status := infoQuery(&info)
+	if infoErr := bareStatusErrorLocked(uint32(status)); infoErr != nil {
+		return &EngineError{
+			Family:       EngineErrorFamilyUnknown,
+			FamilyName:   "unknown",
+			CaptureError: fmt.Errorf("sidereon: %s error info query failed: %w", label, infoErr),
+		}, infoErr
+	}
+	family := EngineErrorFamily(info.family)
+	payloadLen := uint64(info.payload_len)
+
+	if family == EngineErrorFamilyNone && payloadLen == 0 {
+		return nil, nil
+	}
+
+	var preCaptureErr error
+	if family == EngineErrorFamilyNone && payloadLen > 0 {
+		preCaptureErr = errors.New("sidereon: family none reported non-zero payload length")
+	} else if family != EngineErrorFamilyNone && payloadLen == 0 {
+		preCaptureErr = errors.New("sidereon: non-none family reported zero payload length")
+	}
+
+	payload, payloadErr := copyNativeBytesLockedWithStatus(
+		label+" error payload",
+		payloadQuery,
+		bareStatusErrorLocked,
+	)
+	if payloadErr != nil {
+		err := fmt.Errorf("sidereon: %s error payload capture failed: %w", label, payloadErr)
+		if preCaptureErr != nil {
+			err = errors.Join(preCaptureErr, err)
+		}
+		return &EngineError{
+			Family:       family,
+			FamilyName:   family.Name(),
+			CaptureError: err,
+		}, err
+	}
+
+	expectedLength, lengthErr := sizeTToInt(info.payload_len, label+" error payload length")
+	if lengthErr == nil && expectedLength != len(payload) {
+		lengthErr = fmt.Errorf("sidereon: %s error payload length mismatch: summary=%d payload=%d", label, expectedLength, len(payload))
+	}
+	if lengthErr != nil {
+		if preCaptureErr != nil {
+			lengthErr = errors.Join(preCaptureErr, lengthErr)
+		}
+		return &EngineError{
+			Family:       family,
+			FamilyName:   family.Name(),
+			Payload:      append(json.RawMessage(nil), payload...),
+			CaptureError: lengthErr,
+		}, lengthErr
+	}
+
+	decoded, decodeErr := DecodeSchema1EnginePayload(family, payload)
+	if preCaptureErr != nil {
+		if decoded != nil {
+			if decoded.CaptureError != nil {
+				decoded.CaptureError = errors.Join(preCaptureErr, decoded.CaptureError)
+			} else {
+				decoded.CaptureError = preCaptureErr
+			}
+		}
+		if decodeErr == nil {
+			decodeErr = preCaptureErr
+		} else {
+			decodeErr = errors.Join(preCaptureErr, decodeErr)
+		}
+	}
+	return decoded, decodeErr
+}
+
+func sppBatchRowEngineErrorLocked(p *C.SidereonSppBatch, idx C.size_t) (*EngineError, error) {
+	return sppRowEngineErrorLocked("SPP batch",
+		func(info *C.SidereonEngineErrorInfo) C.enum_SidereonStatus {
+			return C.sidereon_spp_batch_error_info(p, idx, info)
+		},
+		func(out *C.uint8_t, capacity C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+			return C.sidereon_spp_batch_error_payload(p, idx, out, capacity, written, required)
+		})
+}
+
+func rinexSPPRowEngineErrorLocked(p *C.SidereonRinexSppSolutions, idx C.size_t) (*EngineError, error) {
+	return sppRowEngineErrorLocked("RINEX SPP solution",
+		func(info *C.SidereonEngineErrorInfo) C.enum_SidereonStatus {
+			return C.sidereon_rinex_spp_solution_error_info(p, idx, info)
+		},
+		func(out *C.uint8_t, capacity C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+			return C.sidereon_rinex_spp_solution_error_payload(p, idx, out, capacity, written, required)
+		})
+}
+
+func (r *RinexSPPSolutions) EngineError(index int) (*EngineError, error) {
+	if r == nil || r.handle == nil {
+		return nil, ErrClosed
+	}
+	idx, err := cSize(index, "RINEX SPP epoch index")
+	if err != nil {
+		return nil, err
+	}
+	var out *EngineError
+	var op error
+	err = r.handle.read(func(p unsafe.Pointer) error {
+		withCThread(func() {
+			out, op = rinexSPPRowEngineErrorLocked((*C.SidereonRinexSppSolutions)(p), idx)
+		})
+		return op
+	})
+	if err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
+func (b *SPPBatch) EngineError(index int) (*EngineError, error) {
+	if b == nil || b.handle == nil {
+		return nil, ErrClosed
+	}
+	idx, err := cSize(index, "SPP batch epoch index")
+	if err != nil {
+		return nil, err
+	}
+	var out *EngineError
+	var op error
+	err = b.handle.read(func(p unsafe.Pointer) error {
+		withCThread(func() {
+			out, op = sppBatchRowEngineErrorLocked((*C.SidereonSppBatch)(p), idx)
+		})
+		return op
+	})
+	if err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
 func (b *SPPBatch) Solution(index int) (*SppSolutionHandle, error) {
 	if b == nil || b.handle == nil {
 		return nil, ErrClosed
@@ -802,11 +963,45 @@ func (b *SPPBatch) Solution(index int) (*SppSolutionHandle, error) {
 	err = b.handle.read(func(p unsafe.Pointer) error {
 		withCThread(func() {
 			status := C.sidereon_spp_batch_solution((*C.SidereonSppBatch)(p), idx, &out)
-			op = statusErrorLocked(uint32(status))
-			if op != nil && out != nil {
+			if status == C.SIDEREON_STATUS_OK {
+				return
+			}
+			if status == C.SIDEREON_STATUS_SOLVE {
+				err := bareStatusErrorLocked(uint32(status))
+				if out != nil {
+					C.sidereon_spp_solution_free(out)
+					out = nil
+				}
+				if statusErr, ok := err.(*StatusError); ok {
+					rowEngineErr, rowErr := sppBatchRowEngineErrorLocked((*C.SidereonSppBatch)(p), idx)
+					if rowEngineErr != nil {
+						statusErr.Engine = rowEngineErr
+					}
+					if rowErr != nil {
+						if statusErr.Engine == nil {
+							statusErr.Engine = &EngineError{
+								Family:       EngineErrorFamilyUnknown,
+								FamilyName:   "unknown",
+								CaptureError: rowErr,
+							}
+						} else if statusErr.Engine.CaptureError == nil {
+							statusErr.Engine.CaptureError = rowErr
+						} else if !errors.Is(statusErr.Engine.CaptureError, rowErr) {
+							statusErr.Engine.CaptureError = errors.Join(statusErr.Engine.CaptureError, rowErr)
+						}
+					}
+					op = statusErr
+				} else {
+					op = err
+				}
+				return
+			}
+			err := statusErrorLocked(uint32(status))
+			if out != nil {
 				C.sidereon_spp_solution_free(out)
 				out = nil
 			}
+			op = err
 		})
 		return op
 	})
@@ -903,6 +1098,57 @@ func (s *SppSolutionHandle) RejectedSatellites() ([]NativeSPPRejectedSatellite, 
 		return op
 	})
 	return out, err
+}
+
+func (s *SppSolutionHandle) RejectedSatellitesV2() ([]NativeSPPRejectedSatelliteV2, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	var result []NativeSPPRejectedSatelliteV2
+	var operationErr error
+	err := s.handle.read(func(pointer unsafe.Pointer) error {
+		withCThread(func() {
+			var written, required C.size_t
+			status := C.sidereon_spp_solution_rejected_sats_v2((*C.SidereonSppSolution)(pointer), nil, 0, &written, &required)
+			if operationErr = statusErrorLocked(uint32(status)); operationErr != nil {
+				return
+			}
+			count, countErr := validateNativeQuery("SPP rejected satellites V2", uint64(written), uint64(required))
+			if countErr != nil {
+				operationErr = countErr
+				return
+			}
+			if _, countErr = checkedNativeAllocationSize(count, unsafe.Sizeof(C.SidereonSppRejectedSatV2{})); countErr != nil {
+				operationErr = countErr
+				return
+			}
+			rows := make([]C.SidereonSppRejectedSatV2, count)
+			var output *C.SidereonSppRejectedSatV2
+			if count > 0 {
+				output = &rows[0]
+			}
+			written, required = 0, 0
+			status = C.sidereon_spp_solution_rejected_sats_v2((*C.SidereonSppSolution)(pointer), output, C.size_t(count), &written, &required)
+			if operationErr = statusErrorLocked(uint32(status)); operationErr != nil {
+				return
+			}
+			rowCount, countErr := validateTwoPassCounts("SPP rejected satellites V2", count, count, uint64(written), uint64(required))
+			if countErr != nil {
+				operationErr = countErr
+				return
+			}
+			result = make([]NativeSPPRejectedSatelliteV2, rowCount)
+			for rowIndex, row := range rows[:rowCount] {
+				if uint32(row.reason) > 5 {
+					operationErr = invalidArgument("invalid SPP rejection reason returned by native code")
+					return
+				}
+				result[rowIndex] = NativeSPPRejectedSatelliteV2{SatelliteID: tokenFromC(row.sat_id), Reason: uint32(row.reason), HasSize: bool(row.has_size), OrbitM: float64(row.orbit_m), ClockM: float64(row.clock_m)}
+			}
+		})
+		return operationErr
+	})
+	return result, err
 }
 func (s *SppSolutionHandle) ReceiverClockDrift() (float64, bool, error) {
 	if s == nil || s.handle == nil {
@@ -1058,8 +1304,14 @@ func SolveSPPV2(sp3 *SP3, input SppInputsV2) (*SppSolutionHandle, error) {
 		return nil, err
 	}
 	var out *C.SidereonSppSolution
+	models, err := makeSppModels(input.Models)
+	if err != nil {
+		return nil, err
+	}
 	err = sp3.handle.with(func(p unsafe.Pointer) error {
-		return statusCall(func() C.enum_SidereonStatus { return C.sidereon_solve_spp_v2((*C.SidereonSp3)(p), cinput, &out) })
+		return statusCall(func() C.enum_SidereonStatus {
+			return C.sidereon_solve_spp_v2_with_models((*C.SidereonSp3)(p), cinput, models, &out)
+		})
 	})
 	runtime.KeepAlive(input.Base.Observations)
 	if err != nil {
@@ -1069,6 +1321,100 @@ func SolveSPPV2(sp3 *SP3, input SppInputsV2) (*SppSolutionHandle, error) {
 		return nil, err
 	}
 	return newSppHandle(out)
+}
+
+func SolveSPPV2AtExactEpoch(sp3 *SP3, input SppInputsV2, receiveEpoch *ExactEpoch) (*SppSolutionHandle, error) {
+	if sp3 == nil || sp3.handle == nil || receiveEpoch == nil || receiveEpoch.handle == nil {
+		return nil, ErrClosed
+	}
+	alloc := new(cRtkAlloc)
+	defer alloc.close()
+	cinput, err := makeSppV2(input, alloc)
+	if err != nil {
+		return nil, err
+	}
+	models, err := makeSppModels(input.Models)
+	if err != nil {
+		return nil, err
+	}
+	var out *C.SidereonSppSolution
+	err = sp3.handle.with(func(sp3Pointer unsafe.Pointer) error {
+		return receiveEpoch.handle.with(func(epochPointer unsafe.Pointer) error {
+			return statusCall(func() C.enum_SidereonStatus {
+				return C.sidereon_solve_spp_v2_with_models_at_exact_epoch((*C.SidereonSp3)(sp3Pointer), cinput, models, (*C.SidereonExactEpoch)(epochPointer), &out)
+			})
+		})
+	})
+	if err != nil {
+		if out != nil {
+			withCThread(func() { C.sidereon_spp_solution_free(out) })
+		}
+		return nil, err
+	}
+	return newSppHandle(out)
+}
+
+func SolveBroadcastV2AtExactEpoch(broadcast *BroadcastEphemeris, input SppInputsV2, receiveEpoch *ExactEpoch) (*SppSolutionHandle, error) {
+	if broadcast == nil || broadcast.resource == nil || receiveEpoch == nil || receiveEpoch.handle == nil {
+		return nil, ErrClosed
+	}
+	alloc := new(cRtkAlloc)
+	defer alloc.close()
+	cinput, err := makeSppV2(input, alloc)
+	if err != nil {
+		return nil, err
+	}
+	models, err := makeSppModels(input.Models)
+	if err != nil {
+		return nil, err
+	}
+	var output *C.SidereonSppSolution
+	err = broadcast.resource.with(func(broadcastPointer unsafe.Pointer) error {
+		return receiveEpoch.handle.with(func(epochPointer unsafe.Pointer) error {
+			return statusCall(func() C.enum_SidereonStatus {
+				return C.sidereon_solve_broadcast_with_models_at_exact_epoch((*C.SidereonBroadcastEphemeris)(broadcastPointer), cinput, models, (*C.SidereonExactEpoch)(epochPointer), &output)
+			})
+		})
+	})
+	runtime.KeepAlive(broadcast)
+	runtime.KeepAlive(receiveEpoch)
+	if err != nil {
+		if output != nil {
+			withCThread(func() { C.sidereon_spp_solution_free(output) })
+		}
+		return nil, err
+	}
+	return newSppHandle(output)
+}
+
+func SolveBroadcastV2(broadcast *BroadcastEphemeris, input SppInputsV2) (*SppSolutionHandle, error) {
+	if broadcast == nil || broadcast.resource == nil {
+		return nil, ErrClosed
+	}
+	alloc := new(cRtkAlloc)
+	defer alloc.close()
+	cinput, err := makeSppV2(input, alloc)
+	if err != nil {
+		return nil, err
+	}
+	models, err := makeSppModels(input.Models)
+	if err != nil {
+		return nil, err
+	}
+	var output *C.SidereonSppSolution
+	err = broadcast.resource.with(func(pointer unsafe.Pointer) error {
+		return statusCall(func() C.enum_SidereonStatus {
+			return C.sidereon_solve_broadcast_with_models((*C.SidereonBroadcastEphemeris)(pointer), cinput, models, &output)
+		})
+	})
+	runtime.KeepAlive(broadcast)
+	if err != nil {
+		if output != nil {
+			withCThread(func() { C.sidereon_spp_solution_free(output) })
+		}
+		return nil, err
+	}
+	return newSppHandle(output)
 }
 
 func solveSPPBatch(sp3 *SP3, inputs []SppInputsV2, withGeodetic, parallel bool, policy NativeSPPSolvePolicy) (*SPPBatch, error) {
@@ -1107,6 +1453,57 @@ func SolveSPPBatchSerial(sp3 *SP3, inputs []SppInputsV2, withGeodetic bool, poli
 }
 func SolveSPPBatchParallel(sp3 *SP3, inputs []SppInputsV2, withGeodetic bool, policy NativeSPPSolvePolicy) (*SPPBatch, error) {
 	return solveSPPBatch(sp3, inputs, withGeodetic, true, policy)
+}
+
+// SolveSPPBatchV2Serial preserves each epoch's model options, robust controls,
+// GLONASS channels, BeiDou coefficients, and validation policy.
+func SolveSPPBatchV2Serial(sp3 *SP3, inputs []SppInputsV2) (*SPPBatch, error) {
+	if sp3 == nil || sp3.handle == nil {
+		return nil, ErrClosed
+	}
+	count, err := checkedNativeSize(len(inputs))
+	if err != nil {
+		return nil, err
+	}
+	alloc := new(cRtkAlloc)
+	defer alloc.close()
+	var rows *C.SidereonSppBatchInputV2
+	if len(inputs) > 0 {
+		bytes, e := checkedNativeAllocationSize(len(inputs), unsafe.Sizeof(C.SidereonSppBatchInputV2{}))
+		if e != nil {
+			return nil, e
+		}
+		memory, e := alloc.malloc(bytes, "SPP V2 batch input array")
+		if e != nil {
+			return nil, e
+		}
+		rows = (*C.SidereonSppBatchInputV2)(memory)
+		rowSlice := unsafe.Slice(rows, len(inputs))
+		for i, input := range inputs {
+			cinput, e := makeSppV2(input, alloc)
+			if e != nil {
+				return nil, e
+			}
+			models, e := makeSppModels(input.Models)
+			if e != nil {
+				return nil, e
+			}
+			rowSlice[i] = C.SidereonSppBatchInputV2{inputs: *cinput, models: *models}
+		}
+	}
+	var out *C.SidereonSppBatch
+	err = sp3.handle.with(func(pointer unsafe.Pointer) error {
+		return statusCall(func() C.enum_SidereonStatus {
+			return C.sidereon_solve_spp_batch_v2_serial((*C.SidereonSp3)(pointer), rows, count, &out)
+		})
+	})
+	if err != nil {
+		if out != nil {
+			withCThread(func() { C.sidereon_spp_batch_free(out) })
+		}
+		return nil, err
+	}
+	return newSppBatch(out)
 }
 
 func SolveSPPWithDoppler(sp3 *SP3, input SppInputsV2, observations []NativeSppDopplerObservation) (NativeSppDopplerResult, error) {
@@ -1164,6 +1561,14 @@ func SolveSPPFromRINEXObs(broadcast *BroadcastEphemeris, obs *RinexObs, options 
 			return nil, err
 		}
 	}
+	models := NativeSPPModelOptions{}
+	if options != nil {
+		models = options.Models
+	}
+	cmodels, err := makeSppModels(models)
+	if err != nil {
+		return nil, err
+	}
 	var cpolicy *C.SidereonSppSolvePolicy
 	if policy != nil {
 		bytes, e := checkedNativeAllocationSize(1, unsafe.Sizeof(C.SidereonSppSolvePolicy{}))
@@ -1183,7 +1588,7 @@ func SolveSPPFromRINEXObs(broadcast *BroadcastEphemeris, obs *RinexObs, options 
 	err = withScenarioInputs([]scenarioInput{{resource: broadcast.resource}, {resource: obs.resource}}, func(pointers []unsafe.Pointer) error {
 		var operationErr error
 		withCThread(func() {
-			status := C.sidereon_solve_spp_from_rinex_obs((*C.SidereonBroadcastEphemeris)(pointers[0]), (*C.SidereonRinexObs)(pointers[1]), coptions, C.bool(withGeodetic), cpolicy, &out)
+			status := C.sidereon_solve_spp_from_rinex_obs_with_models((*C.SidereonBroadcastEphemeris)(pointers[0]), (*C.SidereonRinexObs)(pointers[1]), coptions, cmodels, C.bool(withGeodetic), cpolicy, &out)
 			operationErr = statusErrorLocked(uint32(status))
 		})
 		return operationErr
@@ -1211,11 +1616,19 @@ func SPPInputsFromRINEXObs(obs *RinexObs, broadcast *BroadcastEphemeris, options
 			return nil, err
 		}
 	}
+	models := NativeSPPModelOptions{}
+	if options != nil {
+		models = options.Models
+	}
+	cmodels, err := makeSppModels(models)
+	if err != nil {
+		return nil, err
+	}
 	var out *C.SidereonRinexSppInputs
 	err = withScenarioInputs([]scenarioInput{{resource: obs.resource}, {resource: broadcast.resource}}, func(pointers []unsafe.Pointer) error {
 		var operationErr error
 		withCThread(func() {
-			status := C.sidereon_spp_inputs_from_rinex_obs((*C.SidereonRinexObs)(pointers[0]), (*C.SidereonBroadcastEphemeris)(pointers[1]), coptions, &out)
+			status := C.sidereon_spp_inputs_from_rinex_obs_with_models((*C.SidereonRinexObs)(pointers[0]), (*C.SidereonBroadcastEphemeris)(pointers[1]), coptions, cmodels, &out)
 			operationErr = statusErrorLocked(uint32(status))
 		})
 		return operationErr

@@ -236,33 +236,84 @@ type NativeSBASIGP struct {
 	HasGIVEVariance                bool
 	GIVEVarianceM2                 float64
 }
+type NativeSBASUnassignedMaskCorrection struct {
+	MaskNumber uint8
+	Count      uint64
+}
 type SBASCorrectionStore struct {
 	_        noCopy
 	resource *resource
 	cleanup  runtime.Cleanup
 }
 type NativeSSRClockCorrection struct {
-	Source                                                       uint32
-	ProviderID                                                   uint16
-	SolutionID, IODSSR                                           uint8
-	C0M, C1MPerS, C2MPerS2, RefEpochJ2000S, UpdateIntervalS      float64
-	HasHighRate                                                  bool
-	HighRateC0M, HighRateRefEpochJ2000S, HighRateUpdateIntervalS float64
+	Source                                                                                       uint32
+	ProviderID                                                                                   uint16
+	SolutionID, IODSSR                                                                           uint8
+	NavMessage                                                                                   uint32
+	HasNavigationMessageIndex                                                                    bool
+	NavigationMessageIndex                                                                       uint8
+	C0M, C1MPerS, C2MPerS2, RefEpochJ2000S, TransmittedEpochJ2000S, UpdateIntervalS              float64
+	HasHighRate                                                                                  bool
+	HighRateC0M, HighRateRefEpochJ2000S, HighRateTransmittedEpochJ2000S, HighRateUpdateIntervalS float64
 }
 type NativeSSROrbitCorrection struct {
-	Source                                                                                                    uint32
-	ProviderID                                                                                                uint16
-	SolutionID                                                                                                uint8
-	IODE                                                                                                      uint32
-	IODSSR                                                                                                    uint8
-	CRSRegional                                                                                               bool
-	ReferencePoint                                                                                            uint32
-	RadialM, AlongM, CrossM, RadialRateMPerS, AlongRateMPerS, CrossRateMPerS, RefEpochJ2000S, UpdateIntervalS float64
+	Source                                                                                                                            uint32
+	ProviderID                                                                                                                        uint16
+	SolutionID                                                                                                                        uint8
+	NavMessage                                                                                                                        uint32
+	HasNavigationMessageIndex                                                                                                         bool
+	NavigationMessageIndex                                                                                                            uint8
+	IODE                                                                                                                              uint32
+	HasIODCRC                                                                                                                         bool
+	IODCRC                                                                                                                            uint32
+	IODSSR                                                                                                                            uint8
+	Basis                                                                                                                             uint32
+	CRSRegional                                                                                                                       bool
+	ReferencePoint                                                                                                                    uint32
+	RadialM, AlongM, CrossM, RadialRateMPerS, AlongRateMPerS, CrossRateMPerS, RefEpochJ2000S, TransmittedEpochJ2000S, UpdateIntervalS float64
 }
 type SSRCorrectionStore struct {
 	_        noCopy
 	resource *resource
 	cleanup  runtime.Cleanup
+}
+type SSRIngestRefusals struct {
+	_        noCopy
+	resource *resource
+	cleanup  runtime.Cleanup
+}
+type NativeSSRIngestRefusal struct {
+	MessageNumber uint16
+	Text          string
+}
+
+// NativeSSRVtecQueryKind retains the C query disposition tags.
+type NativeSSRVtecQueryKind uint32
+
+const (
+	// SSRVtecQueryNoModelValue reports no stored model.
+	SSRVtecQueryNoModelValue NativeSSRVtecQueryKind = 0
+	// SSRVtecQueryBeforeModelValue reports a query before the model epoch.
+	SSRVtecQueryBeforeModelValue NativeSSRVtecQueryKind = 1
+	// SSRVtecQueryStaleValue reports a model past its maximum age.
+	SSRVtecQueryStaleValue NativeSSRVtecQueryKind = 2
+	// SSRVtecQueryEvaluatedValue reports a completed evaluation.
+	SSRVtecQueryEvaluatedValue NativeSSRVtecQueryKind = 3
+)
+
+// NativeSSRVtecQueryResult is the detached C VTEC query summary.
+type NativeSSRVtecQueryResult struct {
+	Kind                                  NativeSSRVtecQueryKind
+	AgeS, SecondsBeforeModel, MaxAgeS     float64
+	LayerCount                            int
+	STEC                                  float64
+	PseudorangeDelayM, PhaseRangeAdvanceM float64
+}
+
+// NativeSSRVtecLayerEvaluation is the detached C evaluation for one model layer.
+type NativeSSRVtecLayerEvaluation struct {
+	PierceLatitudeRad, PierceLongitudeRad, SunFixedLongitudeRad float64
+	VTECTECU, MappingFactor, STECTECU                           float64
 }
 
 func newSBASStore(p *C.SidereonSbasCorrectionStore) (*SBASCorrectionStore, error) {
@@ -337,7 +388,7 @@ func (s *SBASCorrectionStore) Ingest(block *SbasBlock, geo string, epoch NativeG
 		return ErrClosed
 	}
 	return block.resource.with(func(bp unsafe.Pointer) error {
-		return s.resource.with(func(sp unsafe.Pointer) error {
+		return s.resource.withExclusive(func(sp unsafe.Pointer) error {
 			return withTokenError(geo, "GEO satellite token", func(g *C.char) error {
 				memory, err := checkedNativeMalloc(1, unsafe.Sizeof(C.SidereonGnssWeekTow{}))
 				if err != nil {
@@ -398,6 +449,57 @@ func (s *SBASCorrectionStore) ReadyGeos(t float64) ([]string, error) {
 		return nil
 	})
 	return out, err
+}
+
+func (s *SBASCorrectionStore) UnassignedMaskCorrections(geo string) ([]NativeSBASUnassignedMaskCorrection, bool, error) {
+	if s == nil || s.resource == nil {
+		return nil, false, ErrClosed
+	}
+	var rows []NativeSBASUnassignedMaskCorrection
+	var present bool
+	err := s.resource.with(func(sp unsafe.Pointer) error {
+		return withStringError(geo, func(g *C.char) error {
+			var written, required C.size_t
+			var has C.bool
+			status := C.sidereon_sbas_store_unassigned_mask_corrections((*C.SidereonSbasCorrectionStore)(sp), g, &has, nil, 0, &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			count, err := validateNativeQuery("SBAS unassigned mask corrections", uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if _, err := checkedNativeAllocationSize(count, unsafe.Sizeof(C.SidereonSbasUnassignedMaskCorrections{})); err != nil {
+				return err
+			}
+			values := make([]C.SidereonSbasUnassignedMaskCorrections, count)
+			var out *C.SidereonSbasUnassignedMaskCorrections
+			if count > 0 {
+				out = &values[0]
+			}
+			written, required = 0, 0
+			firstHas := bool(has)
+			status = C.sidereon_sbas_store_unassigned_mask_corrections((*C.SidereonSbasCorrectionStore)(sp), g, &has, out, C.size_t(count), &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			n, err := validateTwoPassCounts("SBAS unassigned mask corrections", count, count, uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if bool(has) != firstHas {
+				return errors.New("sidereon: SBAS unassigned mask presence changed between query passes")
+			}
+			rows = make([]NativeSBASUnassignedMaskCorrection, n)
+			for i, value := range values[:n] {
+				rows[i] = NativeSBASUnassignedMaskCorrection{MaskNumber: uint8(value.mask_number), Count: uint64(value.count)}
+			}
+			present = bool(has)
+			return nil
+		})
+	})
+	runtime.KeepAlive(s)
+	return rows, present, err
 }
 func (s *SBASCorrectionStore) Fast(geo, sat string) (NativeSBASFastCorrection, bool, error) {
 	var p C.bool
@@ -563,6 +665,153 @@ func NewSSRStoreFromRTCM(data []byte, epoch NativeGnssWeekTow) (*SSRCorrectionSt
 	}
 	return handle, err
 }
+func NewSSRStoreFromRTCMReading(data []byte, epoch NativeGnssWeekTow) (*SSRCorrectionStore, *RtcmDiagnostics, int, *SSRIngestRefusals, error) {
+	if _, err := checkedNativeSize(len(data)); err != nil {
+		return nil, nil, 0, nil, err
+	}
+	week := cWeek(epoch)
+	var input unsafe.Pointer
+	if len(data) > 0 {
+		input = C.CBytes(data)
+		if input == nil {
+			return nil, nil, 0, nil, errors.New("sidereon: unable to allocate SSR RTCM input")
+		}
+		defer C.free(input)
+	}
+	var store *C.SidereonSsrCorrectionStore
+	var diagnostics *C.SidereonRtcmStreamDiagnostics
+	var refusals *C.SidereonSsrIngestRefusals
+	var trailing C.size_t
+	err := withCThreadError(func() error {
+		return statusErrorLocked(uint32(C.sidereon_ssr_store_from_rtcm_reading((*C.uint8_t)(input), C.size_t(len(data)), &week, &store, &diagnostics, &trailing, &refusals)))
+	})
+	if err != nil {
+		withCThread(func() {
+			if store != nil {
+				C.sidereon_ssr_store_free(store)
+			}
+			if diagnostics != nil {
+				C.sidereon_rtcm_stream_diagnostics_free(diagnostics)
+			}
+			if refusals != nil {
+				C.sidereon_ssr_ingest_refusals_free(refusals)
+			}
+		})
+		return nil, nil, 0, nil, err
+	}
+	storeHandle, err := newSSRStore(store)
+	if err != nil {
+		withCThread(func() {
+			C.sidereon_ssr_store_free(store)
+			if diagnostics != nil {
+				C.sidereon_rtcm_stream_diagnostics_free(diagnostics)
+			}
+			if refusals != nil {
+				C.sidereon_ssr_ingest_refusals_free(refusals)
+			}
+		})
+		return nil, nil, 0, nil, err
+	}
+	diagnosticHandle, err := newRtcmDiagnostics(diagnostics)
+	if err != nil {
+		_ = storeHandle.Close()
+		withCThread(func() {
+			if refusals != nil {
+				C.sidereon_ssr_ingest_refusals_free(refusals)
+			}
+		})
+		return nil, nil, 0, nil, err
+	}
+	if refusals == nil {
+		_ = storeHandle.Close()
+		_ = diagnosticHandle.Close()
+		return nil, nil, 0, nil, missingNativeHandle("SSR ingest refusals")
+	}
+	refusalHandle := &SSRIngestRefusals{resource: &resource{ptr: unsafe.Pointer(refusals), release: func(p unsafe.Pointer) { C.sidereon_ssr_ingest_refusals_free((*C.SidereonSsrIngestRefusals)(p)) }}}
+	refusalHandle.cleanup = runtime.AddCleanup(refusalHandle, cleanupResource, refusalHandle.resource)
+	count, err := checkedNativeCount(uint64(trailing))
+	if err != nil {
+		_ = storeHandle.Close()
+		_ = diagnosticHandle.Close()
+		_ = refusalHandle.Close()
+		return nil, nil, 0, nil, err
+	}
+	return storeHandle, diagnosticHandle, count, refusalHandle, nil
+}
+
+func (r *SSRIngestRefusals) Close() error {
+	if r == nil {
+		return nil
+	}
+	return closeProtocolResource(r, r.resource, &r.cleanup)
+}
+func (r *SSRIngestRefusals) Count() (int, error) {
+	if r == nil || r.resource == nil {
+		return 0, ErrClosed
+	}
+	var out C.size_t
+	err := r.resource.with(func(pointer unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_ssr_ingest_refusals_count((*C.SidereonSsrIngestRefusals)(pointer), &out))
+		})
+	})
+	if err != nil {
+		return 0, err
+	}
+	return checkedNativeCount(uint64(out))
+}
+func (r *SSRIngestRefusals) Refusal(index int) (NativeSSRIngestRefusal, error) {
+	if r == nil || r.resource == nil {
+		return NativeSSRIngestRefusal{}, ErrClosed
+	}
+	if index < 0 {
+		return NativeSSRIngestRefusal{}, invalidArgument("SSR ingest refusal index must not be negative")
+	}
+	if _, err := checkedNativeSize(index); err != nil {
+		return NativeSSRIngestRefusal{}, err
+	}
+	var result NativeSSRIngestRefusal
+	err := r.resource.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var message C.uint16_t
+			var written, required C.size_t
+			if err := statusErrorLocked(uint32(C.sidereon_ssr_ingest_refusal((*C.SidereonSsrIngestRefusals)(pointer), C.size_t(index), &message, nil, 0, &written, &required))); err != nil {
+				return err
+			}
+			count, err := validateNativeQuery("SSR ingest refusal", uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if _, err := checkedNativeAllocationSize(count, 1); err != nil {
+				return err
+			}
+			var buffer unsafe.Pointer
+			if count > 0 {
+				buffer = C.malloc(C.size_t(count))
+				if buffer == nil {
+					return errors.New("sidereon: unable to allocate SSR ingest refusal text")
+				}
+				defer C.free(buffer)
+			}
+			written, required = 0, 0
+			if err := statusErrorLocked(uint32(C.sidereon_ssr_ingest_refusal((*C.SidereonSsrIngestRefusals)(pointer), C.size_t(index), &message, (*C.uint8_t)(buffer), C.size_t(count), &written, &required))); err != nil {
+				return err
+			}
+			n, err := validateTwoPassCounts("SSR ingest refusal", count, count, uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			result.MessageNumber = uint16(message)
+			if n > 0 {
+				result.Text = string(unsafe.Slice((*byte)(buffer), n))
+			}
+			return nil
+		})
+	})
+	runtime.KeepAlive(r)
+	return result, err
+}
+
 func (s *SSRCorrectionStore) Close() error {
 	if s == nil {
 		return nil
@@ -574,7 +823,7 @@ func (s *SSRCorrectionStore) Ingest(messages *RtcmMessages, epoch NativeGnssWeek
 		return ErrClosed
 	}
 	return messages.resource.with(func(mp unsafe.Pointer) error {
-		return s.resource.with(func(sp unsafe.Pointer) error {
+		return s.resource.withExclusive(func(sp unsafe.Pointer) error {
 			memory, err := checkedNativeMalloc(1, unsafe.Sizeof(C.SidereonGnssWeekTow{}))
 			if err != nil {
 				return err
@@ -582,25 +831,121 @@ func (s *SSRCorrectionStore) Ingest(messages *RtcmMessages, epoch NativeGnssWeek
 			defer C.free(memory)
 			week := (*C.SidereonGnssWeekTow)(memory)
 			*week = cWeek(epoch)
-			return statusErrorLocked(C.sidereon_ssr_store_ingest_messages((*C.SidereonSsrCorrectionStore)(sp), (*C.SidereonRtcmMessages)(mp), week))
+			return rtcmCallStatus(func() uint32 {
+				return uint32(C.sidereon_ssr_store_ingest_messages(
+					(*C.SidereonSsrCorrectionStore)(sp),
+					(*C.SidereonRtcmMessages)(mp),
+					week,
+				))
+			})
 		})
 	})
 }
+func (s *SSRCorrectionStore) SetVTECMaxAge(maxAgeS float64) error {
+	if s == nil || s.resource == nil {
+		return ErrClosed
+	}
+	return s.resource.withExclusive(func(pointer unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_ssr_store_set_vtec_max_age((*C.SidereonSsrCorrectionStore)(pointer), C.double(maxAgeS)))
+		})
+	})
+}
+
+func (s *SSRCorrectionStore) EvaluateVTEC(receiverECEFM, satelliteTransmitECEFM [3]float64, query NativeGnssWeekTow, frequencyHz float64) (NativeSSRVtecQueryResult, []NativeSSRVtecLayerEvaluation, error) {
+	var result NativeSSRVtecQueryResult
+	if s == nil || s.resource == nil {
+		return result, nil, ErrClosed
+	}
+	week := cWeek(query)
+	var receiver, satellite [3]C.double
+	for i := range receiver {
+		receiver[i], satellite[i] = C.double(receiverECEFM[i]), C.double(satelliteTransmitECEFM[i])
+	}
+	var layers []NativeSSRVtecLayerEvaluation
+	err := s.resource.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var summary C.SidereonSsrVtecQueryResult
+			var written, required C.size_t
+			status := C.sidereon_ssr_store_evaluate_vtec((*C.SidereonSsrCorrectionStore)(pointer), &receiver[0], &satellite[0], &week, C.double(frequencyHz), &summary, nil, 0, &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			count, err := validateNativeQuery("SSR VTEC layers", uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if summary.layer_count != C.size_t(count) {
+				return errors.New("sidereon: SSR VTEC layer query count disagrees with result")
+			}
+			if _, err := checkedNativeAllocationSize(count, unsafe.Sizeof(C.SidereonSsrVtecLayerEvaluation{})); err != nil {
+				return err
+			}
+			values := make([]C.SidereonSsrVtecLayerEvaluation, count)
+			var out *C.SidereonSsrVtecLayerEvaluation
+			if count > 0 {
+				out = &values[0]
+			}
+			var copied C.SidereonSsrVtecQueryResult
+			written, required = 0, 0
+			status = C.sidereon_ssr_store_evaluate_vtec((*C.SidereonSsrCorrectionStore)(pointer), &receiver[0], &satellite[0], &week, C.double(frequencyHz), &copied, out, C.size_t(count), &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			n, err := validateTwoPassCounts("SSR VTEC layers", count, count, uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if copied.layer_count != summary.layer_count {
+				return errors.New("sidereon: SSR VTEC layer count changed between query passes")
+			}
+			result = NativeSSRVtecQueryResult{Kind: NativeSSRVtecQueryKind(copied.kind), AgeS: float64(copied.age_s), SecondsBeforeModel: float64(copied.seconds_before_model), MaxAgeS: float64(copied.max_age_s), LayerCount: int(copied.layer_count), STEC: float64(copied.stec_tecu), PseudorangeDelayM: float64(copied.pseudorange_delay_m), PhaseRangeAdvanceM: float64(copied.phase_range_advance_m)}
+			layers = make([]NativeSSRVtecLayerEvaluation, n)
+			for i, value := range values[:n] {
+				layers[i] = NativeSSRVtecLayerEvaluation{PierceLatitudeRad: float64(value.pierce_latitude_rad), PierceLongitudeRad: float64(value.pierce_longitude_rad), SunFixedLongitudeRad: float64(value.sun_fixed_longitude_rad), VTECTECU: float64(value.vtec_tecu), MappingFactor: float64(value.mapping_factor), STECTECU: float64(value.stec_tecu)}
+			}
+			return nil
+		})
+	})
+	runtime.KeepAlive(s)
+	return result, layers, err
+}
+
 func (s *SSRCorrectionStore) Orbit(sat string) (NativeSSROrbitCorrection, bool, error) {
 	var p C.bool
 	var v C.SidereonSsrOrbitCorrection
+	var m C.SidereonSsrOrbitMetadata
 	err := s.resource.with(func(sp unsafe.Pointer) error {
 		return withToken(sat, "satellite token", func(x *C.char) uint32 {
-			return C.sidereon_ssr_store_orbit((*C.SidereonSsrCorrectionStore)(sp), x, &p, &v)
+			return C.sidereon_ssr_store_orbit_full((*C.SidereonSsrCorrectionStore)(sp), x, &p, &v, &m)
 		})
 	})
-	out := NativeSSROrbitCorrection{Source: uint32(v.source), ProviderID: uint16(v.provider_id), SolutionID: uint8(v.solution_id), IODE: uint32(v.iode), IODSSR: uint8(v.iod_ssr), CRSRegional: bool(v.crs_regional), ReferencePoint: uint32(v.reference_point), RadialM: float64(v.radial_m), AlongM: float64(v.along_m), CrossM: float64(v.cross_m), RadialRateMPerS: float64(v.radial_rate_m_s), AlongRateMPerS: float64(v.along_rate_m_s), CrossRateMPerS: float64(v.cross_rate_m_s), RefEpochJ2000S: float64(v.ref_epoch_j2000_s), UpdateIntervalS: float64(v.update_interval_s)}
+	nav := uint32(0)
+	switch uint32(v.source) {
+	case SSRSourceRTCMValue:
+		if v.has_nav_message || v.has_nav_message_index != 0 {
+			return NativeSSROrbitCorrection{}, false, invalidArgument("RTCM SSR orbit unexpectedly carries a navigation-message tag")
+		}
+	case SSRSourceGalileoHASValue:
+		if !v.has_nav_message {
+			return NativeSSROrbitCorrection{}, false, invalidArgument("HAS SSR orbit is missing its navigation-message tag")
+		}
+		nav = 2
+	case SSRSourceIGSSSRValue:
+		if !v.has_nav_message || v.has_nav_message_index != 0 {
+			return NativeSSROrbitCorrection{}, false, invalidArgument("IGS SSR orbit has an invalid navigation-message tag")
+		}
+		nav = 1
+	default:
+		return NativeSSROrbitCorrection{}, false, invalidArgument("invalid SSR source returned by native code")
+	}
+	out := NativeSSROrbitCorrection{Source: uint32(v.source), ProviderID: uint16(v.provider_id), SolutionID: uint8(v.solution_id), NavMessage: nav, HasNavigationMessageIndex: uint32(v.source) == SSRSourceGalileoHASValue, NavigationMessageIndex: uint8(v.has_nav_message_index), IODE: uint32(v.iode), HasIODCRC: bool(m.has_iod_crc), IODCRC: uint32(m.iod_crc), IODSSR: uint8(v.iod_ssr), Basis: uint32(m.basis), CRSRegional: bool(v.crs_regional), ReferencePoint: uint32(v.reference_point), RadialM: float64(v.radial_m), AlongM: float64(v.along_m), CrossM: float64(v.cross_m), RadialRateMPerS: float64(v.radial_rate_m_s), AlongRateMPerS: float64(v.along_rate_m_s), CrossRateMPerS: float64(v.cross_rate_m_s), RefEpochJ2000S: float64(v.ref_epoch_j2000_s), TransmittedEpochJ2000S: float64(m.transmitted_epoch_j2000_s), UpdateIntervalS: float64(v.update_interval_s)}
 	if err == nil {
 		if err = validateSSRReferencePointValue(out.ReferencePoint); err != nil {
 			return NativeSSROrbitCorrection{}, false, err
 		}
-		if out.Source != SSRSourceRTCMValue && out.Source != SSRSourceGalileoHASValue {
-			return NativeSSROrbitCorrection{}, false, invalidArgument("invalid SSR source returned by native code")
+		if out.NavMessage > 2 || out.Basis != 0 || (!out.HasIODCRC && out.IODCRC != 0) {
+			return NativeSSROrbitCorrection{}, false, invalidArgument("invalid SSR orbit metadata returned by native code")
 		}
 	}
 	return out, bool(p), err
@@ -608,33 +953,53 @@ func (s *SSRCorrectionStore) Orbit(sat string) (NativeSSROrbitCorrection, bool, 
 func (s *SSRCorrectionStore) Clock(sat string) (NativeSSRClockCorrection, bool, error) {
 	var p C.bool
 	var v C.SidereonSsrClockCorrection
+	var m C.SidereonSsrClockMetadata
 	err := s.resource.with(func(sp unsafe.Pointer) error {
 		return withToken(sat, "satellite token", func(x *C.char) uint32 {
-			return C.sidereon_ssr_store_clock((*C.SidereonSsrCorrectionStore)(sp), x, &p, &v)
+			return C.sidereon_ssr_store_clock_full((*C.SidereonSsrCorrectionStore)(sp), x, &p, &v, &m)
 		})
 	})
-	out := NativeSSRClockCorrection{Source: uint32(v.source), ProviderID: uint16(v.provider_id), SolutionID: uint8(v.solution_id), IODSSR: uint8(v.iod_ssr), C0M: float64(v.c0_m), C1MPerS: float64(v.c1_m_s), C2MPerS2: float64(v.c2_m_s2), RefEpochJ2000S: float64(v.ref_epoch_j2000_s), UpdateIntervalS: float64(v.update_interval_s), HasHighRate: bool(v.has_high_rate), HighRateC0M: float64(v.high_rate_c0_m), HighRateRefEpochJ2000S: float64(v.high_rate_ref_epoch_j2000_s), HighRateUpdateIntervalS: float64(v.high_rate_update_interval_s)}
-	if err == nil && out.Source != SSRSourceRTCMValue && out.Source != SSRSourceGalileoHASValue {
+	nav := uint32(0)
+	switch uint32(v.source) {
+	case SSRSourceRTCMValue:
+		if v.has_nav_message || v.has_nav_message_index != 0 {
+			return NativeSSRClockCorrection{}, false, invalidArgument("RTCM SSR clock unexpectedly carries a navigation-message tag")
+		}
+	case SSRSourceGalileoHASValue:
+		if !v.has_nav_message {
+			return NativeSSRClockCorrection{}, false, invalidArgument("HAS SSR clock is missing its navigation-message tag")
+		}
+		nav = 2
+	case SSRSourceIGSSSRValue:
+		if !v.has_nav_message || v.has_nav_message_index != 0 {
+			return NativeSSRClockCorrection{}, false, invalidArgument("IGS SSR clock has an invalid navigation-message tag")
+		}
+		nav = 1
+	default:
 		return NativeSSRClockCorrection{}, false, invalidArgument("invalid SSR source returned by native code")
+	}
+	out := NativeSSRClockCorrection{Source: uint32(v.source), ProviderID: uint16(v.provider_id), SolutionID: uint8(v.solution_id), IODSSR: uint8(v.iod_ssr), NavMessage: nav, HasNavigationMessageIndex: uint32(v.source) == SSRSourceGalileoHASValue, NavigationMessageIndex: uint8(v.has_nav_message_index), C0M: float64(v.c0_m), C1MPerS: float64(v.c1_m_s), C2MPerS2: float64(v.c2_m_s2), RefEpochJ2000S: float64(v.ref_epoch_j2000_s), TransmittedEpochJ2000S: float64(m.transmitted_epoch_j2000_s), UpdateIntervalS: float64(v.update_interval_s), HasHighRate: bool(v.has_high_rate), HighRateC0M: float64(v.high_rate_c0_m), HighRateRefEpochJ2000S: float64(v.high_rate_ref_epoch_j2000_s), HighRateTransmittedEpochJ2000S: float64(m.high_rate_transmitted_epoch_j2000_s), HighRateUpdateIntervalS: float64(v.high_rate_update_interval_s)}
+	if err == nil && !out.HasHighRate && out.HighRateTransmittedEpochJ2000S != 0 {
+		return NativeSSRClockCorrection{}, false, invalidArgument("absent SSR high-rate clock carries a transmitted epoch")
 	}
 	return out, bool(p), err
 }
-func (s *SSRCorrectionStore) CodeBias(sat string, signal uint8) (float64, bool, error) {
+func (s *SSRCorrectionStore) CodeBias(sat string, source uint32, signal uint8) (float64, bool, error) {
 	var p C.bool
 	var v C.double
 	err := s.resource.with(func(sp unsafe.Pointer) error {
 		return withToken(sat, "satellite token", func(x *C.char) uint32 {
-			return C.sidereon_ssr_store_code_bias_m((*C.SidereonSsrCorrectionStore)(sp), x, C.uint8_t(signal), &p, &v)
+			return C.sidereon_ssr_store_code_bias_m((*C.SidereonSsrCorrectionStore)(sp), x, C.uint32_t(source), C.uint8_t(signal), &p, &v)
 		})
 	})
 	return float64(v), bool(p), err
 }
-func (s *SSRCorrectionStore) PhaseBias(sat string, signal uint8) (float64, bool, error) {
+func (s *SSRCorrectionStore) PhaseBias(sat string, source uint32, signal uint8) (float64, bool, error) {
 	var p C.bool
 	var v C.double
 	err := s.resource.with(func(sp unsafe.Pointer) error {
 		return withToken(sat, "satellite token", func(x *C.char) uint32 {
-			return C.sidereon_ssr_store_phase_bias_m((*C.SidereonSsrCorrectionStore)(sp), x, C.uint8_t(signal), &p, &v)
+			return C.sidereon_ssr_store_phase_bias_m((*C.SidereonSsrCorrectionStore)(sp), x, C.uint32_t(source), C.uint8_t(signal), &p, &v)
 		})
 	})
 	return float64(v), bool(p), err

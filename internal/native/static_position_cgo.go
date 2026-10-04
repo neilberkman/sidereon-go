@@ -6,6 +6,7 @@ package native
 #cgo CFLAGS: -I${SRCDIR}/include
 #include <sidereon.h>
 #include <stdlib.h>
+enum SidereonStatus sidereon_static_position_solution_rejected_sats_v2(const struct SidereonStaticPositionSolution *, size_t, SidereonSppRejectedSatV2 *, size_t, size_t *, size_t *);
 */
 import "C"
 
@@ -26,6 +27,7 @@ type StaticPositionOptionsInput struct {
 	WithGeodetic     bool
 	RobustEnabled    bool
 	Robust           NativeSPPRobustConfig
+	Models           NativeSPPModelOptions
 }
 
 type StaticReferenceStationRinexConfigInput struct {
@@ -120,7 +122,7 @@ type StaticReferenceModeReport struct {
 const (
 	staticPositionErrorKindMax   = uint32(C.SIDEREON_STATIC_POSITION_ERROR_KIND_SINGULAR)
 	staticInfluenceStatusMax     = uint32(C.SIDEREON_STATIC_POSITION_INFLUENCE_STATUS_SOLVE_FAILED)
-	staticSPPSolveStatusMax      = uint32(C.SIDEREON_SPP_SOLVE_STATUS_MAX_EVALUATIONS)
+	staticSPPSolveStatusMax      = uint32(C.SIDEREON_SPP_SOLVE_STATUS_OUTER_OSCILLATION)
 	staticReferenceModeMax       = uint32(C.SIDEREON_STATIC_REFERENCE_STATION_MODE_CARRIER_FIXED)
 	staticReferenceFixStatusMax  = uint32(C.SIDEREON_STATIC_REFERENCE_FIX_STATUS_CARRIER_FIXED)
 	staticReferenceModeStatusMax = uint32(C.SIDEREON_STATIC_REFERENCE_MODE_STATUS_FAILED)
@@ -270,21 +272,34 @@ func solveStaticPosition(source unsafe.Pointer, broadcast bool, epochs []StaticP
 	if err != nil {
 		return nil, 0, err
 	}
-	var optionPointer *C.SidereonStaticPositionOptions
+	optionMemory, err := arena.calloc(1, unsafe.Sizeof(C.SidereonStaticPositionOptionsV2{}), "static-position V2 options")
+	if err != nil {
+		return nil, 0, err
+	}
+	optionPointer := (*C.SidereonStaticPositionOptionsV2)(optionMemory)
+	if err := callStatus(func() uint32 { return uint32(C.sidereon_static_position_options_v2_init(optionPointer)) }); err != nil {
+		return nil, 0, err
+	}
 	if options != nil {
-		optionPointer, err = makeStaticOptions(*options, arena)
-		if err != nil {
-			return nil, 0, err
+		baseOptions, optionErr := makeStaticOptions(*options, arena)
+		if optionErr != nil {
+			return nil, 0, optionErr
 		}
+		optionPointer.base = *baseOptions
+		models, modelErr := makeSppModels(options.Models)
+		if modelErr != nil {
+			return nil, 0, modelErr
+		}
+		optionPointer.models = *models
 	}
 	var kind C.enum_SidereonStaticPositionErrorKind
 	var pointer *C.SidereonStaticPositionSolution
 	err = withCThreadError(func() error {
 		var status C.enum_SidereonStatus
 		if broadcast {
-			status = C.sidereon_solve_static_position_broadcast((*C.SidereonBroadcastEphemeris)(source), epochPointer, epochCount, optionPointer, &kind, &pointer)
+			status = C.sidereon_solve_static_position_broadcast_v2((*C.SidereonBroadcastEphemeris)(source), epochPointer, epochCount, optionPointer, &kind, &pointer)
 		} else {
-			status = C.sidereon_solve_static_position_sp3((*C.SidereonSp3)(source), epochPointer, epochCount, optionPointer, &kind, &pointer)
+			status = C.sidereon_solve_static_position_sp3_v2((*C.SidereonSp3)(source), epochPointer, epochCount, optionPointer, &kind, &pointer)
 		}
 		if e := statusErrorLocked(uint32(status)); e != nil {
 			if pointer != nil {
@@ -661,6 +676,53 @@ func (s *StaticPositionSolution) RejectedSats(epoch int) ([]StaticPositionReject
 					return invalidArgument("invalid static rejection reason")
 				}
 				result[i] = StaticPositionRejectedSat{SatelliteID: tokenFromC(v.sat_id), Reason: uint32(v.reason)}
+			}
+			return nil
+		})
+	})
+	return result, err
+}
+
+func (s *StaticPositionSolution) RejectedSatsV2(epoch int) ([]NativeSPPRejectedSatelliteV2, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	if epoch < 0 {
+		return nil, invalidArgument("static position epoch index must not be negative")
+	}
+	var written, required C.size_t
+	var result []NativeSPPRejectedSatelliteV2
+	err := s.handle.read(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			if err := statusErrorLocked(uint32(C.sidereon_static_position_solution_rejected_sats_v2((*C.SidereonStaticPositionSolution)(pointer), C.size_t(epoch), nil, 0, &written, &required))); err != nil {
+				return err
+			}
+			count, err := validateNativeQuery("static rejected satellites V2", uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			memory, err := staticOutputMemory(count, unsafe.Sizeof(C.SidereonSppRejectedSatV2{}), "static rejected satellites V2")
+			if err != nil {
+				return err
+			}
+			if memory != nil {
+				defer C.free(memory)
+			}
+			written, required = 0, 0
+			if err := statusErrorLocked(uint32(C.sidereon_static_position_solution_rejected_sats_v2((*C.SidereonStaticPositionSolution)(pointer), C.size_t(epoch), (*C.SidereonSppRejectedSatV2)(memory), C.size_t(count), &written, &required))); err != nil {
+				return err
+			}
+			rows, err := validateTwoPassCounts("static rejected satellites V2", count, count, uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			raw := unsafe.Slice((*C.SidereonSppRejectedSatV2)(memory), rows)
+			result = make([]NativeSPPRejectedSatelliteV2, rows)
+			for index, row := range raw {
+				if uint32(row.reason) > 5 {
+					return invalidArgument("invalid static rejection reason")
+				}
+				result[index] = NativeSPPRejectedSatelliteV2{SatelliteID: tokenFromC(row.sat_id), Reason: uint32(row.reason), HasSize: bool(row.has_size), OrbitM: float64(row.orbit_m), ClockM: float64(row.clock_m)}
 			}
 			return nil
 		})

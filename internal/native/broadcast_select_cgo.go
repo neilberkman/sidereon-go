@@ -288,13 +288,16 @@ func (r *BroadcastComparison) Satellite(index int) (string, NativeCompareStats, 
 
 type NativeBroadcastRecordInfo struct {
 	SatelliteID       string
-	Message, Issue    uint32
+	Message           uint32
+	HasIssue          bool
+	Issue             uint32
 	IssueMessage      uint32
 	Week, ToeWeek     uint32
 	ToeTOWSeconds     float64
 	TocWeek           uint32
 	TocTOWSeconds     float64
 	SVHealth          float64
+	HasSVAccuracyM    bool
 	SVAccuracyM       float64
 	HasFitInterval    bool
 	FitIntervalS      float64
@@ -313,9 +316,9 @@ func cnavInfoFromC(value C.SidereonCnavParameters) NativeBroadcastCNAV {
 
 func recordInfoFromC(value C.SidereonBroadcastRecordInfo) NativeBroadcastRecordInfo {
 	return NativeBroadcastRecordInfo{
-		SatelliteID: tokenFromC(value.sat_id), Message: uint32(value.message), Issue: uint32(value.issue), IssueMessage: uint32(value.issue_message),
+		SatelliteID: tokenFromC(value.sat_id), Message: uint32(value.message), HasIssue: bool(value.has_issue), Issue: uint32(value.issue), IssueMessage: uint32(value.issue_message),
 		Week: uint32(value.week), ToeWeek: uint32(value.toe_week), ToeTOWSeconds: float64(value.toe_tow_s), TocWeek: uint32(value.toc_week), TocTOWSeconds: float64(value.toc_tow_s),
-		SVHealth: float64(value.sv_health), SVAccuracyM: float64(value.sv_accuracy_m), HasFitInterval: bool(value.has_fit_interval_s), FitIntervalS: float64(value.fit_interval_s),
+		SVHealth: float64(value.sv_health), HasSVAccuracyM: bool(value.has_sv_accuracy_m), SVAccuracyM: float64(value.sv_accuracy_m), HasFitInterval: bool(value.has_fit_interval_s), FitIntervalS: float64(value.fit_interval_s),
 		DefaultGroupDelay: float64(value.default_group_delay_s), CNAV: cnavInfoFromC(value.cnav),
 	}
 }
@@ -729,6 +732,7 @@ type NativeSppDopplerResult struct {
 	Receiver          SPPSolution
 	HasVelocity       bool
 	VelocityErrorKind uint32
+	VelocityError     *EngineError
 	Velocity          *NativeSppDopplerVelocity
 }
 
@@ -861,6 +865,23 @@ func readSPPDopplerResultLocked(solution *C.SidereonSppDopplerSolution) (NativeS
 		return NativeSppDopplerResult{}, invalidArgument("invalid Doppler velocity error kind returned by native code")
 	}
 	result.VelocityErrorKind = uint32(errorKind)
+	velocityError, captureErr := sppRowEngineErrorLocked("SPP Doppler velocity",
+		func(info *C.SidereonEngineErrorInfo) C.enum_SidereonStatus {
+			return C.sidereon_spp_doppler_solution_velocity_error_info(solution, info)
+		},
+		func(out *C.uint8_t, capacity C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+			return C.sidereon_spp_doppler_solution_velocity_error_payload(solution, out, capacity, written, required)
+		})
+	if velocityError == nil && captureErr != nil {
+		velocityError = &EngineError{
+			Family:       EngineErrorFamilyUnknown,
+			FamilyName:   EngineErrorFamilyUnknown.Name(),
+			CaptureError: captureErr,
+		}
+	} else if velocityError != nil && captureErr != nil && velocityError.CaptureError == nil {
+		velocityError.CaptureError = captureErr
+	}
+	result.VelocityError = velocityError
 	var receiver *C.SidereonSppSolution
 	if err := statusErrorLocked(uint32(C.sidereon_spp_doppler_solution_receiver(solution, &receiver))); err != nil {
 		if receiver != nil {

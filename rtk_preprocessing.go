@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // ArcEpoch is one dual-frequency carrier/code epoch. Missing scalar values
 // are represented by NaN, as in the native ABI.
@@ -22,6 +22,9 @@ type ArcEpoch struct {
 	F1Hz, F2Hz float64
 	// GapTimeS is the cycle-slip gap threshold in seconds.
 	GapTimeS float64
+	// GapEpoch optionally supplies a lossless epoch for gap comparisons.
+	// When nil, the legacy floating gap coordinate remains in use.
+	GapEpoch *ExactEpoch
 }
 
 // CycleSlipOptions controls geometry-free and Melbourne-Wubbena detection.
@@ -63,7 +66,7 @@ type IonoFreeSmoothResult struct {
 }
 
 func nativeArcEpoch(value ArcEpoch) native.ArcEpoch {
-	return native.ArcEpoch{Phi1Cycles: value.Phi1Cycles, Phi2Cycles: value.Phi2Cycles, P1M: value.P1M, P2M: value.P2M, HasLLI1: value.HasLLI1, LLI1: value.LLI1, HasLLI2: value.HasLLI2, LLI2: value.LLI2, F1Hz: value.F1Hz, F2Hz: value.F2Hz, GapTimeS: value.GapTimeS}
+	return native.ArcEpoch{Phi1Cycles: value.Phi1Cycles, Phi2Cycles: value.Phi2Cycles, P1M: value.P1M, P2M: value.P2M, HasLLI1: value.HasLLI1, LLI1: value.LLI1, HasLLI2: value.HasLLI2, LLI2: value.LLI2, F1Hz: value.F1Hz, F2Hz: value.F2Hz, GapTimeS: value.GapTimeS, GapEpoch: nativeExactEpoch(value.GapEpoch)}
 }
 
 func nativeCycleSlipOptions(value *CycleSlipOptions) *native.CycleSlipOptions {

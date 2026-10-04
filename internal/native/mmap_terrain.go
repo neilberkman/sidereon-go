@@ -19,6 +19,7 @@ type MmapTerrainHeightResult struct {
 	Status                uint32
 	HasOrthometricHeightM bool
 	OrthometricHeightM    float64
+	Error                 TerrainLookupError
 }
 
 type TerrainStoreTileIndex struct {
@@ -153,7 +154,7 @@ func (t *MmapTerrain) HeightM(longitudeDeg, latitudeDeg float64) (float64, error
 	}
 	var output C.SidereonOrthometricHeightM
 	err := t.handle.withExclusive(func(pointer unsafe.Pointer) error {
-		return callStatus(func() uint32 {
+		return callStatusWithTerrainLookupDiagnostics(func() uint32 {
 			return C.sidereon_mmap_terrain_height_m((*C.SidereonMmapTerrain)(pointer), C.double(longitudeDeg), C.double(latitudeDeg), &output)
 		})
 	})
@@ -168,9 +169,13 @@ func (t *MmapTerrain) HeightMWithOptions(longitudeDeg, latitudeDeg float64, opti
 	cOptions := cDtedOptions(options)
 	var output C.SidereonOrthometricHeightM
 	err := t.handle.withExclusive(func(pointer unsafe.Pointer) error {
-		return callStatus(func() uint32 {
+		call := func() uint32 {
 			return C.sidereon_mmap_terrain_height_m_with_options((*C.SidereonMmapTerrain)(pointer), C.double(longitudeDeg), C.double(latitudeDeg), &cOptions, &output)
-		})
+		}
+		if !validDtedLookupOptions(options) {
+			return callStatus(call)
+		}
+		return callStatusWithTerrainLookupDiagnostics(call)
 	})
 	runtime.KeepAlive(t)
 	return float64(output.value_m), err
@@ -182,7 +187,7 @@ func (t *MmapTerrain) OrthometricHeightM(longitudeDeg, latitudeDeg float64) (flo
 	}
 	var output C.SidereonOrthometricHeightM
 	err := t.handle.with(func(pointer unsafe.Pointer) error {
-		return callStatus(func() uint32 {
+		return callStatusWithTerrainLookupDiagnostics(func() uint32 {
 			return C.sidereon_mmap_terrain_orthometric_height_m((*C.SidereonMmapTerrain)(pointer), C.double(longitudeDeg), C.double(latitudeDeg), &output)
 		})
 	})
@@ -197,9 +202,13 @@ func (t *MmapTerrain) OrthometricHeightMWithOptions(longitudeDeg, latitudeDeg fl
 	cOptions := cDtedOptions(options)
 	var output C.SidereonOrthometricHeightM
 	err := t.handle.with(func(pointer unsafe.Pointer) error {
-		return callStatus(func() uint32 {
+		call := func() uint32 {
 			return C.sidereon_mmap_terrain_orthometric_height_m_with_options((*C.SidereonMmapTerrain)(pointer), C.double(longitudeDeg), C.double(latitudeDeg), &cOptions, &output)
-		})
+		}
+		if !validDtedLookupOptions(options) {
+			return callStatus(call)
+		}
+		return callStatusWithTerrainLookupDiagnostics(call)
 	})
 	runtime.KeepAlive(t)
 	return float64(output.value_m), err
@@ -226,9 +235,13 @@ func (t *MmapTerrain) EllipsoidalHeightMWithOptions(longitudeDeg, latitudeDeg fl
 	cOptions := cDtedOptions(options)
 	var output C.SidereonEllipsoidalHeightM
 	err := t.handle.with(func(pointer unsafe.Pointer) error {
-		return callStatusWithTerrainDiagnostics(func() uint32 {
+		call := func() uint32 {
 			return C.sidereon_mmap_terrain_ellipsoidal_height_m_with_options((*C.SidereonMmapTerrain)(pointer), C.double(longitudeDeg), C.double(latitudeDeg), &cOptions, &output)
-		}, true, false)
+		}
+		if !validDtedLookupOptions(options) {
+			return callStatus(call)
+		}
+		return callStatusWithTerrainDiagnostics(call, true, false)
 	})
 	runtime.KeepAlive(t)
 	return float64(output.value_m), err
@@ -241,12 +254,17 @@ func (t *MmapTerrain) EllipsoidalHeightMWithModel(longitudeDeg, latitudeDeg floa
 	cOptions := cDtedOptions(options)
 	var output C.SidereonEllipsoidalHeightM
 	call := func(terrainPointer unsafe.Pointer, geoidPointer unsafe.Pointer) error {
-		return callStatusWithTerrainDiagnostics(func() uint32 {
+		call := func() uint32 {
 			return C.sidereon_mmap_terrain_ellipsoidal_height_m_with_model(
 				(*C.SidereonMmapTerrain)(terrainPointer), C.double(longitudeDeg), C.double(latitudeDeg), &cOptions,
 				C.uint32_t(model), (*C.SidereonEgm96FifteenMinuteGeoid)(geoidPointer), &output,
 			)
-		}, true, false)
+		}
+		validModel := model == TerrainGeoidModelEGM96OneDegreeValue || (model == TerrainGeoidModelEGM96FifteenMinuteValue && geoidPointer != nil)
+		if !validDtedLookupOptions(options) || !validModel {
+			return callStatus(call)
+		}
+		return callStatusWithTerrainDiagnostics(call, true, false)
 	}
 	var err error
 	if geoid == nil || geoid.handle == nil {
@@ -273,6 +291,7 @@ func (t *MmapTerrain) heightBatch(points []LonLatDeg, options DtedLookupOptions,
 	}
 	cPoints := make([]C.SidereonLonLatDeg, len(points))
 	cResults := make([]C.SidereonTerrainHeightResult, len(points))
+	typedErrors := make([]TerrainLookupError, len(points))
 	for i, point := range points {
 		cPoints[i] = cLonLat(point)
 	}
@@ -284,12 +303,29 @@ func (t *MmapTerrain) heightBatch(points []LonLatDeg, options DtedLookupOptions,
 			pointsPointer = &cPoints[0]
 			resultPointer = &cResults[0]
 		}
-		return callStatus(func() uint32 {
+		var operationErr error
+		withCThread(func() {
+			var status uint32
 			if typed {
-				return C.sidereon_mmap_terrain_orthometric_height_batch((*C.SidereonMmapTerrain)(pointer), pointsPointer, C.size_t(len(cPoints)), &cOptions, resultPointer)
+				status = uint32(C.sidereon_mmap_terrain_orthometric_height_batch((*C.SidereonMmapTerrain)(pointer), pointsPointer, C.size_t(len(cPoints)), &cOptions, resultPointer))
+			} else {
+				status = uint32(C.sidereon_mmap_terrain_height_batch((*C.SidereonMmapTerrain)(pointer), pointsPointer, C.size_t(len(cPoints)), &cOptions, resultPointer))
 			}
-			return C.sidereon_mmap_terrain_height_batch((*C.SidereonMmapTerrain)(pointer), pointsPointer, C.size_t(len(cPoints)), &cOptions, resultPointer)
+			operationErr = statusErrorLocked(status)
+			if operationErr != nil {
+				return
+			}
+			for i := range cResults {
+				if uint32(cResults[i].status) == uint32(C.SIDEREON_STATUS_OK) {
+					continue
+				}
+				typedErrors[i], operationErr = terrainLookupBatchErrorLocked(i, cResults[i].error)
+				if operationErr != nil {
+					return
+				}
+			}
 		})
+		return operationErr
 	})
 	runtime.KeepAlive(t)
 	if err != nil {
@@ -297,7 +333,7 @@ func (t *MmapTerrain) heightBatch(points []LonLatDeg, options DtedLookupOptions,
 	}
 	result := make([]MmapTerrainHeightResult, len(cResults))
 	for i, value := range cResults {
-		result[i] = MmapTerrainHeightResult{Status: uint32(value.status), HasOrthometricHeightM: bool(value.has_orthometric_height_m), OrthometricHeightM: float64(value.orthometric_height_m.value_m)}
+		result[i] = MmapTerrainHeightResult{Status: uint32(value.status), HasOrthometricHeightM: bool(value.has_orthometric_height_m), OrthometricHeightM: float64(value.orthometric_height_m.value_m), Error: typedErrors[i]}
 	}
 	return result, nil
 }

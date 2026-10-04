@@ -2,9 +2,13 @@ package sidereon
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"math"
 	"os"
+	"strconv"
 	"testing"
 )
 
@@ -33,8 +37,8 @@ func TestBroadcastSelectAndComparisonRoutes(t *testing.T) {
 			break
 		}
 	}
-	if chosen.SatelliteID == "" {
-		t.Fatal("fixture has no GPS record")
+	if chosen.SatelliteID == "" || !chosen.HasSVAccuracyM {
+		t.Fatalf("fixture GPS record lacks identity or accuracy presence: %+v", chosen)
 	}
 	gpsEpoch, err := CivilToJ2000Seconds(CivilDateTime{Year: 1980, Month: 1, Day: 6})
 	if err != nil {
@@ -105,6 +109,30 @@ func TestBroadcastSelectAndComparisonRoutes(t *testing.T) {
 	if err != nil || len(fullRecords) == 0 {
 		t.Fatalf("Records len=%d err=%v", len(fullRecords), err)
 	}
+	var c05Reference struct {
+		Input struct {
+			FixtureSHA256 string  `json:"fixture_sha256"`
+			Record        string  `json:"record"`
+			ClockAF0S     float64 `json:"clock_af0_s"`
+		} `json:"input"`
+		Output struct {
+			PositionMBits          []string `json:"position_m_bits"`
+			Eph2PosClockDTBits     string   `json:"eph2pos_clock_dts_bits"`
+			Eph2ClkClockDTBits     string   `json:"eph2clk_clock_dts_bits"`
+			KeplerNewtonIterations int      `json:"kepler_newton_iterations"`
+		} `json:"output"`
+	}
+	referenceData, err := os.ReadFile("testdata/references/c05-rtklib.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(referenceData, &c05Reference); err != nil {
+		t.Fatalf("decode RTKLIB C05 reference: %v", err)
+	}
+	fixtureHash := sha256.Sum256(nav)
+	if hex.EncodeToString(fixtureHash[:]) != c05Reference.Input.FixtureSHA256 || fullRecords[0].SatelliteID != "C05" {
+		t.Fatalf("C05 reference input mismatch: fixture=%x record=%s, want fixture %s and %s", fixtureHash, fullRecords[0].SatelliteID, c05Reference.Input.FixtureSHA256, c05Reference.Input.Record)
+	}
 	constants := ConstellationConstants{GMM3PerS2: 3.986004418e14, OmegaERadPerS: 7.2921151467e-5, DTRF: -4.442807633e-10}
 	orbitState, err := BroadcastSatellitePositionECEF(fullRecords[0].Elements, constants, fullRecords[0].Toe.TOWSeconds, false)
 	if err != nil {
@@ -118,7 +146,15 @@ func TestBroadcastSelectAndComparisonRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BroadcastSatelliteState: %v", err)
 	}
-	if orbitState.KeplerIterations != 4 || math.Float64bits(orbitState.XM) != 0x4174e5f05f72e43c || math.Float64bits(clockOffset.TotalS) != 0xbf40e4000004de97 || math.Float64bits(satelliteState.Clock.TotalS) != 0xbf40e3fde214ad05 {
+	parseReferenceBits := func(value string) uint64 {
+		t.Helper()
+		bits, err := strconv.ParseUint(value, 16, 64)
+		if err != nil {
+			t.Fatalf("invalid RTKLIB reference bits %q: %v", value, err)
+		}
+		return bits
+	}
+	if orbitState.KeplerIterations != c05Reference.Output.KeplerNewtonIterations || math.Float64bits(orbitState.XM) != parseReferenceBits(c05Reference.Output.PositionMBits[0]) || math.Float64bits(orbitState.YM) != parseReferenceBits(c05Reference.Output.PositionMBits[1]) || math.Float64bits(orbitState.ZM) != parseReferenceBits(c05Reference.Output.PositionMBits[2]) || clockOffset.TotalS != c05Reference.Input.ClockAF0S || math.Float64bits(satelliteState.Clock.TotalS) != parseReferenceBits(c05Reference.Output.Eph2PosClockDTBits) || parseReferenceBits(c05Reference.Output.Eph2PosClockDTBits) == parseReferenceBits(c05Reference.Output.Eph2ClkClockDTBits) {
 		t.Fatalf("broadcast frozen values changed: orbit=%+v clock=%+v stateClock=%+v", orbitState, clockOffset, satelliteState.Clock)
 	}
 	if selected.SatelliteID != "G01" || selected.Issue != 58 || selected.Message != 0 || selected.FitIntervalS != 14400 {
@@ -139,14 +175,27 @@ func TestBroadcastSelectAndComparisonRoutes(t *testing.T) {
 		}
 	})
 	comparisonData := append([]byte(nil), sp3Data...)
+	// Shift all 13 fixture epochs by 12 h 15 min, preserving their 900 s cadence.
+	// The comparison at 00:15 is interior to the resulting 22:45–01:45 arc.
 	for _, replacement := range [][2][]byte{
+		{[]byte("*  2020  6 24 10 30  0.00000000"), []byte("*  2020  6 24 22 45  0.00000000")},
+		{[]byte("*  2020  6 24 10 45  0.00000000"), []byte("*  2020  6 24 23  0  0.00000000")},
+		{[]byte("*  2020  6 24 11  0  0.00000000"), []byte("*  2020  6 24 23 15  0.00000000")},
+		{[]byte("*  2020  6 24 11 15  0.00000000"), []byte("*  2020  6 24 23 30  0.00000000")},
+		{[]byte("*  2020  6 24 11 30  0.00000000"), []byte("*  2020  6 24 23 45  0.00000000")},
 		{[]byte("*  2020  6 24 11 45  0.00000000"), []byte("*  2020  6 25  0  0  0.00000000")},
 		{[]byte("*  2020  6 24 12  0  0.00000000"), []byte("*  2020  6 25  0 15  0.00000000")},
 		{[]byte("*  2020  6 24 12 15  0.00000000"), []byte("*  2020  6 25  0 30  0.00000000")},
 		{[]byte("*  2020  6 24 12 30  0.00000000"), []byte("*  2020  6 25  0 45  0.00000000")},
 		{[]byte("*  2020  6 24 12 45  0.00000000"), []byte("*  2020  6 25  1  0  0.00000000")},
+		{[]byte("*  2020  6 24 13  0  0.00000000"), []byte("*  2020  6 25  1 15  0.00000000")},
+		{[]byte("*  2020  6 24 13 15  0.00000000"), []byte("*  2020  6 25  1 30  0.00000000")},
+		{[]byte("*  2020  6 24 13 30  0.00000000"), []byte("*  2020  6 25  1 45  0.00000000")},
 	} {
-		comparisonData = bytes.ReplaceAll(comparisonData, replacement[0], replacement[1])
+		if bytes.Count(comparisonData, replacement[0]) != 1 {
+			t.Fatalf("expected one SP3 epoch %q", replacement[0])
+		}
+		comparisonData = bytes.Replace(comparisonData, replacement[0], replacement[1], 1)
 	}
 	comparisonSP3, err := LoadSP3(comparisonData)
 	if err != nil {
@@ -188,7 +237,7 @@ func TestBroadcastSelectAndComparisonRoutes(t *testing.T) {
 	if err != nil || math.IsNaN(anomaly) || iterations <= 0 {
 		t.Fatalf("EccentricAnomaly=%v iterations=%d err=%v", anomaly, iterations, err)
 	}
-	comparisonEpoch, err := CivilToJ2000Seconds(CivilDateTime{Year: 2020, Month: 6, Day: 25})
+	comparisonEpoch, err := CivilToJ2000Seconds(CivilDateTime{Year: 2020, Month: 6, Day: 25, Hour: 0, Minute: 15})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +252,7 @@ func TestBroadcastSelectAndComparisonRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("comparison overall: %v", err)
 	}
-	if comparisonStats.Count != 1 || math.Float64bits(comparisonStats.Orbit3DRMSM) != 0x41859b4b8bd6624f || math.Float64bits(comparisonStats.ClockRMSM) != 0x4035c57ba756fc79 {
+	if comparisonStats.Count != 1 || math.Float64bits(comparisonStats.Orbit3DRMSM) != 0x4184429ec228fe2e || math.Float64bits(comparisonStats.ClockRMSM) != 0x4031c3b2a37504f7 {
 		t.Fatalf("comparison frozen stats changed: %+v", comparisonStats)
 	}
 	satelliteCount, err := comparison.SatelliteCount()
@@ -229,6 +278,25 @@ func TestBroadcastSelectAndComparisonRoutes(t *testing.T) {
 	})
 	if count, err := windowComparison.SatelliteCount(); err != nil || count != 1 {
 		t.Fatalf("window comparison count=%d err=%v", count, err)
+	}
+
+	// The precise arc ends at 01:45; a later query must produce no samples.
+	unavailableEpoch := comparisonEpoch + 2*3600
+	unavailableJD := unavailableEpoch/86400 + 2451545
+	unavailableWhole := math.Floor(unavailableJD)
+	unavailableFraction := unavailableJD - unavailableWhole
+	unavailableComparison, err := CompareBroadcast(broadcast, comparisonSP3, []string{"G08"}, []CompareEpoch{{
+		BroadcastTJ2000S: unavailableEpoch, PreciseJDWhole: unavailableWhole, PreciseJDFraction: unavailableFraction,
+		PrecisePlusJDWhole: unavailableWhole, PrecisePlusJDFraction: unavailableFraction,
+		PreciseMinusJDWhole: unavailableWhole, PreciseMinusJDFraction: unavailableFraction,
+	}}, 1)
+	if err != nil {
+		t.Fatalf("CompareBroadcast outside precise coverage: %v", err)
+	}
+	closeAfterTest(t, unavailableComparison)
+	unavailableStats, err := unavailableComparison.Overall()
+	if err != nil || unavailableStats.Count != 0 {
+		t.Fatalf("comparison outside precise coverage stats=%+v err=%v", unavailableStats, err)
 	}
 }
 

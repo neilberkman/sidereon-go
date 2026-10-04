@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // StaticPositionEpoch is one pseudorange epoch in a static-position solve.
 // Weights, when present, are positive multipliers aligned with Observations.
@@ -21,6 +21,8 @@ type StaticPositionOptions struct {
 	RobustEnabled bool
 	// Robust contains Huber/IRLS scale, iteration, and tolerance settings when RobustEnabled is true.
 	Robust SPPRobustConfig
+	// Models selects QZSS clock and troposphere variants for every epoch.
+	Models SPPModelOptions
 }
 
 // StaticPositionErrorKind is the solver's typed outcome category.
@@ -78,6 +80,12 @@ const (
 	StaticPositionSolveStepTolerance StaticPositionSolveStatus = 2
 	// StaticPositionSolveMaxEvaluations selects maximum-evaluation termination.
 	StaticPositionSolveMaxEvaluations StaticPositionSolveStatus = 3
+	// StaticPositionSolveSelectionSettled means the selected satellite set and solution have stabilized.
+	StaticPositionSolveSelectionSettled StaticPositionSolveStatus = 4
+	// StaticPositionSolveOuterBudgetExhausted means the outer satellite-selection budget was exhausted.
+	StaticPositionSolveOuterBudgetExhausted StaticPositionSolveStatus = 5
+	// StaticPositionSolveOuterOscillation means successive outer selections oscillated without stabilizing.
+	StaticPositionSolveOuterOscillation StaticPositionSolveStatus = 6
 )
 
 // StaticPositionRejectionReason identifies why native SPP excluded a row.
@@ -92,6 +100,10 @@ const (
 	StaticPositionRejectionSBASWithdrawn StaticPositionRejectionReason = 2
 	// StaticPositionRejectionSBASIONOUncovered identifies rejection because the SBAS ionosphere was uncovered.
 	StaticPositionRejectionSBASIONOUncovered StaticPositionRejectionReason = 3
+	// StaticPositionRejectionIonosphereCarrierUnresolved identifies a missing carrier channel.
+	StaticPositionRejectionIonosphereCarrierUnresolved StaticPositionRejectionReason = 4
+	// StaticPositionRejectionSsrCorrectionExceedsLimit identifies strict SSR-size refusal.
+	StaticPositionRejectionSsrCorrectionExceedsLimit StaticPositionRejectionReason = 5
 )
 
 // StaticPositionClockBias is one detached receiver clock estimate in seconds.
@@ -161,6 +173,14 @@ type StaticPositionRejectedSatellite struct {
 	SatelliteID string
 	// Reason identifies why the native solver excluded this satellite row.
 	Reason StaticPositionRejectionReason
+}
+
+// StaticPositionRejectedSatelliteV2 retains strict-SSR correction magnitudes.
+type StaticPositionRejectedSatelliteV2 struct {
+	SatelliteID    string
+	Reason         StaticPositionRejectionReason
+	HasSize        bool
+	OrbitM, ClockM float64
 }
 
 // StaticPositionSatelliteBatchInfluence is a detached all-epochs diagnostic.
@@ -237,7 +257,7 @@ func nativeStaticOptions(value *StaticPositionOptions) (*native.StaticPositionOp
 	if err != nil {
 		return nil, err
 	}
-	return &native.StaticPositionOptionsInput{InitialPositionM: value.InitialPositionM, WithGeodetic: value.WithGeodetic, RobustEnabled: value.RobustEnabled, Robust: robust}, nil
+	return &native.StaticPositionOptionsInput{InitialPositionM: value.InitialPositionM, WithGeodetic: value.WithGeodetic, RobustEnabled: value.RobustEnabled, Robust: robust, Models: native.NativeSPPModelOptions{QZSSClock: uint32(value.Models.QZSSClock), TroposphereModel: uint32(value.Models.TroposphereModel)}}, nil
 }
 
 // DefaultStaticPositionOptions returns C's static-position defaults.
@@ -250,7 +270,7 @@ func DefaultStaticPositionOptions() (StaticPositionOptions, error) {
 	if err != nil {
 		return StaticPositionOptions{}, err
 	}
-	return StaticPositionOptions{InitialPositionM: value.InitialPositionM, WithGeodetic: value.WithGeodetic, RobustEnabled: value.RobustEnabled, Robust: SPPRobustConfig{HuberK: value.Robust.HuberK, ScaleFloorM: value.Robust.ScaleFloorM, MaxOuter: maxOuter, OuterToleranceM: value.Robust.OuterToleranceM}}, nil
+	return StaticPositionOptions{InitialPositionM: value.InitialPositionM, WithGeodetic: value.WithGeodetic, RobustEnabled: value.RobustEnabled, Robust: SPPRobustConfig{HuberK: value.Robust.HuberK, ScaleFloorM: value.Robust.ScaleFloorM, MaxOuter: maxOuter, OuterToleranceM: value.Robust.OuterToleranceM}, Models: SPPModelOptions{QZSSClock: QZSSClock(value.Models.QZSSClock), TroposphereModel: TroposphereModel(value.Models.TroposphereModel)}}, nil
 }
 
 func solveStaticPositionBroadcast(source *BroadcastEphemeris, epochs []StaticPositionEpoch, options *StaticPositionOptions) (*StaticPositionSolution, StaticPositionErrorKind, error) {
@@ -399,6 +419,26 @@ func (s *StaticPositionSolution) RejectedSatellites(epoch int) ([]StaticPosition
 		result[i] = StaticPositionRejectedSatellite{SatelliteID: v.SatelliteID, Reason: StaticPositionRejectionReason(v.Reason)}
 	}
 	return result, nil
+}
+
+// RejectedSatellitesV2 returns per-epoch rejected rows with optional SSR sizes.
+func (s *StaticPositionSolution) RejectedSatellitesV2(epoch int) ([]StaticPositionRejectedSatelliteV2, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := s.handle.RejectedSatsV2(epoch)
+	if err != nil {
+		return nil, publicError(err)
+	}
+	result := make([]StaticPositionRejectedSatelliteV2, len(values))
+	for index, value := range values {
+		result[index] = staticRejectedSatelliteV2FromNative(value)
+	}
+	return result, nil
+}
+
+func staticRejectedSatelliteV2FromNative(value native.NativeSPPRejectedSatelliteV2) StaticPositionRejectedSatelliteV2 {
+	return StaticPositionRejectedSatelliteV2{SatelliteID: value.SatelliteID, Reason: StaticPositionRejectionReason(value.Reason), HasSize: value.HasSize, OrbitM: value.OrbitM, ClockM: value.ClockM}
 }
 
 // Residuals returns detached post-fit residual rows in metres.

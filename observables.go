@@ -1,6 +1,19 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import (
+	"encoding/json"
+
+	"sidereon.dev/go/v3/internal/native"
+)
+
+// ObservableRowError retains the typed cause attached to one mixed-result batch row.
+type ObservableRowError struct {
+	Index       uint64
+	Status      StatusCode
+	Payload     json.RawMessage
+	EngineError *EngineError
+	DecodeError error
+}
 
 // ObservablesOptions controls satellite-state to observable prediction.
 // CarrierHz is in hertz; LightTime and Sagnac enable the corresponding
@@ -78,6 +91,8 @@ type EmissionMediaRow struct {
 	Status EmissionMediaStatus
 	// ResultStatus is the native result status.
 	ResultStatus StatusCode
+	// Error contains complete retained detail for a failed result row.
+	Error *ObservableRowError
 }
 
 // MissingObservablePositionECEF returns the native missing-position sentinel.
@@ -108,7 +123,14 @@ func (b *BroadcastEphemeris) EmissionMediaBatch(satellites []string, epochs []fl
 }
 
 func fromNativeEmissionMedia(x native.NativeEmissionMediaRow) EmissionMediaRow {
-	return EmissionMediaRow{PositionECEFM: x.Position, HasPosition: x.HasPosition, ClockS: x.ClockS, HasClock: x.HasClock, IonosphereSlantDelayM: x.IonosphereSlantDelayM, HasIonosphereSlantDelay: x.HasIonosphereSlantDelay, TroposphereDelayM: x.TroposphereDelayM, HasTroposphereDelay: x.HasTroposphereDelay, Status: EmissionMediaStatus(x.Status), ResultStatus: StatusCode(x.ResultStatus)}
+	return EmissionMediaRow{PositionECEFM: x.Position, HasPosition: x.HasPosition, ClockS: x.ClockS, HasClock: x.HasClock, IonosphereSlantDelayM: x.IonosphereSlantDelayM, HasIonosphereSlantDelay: x.HasIonosphereSlantDelay, TroposphereDelayM: x.TroposphereDelayM, HasTroposphereDelay: x.HasTroposphereDelay, Status: EmissionMediaStatus(x.Status), ResultStatus: StatusCode(x.ResultStatus), Error: publicObservableRowError(x.Error)}
+}
+
+func publicObservableRowError(value *native.NativeObservableRowError) *ObservableRowError {
+	if value == nil {
+		return nil
+	}
+	return &ObservableRowError{Index: value.Index, Status: StatusCode(value.Status), Payload: append(json.RawMessage(nil), value.Payload...), EngineError: publicEngineError(value.Engine), DecodeError: value.DecodeError}
 }
 
 // EmissionMediaBatch evaluates one index-aligned satellite/epoch batch from a
@@ -188,6 +210,8 @@ type ObservableStateRow struct {
 	ElementStatus ObservableStateElementStatus
 	// ResultStatus is the native result status.
 	ResultStatus StatusCode
+	// Error contains complete retained detail for a failed result row.
+	Error *ObservableRowError
 }
 
 // PredictedObservables contains geometric and signal observables. Distances
@@ -235,7 +259,7 @@ func fromNativeSample(value native.NativeEphemerisSampleRow) EphemerisSampleRow 
 	return EphemerisSampleRow{SatelliteID: value.SatelliteID, EpochJ2000S: value.EpochJ2000S, Status: EphemerisSampleStatus(value.Status), PositionECEFM: value.Position, HasPosition: value.HasPosition, ClockS: value.ClockS, HasClock: value.HasClock}
 }
 func fromNativeState(value native.NativeObservableStateRow) ObservableStateRow {
-	return ObservableStateRow{PositionECEFM: value.Position, ClockS: value.ClockS, HasClock: value.HasClock, ElementStatus: ObservableStateElementStatus(value.ElementStatus), ResultStatus: StatusCode(value.ResultStatus)}
+	return ObservableStateRow{PositionECEFM: value.Position, ClockS: value.ClockS, HasClock: value.HasClock, ElementStatus: ObservableStateElementStatus(value.ElementStatus), ResultStatus: StatusCode(value.ResultStatus), Error: publicObservableRowError(value.Error)}
 }
 func fromNativePredicted(value native.NativePredictedObservables) PredictedObservables {
 	return PredictedObservables{GeometricRangeM: value.GeometricRangeM, RangeRateMPerS: value.RangeRateMPerS, DopplerHz: value.DopplerHz, HasSatelliteClock: value.HasSatelliteClock, SatelliteClockS: value.SatelliteClockS, ElevationDeg: value.ElevationDeg, AzimuthDeg: value.AzimuthDeg, TransmitOffsetUS: value.TransmitOffsetUS, TransmitTimeJ2000S: value.TransmitTimeJ2000S, LOSUnit: value.LOSUnit, SatellitePositionECEFM: value.SatellitePosition, SatelliteVelocityMPerS: value.SatelliteVelocity}

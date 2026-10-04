@@ -6,6 +6,8 @@ package native
 #cgo CFLAGS: -I${SRCDIR}/include
 #include <sidereon.h>
 #include <stdlib.h>
+enum SidereonStatus sidereon_ppp_float_solution_unplaced_observations_v2(const struct SidereonPppFloatSolution *, SidereonPppUnplacedObservationV2 *, size_t, size_t *, size_t *);
+enum SidereonStatus sidereon_ppp_fixed_solution_unplaced_observations_v2(const struct SidereonPppFixedSolution *, SidereonPppUnplacedObservationV2 *, size_t, size_t *, size_t *);
 */
 import "C"
 
@@ -106,6 +108,32 @@ type PppCorrectionsOptions struct {
 	CodeBiasClockReference    []PppCodeBiasSystemPair
 	HasCodeBiasClockReference bool
 }
+
+type PppCorrectionsBuildError struct {
+	Kind  uint32
+	Cause error
+}
+
+func (err *PppCorrectionsBuildError) Error() string {
+	if err == nil {
+		return "sidereon: PPP corrections build failed"
+	}
+	if err.Cause != nil {
+		return fmt.Sprintf("sidereon: PPP corrections build failed (kind %d): %v", err.Kind, err.Cause)
+	}
+	return fmt.Sprintf("sidereon: PPP corrections build failed (kind %d)", err.Kind)
+}
+func (err *PppCorrectionsBuildError) Unwrap() error {
+	if err == nil {
+		return nil
+	}
+	return err.Cause
+}
+
+const (
+	PppValidityStrict     = uint32(0)
+	PppValidityPermissive = uint32(1)
+)
 
 type PppObservation struct {
 	SatelliteID  string
@@ -985,6 +1013,79 @@ type PppFixedSolution struct {
 	handle *positioningHandle
 }
 
+type PppUnplacedObservationV2 struct {
+	EpochIndex               int
+	SatelliteID, AmbiguityID string
+	Reason                   uint32
+	UnknownVariant           string
+	HasSize                  bool
+	OrbitM, ClockM           float64
+}
+
+func pppUnplacedObservationsV2(handle *positioningHandle, fixed bool) (result []PppUnplacedObservationV2, err error) {
+	if handle == nil {
+		return nil, ErrClosed
+	}
+	var operationErr error
+	err = handle.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var written, required C.size_t
+			copyRows := func(output *C.SidereonPppUnplacedObservationV2, capacity C.size_t) C.enum_SidereonStatus {
+				if fixed {
+					return C.sidereon_ppp_fixed_solution_unplaced_observations_v2((*C.SidereonPppFixedSolution)(pointer), output, capacity, &written, &required)
+				}
+				return C.sidereon_ppp_float_solution_unplaced_observations_v2((*C.SidereonPppFloatSolution)(pointer), output, capacity, &written, &required)
+			}
+			if operationErr = statusErrorLocked(uint32(copyRows(nil, 0))); operationErr != nil {
+				return operationErr
+			}
+			count, countErr := validateNativeQuery("PPP unplaced observations V2", uint64(written), uint64(required))
+			if countErr != nil {
+				return countErr
+			}
+			memory, countErr := staticOutputMemory(count, unsafe.Sizeof(C.SidereonPppUnplacedObservationV2{}), "PPP unplaced observations V2")
+			if countErr != nil {
+				return countErr
+			}
+			if memory != nil {
+				defer C.free(memory)
+			}
+			written, required = 0, 0
+			if operationErr = statusErrorLocked(uint32(copyRows((*C.SidereonPppUnplacedObservationV2)(memory), C.size_t(count)))); operationErr != nil {
+				return operationErr
+			}
+			rows, countErr := validateTwoPassCounts("PPP unplaced observations V2", count, count, uint64(written), uint64(required))
+			if countErr != nil {
+				return countErr
+			}
+			raw := unsafe.Slice((*C.SidereonPppUnplacedObservationV2)(memory), rows)
+			result = make([]PppUnplacedObservationV2, rows)
+			for index, row := range raw {
+				reason := uint32(row.reason)
+				if reason != 0 && reason != 1 && reason != 999 {
+					return invalidArgument("invalid PPP unplaced-observation reason")
+				}
+				result[index] = PppUnplacedObservationV2{EpochIndex: int(row.epoch_index), SatelliteID: C.GoString(&row.satellite_id.bytes[0]), AmbiguityID: C.GoString(&row.ambiguity_id.bytes[0]), Reason: reason, UnknownVariant: C.GoString(&row.unknown_variant[0]), HasSize: bool(row.has_size), OrbitM: float64(row.orbit_m), ClockM: float64(row.clock_m)}
+			}
+			return nil
+		})
+	})
+	return result, err
+}
+
+func (s *PppFloatSolution) UnplacedObservationsV2() ([]PppUnplacedObservationV2, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	return pppUnplacedObservationsV2(s.handle, false)
+}
+func (s *PppFixedSolution) UnplacedObservationsV2() ([]PppUnplacedObservationV2, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	return pppUnplacedObservationsV2(s.handle, true)
+}
+
 func releasePppCorrections(pointer unsafe.Pointer) {
 	withCThread(func() { C.sidereon_ppp_corrections_free((*C.SidereonPppCorrections)(pointer)) })
 }
@@ -1132,6 +1233,17 @@ func PppTroposphereOptionsInit() (PppTroposphereOptions, error) {
 }
 
 func PppCorrectionsBuild(sp3 *SP3, epochs []PppCorrectionEpoch, receiver [3]float64, options PppCorrectionsOptions) (*PppCorrections, error) {
+	return pppCorrectionsBuild(sp3, epochs, receiver, options, PppValidityStrict, StationTideConstantsConventions)
+}
+
+func PppCorrectionsBuildWithValidityAndTideConstants(sp3 *SP3, epochs []PppCorrectionEpoch, receiver [3]float64, options PppCorrectionsOptions, validityMode, tideConstants uint32) (*PppCorrections, error) {
+	if validityMode > PppValidityPermissive || tideConstants > StationTideConstantsIERSRoutine {
+		return nil, invalidArgument("invalid PPP validity or station-tide constants selector")
+	}
+	return pppCorrectionsBuild(sp3, epochs, receiver, options, validityMode, tideConstants)
+}
+
+func pppCorrectionsBuild(sp3 *SP3, epochs []PppCorrectionEpoch, receiver [3]float64, options PppCorrectionsOptions, validityMode, tideConstants uint32) (*PppCorrections, error) {
 	if sp3 == nil || sp3.handle == nil {
 		return nil, ErrClosed
 	}
@@ -1139,6 +1251,7 @@ func PppCorrectionsBuild(sp3 *SP3, epochs []PppCorrectionEpoch, receiver [3]floa
 		return nil, ErrClosed
 	}
 	var output *C.SidereonPppCorrections
+	var nativeErrorKind uint32
 	build := func(sp3Pointer unsafe.Pointer, biasPointer unsafe.Pointer) error {
 		var operationErr error
 		withCThread(func() {
@@ -1162,10 +1275,10 @@ func PppCorrectionsBuild(sp3 *SP3, epochs []PppCorrectionEpoch, receiver [3]floa
 			for i := range receiverMemory {
 				receiverMemory[i] = C.double(receiver[i])
 			}
-			status := C.sidereon_ppp_corrections_build(
-				(*C.SidereonSp3)(sp3Pointer), cEpochs, epochCount, &receiverMemory[0], &cOptions, &output,
-			)
+			var errorKind C.enum_SidereonPppCorrectionsErrorKind
+			status := C.sidereon_ppp_corrections_build_with_validity_and_tide_constants((*C.SidereonSp3)(sp3Pointer), cEpochs, epochCount, &receiverMemory[0], &cOptions, C.uint32_t(validityMode), C.uint32_t(tideConstants), &errorKind, &output)
 			operationErr = statusErrorLocked(uint32(status))
+			nativeErrorKind = uint32(errorKind)
 			if operationErr != nil && output != nil {
 				C.sidereon_ppp_corrections_free(output)
 				output = nil
@@ -1182,9 +1295,25 @@ func PppCorrectionsBuild(sp3 *SP3, epochs []PppCorrectionEpoch, receiver [3]floa
 	runtime.KeepAlive(sp3)
 	runtime.KeepAlive(options.CodeBias)
 	if err != nil {
+		if nativeErrorKind != 0 {
+			return nil, &PppCorrectionsBuildError{Kind: nativeErrorKind, Cause: err}
+		}
 		return nil, err
 	}
 	return newPppCorrections(output)
+}
+
+func (corrections *PppCorrections) DegradedReason() (uint32, error) {
+	if corrections == nil || corrections.handle == nil {
+		return 0, ErrClosed
+	}
+	var reason C.enum_SidereonPppCorrectionsDegradeReason
+	err := corrections.handle.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			return statusErrorLocked(uint32(C.sidereon_ppp_corrections_degraded_reason((*C.SidereonPppCorrections)(pointer), &reason)))
+		})
+	})
+	return uint32(reason), err
 }
 
 func solvePppFloat(sp3 *SP3, config PppFloatConfig, auto *PppAutoInitOptions) (*PppFloatSolution, error) {

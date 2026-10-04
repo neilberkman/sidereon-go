@@ -3,7 +3,7 @@ package sidereon
 import (
 	"os"
 
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
 )
 
 // BroadcastEphemeris owns a C-backed RINEX navigation source. The byte parser
@@ -288,6 +288,15 @@ type SBASIGP struct {
 	GIVEVarianceM2 float64
 }
 
+// SBASUnassignedMaskCorrection retains corrections addressed to an active
+// PRN-mask bit that does not identify a satellite present in the store.
+type SBASUnassignedMaskCorrection struct {
+	// MaskNumber is the one-based DO-229 mask number.
+	MaskNumber uint8
+	// Count is the number of correction records addressed to the mask bit.
+	Count uint64
+}
+
 // SBASCorrectionStore owns a C-backed SBAS correction state machine.
 type SBASCorrectionStore struct {
 	_      noCopy
@@ -345,6 +354,23 @@ func (s *SBASCorrectionStore) ReadyGEOs(tJ2000S float64) ([]string, error) {
 	}
 	v, e := s.handle.ReadyGeos(tJ2000S)
 	return append([]string(nil), v...), publicError(e)
+}
+
+// UnassignedMaskCorrections returns per-mask correction counts for a GEO.
+// present is false when the store has no partition for that GEO.
+func (s *SBASCorrectionStore) UnassignedMaskCorrections(geo string) ([]SBASUnassignedMaskCorrection, bool, error) {
+	if s == nil || s.handle == nil {
+		return nil, false, ErrClosed
+	}
+	values, present, err := s.handle.UnassignedMaskCorrections(geo)
+	if err != nil {
+		return nil, present, publicError(err)
+	}
+	out := make([]SBASUnassignedMaskCorrection, len(values))
+	for i, value := range values {
+		out[i] = SBASUnassignedMaskCorrection{MaskNumber: value.MaskNumber, Count: value.Count}
+	}
+	return out, present, nil
 }
 
 // FastCorrection returns a copied optional fast correction.
@@ -437,6 +463,10 @@ const (
 	SSRSourceRTCM SSRSource = SSRSource(native.SSRSourceRTCMValue)
 	// SSRSourceGalileoHAS identifies Galileo High Accuracy Service corrections.
 	SSRSourceGalileoHAS SSRSource = SSRSource(native.SSRSourceGalileoHASValue)
+	// SSRSourceIGSSSR identifies IGS SSR correction records.
+	SSRSourceIGSSSR SSRSource = SSRSource(2)
+	// SSRSourceIGS is a shorter alias for SSRSourceIGSSSR.
+	SSRSourceIGS SSRSource = SSRSourceIGSSSR
 )
 
 // SSRReferencePoint selects the datum for orbit corrections.
@@ -458,13 +488,44 @@ type SSRClockCorrection struct {
 	ProviderID uint16
 	// SolutionID identifies the provider solution; IODSSR identifies the SSR issue of data.
 	SolutionID, IODSSR uint8
-	// C0M is the clock-polynomial bias in metres; C1MPerS is its drift in metres per second; C2MPerS2 is its drift rate in metres per second squared; RefEpochJ2000S is the polynomial reference epoch in seconds from J2000; UpdateIntervalS is the update interval in seconds.
-	C0M, C1MPerS, C2MPerS2, RefEpochJ2000S, UpdateIntervalS float64
+	// NavMessage identifies the RTCM, IGS SSR, or HAS navigation-message convention.
+	NavMessage SSRNavigationMessage
+	// HasNavigationMessageIndex distinguishes a transmitted HAS index of zero from absence.
+	HasNavigationMessageIndex bool
+	// NavigationMessageIndex is the transmitted HAS index when present.
+	NavigationMessageIndex uint8
+	// C0M is the clock-polynomial bias in metres; C1MPerS is its drift in metres per second; C2MPerS2 is its drift rate in metres per second squared; RefEpochJ2000S is the polynomial reference epoch in seconds from J2000.
+	C0M, C1MPerS, C2MPerS2, RefEpochJ2000S float64
+	// TransmittedEpochJ2000S is the transmitted message epoch in seconds from J2000. For RTCM SSR, update-interval index 0 uses this as the reference epoch; other indices place RefEpochJ2000S half an interval later.
+	TransmittedEpochJ2000S float64
+	// UpdateIntervalS is the update interval in seconds.
+	UpdateIntervalS float64
 	// HasHighRate reports whether the has high rate field is present.
 	HasHighRate bool
-	// HighRateC0M is the high-rate clock bias in metres; HighRateRefEpochJ2000S is its reference epoch in seconds from J2000; HighRateUpdateIntervalS is its update interval in seconds.
-	HighRateC0M, HighRateRefEpochJ2000S, HighRateUpdateIntervalS float64
+	// HighRateC0M is the high-rate clock bias in metres; HighRateRefEpochJ2000S is its reference epoch in seconds from J2000; HighRateTransmittedEpochJ2000S is the transmitted epoch (equal to the reference epoch because there are no rate terms); HighRateUpdateIntervalS is its update interval in seconds.
+	HighRateC0M, HighRateRefEpochJ2000S, HighRateTransmittedEpochJ2000S, HighRateUpdateIntervalS float64
 }
+
+// SSRNavigationMessage identifies the broadcast navigation message associated
+// with a stored SSR orbit or clock correction.
+type SSRNavigationMessage uint32
+
+const (
+	// SSRNavigationRTCM identifies the RTCM broadcast-message convention.
+	SSRNavigationRTCM SSRNavigationMessage = iota
+	// SSRNavigationIGS identifies the IGS SSR issue convention.
+	SSRNavigationIGS
+	// SSRNavigationHAS identifies the HAS navigation-message index convention.
+	SSRNavigationHAS
+)
+
+// SSROrbitBasis identifies the axes used for the stored RAC components.
+type SSROrbitBasis uint32
+
+const (
+	// SSROrbitBasisVelocityAligned is the velocity-aligned radial/along/cross basis.
+	SSROrbitBasisVelocityAligned SSROrbitBasis = 0
+)
 
 // SSROrbitCorrection contains copied orbit corrections in the radial,
 // along-track, and cross-track frame. Distances are metres and epochs are
@@ -476,22 +537,151 @@ type SSROrbitCorrection struct {
 	ProviderID uint16
 	// SolutionID identifies the provider solution.
 	SolutionID uint8
+	// NavMessage identifies the RTCM, IGS SSR, or HAS navigation-message convention.
+	NavMessage SSRNavigationMessage
+	// HasNavigationMessageIndex distinguishes a transmitted HAS index of zero from absence.
+	HasNavigationMessageIndex bool
+	// NavigationMessageIndex is the transmitted HAS index when present.
+	NavigationMessageIndex uint8
 	// IODE identifies the orbit ephemeris issue of data.
 	IODE uint32
+	// HasIODCRC distinguishes a transmitted zero CRC from absence.
+	HasIODCRC bool
+	// IODCRC is the native RTCM SBAS issue-of-data CRC when present.
+	IODCRC uint32
+	// Basis identifies the axes used by the RAC components.
+	Basis SSROrbitBasis
 	// IODSSR identifies the SSR issue of data.
 	IODSSR uint8
 	// CRSRegional reports whether the correction uses a regional coordinate reference system.
 	CRSRegional bool
 	// ReferencePoint identifies whether orbit corrections reference the antenna phase centre or centre of mass.
 	ReferencePoint SSRReferencePoint
-	// RadialM, AlongM, and CrossM are orbit corrections in the radial, along-track, and cross-track frame, in metres; RadialRateMPerS, AlongRateMPerS, and CrossRateMPerS are their rates in metres per second; RefEpochJ2000S is the correction reference epoch in seconds from J2000; UpdateIntervalS is the update interval in seconds.
-	RadialM, AlongM, CrossM, RadialRateMPerS, AlongRateMPerS, CrossRateMPerS, RefEpochJ2000S, UpdateIntervalS float64
+	// RadialM, AlongM, and CrossM are orbit corrections in the radial, along-track, and cross-track frame, in metres; RadialRateMPerS, AlongRateMPerS, and CrossRateMPerS are their rates in metres per second; RefEpochJ2000S is the correction reference epoch in seconds from J2000.
+	RadialM, AlongM, CrossM, RadialRateMPerS, AlongRateMPerS, CrossRateMPerS, RefEpochJ2000S float64
+	// TransmittedEpochJ2000S is the transmitted message epoch in seconds from J2000. For RTCM SSR, update-interval index 0 uses this as the reference epoch; other indices place RefEpochJ2000S half an interval later.
+	TransmittedEpochJ2000S float64
+	// UpdateIntervalS is the update interval in seconds.
+	UpdateIntervalS float64
+}
+
+// SSRIngestRefusal is a detached description of a decoded RTCM message refused by the store.
+type SSRIngestRefusal struct {
+	// MessageNumber identifies the RTCM message type.
+	MessageNumber uint16
+	// Text is the native refusal reason.
+	Text string
+}
+
+// SSRIngestRefusals owns the native per-message refusal list returned by lenient ingestion.
+type SSRIngestRefusals struct {
+	_      noCopy
+	handle *native.SSRIngestRefusals
+}
+
+// Close releases the refusal list and is safe to call repeatedly.
+func (r *SSRIngestRefusals) Close() error {
+	if r == nil || r.handle == nil {
+		return nil
+	}
+	return publicError(r.handle.Close())
+}
+
+// Count returns the number of decoded messages refused by the SSR store.
+func (r *SSRIngestRefusals) Count() (int, error) {
+	if r == nil || r.handle == nil {
+		return 0, ErrClosed
+	}
+	n, err := r.handle.Count()
+	return n, publicError(err)
+}
+
+// Refusal copies one message number and its refusal text.
+func (r *SSRIngestRefusals) Refusal(index int) (SSRIngestRefusal, error) {
+	if r == nil || r.handle == nil {
+		return SSRIngestRefusal{}, ErrClosed
+	}
+	value, err := r.handle.Refusal(index)
+	return SSRIngestRefusal{MessageNumber: value.MessageNumber, Text: value.Text}, publicError(err)
+}
+
+// SSRVTECQueryKind identifies the result of an SSR VTEC evaluation.
+type SSRVTECQueryKind uint32
+
+const (
+	// SSRVTECQueryNoModel means no SSR VTEC model is stored.
+	SSRVTECQueryNoModel SSRVTECQueryKind = 0
+	// SSRVTECQueryBeforeModel means the query time precedes the model epoch.
+	SSRVTECQueryBeforeModel SSRVTECQueryKind = 1
+	// SSRVTECQueryStale means the model exceeds the configured maximum age.
+	SSRVTECQueryStale SSRVTECQueryKind = 2
+	// SSRVTECQueryEvaluated means the model produced a correction.
+	SSRVTECQueryEvaluated SSRVTECQueryKind = 3
+)
+
+// SSRVTECQueryResult is the detached aggregate from one VTEC model query.
+type SSRVTECQueryResult struct {
+	// Kind is the query disposition; unrecognized future tags are retained.
+	Kind SSRVTECQueryKind
+	// AgeS is the elapsed model age in seconds.
+	AgeS float64
+	// SecondsBeforeModel is positive when the query predates the model epoch.
+	SecondsBeforeModel float64
+	// MaxAgeS is the store's configured maximum model age.
+	MaxAgeS float64
+	// LayerCount is the number of evaluated model layers.
+	LayerCount int
+	// STECTECU is slant total electron content in TEC units.
+	STECTECU float64
+	// PseudorangeDelayM is the pseudorange delay in metres.
+	PseudorangeDelayM float64
+	// PhaseRangeAdvanceM is the phase-range advance in metres.
+	PhaseRangeAdvanceM float64
+}
+
+// SSRVTECLayerEvaluation contains copied pierce-point and layer values.
+type SSRVTECLayerEvaluation struct {
+	// PierceLatitudeRad and PierceLongitudeRad are the layer pierce point in radians.
+	PierceLatitudeRad, PierceLongitudeRad float64
+	// SunFixedLongitudeRad is the pierce-point longitude in the Sun-fixed frame.
+	SunFixedLongitudeRad float64
+	// VTECTECU is vertical TEC in TEC units.
+	VTECTECU float64
+	// MappingFactor maps vertical TEC to the slant path.
+	MappingFactor float64
+	// STECTECU is the layer slant TEC in TEC units.
+	STECTECU float64
 }
 
 // SSRCorrectionStore owns a C-backed SSR correction state machine.
 type SSRCorrectionStore struct {
 	_      noCopy
 	handle *native.SSRCorrectionStore
+}
+
+// NewSSRCorrectionStoreFromRTCMReading keeps every readable RTCM frame and returns stream and per-message ingestion diagnostics.
+func NewSSRCorrectionStoreFromRTCMReading(data []byte, epoch GNSSWeekTow) (*SSRCorrectionStore, *RTCMStreamDiagnostics, int, *SSRIngestRefusals, error) {
+	week, err := nativeWeek(epoch)
+	if err != nil {
+		return nil, nil, 0, nil, err
+	}
+	store, diagnostics, trailing, refusals, err := native.NewSSRStoreFromRTCMReading(append([]byte(nil), data...), week)
+	if err != nil {
+		return nil, nil, 0, nil, publicError(err)
+	}
+	if store == nil || diagnostics == nil || refusals == nil {
+		if store != nil {
+			_ = store.Close()
+		}
+		if diagnostics != nil {
+			_ = diagnostics.Close()
+		}
+		if refusals != nil {
+			_ = refusals.Close()
+		}
+		return nil, nil, 0, nil, errNilNativeHandle
+	}
+	return &SSRCorrectionStore{handle: store}, &RTCMStreamDiagnostics{handle: diagnostics}, trailing, &SSRIngestRefusals{handle: refusals}, nil
 }
 
 // NewSSRCorrectionStore creates an empty C-owned SSR correction store using
@@ -541,13 +731,39 @@ func (s *SSRCorrectionStore) Ingest(messages *RTCMMessages, epoch GNSSWeekTow) e
 	return publicError(s.handle.Ingest(messages.handle, week))
 }
 
+// SetVTECMaxAge sets the maximum accepted age for SSR VTEC models.
+func (s *SSRCorrectionStore) SetVTECMaxAge(maxAgeS float64) error {
+	if s == nil || s.handle == nil {
+		return ErrClosed
+	}
+	return publicError(s.handle.SetVTECMaxAge(maxAgeS))
+}
+
+// EvaluateVTEC evaluates the stored model for an ECEF receiver/satellite pair and GNSS query epoch.
+func (s *SSRCorrectionStore) EvaluateVTEC(receiverECEFM, satelliteTransmitECEFM [3]float64, epoch GNSSWeekTow, frequencyHz float64) (SSRVTECQueryResult, []SSRVTECLayerEvaluation, error) {
+	if s == nil || s.handle == nil {
+		return SSRVTECQueryResult{}, nil, ErrClosed
+	}
+	week, err := nativeWeek(epoch)
+	if err != nil {
+		return SSRVTECQueryResult{}, nil, err
+	}
+	value, layers, err := s.handle.EvaluateVTEC(receiverECEFM, satelliteTransmitECEFM, week, frequencyHz)
+	out := SSRVTECQueryResult{Kind: SSRVTECQueryKind(value.Kind), AgeS: value.AgeS, SecondsBeforeModel: value.SecondsBeforeModel, MaxAgeS: value.MaxAgeS, LayerCount: value.LayerCount, STECTECU: value.STEC, PseudorangeDelayM: value.PseudorangeDelayM, PhaseRangeAdvanceM: value.PhaseRangeAdvanceM}
+	rows := make([]SSRVTECLayerEvaluation, len(layers))
+	for i, row := range layers {
+		rows[i] = SSRVTECLayerEvaluation{PierceLatitudeRad: row.PierceLatitudeRad, PierceLongitudeRad: row.PierceLongitudeRad, SunFixedLongitudeRad: row.SunFixedLongitudeRad, VTECTECU: row.VTECTECU, MappingFactor: row.MappingFactor, STECTECU: row.STECTECU}
+	}
+	return out, rows, publicError(err)
+}
+
 // Orbit returns a copied optional radial/along-track/cross-track correction.
 func (s *SSRCorrectionStore) Orbit(satellite string) (SSROrbitCorrection, bool, error) {
 	if s == nil || s.handle == nil {
 		return SSROrbitCorrection{}, false, ErrClosed
 	}
 	v, p, e := s.handle.Orbit(satellite)
-	return SSROrbitCorrection{Source: SSRSource(v.Source), ProviderID: v.ProviderID, SolutionID: v.SolutionID, IODE: v.IODE, IODSSR: v.IODSSR, CRSRegional: v.CRSRegional, ReferencePoint: SSRReferencePoint(v.ReferencePoint), RadialM: v.RadialM, AlongM: v.AlongM, CrossM: v.CrossM, RadialRateMPerS: v.RadialRateMPerS, AlongRateMPerS: v.AlongRateMPerS, CrossRateMPerS: v.CrossRateMPerS, RefEpochJ2000S: v.RefEpochJ2000S, UpdateIntervalS: v.UpdateIntervalS}, p, publicError(e)
+	return SSROrbitCorrection{Source: SSRSource(v.Source), ProviderID: v.ProviderID, SolutionID: v.SolutionID, NavMessage: SSRNavigationMessage(v.NavMessage), HasNavigationMessageIndex: v.HasNavigationMessageIndex, NavigationMessageIndex: v.NavigationMessageIndex, IODE: v.IODE, HasIODCRC: v.HasIODCRC, IODCRC: v.IODCRC, IODSSR: v.IODSSR, Basis: SSROrbitBasis(v.Basis), CRSRegional: v.CRSRegional, ReferencePoint: SSRReferencePoint(v.ReferencePoint), RadialM: v.RadialM, AlongM: v.AlongM, CrossM: v.CrossM, RadialRateMPerS: v.RadialRateMPerS, AlongRateMPerS: v.AlongRateMPerS, CrossRateMPerS: v.CrossRateMPerS, RefEpochJ2000S: v.RefEpochJ2000S, TransmittedEpochJ2000S: v.TransmittedEpochJ2000S, UpdateIntervalS: v.UpdateIntervalS}, p, publicError(e)
 }
 
 // Clock returns a copied optional clock correction in metres and metre-based
@@ -557,24 +773,24 @@ func (s *SSRCorrectionStore) Clock(satellite string) (SSRClockCorrection, bool, 
 		return SSRClockCorrection{}, false, ErrClosed
 	}
 	v, p, e := s.handle.Clock(satellite)
-	return SSRClockCorrection{Source: SSRSource(v.Source), ProviderID: v.ProviderID, SolutionID: v.SolutionID, IODSSR: v.IODSSR, C0M: v.C0M, C1MPerS: v.C1MPerS, C2MPerS2: v.C2MPerS2, RefEpochJ2000S: v.RefEpochJ2000S, UpdateIntervalS: v.UpdateIntervalS, HasHighRate: v.HasHighRate, HighRateC0M: v.HighRateC0M, HighRateRefEpochJ2000S: v.HighRateRefEpochJ2000S, HighRateUpdateIntervalS: v.HighRateUpdateIntervalS}, p, publicError(e)
+	return SSRClockCorrection{Source: SSRSource(v.Source), ProviderID: v.ProviderID, SolutionID: v.SolutionID, IODSSR: v.IODSSR, NavMessage: SSRNavigationMessage(v.NavMessage), HasNavigationMessageIndex: v.HasNavigationMessageIndex, NavigationMessageIndex: v.NavigationMessageIndex, C0M: v.C0M, C1MPerS: v.C1MPerS, C2MPerS2: v.C2MPerS2, RefEpochJ2000S: v.RefEpochJ2000S, TransmittedEpochJ2000S: v.TransmittedEpochJ2000S, UpdateIntervalS: v.UpdateIntervalS, HasHighRate: v.HasHighRate, HighRateC0M: v.HighRateC0M, HighRateRefEpochJ2000S: v.HighRateRefEpochJ2000S, HighRateTransmittedEpochJ2000S: v.HighRateTransmittedEpochJ2000S, HighRateUpdateIntervalS: v.HighRateUpdateIntervalS}, p, publicError(e)
 }
 
-// CodeBias returns an optional code bias in metres.
-func (s *SSRCorrectionStore) CodeBias(satellite string, signalID uint8) (float64, bool, error) {
+// CodeBias returns an optional code bias in metres for the explicit correction source.
+func (s *SSRCorrectionStore) CodeBias(satellite string, source SSRSource, signalID uint8) (float64, bool, error) {
 	if s == nil || s.handle == nil {
 		return 0, false, ErrClosed
 	}
-	v, p, e := s.handle.CodeBias(satellite, signalID)
+	v, p, e := s.handle.CodeBias(satellite, uint32(source), signalID)
 	return v, p, publicError(e)
 }
 
-// PhaseBias returns an optional phase bias in metres.
-func (s *SSRCorrectionStore) PhaseBias(satellite string, signalID uint8) (float64, bool, error) {
+// PhaseBias returns an optional phase bias in metres for the explicit correction source.
+func (s *SSRCorrectionStore) PhaseBias(satellite string, source SSRSource, signalID uint8) (float64, bool, error) {
 	if s == nil || s.handle == nil {
 		return 0, false, ErrClosed
 	}
-	v, p, e := s.handle.PhaseBias(satellite, signalID)
+	v, p, e := s.handle.PhaseBias(satellite, uint32(source), signalID)
 	return v, p, publicError(e)
 }
 

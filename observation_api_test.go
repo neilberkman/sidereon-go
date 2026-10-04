@@ -3,10 +3,12 @@ package sidereon
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"os"
+	"reflect"
 	"sync"
 	"testing"
 )
@@ -59,6 +61,56 @@ func readObservationFixture(t *testing.T, name string) []byte {
 		t.Fatal(err)
 	}
 	return b
+}
+
+func TestRINEXLintFindingEpochOrderDetails(t *testing.T) {
+	data := readObservationFixture(t, "ESBC00DNK_R_20201770000_01D_30S_MO_trim.rnx")
+	first := []byte("> 2020 06 25 00 00 00.0000000  0 43")
+	second := []byte("> 2020 06 25 00 00 30.0000000  0 43")
+	if !bytes.Contains(data, first) || !bytes.Contains(data, second) {
+		t.Fatal("fixture lacks the expected adjacent epochs")
+	}
+	marker := bytes.Repeat([]byte{'X'}, len(first))
+	if len(marker) != len(first) {
+		t.Fatal("epoch marker length mismatch")
+	}
+	reordered := bytes.Replace(data, first, marker, 1)
+	reordered = bytes.Replace(reordered, second, first, 1)
+	reordered = bytes.Replace(reordered, marker, second, 1)
+	report, err := LintRINEXObservation(reordered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := report.Close(); err != nil {
+			t.Errorf("close lint report: %v", err)
+		}
+	}()
+	findings, err := report.Findings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := report.Close(); err != nil {
+		t.Fatal(err)
+	}
+	var got *RINEXLintFinding
+	for i := range findings {
+		if findings[i].Code == "OBS-B01" {
+			got = &findings[i]
+			break
+		}
+	}
+	if got == nil {
+		t.Fatalf("missing epoch-order finding in %+v", findings)
+	}
+	if got.Kind != "ObsEpochOrder" || got.SpecRef != "RINEX 3.05 Table A3" || !got.HasEpochIndex || got.EpochIndex != 1 {
+		t.Fatalf("epoch-order identity/location=%+v", *got)
+	}
+	wantPrevious := map[string]any{"year": json.Number("2020"), "month": json.Number("6"), "day": json.Number("25"), "hour": json.Number("0"), "minute": json.Number("0"), "second": json.Number("30.0")}
+	wantCurrent := map[string]any{"year": json.Number("2020"), "month": json.Number("6"), "day": json.Number("25"), "hour": json.Number("0"), "minute": json.Number("0"), "second": json.Number("0.0")}
+	if !reflect.DeepEqual(got.Details, map[string]any{"previous": wantPrevious, "current": wantCurrent}) {
+		t.Fatalf("epoch-order detail=%#v", got.Details)
+	}
 }
 
 func TestCommittedObservationFixtureHashesAndInventory(t *testing.T) {
@@ -220,6 +272,114 @@ func TestRINEXObservationFixtureAndCRINEX(t *testing.T) {
 	}
 	if e = decodedFixtureObs.Close(); e != nil {
 		t.Fatal(e)
+	}
+}
+
+func TestRINEXCarrierPhaseRetainsCorrectionStatusAndConflicts(t *testing.T) {
+	data := []byte("     3.05           OBSERVATION DATA    M (MIXED)           RINEX VERSION / TYPE\n" +
+		"G    2 C1C L1W                                              SYS / # / OBS TYPES\n" +
+		"G L1W  0.25000  01 G01                                      SYS / PHASE SHIFT\n" +
+		"G L1W  0.50000  02 G02 G01                                  SYS / PHASE SHIFT\n" +
+		"                                                            END OF HEADER\n" +
+		"> 2020 01 01 00 00  0.0000000  0  2\n" +
+		"G01  20000000.000   105000000.000\n" +
+		"G02  21000000.000   110000000.000\n")
+	obs, err := ParseRINEXObservation(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeAfterTest(t, obs)
+	rows, err := obs.CarrierPhase(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rowIndex := -1
+	for index, row := range rows {
+		if row.Code == "L1W" && row.SatelliteID == "G01" {
+			rowIndex = index
+			if row.PhaseShiftStatus != RINEXCorrectionAmbiguous || row.PhaseShiftConflictCount != 2 || !math.IsNaN(row.PhaseShiftCycles) {
+				t.Fatalf("ambiguous phase correction row = %+v", row)
+			}
+			break
+		}
+	}
+	if rowIndex < 0 {
+		t.Fatal("fixture epoch has no GPS L1C carrier row")
+	}
+	conflicts, err := obs.CarrierPhaseConflicts(0, rowIndex)
+	if err != nil || len(conflicts) != 2 || !conflicts[0].HasCycles || conflicts[0].Cycles != 0.25 || !conflicts[1].HasCycles || conflicts[1].Cycles != 0.5 {
+		t.Fatalf("phase-shift conflict records = %+v, %v", conflicts, err)
+	}
+	if err := obs.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if len(conflicts) != 2 || conflicts[1].Cycles != 0.5 {
+		t.Fatalf("detached phase-shift conflicts changed after close: %+v", conflicts)
+	}
+}
+
+func TestRINEXObservationWriteOutcomeRetainsTypedRefusal(t *testing.T) {
+	valid, err := ParseRINEXObservation(observationFixture(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeAfterTest(t, valid)
+	written, err := valid.RINEXTextWithOutcome()
+	if err != nil || !written.IsOK || written.Status != StatusOK || written.Error != nil || len(written.Text) == 0 {
+		t.Fatalf("valid write outcome=%+v err=%v", written, err)
+	}
+	legacyText, err := valid.RINEXText()
+	if err != nil || !bytes.Equal(written.Text, legacyText) {
+		t.Fatalf("outcome text differs from existing writer: %v", err)
+	}
+	if err := valid.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	refusalText := []byte("     2.11           OBSERVATION DATA    G (GPS)             RINEX VERSION / TYPE\n" +
+		"     1     Z                                                # / TYPES OF OBSERV\n" +
+		"G   10  0                                                   SYS / SCALE FACTOR\n" +
+		"                                                            END OF HEADER\n" +
+		" 15  1  1  0  0  0.0000000  0  1G 1\n" +
+		"      1234.567\n")
+	refused, err := ParseRINEXObservation(refusalText)
+	if err != nil {
+		t.Fatalf("parse writer-refusal fixture: %v", err)
+	}
+	closeAfterTest(t, refused)
+	outcome, err := refused.RINEXTextWithOutcome()
+	if err != nil || outcome.IsOK || outcome.Status != StatusInvalidArgument || outcome.Error == nil || outcome.Error.Kind != RINEXWriteErrorScaleFactorsInVersionTwo || !outcome.Error.HasCount || outcome.Error.Count != 1 || outcome.Error.Message == "" || outcome.Error.Error() != outcome.Error.Message {
+		t.Fatalf("typed write refusal=%+v err=%v", outcome, err)
+	}
+	message := outcome.Error.Message
+	if _, err := refused.RINEXText(); err == nil {
+		t.Fatal("existing convenience writer accepted a typed refusal")
+	}
+	if err := refused.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if outcome.Error.Message != message || outcome.Error.Error() != message {
+		t.Fatalf("write refusal snapshot changed after later native call and close: %+v", outcome.Error)
+	}
+
+	repaired, err := RepairRINEXObservation(refusalText, nil)
+	if err != nil {
+		t.Fatalf("repair writer-refusal fixture: %v", err)
+	}
+	closeAfterTest(t, repaired)
+	repairOutcome, err := repaired.RINEXTextWithOutcome()
+	if err != nil || repairOutcome.IsOK || repairOutcome.Status != StatusInvalidArgument || repairOutcome.Error == nil || repairOutcome.Error.Kind != RINEXWriteErrorScaleFactorsInVersionTwo || !repairOutcome.Error.HasCount || repairOutcome.Error.Count != 1 || repairOutcome.Error.Message == "" {
+		t.Fatalf("typed repair writer refusal=%+v err=%v", repairOutcome, err)
+	}
+	repairMessage := repairOutcome.Error.Message
+	if _, err := repaired.RINEXText(); err == nil {
+		t.Fatal("existing repair writer accepted a typed refusal")
+	}
+	if err := repaired.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if repairOutcome.Error.Message != repairMessage || repairOutcome.Error.Error() != repairMessage {
+		t.Fatalf("repair refusal snapshot changed after later call and close: %+v", repairOutcome.Error)
 	}
 }
 
@@ -467,7 +627,39 @@ func TestObservablesRoutesWithCommittedProducts(t *testing.T) {
 	if err != nil || !math.IsNaN(position[0]) || !math.IsNaN(position[1]) || !math.IsNaN(position[2]) {
 		t.Fatalf("missing position=%v err=%v", position, err)
 	}
-	sp3Rows, err := sp3.EmissionMediaBatch([]string{sp3Satellites[0]}, []float64{sp3Epochs[0]}, ECEF{}, nil)
+	// The original five-epoch fixture's first query was 11:45. The expanded
+	// fixture supplies the same source epoch plus enough neighboring records
+	// for the current eleven-node precise interpolation window.
+	legacySP3Query, err := CivilToJ2000Seconds(CivilDateTime{Year: 2020, Month: 6, Day: 24, Hour: 11, Minute: 45})
+	if err != nil {
+		t.Fatalf("old SP3 query time: %v", err)
+	}
+	queryIndex := -1
+	for index, epoch := range sp3Epochs {
+		if epoch == legacySP3Query {
+			queryIndex = index
+			break
+		}
+	}
+	if queryIndex != 5 || len(sp3Epochs) != 13 || queryIndex < 5 || len(sp3Epochs)-queryIndex < 6 {
+		t.Fatalf("SP3 fixture no longer contains the original 11:45 query with an 11-node window: index=%d epochs=%d query=%.0f", queryIndex, len(sp3Epochs), legacySP3Query)
+	}
+	for index := 1; index <= 10; index++ {
+		if sp3Epochs[index]-sp3Epochs[index-1] != 900 {
+			t.Fatalf("SP3 11-node oracle window cadence at %d = %.17g seconds", index, sp3Epochs[index]-sp3Epochs[index-1])
+		}
+	}
+	hasG08 := false
+	for _, satellite := range sp3Satellites {
+		if satellite == "G08" {
+			hasG08 = true
+			break
+		}
+	}
+	if !hasG08 {
+		t.Fatal("SP3 fixture lost G08 used by the original public regression")
+	}
+	sp3Rows, err := sp3.EmissionMediaBatch([]string{"G08"}, []float64{legacySP3Query}, ECEF{}, nil)
 	if err != nil || len(sp3Rows) != 1 {
 		t.Fatalf("SP3 emission rows=%d err=%v", len(sp3Rows), err)
 	}
@@ -510,6 +702,24 @@ func TestObservablesRoutesWithCommittedProducts(t *testing.T) {
 	if missing.HasPosition || !math.IsNaN(missing.PositionECEFM[0]) || !math.IsNaN(missing.PositionECEFM[1]) || !math.IsNaN(missing.PositionECEFM[2]) || missing.Status != EmissionMediaGap || missing.ResultStatus != StatusSolve {
 		t.Fatalf("missing emission sentinel/status = %+v", missing)
 	}
+	detailedRows, err := broadcast.EmissionMediaBatch([]string{records[0].SatelliteID, "G99"}, []float64{broadcastEpoch, broadcastEpoch}, ECEF{}, nil)
+	if err != nil || len(detailedRows) != 2 {
+		t.Fatalf("detailed emission rows=%d err=%v", len(detailedRows), err)
+	}
+	if detailedRows[0].Error != nil || !detailedRows[0].HasPosition || detailedRows[0].Status != EmissionMediaValid || detailedRows[0].ResultStatus != StatusOK {
+		t.Fatalf("valid mixed row = %+v", detailedRows[0])
+	}
+	failed := detailedRows[1].Error
+	if failed == nil || failed.Index != 1 || failed.Status != StatusSolve || failed.DecodeError != nil || failed.EngineError == nil || failed.EngineError.Family != EngineErrorFamilyObservables || failed.EngineError.Operation != "sidereon_broadcast_emission_media_batch_at_j2000_s" || failed.EngineError.Kind != "no_ephemeris" || !json.Valid(failed.Payload) || detailedRows[1].Status != EmissionMediaGap || detailedRows[1].ResultStatus != StatusSolve {
+		if failed == nil {
+			t.Fatalf("failed mixed row envelope/status = %+v", detailedRows[1])
+		}
+		t.Fatalf("failed mixed row envelope/status = %+v, engine=%+v payload=%s", detailedRows[1], failed.EngineError, failed.Payload)
+	}
+	var failureFields map[string]json.RawMessage
+	if err := failed.EngineError.UnmarshalFields(&failureFields); err != nil || len(failureFields) != 0 {
+		t.Fatalf("failed mixed row no_ephemeris fields = %+v, %v", failureFields, err)
+	}
 	assertBits := func(label string, actual float64, expected uint64) {
 		t.Helper()
 		if bits := math.Float64bits(actual); bits != expected {
@@ -527,13 +737,13 @@ func TestObservablesRoutesWithCommittedProducts(t *testing.T) {
 		assertBits(label+" clock", row.ClockS, expected[3])
 	}
 	assertMedia("SP3", sp3Rows[0], [4]uint64{0x415b0f8f0f9db22d, 0xc17540ec987ef9db, 0x41678ed0e05a1cac, 0xbf0442e1be8b9d32})
-	assertMedia("broadcast", broadcastRows[0], [4]uint64{0x4174e5f16a0c82aa, 0x41812ab508561ee9, 0xc12c036525890f1c, 0xbf40e3fc147a882d})
+	assertMedia("broadcast", broadcastRows[0], [4]uint64{0x4174e5f16a0c82aa, 0x41812ab508561eea, 0xc12c036525890f14, 0xbf40e3fbdd7beaad})
 	if sample[0].SatelliteID != records[0].SatelliteID || sample[0].Status != EphemerisSampleValid || !sample[0].HasPosition || !sample[0].HasClock || sample[1].Status != EphemerisSampleValid || !sample[1].HasPosition || !sample[1].HasClock {
 		t.Fatalf("sample presence/status = %+v", sample)
 	}
 	for index, expected := range [][4]uint64{
-		{0x4174e5f16a0c82aa, 0x41812ab508561ee9, 0xc12c036525890f1c, 0xbf40e3fc147a882d},
-		{0x4174e38491022c05, 0x41812a81ddbb90d7, 0xc1300399cef2c792, 0xbf40e603ade91dcc},
+		{0x4174e5f16a0c82aa, 0x41812ab508561eea, 0xc12c036525890f14, 0xbf40e3fbdd7beaad},
+		{0x4174e38491022c04, 0x41812a81ddbb90d6, 0xc1300399cef2c78e, 0xbf40e60376ea7ee7},
 	} {
 		if index >= len(sample) {
 			break
@@ -558,9 +768,9 @@ func TestObservablesRoutesWithCommittedProducts(t *testing.T) {
 		t.Fatalf("predicted/batch = %+v, %+v, accepted=%v", predicted, batch[0], accepted)
 	}
 	for index, value := range []float64{predicted.GeometricRangeM, predicted.RangeRateMPerS, predicted.DopplerHz, predicted.SatelliteClockS, predicted.ElevationDeg, predicted.AzimuthDeg, predicted.TransmitTimeJ2000S} {
-		assertBits(fmt.Sprintf("predicted scalar[%d]", index), value, [...]uint64{0x41841a04123953f0, 0xbff125202b8c08b6, 0x40168640b4ecfa6a, 0xbf40e3fc0f4a41e9, 0x403f5203b2874418, 0x4056dd79f47ba28e, 0x41c342f04fee003b}[index])
+		assertBits(fmt.Sprintf("predicted scalar[%d]", index), value, [...]uint64{0x41841a04123953f0, 0xbff1252865173d62, 0x4016864b831a3d43, 0xbf40e3fbd84ba469, 0x403f5203b2874418, 0x4056dd79f47ba28e, 0x41c342f04fee003c}[index])
 	}
-	for index, expected := range [][3]uint64{{0x3fe0a26383e1be53, 0x3feb53f08a085920, 0xbf964c12613259d1}, {0x4174e608821ba770, 0x41812aae03c39c3e, 0xc12c035843c6f30c}} {
+	for index, expected := range [][3]uint64{{0x3fe0a26383e1be54, 0x3feb53f08a085920, 0xbf964c12613259cb}, {0x4174e608821ba771, 0x41812aae03c39c3e, 0xc12c035843c6f304}} {
 		for coordinate := range expected {
 			var actual float64
 			if index == 0 {
@@ -618,8 +828,8 @@ func TestRTCMFrameRoundTripAndDiagnostics(t *testing.T) {
 	if _, _, e = DecodeRTCMFrame(frame[:len(frame)-1]); e == nil {
 		t.Fatal("strict frame decoder accepted truncation")
 	}
-	if _, e = DecodeRTCM(bad); e != nil {
-		t.Fatal("forgiving decoder rejected bad CRC:", e)
+	if _, e = DecodeRTCM(bad); e == nil {
+		t.Fatal("strict stream decoder accepted a bad CRC")
 	}
 	m, diag, e := DecodeRTCMStream(append(bad, frame...))
 	if e != nil {
@@ -704,8 +914,12 @@ func TestObservationQualityLintRepairAndSignalValidation(t *testing.T) {
 	if _, err := report.CycleSlips(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := report.CycleSlipSystems(); err != nil {
+	cycleSlipSystems, err := report.CycleSlipSystems()
+	if err != nil {
 		t.Fatal(err)
+	}
+	if len(cycleSlipSystems) != 1 || cycleSlipSystems[0].System != GNSSSystemGPS || cycleSlipSystems[0].Observations != 23 || cycleSlipSystems[0].Slips != 0 {
+		t.Fatalf("dual-frequency cycle-slip systems = %+v, want GPS only (GLONASS has no resolvable channel pair in this RINEX 2.11 fixture)", cycleSlipSystems)
 	}
 	if _, err := report.Satellites(); err != nil {
 		t.Fatal(err)
@@ -713,8 +927,18 @@ func TestObservationQualityLintRepairAndSignalValidation(t *testing.T) {
 	if _, err := report.SatelliteSignals(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := report.SystemSignals(); err != nil {
+	systemSignals, err := report.SystemSignals()
+	if err != nil {
 		t.Fatal(err)
+	}
+	gpsC2 := map[string]int{}
+	for _, signal := range systemSignals {
+		if signal.System == GNSSSystemGPS && (signal.Code == "C2X" || signal.Code == "C2W" || signal.Code == "C2C") {
+			gpsC2[signal.Code] = signal.ValueObservations
+		}
+	}
+	if len(gpsC2) != 2 || gpsC2["C2X"] != 10 || gpsC2["C2W"] != 23 {
+		t.Fatalf("RINEX 2.11 GPS L2 signal counts = %+v, want C2X=10 and C2W=23", gpsC2)
 	}
 	if _, err := report.SatelliteMultipath(); err != nil {
 		t.Fatal(err)
@@ -734,13 +958,13 @@ func TestObservationQualityLintRepairAndSignalValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := fmt.Sprintf("%x", sha256.Sum256(textRender)); got != "701babc38230d7236883eea8090d18a7b7fc382c21b217b18968b9add6ba15e5" {
+	if got := fmt.Sprintf("%x", sha256.Sum256(textRender)); got != "42152036aa54398d0d41f0fa50b2f202d3cc9e01d3edfb3cf398f7c734a39f43" {
 		t.Fatalf("quality text hash = %s", got)
 	}
-	if got := fmt.Sprintf("%x", sha256.Sum256(htmlRender)); got != "7c36369028e2ff7e362ff1d6c89af306c46a272663da031045a2ae58e90518b4" {
+	if got := fmt.Sprintf("%x", sha256.Sum256(htmlRender)); got != "8e35c7a39d5dc8d13236dfa68ff9efedace09f3f6848f5b72f960a3e1fefbd8b" {
 		t.Fatalf("quality HTML hash = %s", got)
 	}
-	if got := fmt.Sprintf("%x", sha256.Sum256(jsonA)); got != "8d2a92b82022f217a7405b9780c571492d36b3d088fc4c97ece088020bf13e43" {
+	if got := fmt.Sprintf("%x", sha256.Sum256(jsonA)); got != "2ad9fd34da62e6986cc66a61b40f4e8235df865d8bc8fc0eac8f2b99160d8d36" {
 		t.Fatalf("quality JSON hash = %s", got)
 	}
 	jsonB, err := report.JSON()
@@ -777,21 +1001,21 @@ func TestObservationQualityLintRepairAndSignalValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantFindings := []RINEXLintFinding{
-		{Code: "OBS-H90", Severity: RINEXLintInfo, HasField: true, Field: "header"},
-		{Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R05", HasField: true, Field: "GLONASS SLOT / FRQ #"},
-		{Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R06", HasField: true, Field: "GLONASS SLOT / FRQ #"},
-		{Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R07", HasField: true, Field: "GLONASS SLOT / FRQ #"},
-		{Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R09", HasField: true, Field: "GLONASS SLOT / FRQ #"},
-		{Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R15", HasField: true, Field: "GLONASS SLOT / FRQ #"},
-		{Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R16", HasField: true, Field: "GLONASS SLOT / FRQ #"},
-		{Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R17", HasField: true, Field: "GLONASS SLOT / FRQ #"},
-		{Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R24", HasField: true, Field: "GLONASS SLOT / FRQ #"},
+		{Kind: "ObsUnretainedHeader", SpecRef: "RINEX 3.05 section 6.6", Details: map[string]any{"label": "WAVELENGTH FACT L1/2"}, Code: "OBS-H90", Severity: RINEXLintInfo, HasField: true, Field: "header"},
+		{Kind: "ObsGlonassSlotIssue", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"satellite": "R05", "issue": "missing slot"}, Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R05", HasField: true, Field: "GLONASS SLOT / FRQ #"},
+		{Kind: "ObsGlonassSlotIssue", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"satellite": "R06", "issue": "missing slot"}, Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R06", HasField: true, Field: "GLONASS SLOT / FRQ #"},
+		{Kind: "ObsGlonassSlotIssue", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"satellite": "R07", "issue": "missing slot"}, Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R07", HasField: true, Field: "GLONASS SLOT / FRQ #"},
+		{Kind: "ObsGlonassSlotIssue", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"satellite": "R09", "issue": "missing slot"}, Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R09", HasField: true, Field: "GLONASS SLOT / FRQ #"},
+		{Kind: "ObsGlonassSlotIssue", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"satellite": "R15", "issue": "missing slot"}, Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R15", HasField: true, Field: "GLONASS SLOT / FRQ #"},
+		{Kind: "ObsGlonassSlotIssue", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"satellite": "R16", "issue": "missing slot"}, Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R16", HasField: true, Field: "GLONASS SLOT / FRQ #"},
+		{Kind: "ObsGlonassSlotIssue", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"satellite": "R17", "issue": "missing slot"}, Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R17", HasField: true, Field: "GLONASS SLOT / FRQ #"},
+		{Kind: "ObsGlonassSlotIssue", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"satellite": "R24", "issue": "missing slot"}, Code: "OBS-H12", Severity: RINEXLintError, HasSatellite: true, Satellite: "R24", HasField: true, Field: "GLONASS SLOT / FRQ #"},
 	}
 	if len(findings) != len(wantFindings) {
 		t.Fatalf("lint findings=%+v", findings)
 	}
 	for index := range wantFindings {
-		if findings[index] != wantFindings[index] {
+		if !reflect.DeepEqual(findings[index], wantFindings[index]) {
 			t.Fatalf("lint finding[%d]=%+v want %+v", index, findings[index], wantFindings[index])
 		}
 	}
@@ -828,8 +1052,31 @@ func TestObservationQualityLintRepairAndSignalValidation(t *testing.T) {
 	if len(repairedText) == 0 {
 		t.Fatal("empty repaired RINEX output")
 	}
-	if got := fmt.Sprintf("%x", sha256.Sum256(repairedText)); got != "7af542b522ea990ee4bcb9cf08dafa5afc06b8f7e4ef71e647d4adf57f89474b" {
+	if got := fmt.Sprintf("%x", sha256.Sum256(repairedText)); got != "7a2198f2760ba178387913a5c118e6e45f033f48e823e43bdc6c3db189f89107" {
 		t.Fatalf("repair text hash = %s", got)
+	}
+	// Repaired RINEX 2.11 output must remain readable as RINEX 2.11; older
+	// output used RINEX 3 epoch records under this version header.
+	reparsedRepair, err := ParseRINEXObservation(repairedText)
+	if err != nil {
+		t.Fatalf("repaired RINEX is not parseable: %v", err)
+	}
+	reparsedQuality, err := reparsedRepair.Quality(&options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reparsedSummary, err := reparsedQuality.Summary()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reparsedSummary != wantQCSummary {
+		t.Fatalf("repaired observation summary=%+v, want %+v", reparsedSummary, wantQCSummary)
+	}
+	if err := reparsedQuality.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := reparsedRepair.Close(); err != nil {
+		t.Fatal(err)
 	}
 	if err := repair.Close(); err != nil {
 		t.Fatal(err)
@@ -877,5 +1124,84 @@ func TestObservationQualityLintRepairAndSignalValidation(t *testing.T) {
 	label, err := ModulationLabel(BPSK(1))
 	if err != nil || label == "" {
 		t.Fatalf("modulation label=%q err=%v", label, err)
+	}
+}
+
+func replaceFirstFindingMutation(t *testing.T, data []byte, old, replacement string) []byte {
+	t.Helper()
+	if len(old) != len(replacement) {
+		t.Fatalf("mutation changes width: %q => %q", old, replacement)
+	}
+	out := append([]byte(nil), data...)
+	index := bytes.Index(out, []byte(old))
+	if index < 0 {
+		t.Fatalf("fixture lacks mutation text %q", old)
+	}
+	copy(out[index:index+len(old)], replacement)
+	return out
+}
+
+func TestRINEXLintFindingHeaderMutations(t *testing.T) {
+	base := readObservationFixture(t, "algo0010_2015001_v1_trim.rnx")
+	tests := []struct {
+		name   string
+		mutate func(*testing.T, []byte) []byte
+		want   RINEXLintFinding
+	}{
+		{
+			name: "interval mismatch",
+			mutate: func(t *testing.T, data []byte) []byte {
+				return replaceFirstFindingMutation(t, data, "30.0000", "01.0000")
+			},
+			want: RINEXLintFinding{Kind: "ObsIntervalMismatch", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"declared_s": json.Number("1.0"), "observed_s": json.Number("30.0")}, Code: "OBS-H09", Severity: RINEXLintWarning, Repairable: true, HasField: true, Field: "INTERVAL"},
+		},
+		{
+			name: "implausible approximate position",
+			mutate: func(t *testing.T, data []byte) []byte {
+				data = replaceFirstFindingMutation(t, data, "918129.4000", "     1.0000")
+				data = replaceFirstFindingMutation(t, data, "-4346071.2000", "       1.0000")
+				return replaceFirstFindingMutation(t, data, "4561977.8000", "      1.0000")
+			},
+			want: RINEXLintFinding{Kind: "ObsImplausibleApproxPosition", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{"radius_m": json.Number("1.7320508075688772")}, Code: "OBS-H17", Severity: RINEXLintWarning, HasField: true, Field: "APPROX POSITION XYZ"},
+		},
+		{
+			name: "first observation time mismatch",
+			mutate: func(t *testing.T, data []byte) []byte {
+				return replaceFirstFindingMutation(t, data, "  2015     1     1     0     0    0.0000000", "  2015     1     2     0     0    0.0000000")
+			},
+			want: RINEXLintFinding{Kind: "ObsTimeOfFirstMismatch", SpecRef: "RINEX 3.05 Table A2", Details: map[string]any{
+				"declared":       map[string]any{"year": json.Number("2015"), "month": json.Number("1"), "day": json.Number("2"), "hour": json.Number("0"), "minute": json.Number("0"), "second": json.Number("0.0")},
+				"declared_scale": "GPST",
+				"observed":       map[string]any{"year": json.Number("2015"), "month": json.Number("1"), "day": json.Number("1"), "hour": json.Number("0"), "minute": json.Number("0"), "second": json.Number("0.0")},
+				"observed_scale": "GPST",
+			}, Code: "OBS-H07", Severity: RINEXLintError, Repairable: true, HasField: true, Field: "TIME OF FIRST OBS"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			report, err := LintRINEXObservation(test.mutate(t, base))
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if err := report.Close(); err != nil {
+					t.Errorf("close lint report: %v", err)
+				}
+			})
+			findings, err := report.Findings()
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got *RINEXLintFinding
+			for i := range findings {
+				if findings[i].Code == test.want.Code {
+					got = &findings[i]
+					break
+				}
+			}
+			if got == nil || !reflect.DeepEqual(*got, test.want) {
+				t.Fatalf("finding = %#v, want %#v", got, test.want)
+			}
+		})
 	}
 }

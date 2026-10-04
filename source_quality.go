@@ -1,6 +1,11 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import (
+	"encoding/json"
+	"errors"
+
+	"sidereon.dev/go/v3/internal/native"
+)
 
 // SourceSolveMode selects time-of-arrival or time-difference-of-arrival
 // source localization.
@@ -415,6 +420,214 @@ func (s *SourcedSolution) BroadcastReason() (BroadcastReasonKind, SelectionStatu
 	}
 	reason, selection, metadata, present, err := s.handle.BroadcastReason()
 	return BroadcastReasonKind(reason), SelectionStatus(selection), stalenessMetadata(metadata), present, publicError(err)
+}
+
+// BroadcastReasonDetail returns C's complete typed fallback-reason payload as
+// detached JSON bytes. It includes the nested selection or precise SPP error
+// fields that the compact BroadcastReason accessor intentionally omits.
+func (s *SourcedSolution) BroadcastReasonDetail() ([]byte, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	value, err := s.handle.BroadcastReasonDetail()
+	return value, publicError(err)
+}
+
+// BroadcastReasonDetailValue decodes the complete fallback detail into a
+// variant-aware envelope. Nested native diagnostics remain available as raw
+// JSON so fields added by newer core versions are not discarded.
+func (s *SourcedSolution) BroadcastReasonDetailValue() (BroadcastReasonDetail, error) {
+	data, err := s.BroadcastReasonDetail()
+	if err != nil {
+		return BroadcastReasonDetail{}, err
+	}
+	return decodeBroadcastReasonDetail(data)
+}
+
+func decodeBroadcastReasonDetail(data []byte) (BroadcastReasonDetail, error) {
+	var value BroadcastReasonDetail
+	if err := json.Unmarshal(data, &value); err != nil {
+		return BroadcastReasonDetail{}, err
+	}
+	value.Raw = append(json.RawMessage(nil), data...)
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return BroadcastReasonDetail{}, err
+	}
+	if value.SelectionError != nil {
+		value.SelectionError.Raw = append(json.RawMessage(nil), raw["selection_error"]...)
+	}
+	if value.Error != nil {
+		value.Error.Raw = append(json.RawMessage(nil), raw["error"]...)
+		var envelope map[string]json.RawMessage
+		if err := json.Unmarshal(raw["error"], &envelope); err != nil {
+			return BroadcastReasonDetail{}, err
+		}
+		fieldsRaw := envelope["fields"]
+		value.Error.Fields.Raw = append(json.RawMessage(nil), fieldsRaw...)
+		var rawFields map[string]json.RawMessage
+		if err := json.Unmarshal(fieldsRaw, &rawFields); err != nil {
+			return BroadcastReasonDetail{}, err
+		}
+		typed, err := native.DecodeEngineJSONFields(fieldsRaw)
+		if err != nil {
+			return BroadcastReasonDetail{}, err
+		}
+		value.Error.Fields.TypedFields = typed
+		if value.Error.Fields.Cause != nil {
+			if err := retainBroadcastLeastSquaresError(value.Error.Fields.Cause, rawFields["cause"]); err != nil {
+				return BroadcastReasonDetail{}, err
+			}
+		}
+	}
+	if value.SelectionError != nil && value.SelectionError.Cause != nil {
+		var selectionFields map[string]json.RawMessage
+		if err := json.Unmarshal(raw["selection_error"], &selectionFields); err != nil {
+			return BroadcastReasonDetail{}, err
+		}
+		causeRaw := selectionFields["cause"]
+		if len(causeRaw) == 0 {
+			return BroadcastReasonDetail{}, errors.New("sidereon: selection cause missing from raw payload")
+		}
+		if err := retainBroadcastCoreError(value.SelectionError.Cause, causeRaw); err != nil {
+			return BroadcastReasonDetail{}, err
+		}
+	}
+	return value, nil
+}
+
+func retainBroadcastCoreError(value *BroadcastCoreErrorDetail, rawNode []byte) error {
+	value.Raw = append(json.RawMessage(nil), rawNode...)
+	fields, err := retainBroadcastCoreFields(&value.Fields, rawNode)
+	if err != nil {
+		return err
+	}
+	if nested := value.Fields.Cause; nested != nil {
+		return retainBroadcastCoreError(nested, fields["cause"])
+	}
+	return nil
+}
+
+func retainBroadcastLeastSquaresError(value *BroadcastLeastSquaresErrorDetail, rawNode json.RawMessage) error {
+	value.Raw = append(json.RawMessage(nil), rawNode...)
+	fields, err := retainBroadcastCoreFields(&value.Fields, rawNode)
+	if err != nil {
+		return err
+	}
+	if nested := value.Fields.Cause; nested != nil {
+		return retainBroadcastCoreError(nested, fields["cause"])
+	}
+	return nil
+}
+
+func retainBroadcastCoreFields(value *BroadcastCoreErrorFields, rawNode []byte) (map[string]json.RawMessage, error) {
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(rawNode, &envelope); err != nil {
+		return nil, err
+	}
+	fieldsRaw := envelope["fields"]
+	if len(fieldsRaw) == 0 {
+		return nil, errors.New("sidereon: typed core error node has no fields object")
+	}
+	value.Raw = append(json.RawMessage(nil), fieldsRaw...)
+	var rawFields map[string]json.RawMessage
+	if err := json.Unmarshal(fieldsRaw, &rawFields); err != nil {
+		return nil, err
+	}
+	typedFields, err := native.DecodeEngineJSONFields(fieldsRaw)
+	if err != nil {
+		return nil, err
+	}
+	value.TypedFields = typedFields
+	return rawFields, nil
+}
+
+// BroadcastReasonDetail is the copied complete fallback reason envelope.
+// Exactly one variant payload is populated for a valid C result.
+type BroadcastReasonDetail struct {
+	Family         string                          `json:"family"`
+	Kind           string                          `json:"kind"`
+	Message        string                          `json:"message"`
+	SelectionError *BroadcastSelectionErrorDetail  `json:"selection_error,omitempty"`
+	Staleness      *BroadcastReasonDetailStaleness `json:"staleness,omitempty"`
+	Error          *BroadcastSppErrorDetail        `json:"error,omitempty"`
+	Raw            json.RawMessage                 `json:"-"`
+}
+
+// BroadcastReasonDetailStaleness preserves each exact binary64 source value.
+type BroadcastReasonDetailStaleness struct {
+	Kind                 string      `json:"kind"`
+	RequestedEpochJ2000S EngineFloat `json:"requested_epoch_j2000_s"`
+	SourceEpochJ2000S    EngineFloat `json:"source_epoch_j2000_s"`
+	StalenessS           EngineFloat `json:"staleness_s"`
+	StalenessDays        EngineFloat `json:"staleness_days"`
+}
+
+// BroadcastSelectionErrorDetail preserves all current selection-error fields.
+// Optional exact numeric values use EngineFloat to retain their original bits.
+type BroadcastSelectionErrorDetail struct {
+	Family               string                    `json:"family"`
+	Kind                 string                    `json:"kind"`
+	Message              string                    `json:"message"`
+	StartEpochJ2000S     *EngineFloat              `json:"start_epoch_j2000_s,omitempty"`
+	EndEpochJ2000S       *EngineFloat              `json:"end_epoch_j2000_s,omitempty"`
+	RequestedEpochJ2000S *EngineFloat              `json:"requested_epoch_j2000_s,omitempty"`
+	SourceEpochJ2000S    *EngineFloat              `json:"source_epoch_j2000_s,omitempty"`
+	StalenessS           *EngineFloat              `json:"staleness_s,omitempty"`
+	MaxStalenessS        *EngineFloat              `json:"max_staleness_s,omitempty"`
+	MessageDetail        string                    `json:"message_detail,omitempty"`
+	Context              string                    `json:"context,omitempty"`
+	Cause                *BroadcastCoreErrorDetail `json:"cause,omitempty"`
+	Raw                  json.RawMessage           `json:"-"`
+}
+
+// BroadcastSppErrorDetail retains the complete tagged SPP refusal payload.
+type BroadcastSppErrorDetail struct {
+	Kind   string                  `json:"kind"`
+	Fields BroadcastSppErrorFields `json:"fields"`
+	Raw    json.RawMessage         `json:"-"`
+}
+
+// BroadcastSppErrorFields contains fields used by every current SPP variant.
+type BroadcastSppErrorFields struct {
+	Field       string                            `json:"field,omitempty"`
+	InputKind   string                            `json:"kind,omitempty"`
+	Used        *uint64                           `json:"used,omitempty"`
+	Required    *uint64                           `json:"required,omitempty"`
+	Cause       *BroadcastLeastSquaresErrorDetail `json:"cause,omitempty"`
+	SatelliteID string                            `json:"satellite_id,omitempty"`
+	Passes      *uint64                           `json:"passes,omitempty"`
+	Reason      string                            `json:"reason,omitempty"`
+	Raw         json.RawMessage                   `json:"-"`
+	TypedFields map[string]EngineJSONValue        `json:"-"`
+}
+
+// BroadcastLeastSquaresErrorDetail is the nested cause of an SPP singular solve.
+type BroadcastLeastSquaresErrorDetail struct {
+	Kind   string                   `json:"kind"`
+	Fields BroadcastCoreErrorFields `json:"fields"`
+	Raw    json.RawMessage          `json:"-"`
+}
+
+// BroadcastCoreErrorDetail retains a nested core error used by selection.
+type BroadcastCoreErrorDetail struct {
+	Kind   string                   `json:"kind"`
+	Fields BroadcastCoreErrorFields `json:"fields"`
+	Raw    json.RawMessage          `json:"-"`
+}
+
+// BroadcastCoreErrorFields contains known nested core cause fields and all
+// future fields in Raw.
+type BroadcastCoreErrorFields struct {
+	Message     string                     `json:"message,omitempty"`
+	SatelliteID string                     `json:"satellite_id,omitempty"`
+	Reason      string                     `json:"reason,omitempty"`
+	Field       string                     `json:"field,omitempty"`
+	LatIndex    *int64                     `json:"lat_index,omitempty"`
+	LonIndex    *int64                     `json:"lon_index,omitempty"`
+	Cause       *BroadcastCoreErrorDetail  `json:"cause,omitempty"`
+	Raw         json.RawMessage            `json:"-"`
+	TypedFields map[string]EngineJSONValue `json:"-"`
 }
 
 // IsPreciseExact reports whether C used an exact precise product.

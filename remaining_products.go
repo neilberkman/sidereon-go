@@ -2,9 +2,8 @@ package sidereon
 
 import (
 	"fmt"
-	"os"
 
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
 )
 
 // PreciseEphemerisSamples is a C-owned sample-backed ephemeris source.
@@ -263,14 +262,14 @@ func OpenPreciseInterpolantArtifactBorrowed(data []byte) (*PreciseInterpolantArt
 	return OpenPreciseInterpolantArtifact(data)
 }
 
-// OpenPreciseInterpolantArtifactFile keeps filesystem acquisition in Go and
-// passes only the detached bytes through the C ABI.
+// OpenPreciseInterpolantArtifactFile opens a verified native file-backed artifact.
+// With the pinned mmap-enabled C library, the native handle owns a read-only mapping.
 func OpenPreciseInterpolantArtifactFile(path string) (*PreciseInterpolantArtifact, PreciseInterpolantArtifactError, error) {
-	data, err := os.ReadFile(path)
+	handle, kind, err := native.OpenPreciseInterpolantArtifactFile(path)
 	if err != nil {
-		return nil, 0, err
+		return nil, PreciseInterpolantArtifactError(kind), publicError(err)
 	}
-	return OpenPreciseInterpolantArtifact(data)
+	return &PreciseInterpolantArtifact{handle: handle}, PreciseInterpolantArtifactError(kind), nil
 }
 
 // Close releases the native artifact and is safe to call concurrently and repeatedly.
@@ -368,12 +367,25 @@ const (
 	PreciseInterpolantArtifactErrorIO PreciseInterpolantArtifactError = PreciseInterpolantArtifactError(native.PreciseInterpolantArtifactErrorIOValue)
 	// PreciseInterpolantArtifactErrorAttestedChecksumMismatch indicates an attestation mismatch.
 	PreciseInterpolantArtifactErrorAttestedChecksumMismatch PreciseInterpolantArtifactError = PreciseInterpolantArtifactError(native.PreciseInterpolantArtifactErrorAttestedChecksumMismatchValue)
+	// PreciseInterpolantArtifactErrorSatelliteChecksum indicates a satellite payload checksum mismatch.
+	PreciseInterpolantArtifactErrorSatelliteChecksum PreciseInterpolantArtifactError = 10
+	// PreciseInterpolantArtifactErrorBadMagic indicates invalid first-eight-byte magic.
+	PreciseInterpolantArtifactErrorBadMagic PreciseInterpolantArtifactError = 11
+	// PreciseInterpolantArtifactErrorHeaderTruncated indicates an incomplete fixed header.
+	PreciseInterpolantArtifactErrorHeaderTruncated PreciseInterpolantArtifactError = 12
+	// PreciseInterpolantArtifactErrorTrailingBytes indicates bytes after the declared length.
+	PreciseInterpolantArtifactErrorTrailingBytes PreciseInterpolantArtifactError = 13
+	// PreciseInterpolantArtifactErrorRangeOutOfBounds indicates an index region outside the artifact.
+	PreciseInterpolantArtifactErrorRangeOutOfBounds PreciseInterpolantArtifactError = 14
+	// PreciseInterpolantArtifactErrorUnknown preserves a future native refusal category.
+	PreciseInterpolantArtifactErrorUnknown PreciseInterpolantArtifactError = 999
 )
 
 func publicObservableStates(values []native.NativeObservableStateRow) []ObservableStateRow {
 	out := make([]ObservableStateRow, len(values))
 	for i, v := range values {
 		out[i] = ObservableStateRow{PositionECEFM: v.Position, ClockS: v.ClockS, HasClock: v.HasClock, ElementStatus: ObservableStateElementStatus(v.ElementStatus), ResultStatus: StatusCode(v.ResultStatus)}
+		out[i].Error = publicObservableRowError(v.Error)
 	}
 	return out
 }

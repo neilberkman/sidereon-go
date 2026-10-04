@@ -62,6 +62,37 @@ const (
 	TerrainStoreErrorChecksumValue                 = uint32(6)
 	TerrainStoreErrorTileIDMismatchValue           = uint32(7)
 	TerrainStoreErrorAttestedChecksumMismatchValue = uint32(8)
+	TerrainStoreErrorTileIDOutOfRangeValue         = uint32(9)
+	TerrainStoreErrorTileBoundsMismatchValue       = uint32(10)
+	TerrainStoreErrorNonWgs84TileValue             = uint32(11)
+	TerrainStoreErrorTileValue                     = uint32(12)
+
+	TerrainLookupErrorNoneValue             = uint32(0)
+	TerrainLookupErrorInvalidInputValue     = uint32(1)
+	TerrainLookupErrorMissingTileValue      = uint32(2)
+	TerrainLookupErrorUnknownElevationValue = uint32(3)
+	TerrainLookupErrorNonWgs84TileValue     = uint32(4)
+	TerrainLookupErrorParseValue            = uint32(5)
+	TerrainLookupErrorTileValue             = uint32(6)
+	TerrainLookupErrorTileOriginValue       = uint32(7)
+	TerrainLookupErrorOtherValue            = uint32(999)
+
+	GeoidErrorNoneValue              = uint32(0)
+	GeoidErrorInvalidDimensionsValue = uint32(1)
+	GeoidErrorInvalidSpacingValue    = uint32(2)
+	GeoidErrorNonFiniteValueValue    = uint32(3)
+	GeoidErrorParseValue             = uint32(4)
+	GeoidErrorUnknownValue           = uint32(999)
+
+	TerrainErrorFamilyTileValue      = uint32(0)
+	TerrainErrorFamilyStoreValue     = uint32(1)
+	TerrainErrorFamilyDatumValue     = uint32(2)
+	TerrainErrorFamilyLookupValue    = uint32(3)
+	TerrainErrorTextPathValue        = uint32(0)
+	TerrainErrorTextMessageValue     = uint32(1)
+	TerrainErrorTextReasonValue      = uint32(2)
+	TerrainErrorTextRemediationValue = uint32(3)
+	TerrainErrorTextFieldValue       = uint32(4)
 
 	TropoMappingErrorNoneValue         = uint32(0)
 	TropoMappingErrorLowElevationValue = uint32(1)
@@ -157,6 +188,7 @@ type DtedHeightResult struct {
 	Status     uint32
 	HasHeightM bool
 	HeightM    float64
+	Error      TerrainLookupError
 }
 type TerrainTileID struct {
 	LatIndex int32
@@ -190,57 +222,6 @@ func DtedTileListToMmapStore([]DtedTileListEntry) ([]byte, error) { return nil, 
 func DtedTreeToMmapStore(string) ([]byte, error)                  { return nil, unavailable() }
 func DtedInterpolationLabel(uint32) ([]byte, error)               { return nil, unavailable() }
 
-type TerrainDatumError struct {
-	Kind        uint32
-	Path        string
-	Message     string
-	Remediation string
-}
-type TerrainStoreError struct {
-	Kind             uint32
-	Path             string
-	Message          string
-	Reason           string
-	Version          uint16
-	Tag              uint8
-	LatIndex         int32
-	LonIndex         int32
-	ExpectedChecksum uint64
-	FoundChecksum    uint64
-}
-
-func (e *TerrainDatumError) Error() string {
-	if e == nil {
-		return "sidereon: terrain datum error"
-	}
-	if e.Message != "" {
-		return e.Message
-	}
-	if e.Remediation != "" {
-		return e.Remediation
-	}
-	if e.Path != "" {
-		return e.Path
-	}
-	return "sidereon: terrain datum error"
-}
-
-func (e *TerrainStoreError) Error() string {
-	if e == nil {
-		return "sidereon: terrain store error"
-	}
-	if e.Message != "" {
-		return e.Message
-	}
-	if e.Reason != "" {
-		return e.Reason
-	}
-	if e.Path != "" {
-		return e.Path
-	}
-	return "sidereon: terrain store error"
-}
-
 func LastTerrainDatumError() (TerrainDatumError, error) { return TerrainDatumError{}, unavailable() }
 func LastTerrainStoreError() (TerrainStoreError, error) { return TerrainStoreError{}, unavailable() }
 func TerrainStoreChecksum64([]byte) (uint64, error)     { return 0, unavailable() }
@@ -251,6 +232,7 @@ type MmapTerrainHeightResult struct {
 	Status                uint32
 	HasOrthometricHeightM bool
 	OrthometricHeightM    float64
+	Error                 TerrainLookupError
 }
 type TerrainStoreTileIndex struct {
 	LatIndex        int32
@@ -312,16 +294,100 @@ type AntennaPco struct {
 	EastM  float64
 	UpM    float64
 }
+type AntexError struct {
+	Kind                                                                              uint32
+	HasAntennaID, HasRecord, HasField, HasValue, HasFrequency, HasReason, HasSections bool
+	Sections                                                                          int
+	AntennaID, Record, Field, Value, Frequency, Reason, Message                       string
+}
+type AntexOutcome struct {
+	IsOK   bool
+	Status uint32
+	Error  AntexError
+}
+type AntexHeader struct {
+	HasVersion          bool
+	Version             float64
+	HasSystem           bool
+	System              uint32
+	HasPcvType          bool
+	PcvType             uint32
+	HasReferenceAntenna bool
+	CommentCount        int
+	EndOfHeader         bool
+}
+type AntexDateTime struct {
+	Year                             int32
+	Month, Day, Hour, Minute, Second uint8
+	FractionDigits, FractionScale    uint64
+}
+type AntennaInfo struct {
+	Kind                                                                uint32
+	HasDazi                                                             bool
+	DaziDeg                                                             float64
+	HasZenithGrid                                                       bool
+	ZenithStartDeg, ZenithEndDeg, ZenithStepDeg                         float64
+	HasFrequencyCountRecord, HasSinexCode, HasValidFrom, HasValidUntil  bool
+	ValidFrom, ValidUntil                                               AntexDateTime
+	CalibrationCount, LeadingCommentCount, CommentCount, FrequencyCount int
+}
+type AntexCalibration struct {
+	HasAntennasCalibrated bool
+	AntennasCalibrated    uint32
+}
+type AntexFrequencyInfo struct {
+	PCOM               [3]float64
+	PCVSampleCount     int
+	HasRMS, HasRMSPCOM bool
+	RMSPCOM            [3]float64
+	RMSPCVSampleCount  int
+}
+type AntexPCVSample struct {
+	Grid                          uint32
+	HasAzimuth                    bool
+	AzimuthDeg, ZenithDeg, ValueM float64
+}
 type Antenna struct{}
 type ANTEX struct{}
 
-func ParseANTEX([]byte) (*ANTEX, error)               { return nil, unavailable() }
+func ParseANTEX([]byte) (*ANTEX, error) { return nil, unavailable() }
+func ParseANTEXWithOutcome([]byte) (*ANTEX, AntexOutcome, error) {
+	return nil, AntexOutcome{}, unavailable()
+}
 func (*ANTEX) Close() error                           { return nil }
 func (*ANTEX) AntennaCount() (int, error)             { return 0, unavailable() }
 func (*ANTEX) Antenna(string) (*Antenna, bool, error) { return nil, false, unavailable() }
 func (*ANTEX) Encode() ([]byte, error)                { return nil, unavailable() }
-func (*Antenna) Close() error                         { return nil }
-func (*Antenna) PCO(string) (AntennaPco, error)       { return AntennaPco{}, unavailable() }
+func (*ANTEX) EncodeWithOutcome() ([]byte, AntexOutcome, error) {
+	return nil, AntexOutcome{}, unavailable()
+}
+func (*ANTEX) Header() (AntexHeader, error)          { return AntexHeader{}, unavailable() }
+func (*ANTEX) HeaderText(uint32) (string, error)     { return "", unavailable() }
+func (*ANTEX) HeaderComment(int) (string, error)     { return "", unavailable() }
+func (*ANTEX) OuterCommentCount() (int, error)       { return 0, unavailable() }
+func (*ANTEX) OuterComment(int) (string, int, error) { return "", 0, unavailable() }
+func (*ANTEX) SkippedRecords() (int, error)          { return 0, unavailable() }
+func (*ANTEX) BlockCount() (int, error)              { return 0, unavailable() }
+func (*ANTEX) Block(int) (*Antenna, error)           { return nil, unavailable() }
+func (*ANTEX) AntennaAt(string, AntexDateTime) (*Antenna, bool, error) {
+	return nil, false, unavailable()
+}
+func (*ANTEX) SatelliteAntenna(string, AntexDateTime) (*Antenna, bool, error) {
+	return nil, false, unavailable()
+}
+func (*Antenna) Close() error                                { return nil }
+func (*Antenna) PCO(string) (AntennaPco, error)              { return AntennaPco{}, unavailable() }
+func (*Antenna) Info() (AntennaInfo, error)                  { return AntennaInfo{}, unavailable() }
+func (*Antenna) Text(uint32) (string, error)                 { return "", unavailable() }
+func (*Antenna) Comment(uint32, int) (string, error)         { return "", unavailable() }
+func (*Antenna) Calibration(int) (AntexCalibration, error)   { return AntexCalibration{}, unavailable() }
+func (*Antenna) CalibrationText(int, uint32) (string, error) { return "", unavailable() }
+func (*Antenna) Frequency(int) (AntexFrequencyInfo, error) {
+	return AntexFrequencyInfo{}, unavailable()
+}
+func (*Antenna) FrequencyLabel(int) (string, error)                      { return "", unavailable() }
+func (*Antenna) FrequencyPCVSamples(int, bool) ([]AntexPCVSample, error) { return nil, unavailable() }
+func (*Antenna) ValidAt(AntexDateTime) (bool, error)                     { return false, unavailable() }
 func (*Antenna) PCV(string, float64, bool, float64) (float64, error) {
 	return 0, unavailable()
 }
@@ -463,6 +529,7 @@ type SpaceWeatherSample struct {
 	ApDefaulted bool
 }
 type SpaceWeatherPolicy struct {
+	AllowNotObserved      bool
 	AllowInterpolated     bool
 	AllowDailyPredicted   bool
 	AllowMonthlyPredicted bool
@@ -476,6 +543,12 @@ type SpaceWeatherTableSummary struct {
 }
 type SpaceWeatherTable struct{}
 
+func DefaultSpaceWeatherPolicy() (SpaceWeatherPolicy, error) {
+	return SpaceWeatherPolicy{}, unavailable()
+}
+func LenientSpaceWeatherPolicy() (SpaceWeatherPolicy, error) {
+	return SpaceWeatherPolicy{}, unavailable()
+}
 func DefaultSpaceWeather() (SpaceWeather, error)                { return SpaceWeather{}, unavailable() }
 func ParseSpaceWeatherTable([]byte) (*SpaceWeatherTable, error) { return nil, unavailable() }
 func ParseSpaceWeatherCSV([]byte) (*SpaceWeatherTable, error)   { return nil, unavailable() }

@@ -3,7 +3,7 @@ package sidereon
 import (
 	"errors"
 
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
 )
 
 // NavMessagePreference returns the navigation-message preference selected by the broadcast ephemeris.
@@ -15,30 +15,47 @@ func (b *BroadcastEphemeris) NavMessagePreference() (uint32, error) {
 	return v, publicError(e)
 }
 
-// FDEOptions contains the C RAIM/FDE controls. PFA is dimensionless;
-// MaxIterations is a count; satellite weights are dimensionless; Systems is
-// the distinct GNSS clock-system count when SystemsEnabled is true.
-// FDEOptions configures fault-detection/exclusion thresholds and iteration limits.
+// FDEWeightsMode selects the variances or weights used by the RAIM statistic.
+type FDEWeightsMode uint32
+
+const (
+	// FDEWeightsSolution uses the estimator pseudorange variances to normalize residuals.
+	FDEWeightsSolution FDEWeightsMode = iota
+	// FDEWeightsUnit assigns unit weight to each residual.
+	FDEWeightsUnit
+	// FDEWeightsBySatellite uses the configured per-satellite residual weights.
+	FDEWeightsBySatellite
+)
+
+// FDEOptions configures fault detection, exclusion and validation. Nil
+// MaxExclusions and MaxExclusionRMSM use core defaults; non-nil zero values are
+// passed explicitly. Positive infinity disables only the candidate RMS cap.
 type FDEOptions struct {
-	PFA           float64
-	MaxIterations uint64
-	// UnitWeights reports whether unit measurement weights are enabled.
-	UnitWeights bool
-	Weights     map[string]float64
-	// SystemsEnabled reports whether constellation filtering is enabled.
+	// PFA is the dimensionless false-alarm probability; zero uses the core default.
+	PFA float64
+	// MaxExclusions is optional; the core default is one and explicit zero disables exclusion.
+	MaxExclusions *uint64
+	// MaxExclusionRMSM is optional; the core default is 100 metres.
+	MaxExclusionRMSM *float64
+	// WeightsMode selects Solution, Unit, or BySatellite weights.
+	WeightsMode FDEWeightsMode
+	// Weights maps satellite IDs to inverse-variance weights in BySatellite mode.
+	Weights map[string]float64
+	// SystemsEnabled enables the explicit receiver clock-system count override.
 	SystemsEnabled bool
-	// Systems identifies the GNSS constellation or constellation set.
+	// Systems is the positive number of receiver clock parameters when enabled.
 	Systems int64
 	// UseValidationOptions reports whether validation options are enabled.
 	UseValidationOptions bool
+	// HasUseValidationOptions distinguishes an explicit false from the native default.
+	HasUseValidationOptions bool
 }
 
-// DefaultFDEOptions returns the C engine defaults. Weight entries can be
-// supplied in the returned options when non-unit weights are requested.
-// DefaultFDEOptions returns native defaults for fault-detection thresholds and iteration limits.
+// DefaultFDEOptions returns native defaults for FDE thresholds, weights,
+// exclusion limits, and solution validation.
 func DefaultFDEOptions() (FDEOptions, error) {
 	v, err := native.FDEOptionsDefault()
-	return FDEOptions{PFA: v.PFA, MaxIterations: v.MaxIterations, UnitWeights: v.UnitWeights, SystemsEnabled: v.SystemsEnabled, Systems: v.Systems, UseValidationOptions: v.UseValidation}, publicError(err)
+	return FDEOptions{PFA: v.PFA, MaxExclusions: v.MaxExclusions, MaxExclusionRMSM: v.MaxExclusionRMSM, WeightsMode: FDEWeightsMode(v.WeightsMode), SystemsEnabled: v.SystemsEnabled, Systems: v.Systems, UseValidationOptions: v.UseValidation, HasUseValidationOptions: true}, publicError(err)
 }
 
 // FDEResult owns fault-detection/exclusion results and the resulting positioning solution.
@@ -72,7 +89,7 @@ type SPPRobustConfig struct {
 }
 
 func nativeFDEOptions(v FDEOptions) native.NativeFDEOptions {
-	return native.NativeFDEOptions{PFA: v.PFA, MaxIterations: v.MaxIterations, UnitWeights: v.UnitWeights, Weights: nativeWeightMap(v.Weights), SystemsEnabled: v.SystemsEnabled, Systems: v.Systems, UseValidation: v.UseValidationOptions}
+	return native.NativeFDEOptions{PFA: v.PFA, MaxExclusions: v.MaxExclusions, MaxExclusionRMSM: v.MaxExclusionRMSM, WeightsMode: uint32(v.WeightsMode), Weights: nativeWeightMap(v.Weights), SystemsEnabled: v.SystemsEnabled, Systems: v.Systems, UseValidation: v.UseValidationOptions, HasUseValidation: v.HasUseValidationOptions}
 }
 
 // SolveFDE computes fault-detection and exclusion diagnostics using positioning data.
@@ -160,14 +177,17 @@ func (f *FDEResult) Solution() (SPPSolution, error) {
 	return publicSPPSolution(v), nil
 }
 
-// RAIM evaluates the surviving C-backed FDE solution. The returned optional
-// threshold and worst-satellite fields retain their native presence flags.
-// RAIM runs receiver-autonomous integrity monitoring on positioning data.
+// RAIM recomputes a test for the surviving solution using the supplied options.
+// Use AcceptedRAIM to retrieve the decision that the FDE search actually used.
 func (f *FDEResult) RAIM(options FDEOptions) (RAIMResult, error) {
 	if f == nil || f.handle == nil {
 		return RAIMResult{}, ErrClosed
 	}
-	v, err := f.handle.RAIM(options.PFA, options.UnitWeights, nativeFDEOptions(options).Weights, options.SystemsEnabled, options.Systems)
+	pfa := options.PFA
+	if pfa == 0 {
+		pfa = 1e-3
+	}
+	v, err := f.handle.RecomputeRAIM(pfa, uint32(options.WeightsMode), nativeFDEOptions(options).Weights, options.SystemsEnabled, options.Systems)
 	if err != nil {
 		return RAIMResult{}, publicError(err)
 	}
@@ -176,6 +196,27 @@ func (f *FDEResult) RAIM(options FDEOptions) (RAIMResult, error) {
 		return RAIMResult{}, conversionErr
 	}
 	return RAIMResult{v.FaultDetected, v.TestStatistic, v.HasThreshold, v.Threshold, v.HasReducedChiSquare, v.ReducedChiSquare, v.RMSM, v.DOF, v.Testable, normalizedCount, v.HasWorstSatellite, v.WorstSatellite}, nil
+}
+
+// AcceptedRAIM returns the exact detection summary and weighted residual rows
+// retained by the FDE solve that selected the reported solution.
+func (f *FDEResult) AcceptedRAIM() (RAIMResult, []RAIMNormalizedResidual, error) {
+	if f == nil || f.handle == nil {
+		return RAIMResult{}, nil, ErrClosed
+	}
+	v, rows, err := f.handle.AcceptedRAIM()
+	if err != nil {
+		return RAIMResult{}, nil, publicError(err)
+	}
+	result, err := publicRAIMResult(v)
+	if err != nil {
+		return RAIMResult{}, nil, err
+	}
+	out := make([]RAIMNormalizedResidual, len(rows))
+	for i, row := range rows {
+		out[i] = RAIMNormalizedResidual{row.SatelliteID, row.NormalizedResidual}
+	}
+	return result, out, nil
 }
 
 // Close releases the native fault-detection/exclusion report; repeated calls are safe.

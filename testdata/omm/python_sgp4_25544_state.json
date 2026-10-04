@@ -1,0 +1,57 @@
+{
+  "generator": "python-sgp4 2.22 accelerated Satrec.sgp4_tsince",
+  "input_fixture": "25544.json",
+  "input_fixture_sha256": "01c4adc5186ac571830103bd741dbcd096190f347024faba2b47492053f731c3",
+  "python_version": "3.11.16",
+  "sgp4_version": "2.22",
+  "states": [
+    {
+      "error": 0,
+      "minutes_since_epoch": 0.0,
+      "position_km": [
+        3408.7746208720605,
+        -5884.8656678929265,
+        0.0031814424638826654
+      ],
+      "position_km_hex": [
+        "0x1.aa18c9b1b6099p+11",
+        "-0x1.6fcdd9c693951p+12",
+        "0x1.a0ff7eac4754ap-9"
+      ],
+      "velocity_km_s": [
+        4.108018184321438,
+        2.3860898383018547,
+        6.005330940144629
+      ],
+      "velocity_km_s_hex": [
+        "0x1.06e9c51a422b0p+2",
+        "0x1.316b644e6985cp+1",
+        "0x1.8057579564ffdp+2"
+      ]
+    },
+    {
+      "error": 0,
+      "minutes_since_epoch": 10.0,
+      "position_km": [
+        4940.421347037923,
+        -3265.59240209243,
+        3334.196814168918
+      ],
+      "position_km_hex": [
+        "0x1.34c6bdd664425p+12",
+        "-0x1.9832f4f53ba23p+11",
+        "0x1.a0c64c4d3a5c9p+11"
+      ],
+      "velocity_km_s": [
+        0.8014117263010778,
+        6.009952030946216,
+        4.680878642140314
+      ],
+      "velocity_km_s_hex": [
+        "0x1.9a52a34630250p-1",
+        "0x1.80a30dd7dc568p+2",
+        "0x1.2b93840322670p+2"
+      ]
+    }
+  ]
+}

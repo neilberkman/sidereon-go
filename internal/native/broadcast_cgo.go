@@ -35,6 +35,7 @@ type NativeObservableStateRow struct {
 	HasClock      bool
 	ElementStatus uint32
 	ResultStatus  uint32
+	Error         *NativeObservableRowError
 }
 
 type NativePredictedObservables struct {
@@ -389,9 +390,10 @@ func (b *BroadcastEphemeris) ObservableStates(satellites []string, epochs []floa
 				statusPointer = &statuses[0]
 				epochPointer = &nativeEpochs[0]
 			}
-			if err := callStatus(func() uint32 {
+			rowErrors, err := callObservableRows(func() uint32 {
 				return C.sidereon_broadcast_observable_states_at_j2000_s((*C.SidereonBroadcastEphemeris)(pointer), satellitesPointer, epochPointer, count, positionPointer, clockPointer, hasClockPointer, elementPointer, statusPointer)
-			}); err != nil {
+			}, n)
+			if err != nil {
 				return err
 			}
 			result = make([]NativeObservableStateRow, n)
@@ -406,6 +408,9 @@ func (b *BroadcastEphemeris) ObservableStates(satellites []string, epochs []floa
 				for axis := range result[i].Position {
 					result[i].Position[axis] = float64(positions[i*3+axis])
 				}
+			}
+			if err := attachObservableRowErrors(result, rowErrors); err != nil {
+				return err
 			}
 			return nil
 		})
@@ -442,9 +447,10 @@ func (b *BroadcastEphemeris) ObservableStatesShared(satellites []string, epoch f
 			if n > 0 {
 				pp, cp, hp, ep, sp = &positions[0], &clocks[0], &hasClocks[0], &elements[0], &statuses[0]
 			}
-			if err := callStatus(func() uint32 {
+			rowErrors, err := callObservableRows(func() uint32 {
 				return C.sidereon_broadcast_observable_states_at_shared_j2000_s((*C.SidereonBroadcastEphemeris)(pointer), satellitesPointer, count, C.double(epoch), pp, cp, hp, ep, sp)
-			}); err != nil {
+			}, n)
+			if err != nil {
 				return err
 			}
 			result = make([]NativeObservableStateRow, n)
@@ -457,6 +463,9 @@ func (b *BroadcastEphemeris) ObservableStatesShared(satellites []string, epoch f
 				for axis := range result[i].Position {
 					result[i].Position[axis] = float64(positions[i*3+axis])
 				}
+			}
+			if err := attachObservableRowErrors(result, rowErrors); err != nil {
+				return err
 			}
 			return nil
 		})

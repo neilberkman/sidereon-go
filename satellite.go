@@ -1,9 +1,10 @@
 package sidereon
 
 import (
+	"encoding/json"
 	"time"
 
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
 )
 
 func satelliteUnixMicroseconds(value time.Time) (int64, error) {
@@ -206,6 +207,24 @@ func (a *ConstellationLookAngleArcs) Values() ([]Topocentric, error) {
 	return out, nil
 }
 
+// ErrorPayload copies the complete typed diagnostic for a failed satellite arc.
+func (a *ConstellationLookAngleArcs) ErrorPayload(satelliteIndex int) ([]byte, error) {
+	if a == nil || a.handle == nil {
+		return nil, ErrClosed
+	}
+	value, err := a.handle.ErrorPayload(satelliteIndex)
+	return value, publicError(err)
+}
+
+// ErrorDetail decodes one failed satellite arc while retaining its exact JSON.
+func (a *ConstellationLookAngleArcs) ErrorDetail(satelliteIndex int) (CoverageLookAngleError, error) {
+	payload, err := a.ErrorPayload(satelliteIndex)
+	if err != nil {
+		return CoverageLookAngleError{}, err
+	}
+	return decodeCoverageLookAngleError(payload)
+}
+
 // Close releases ground tracks; it is safe to call more than once.
 func (g *ConstellationGroundTracks) Close() error {
 	if g == nil || g.handle == nil {
@@ -246,6 +265,24 @@ func (g *ConstellationGroundTracks) Values() ([]Geodetic, error) {
 		out[i] = Geodetic{LatitudeRad: v.LatitudeRad, LongitudeRad: v.LongitudeRad, HeightM: v.HeightM}
 	}
 	return out, nil
+}
+
+// ErrorPayload copies the complete typed diagnostic for a failed satellite track.
+func (g *ConstellationGroundTracks) ErrorPayload(satelliteIndex int) ([]byte, error) {
+	if g == nil || g.handle == nil {
+		return nil, ErrClosed
+	}
+	value, err := g.handle.ErrorPayload(satelliteIndex)
+	return value, publicError(err)
+}
+
+// ErrorDetail decodes one failed satellite track while retaining its exact JSON.
+func (g *ConstellationGroundTracks) ErrorDetail(satelliteIndex int) (CoverageLookAngleError, error) {
+	payload, err := g.ErrorPayload(satelliteIndex)
+	if err != nil {
+		return CoverageLookAngleError{}, err
+	}
+	return decodeCoverageLookAngleError(payload)
 }
 
 // Passes finds native dense passes in the requested UTC interval.
@@ -304,6 +341,43 @@ func (p *ConstellationPasses) Values() ([]FleetPass, error) {
 		out[i] = FleetPass{SatelliteIndex: v.SatelliteIndex, Pass: SatellitePass{AOS: v.Pass.AOS, LOS: v.Pass.LOS, Culmination: v.Pass.Culmination, MaxElevationDeg: v.Pass.MaxElevationDeg, DurationS: v.Pass.DurationS}}
 	}
 	return out, nil
+}
+
+// ErrorPayload copies the complete typed pass-search diagnostic for one fleet
+// satellite index.
+func (p *ConstellationPasses) ErrorPayload(satelliteIndex int) ([]byte, error) {
+	if p == nil || p.handle == nil {
+		return nil, ErrClosed
+	}
+	value, err := p.handle.ErrorPayload(satelliteIndex)
+	return value, publicError(err)
+}
+
+// ErrorDetail is one per-satellite pass-search refusal with detached raw JSON.
+func (p *ConstellationPasses) ErrorDetail(satelliteIndex int) (ConstellationPassErrorDetail, error) {
+	payload, err := p.ErrorPayload(satelliteIndex)
+	if err != nil {
+		return ConstellationPassErrorDetail{}, err
+	}
+	var value ConstellationPassErrorDetail
+	if err := json.Unmarshal(payload, &value); err != nil {
+		return ConstellationPassErrorDetail{}, err
+	}
+	value.Raw = append(json.RawMessage(nil), payload...)
+	return value, nil
+}
+
+// ConstellationPassErrorDetail is a per-satellite pass-search refusal.
+type ConstellationPassErrorDetail struct {
+	Kind   string                       `json:"kind"`
+	Fields ConstellationPassErrorFields `json:"fields"`
+	Raw    json.RawMessage              `json:"-"`
+}
+
+// ConstellationPassErrorFields preserves every current pass error field.
+type ConstellationPassErrorFields struct {
+	Field  string `json:"field,omitempty"`
+	Reason string `json:"reason,omitempty"`
 }
 
 // SatelliteVisualMagnitude evaluates the native diffuse-sphere phase law.

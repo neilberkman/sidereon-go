@@ -25,6 +25,25 @@ type NativeRinexObsHeader struct {
 	HasMarkerName                                                     bool
 	MarkerName                                                        string
 }
+type NativeRinexObsHeaderSegment struct {
+	FirstEpochIndex int
+	Header          NativeRinexObsHeader
+}
+type NativeObservableRowError struct {
+	Index       uint64
+	Status      uint32
+	Payload     []byte
+	Engine      *EngineError
+	DecodeError error
+}
+type NativeObservableStateRow struct {
+	Position      [3]float64
+	ClockS        float64
+	HasClock      bool
+	ElementStatus uint32
+	ResultStatus  uint32
+	Error         *NativeObservableRowError
+}
 type NativeRinexObsCode struct {
 	System uint32
 	Code   string
@@ -51,6 +70,8 @@ type NativeClockPhaseSample struct {
 }
 type NativeRinexObsCarrierPhase struct {
 	SatelliteID, Code string
+	PhaseShiftStatus  uint32
+	ConflictCount     int
 	HasValueCycles    bool
 	ValueCycles       float64
 	LLI, SSI          int32
@@ -62,6 +83,77 @@ type NativeRinexObsCarrierPhase struct {
 	ValueM            float64
 	PhaseShiftCycles  float64
 }
+type NativeRinexPhaseShiftCorrection struct {
+	HasCycles bool
+	Cycles    float64
+}
+type NativeRinexObsWriteError struct {
+	Kind          uint32
+	HasSystem     bool
+	System        uint32
+	HasSatellite  bool
+	SatelliteID   string
+	HasEpochIndex bool
+	EpochIndex    uint64
+	HasPosition   bool
+	Position      uint64
+	HasFlag       bool
+	Flag          uint8
+	HasVersion    bool
+	Version       float64
+	HasCount      bool
+	Count         uint64
+	HasCodes      bool
+	Codes         uint64
+	HasValues     bool
+	Values        uint64
+	HasCode       bool
+	HasDetail     bool
+}
+type NativeRinexObsWriteOutcome struct {
+	IsOK    bool
+	Status  uint32
+	Error   NativeRinexObsWriteError
+	Text    []byte
+	Message string
+	Code    string
+	Detail  string
+}
+type NativeRinexObsDowngradeChange struct {
+	Kind            uint32
+	HasNestedChange bool
+	Nested          *NativeRinexObsDowngradeChange
+	HasSystem       bool
+	System          uint32
+	HasEpochIndex   bool
+	EpochIndex      int
+	HasSatellite    bool
+	SatelliteID     string
+	HasFromIndex    bool
+	FromIndex       int
+	HasToIndex      bool
+	ToIndex         int
+	HasFromValue    bool
+	FromValue       float64
+	HasToValue      bool
+	ToValue         float64
+	HasPicoseconds  bool
+	Picoseconds     uint32
+	HasCount        bool
+	Count           int
+	HasCode         bool
+	Code            string
+	HasFromText     bool
+	From            string
+	HasToText       bool
+	To              string
+	HasLabel        bool
+	Label           string
+	Codes           []string
+	Records         []string
+	FromRecords     []string
+	ToRecords       []string
+}
 type RinexObs struct{}
 
 func ParseRinexObs([]byte) (*RinexObs, error) { return nil, protocolUnavailable() }
@@ -70,12 +162,29 @@ func (*RinexObs) Version() (float64, error)   { return 0, protocolUnavailable() 
 func (*RinexObs) Header() (NativeRinexObsHeader, error) {
 	return NativeRinexObsHeader{}, protocolUnavailable()
 }
+func (*RinexObs) HeaderAt(int) (NativeRinexObsHeader, error) {
+	return NativeRinexObsHeader{}, protocolUnavailable()
+}
+func (*RinexObs) HeaderTimeline() ([]NativeRinexObsHeaderSegment, error) {
+	return nil, protocolUnavailable()
+}
+func (*RinexObs) HeaderDetailsJSON() ([]byte, error)        { return nil, protocolUnavailable() }
+func (*RinexObs) SkippedRecords() (int, error)              { return 0, protocolUnavailable() }
 func (*RinexObs) EpochCount() (int, error)                  { return 0, protocolUnavailable() }
 func (*RinexObs) Codes() ([]NativeRinexObsCode, error)      { return nil, protocolUnavailable() }
 func (*RinexObs) Epochs() ([]NativeRinexObsEpoch, error)    { return nil, protocolUnavailable() }
 func (*RinexObs) Values(int) ([]NativeRinexObsValue, error) { return nil, protocolUnavailable() }
 func (*RinexObs) CarrierPhase(int) ([]NativeRinexObsCarrierPhase, error) {
 	return nil, protocolUnavailable()
+}
+func (*RinexObs) CarrierPhaseConflicts(int, int) ([]NativeRinexPhaseShiftCorrection, error) {
+	return nil, protocolUnavailable()
+}
+func (*RinexObs) RINEXTextWithOutcome() (NativeRinexObsWriteOutcome, error) {
+	return NativeRinexObsWriteOutcome{}, protocolUnavailable()
+}
+func (*RinexObs) DowngradeToRINEX2(float64) (*RinexObs, []NativeRinexObsDowngradeChange, NativeRinexObsWriteOutcome, error) {
+	return nil, nil, NativeRinexObsWriteOutcome{}, protocolUnavailable()
 }
 func (*RinexObs) Pseudoranges(int) ([]NativeRinexObsPseudorange, error) {
 	return nil, protocolUnavailable()
@@ -153,6 +262,8 @@ type NativeRINEXLintSummary struct {
 	IsClean, DecodedFromCRINEX                                    bool
 }
 type NativeRINEXLintFinding struct {
+	Kind, SpecRef             string
+	Details                   map[string]any
 	Code                      string
 	Severity                  uint32
 	Repairable, HasEpochIndex bool
@@ -193,9 +304,12 @@ func (*RinexRepair) Summary() (NativeRINEXLintSummary, error) {
 }
 func (*RinexRepair) Actions() ([]NativeRINEXRepairAction, error) { return nil, protocolUnavailable() }
 func (*RinexRepair) Text() ([]byte, error)                       { return nil, protocolUnavailable() }
-func (*RinexRepair) CRINEXText() ([]byte, error)                 { return nil, protocolUnavailable() }
-func DecodeCRINEX([]byte) ([]byte, error)                        { return nil, protocolUnavailable() }
-func EncodeCRINEX([]byte) ([]byte, error)                        { return nil, protocolUnavailable() }
+func (*RinexRepair) TextWithOutcome() (NativeRinexObsWriteOutcome, error) {
+	return NativeRinexObsWriteOutcome{}, protocolUnavailable()
+}
+func (*RinexRepair) CRINEXText() ([]byte, error) { return nil, protocolUnavailable() }
+func DecodeCRINEX([]byte) ([]byte, error)        { return nil, protocolUnavailable() }
+func EncodeCRINEX([]byte) ([]byte, error)        { return nil, protocolUnavailable() }
 func RINEXBandFrequency(uint32, string, bool, int8) (float64, error) {
 	return 0, protocolUnavailable()
 }
@@ -367,11 +481,245 @@ type NativeRTCMCellLLI struct {
 	HasMinLockTime             bool
 	MinLockTimeMS              uint32
 }
+type NativeRTCMNavICEphemeris struct {
+	SatelliteID                        uint8
+	WeekNumber                         uint16
+	AF0, AF1                           int32
+	AF2                                int16
+	URA                                uint8
+	TOC                                uint16
+	TGD                                int16
+	DeltaN                             int32
+	IODEC                              uint8
+	Reserved                           uint16
+	L5Flag, SFlag                      bool
+	CUC, CUS, CIC, CIS, CRC, CRS, IDOT int32
+	M0                                 int64
+	TOE                                uint16
+	Eccentricity, SqrtA                uint64
+	Omega0, Omega, I0                  int64
+	OmegaDot                           int32
+	SpareDF544, SpareDF545             uint8
+}
+type NativeRTCMSSRInfoV2 struct {
+	MessageNumber                                                                    uint16
+	System, Kind                                                                     uint32
+	Header                                                                           NativeSsrHeader
+	HasIGSSSRVersion                                                                 bool
+	IGSSSRVersion                                                                    uint8
+	OrbitCount, ClockCount, URACount, CodeBiasCount, PhaseBiasCount, PaddingBitCount int
+}
+type NativeRTCMSSRMessageV2 struct {
+	Info             NativeRTCMSSRInfoV2
+	Orbits           []NativeSsrOrbitRecord
+	Clocks           []NativeSsrClockRecord
+	URA              []NativeSsrUraRecord
+	CodeBiases       []NativeSsrCodeBiasRecord
+	CodeBiasSignals  []NativeSsrCodeBiasSignal
+	PhaseBiases      []NativeSsrPhaseBiasRecord
+	PhaseBiasSignals []NativeSsrPhaseBiasSignal
+	PaddingBits      []bool
+}
+type NativeRTCMLegacyL1 struct {
+	CodeIndicator                  bool
+	Pseudorange                    uint32
+	PhaseRangeMinusPseudorange     int32
+	LockTimeIndicator              uint8
+	HasPseudorangeModulusAmbiguity bool
+	PseudorangeModulusAmbiguity    uint8
+	HasCNR                         bool
+	CNR                            uint8
+}
+type NativeRTCMLegacyL2 struct {
+	CodeIndicator                uint8
+	PseudorangeDifference        int16
+	PhaseRangeMinusL1Pseudorange int32
+	LockTimeIndicator            uint8
+	HasCNR                       bool
+	CNR                          uint8
+}
+type NativeRTCMLegacySatellite struct {
+	SatelliteID         uint8
+	HasFrequencyChannel bool
+	FrequencyChannel    uint8
+	L1                  NativeRTCMLegacyL1
+	HasL2               bool
+	L2                  NativeRTCMLegacyL2
+}
+type NativeRTCMLegacyObservations struct {
+	MessageNumber, ReferenceStationID uint16
+	EpochTime                         uint32
+	SynchronousGNSS                   bool
+	SatelliteCount                    uint8
+	DivergenceFreeSmoothing           bool
+	SmoothingInterval                 uint8
+	Satellites                        []NativeRTCMLegacySatellite
+	TrailingBits                      []bool
+}
+type NativeRTCMMessageAnnouncement struct {
+	MessageNumber uint16
+	Synchronous   bool
+	Interval      uint16
+}
+type NativeRTCMSystemParameters struct {
+	ReferenceStationID, MJD        uint16
+	SecondsOfDay                   uint32
+	AnnouncementCount, LeapSeconds uint8
+	Announcements                  []NativeRTCMMessageAnnouncement
+	TrailingBits                   []bool
+}
+type NativeRTCMText struct {
+	ReferenceStationID, MJD uint16
+	SecondsOfDay            uint32
+	CharacterCount          uint8
+	CodeUnits               []byte
+	TrailingBits            []bool
+}
+type NativeRTCMNetworkAuxiliaryStation struct {
+	NetworkID, SubnetworkID, AuxiliaryStationCount uint8
+	MasterStationID, AuxiliaryStationID            uint16
+	DeltaLatitude, DeltaLongitude, DeltaHeight     int32
+	TrailingBits                                   []bool
+}
+type NativeRTCMSSRVTECInfo struct {
+	MessageNumber    uint16
+	HasIGSSSRVersion bool
+	IGSSSRVersion    uint8
+	EpochTimeS       uint32
+	UpdateInterval   uint8
+	MultipleMessage  bool
+	IODSSR           uint8
+	ProviderID       uint16
+	SolutionID       uint8
+	QualityIndicator uint16
+	Layers           []NativeRTCMTecLayer
+	TrailingBits     []bool
+}
+type NativeRTCMTecLayer struct {
+	Height, Degree, Order uint8
+	Cosine, Sine          []int16
+}
+type NativeRTCMNetworkDifference struct {
+	SatelliteID, AmbiguityStatus, NonSyncCount uint8
+	HasGeometric                               bool
+	Geometric                                  int32
+	HasIOD                                     bool
+	IOD                                        uint8
+	HasIonospheric                             bool
+	Ionospheric                                int32
+}
+type NativeRTCMNetworkDifferences struct {
+	MessageNumber                       uint16
+	NetworkID, SubnetworkID             uint8
+	EpochTime                           uint32
+	MultipleMessage                     bool
+	MasterStationID, AuxiliaryStationID uint16
+	SatelliteCount                      uint8
+	Satellites                          []NativeRTCMNetworkDifference
+	TrailingBits                        []bool
+}
+type NativeRTCMNetworkResidual struct {
+	SatelliteID, SOC uint8
+	SOD              uint16
+	SOH              uint8
+	SLC, SLD         uint16
+}
+type NativeRTCMNetworkResiduals struct {
+	MessageNumber                         uint16
+	EpochTime                             uint32
+	ReferenceStationID                    uint16
+	ReferenceStationCount, SatelliteCount uint8
+	Satellites                            []NativeRTCMNetworkResidual
+	TrailingBits                          []bool
+}
+type NativeRTCMFKPGradient struct {
+	SatelliteID, IOD                                                 uint8
+	GeometricNorth, GeometricEast, IonosphericNorth, IonosphericEast int16
+}
+type NativeRTCMFKPGradients struct {
+	MessageNumber, ReferenceStationID uint16
+	EpochTime                         uint32
+	SatelliteCount                    uint8
+	Satellites                        []NativeRTCMFKPGradient
+	TrailingBits                      []bool
+}
+type NativeRTCMGridResidual struct{ Horizontal1, Horizontal2, Height int16 }
+type NativeRTCMResidualGrid struct {
+	MessageNumber                                                                      uint16
+	SystemID                                                                           uint8
+	HorizontalShift, VerticalShift                                                     bool
+	Origin1, Origin2                                                                   int32
+	Extension1, Extension2                                                             uint16
+	MeanOffset1, MeanOffset2, MeanHeightOffset                                         int16
+	Residuals                                                                          [16]NativeRTCMGridResidual
+	HorizontalInterpolation, VerticalInterpolation, HorizontalQuality, VerticalQuality uint8
+	MJD                                                                                uint16
+	TrailingBits                                                                       []bool
+}
+type NativeRTCMProjection struct {
+	MessageNumber                                             uint16
+	SystemID, ProjectionType                                  uint8
+	Rectification                                             bool
+	Latitude, Longitude, StandardParallel1, StandardParallel2 int64
+	Azimuth                                                   uint64
+	RectifiedToSkew                                           int32
+	AddScale                                                  uint32
+	Easting                                                   uint64
+	Northing                                                  int64
+	TrailingBits                                              []bool
+}
+type NativeRTCMPhysicalReferenceStation struct {
+	NonPhysicalStationID, PhysicalStationID uint16
+	ITRFRealizationYear                     uint8
+	ECEFX, ECEFY, ECEFZ                     int64
+	TrailingBits                            []bool
+}
+type NativeRTCMHelmertTransformation struct {
+	MessageNumber                                         uint16
+	SourceName, TargetName                                string
+	SystemID                                              uint8
+	UtilizedMessages                                      uint16
+	PlateNumber, ComputationIndicator, HeightIndicator    uint8
+	ValidityLatitude, ValidityLongitude                   int32
+	ValidityExtensionLatitude, ValidityExtensionLongitude uint16
+	DX, DY, DZ, R1, R2, R3, DS                            int32
+	HasRotationPoint                                      bool
+	RotationPointX, RotationPointY, RotationPointZ        int64
+	AddAS, AddBS, AddAT, AddBT                            uint32
+	HorizontalQuality, VerticalQuality                    uint8
+	TrailingBits                                          []bool
+}
+type NativeRTCMGLONASSCodePhaseBiases struct {
+	ReferenceStationID               uint16
+	Aligned                          bool
+	Reserved                         uint8
+	HasL1CA, HasL1P, HasL2CA, HasL2P bool
+	L1CA, L1P, L2CA, L2P             int16
+	TrailingBits                     []bool
+}
 type NativeRTCMPreviousLock struct {
 	HasMinLockTime bool
 	MinLockTimeMS  uint32
 	ElapsedMS      uint64
 }
+type PppFloatSolution struct{}
+type PppFixedSolution struct{}
+type PppUnplacedObservationV2 struct {
+	EpochIndex               int
+	SatelliteID, AmbiguityID string
+	Reason                   uint32
+	UnknownVariant           string
+	HasSize                  bool
+	OrbitM, ClockM           float64
+}
+
+func (*PppFloatSolution) UnplacedObservationsV2() ([]PppUnplacedObservationV2, error) {
+	return nil, protocolUnavailable()
+}
+func (*PppFixedSolution) UnplacedObservationsV2() ([]PppUnplacedObservationV2, error) {
+	return nil, protocolUnavailable()
+}
+
 type RtcmMessages struct{}
 type RtcmFrames struct{}
 type RtcmDiagnostics struct{}
@@ -379,6 +727,9 @@ type RtcmLockTimeTracker struct{}
 
 func DecodeRTCM([]byte) (*RtcmMessages, error) { return nil, protocolUnavailable() }
 func DecodeRTCMStream([]byte) (*RtcmMessages, *RtcmDiagnostics, error) {
+	return nil, nil, protocolUnavailable()
+}
+func DecodeRTCMStreamWithPolicy([]byte, uint32) (*RtcmMessages, *RtcmDiagnostics, error) {
 	return nil, nil, protocolUnavailable()
 }
 func ScanRTCMFrames([]byte) (*RtcmFrames, error) { return nil, protocolUnavailable() }
@@ -390,6 +741,12 @@ func (*RtcmMessages) Kind(int) (NativeRTCMMessageInfo, error) {
 }
 func (*RtcmMessages) Encode(int) ([]byte, error) { return nil, protocolUnavailable() }
 func (*RtcmMessages) Frame(int) ([]byte, error)  { return nil, protocolUnavailable() }
+func (*RtcmMessages) EncodeWithPolicy(int, uint32) ([]byte, []NativeRTCMDeparture, error) {
+	return nil, nil, protocolUnavailable()
+}
+func (*RtcmMessages) FrameWithPolicy(int, uint32) ([]byte, []NativeRTCMDeparture, error) {
+	return nil, nil, protocolUnavailable()
+}
 func (*RtcmMessages) MSMInfo(int) (NativeRTCMMSMInfo, error) {
 	return NativeRTCMMSMInfo{}, protocolUnavailable()
 }
@@ -405,21 +762,120 @@ func (*RtcmMessages) Station(int) (NativeRTCMStationCoordinates, error) {
 func (*RtcmMessages) Antenna(int) (NativeRTCMAntennaDescriptor, error) {
 	return NativeRTCMAntennaDescriptor{}, protocolUnavailable()
 }
-func (*RtcmMessages) AntennaString(int, uint32) ([]byte, error) { return nil, protocolUnavailable() }
-func (*RtcmFrames) Close() error                                { return nil }
-func (*RtcmFrames) Count() (int, error)                         { return 0, protocolUnavailable() }
-func (*RtcmFrames) Len(int) (int, error)                        { return 0, protocolUnavailable() }
-func (*RtcmFrames) Body(int) ([]byte, error)                    { return nil, protocolUnavailable() }
-func (*RtcmDiagnostics) Close() error                           { return nil }
-func (*RtcmDiagnostics) ResyncBytes() (int, error)              { return 0, protocolUnavailable() }
-func (*RtcmDiagnostics) SkippedCount() (int, error)             { return 0, protocolUnavailable() }
+func BuildRTCMNavICEphemeris(NativeRTCMNavICEphemeris) (*RtcmMessages, error) {
+	return nil, protocolUnavailable()
+}
+func (*RtcmMessages) NavICEphemeris(int) (NativeRTCMNavICEphemeris, error) {
+	return NativeRTCMNavICEphemeris{}, protocolUnavailable()
+}
+func (*RtcmMessages) TrailingBits(int) ([]bool, error)    { return nil, protocolUnavailable() }
+func (*RtcmMessages) UnsupportedBody(int) ([]byte, error) { return nil, protocolUnavailable() }
+func (*RtcmMessages) SSRInfoV2(int) (NativeRTCMSSRInfoV2, error) {
+	return NativeRTCMSSRInfoV2{}, protocolUnavailable()
+}
+func BuildRTCMSSRMessageV2(NativeRTCMSSRMessageV2) (*RtcmMessages, error) {
+	return nil, protocolUnavailable()
+}
+func (*RtcmMessages) WithTrailingBits(int, []bool) (*RtcmMessages, error) {
+	return nil, protocolUnavailable()
+}
+func (*RtcmMessages) LegacyObservations(int) (NativeRTCMLegacyObservations, error) {
+	return NativeRTCMLegacyObservations{}, protocolUnavailable()
+}
+func BuildRTCMLegacyObservations(NativeRTCMLegacyObservations) (*RtcmMessages, error) {
+	return nil, protocolUnavailable()
+}
+func (*RtcmMessages) SystemParameters(int) (NativeRTCMSystemParameters, error) {
+	return NativeRTCMSystemParameters{}, protocolUnavailable()
+}
+func (*RtcmMessages) Text(int) (NativeRTCMText, error) {
+	return NativeRTCMText{}, protocolUnavailable()
+}
+func BuildRTCMSystemParameters(NativeRTCMSystemParameters) (*RtcmMessages, error) {
+	return nil, protocolUnavailable()
+}
+func BuildRTCMText(NativeRTCMText) (*RtcmMessages, error) { return nil, protocolUnavailable() }
+func (*RtcmMessages) NetworkAuxiliaryStation(int) (NativeRTCMNetworkAuxiliaryStation, error) {
+	return NativeRTCMNetworkAuxiliaryStation{}, protocolUnavailable()
+}
+func BuildRTCMNetworkAuxiliaryStation(NativeRTCMNetworkAuxiliaryStation) (*RtcmMessages, error) {
+	return nil, protocolUnavailable()
+}
+func (*RtcmMessages) SSRVTEC(int) (NativeRTCMSSRVTECInfo, error) {
+	return NativeRTCMSSRVTECInfo{}, protocolUnavailable()
+}
+func BuildRTCMSSRVTEC(NativeRTCMSSRVTECInfo) (*RtcmMessages, error) {
+	return nil, protocolUnavailable()
+}
+func (*RtcmMessages) NetworkDifferences(int) (NativeRTCMNetworkDifferences, error) {
+	return NativeRTCMNetworkDifferences{}, protocolUnavailable()
+}
+func BuildRTCMNetworkDifferences(NativeRTCMNetworkDifferences) (*RtcmMessages, error) {
+	return nil, protocolUnavailable()
+}
+func (*RtcmMessages) NetworkResiduals(int) (NativeRTCMNetworkResiduals, error) {
+	return NativeRTCMNetworkResiduals{}, protocolUnavailable()
+}
+func BuildRTCMNetworkResiduals(NativeRTCMNetworkResiduals) (*RtcmMessages, error) {
+	return nil, protocolUnavailable()
+}
+func (*RtcmMessages) FKPGradients(int) (NativeRTCMFKPGradients, error) {
+	return NativeRTCMFKPGradients{}, protocolUnavailable()
+}
+func BuildRTCMFKPGradients(NativeRTCMFKPGradients) (*RtcmMessages, error) {
+	return nil, protocolUnavailable()
+}
+func (*RtcmMessages) ResidualGrid(int) (NativeRTCMResidualGrid, error) {
+	return NativeRTCMResidualGrid{}, protocolUnavailable()
+}
+func BuildRTCMResidualGrid(NativeRTCMResidualGrid) (*RtcmMessages, error) {
+	return nil, protocolUnavailable()
+}
+func (*RtcmMessages) Projection(int) (NativeRTCMProjection, error) {
+	return NativeRTCMProjection{}, protocolUnavailable()
+}
+func BuildRTCMProjection(NativeRTCMProjection) (*RtcmMessages, error) {
+	return nil, protocolUnavailable()
+}
+func (*RtcmMessages) PhysicalReferenceStation(int) (NativeRTCMPhysicalReferenceStation, error) {
+	return NativeRTCMPhysicalReferenceStation{}, protocolUnavailable()
+}
+func BuildRTCMPhysicalReferenceStation(NativeRTCMPhysicalReferenceStation) (*RtcmMessages, error) {
+	return nil, protocolUnavailable()
+}
+func (*RtcmMessages) HelmertTransformation(int) (NativeRTCMHelmertTransformation, error) {
+	return NativeRTCMHelmertTransformation{}, protocolUnavailable()
+}
+func BuildRTCMHelmertTransformation(NativeRTCMHelmertTransformation) (*RtcmMessages, error) {
+	return nil, protocolUnavailable()
+}
+func (*RtcmMessages) GLONASSCodePhaseBiases(int) (NativeRTCMGLONASSCodePhaseBiases, error) {
+	return NativeRTCMGLONASSCodePhaseBiases{}, protocolUnavailable()
+}
+func BuildRTCMGLONASSCodePhaseBiases(NativeRTCMGLONASSCodePhaseBiases) (*RtcmMessages, error) {
+	return nil, protocolUnavailable()
+}
+func BuildRTCMUnsupported(uint16, []byte) (*RtcmMessages, error) { return nil, protocolUnavailable() }
+func (*RtcmMessages) AntennaString(int, uint32) ([]byte, error)  { return nil, protocolUnavailable() }
+func (*RtcmFrames) Close() error                                 { return nil }
+func (*RtcmFrames) Count() (int, error)                          { return 0, protocolUnavailable() }
+func (*RtcmFrames) Len(int) (int, error)                         { return 0, protocolUnavailable() }
+func (*RtcmFrames) Body(int) ([]byte, error)                     { return nil, protocolUnavailable() }
+func (*RtcmDiagnostics) Close() error                            { return nil }
+func (*RtcmDiagnostics) ResyncBytes() (int, error)               { return 0, protocolUnavailable() }
+func (*RtcmDiagnostics) SkippedCount() (int, error)              { return 0, protocolUnavailable() }
 func (*RtcmDiagnostics) Skipped(int) (NativeRTCMFrameSkip, error) {
 	return NativeRTCMFrameSkip{}, protocolUnavailable()
 }
 func (*RtcmDiagnostics) SkippedMessage(int) ([]byte, error) { return nil, protocolUnavailable() }
-func NewRTCMTracker() (*RtcmLockTimeTracker, error)         { return nil, protocolUnavailable() }
-func (*RtcmLockTimeTracker) Close() error                   { return nil }
-func (*RtcmLockTimeTracker) Reset() error                   { return protocolUnavailable() }
+func (*RtcmDiagnostics) CRCFailures() (int, error)          { return 0, protocolUnavailable() }
+func (*RtcmDiagnostics) DepartureCount() (int, error)       { return 0, protocolUnavailable() }
+func (*RtcmDiagnostics) Departure(int) (NativeRTCMStreamDeparture, error) {
+	return NativeRTCMStreamDeparture{}, protocolUnavailable()
+}
+func NewRTCMTracker() (*RtcmLockTimeTracker, error) { return nil, protocolUnavailable() }
+func (*RtcmLockTimeTracker) Close() error           { return nil }
+func (*RtcmLockTimeTracker) Reset() error           { return protocolUnavailable() }
 func (*RtcmLockTimeTracker) Observe(*RtcmMessages, int) ([]NativeRTCMCellLLI, error) {
 	return nil, protocolUnavailable()
 }
@@ -436,6 +892,31 @@ type BroadcastEphemeris struct{}
 func ParseBroadcast([]byte) (*BroadcastEphemeris, error) { return nil, protocolUnavailable() }
 
 func (*BroadcastEphemeris) Close() error { return nil }
+func (*BroadcastEphemeris) RecordCNavCorrection(int, uint32) (float64, bool, error) {
+	return 0, false, protocolUnavailable()
+}
+func (*BroadcastEphemeris) RecordGroupDelay(int, uint32) (float64, bool, error) {
+	return 0, false, protocolUnavailable()
+}
+func (*BroadcastEphemeris) RecordsInfo() ([]NativeBroadcastRecordInfo, error) {
+	return nil, protocolUnavailable()
+}
+func (*BroadcastEphemeris) SelectByIssue(string, uint32, uint32, float64) (NativeBroadcastRecordInfo, bool, error) {
+	return NativeBroadcastRecordInfo{}, false, protocolUnavailable()
+}
+func (*BroadcastEphemeris) SetNavMessagePreference(uint32) error { return protocolUnavailable() }
+func (*BroadcastEphemeris) SourceStateAtEpochQueries(*ExactEpochQuery, *ExactEpochQuery, string) (EphemerisSourceState, error) {
+	return EphemerisSourceState{}, protocolUnavailable()
+}
+func (*BroadcastEphemeris) TransmitEpochClockAtEpochQueries(*ExactEpochQuery, *ExactEpochQuery, string) (TransmitEpochClock, error) {
+	return TransmitEpochClock{}, protocolUnavailable()
+}
+func (*BroadcastEphemeris) ClockRelativityAtEpochQuery(*ExactEpochQuery, string, [3]float64) (ClockRelativity, error) {
+	return ClockRelativity{}, protocolUnavailable()
+}
+func (*BroadcastEphemeris) EphemerisVarianceAtEpochQueries(*ExactEpochQuery, *ExactEpochQuery, string) (float64, error) {
+	return 0, protocolUnavailable()
+}
 
 type NativeObservablesOptions struct {
 	CarrierHz         float64
@@ -458,6 +939,7 @@ type NativeEmissionMediaRow struct {
 	TroposphereDelayM       float64
 	HasTroposphereDelay     bool
 	Status, ResultStatus    uint32
+	Error                   *NativeObservableRowError
 }
 
 func ObservablesOptionsInit() (NativeObservablesOptions, error) {
@@ -479,15 +961,29 @@ type NativeFrequencyChannel struct {
 	Channel int8
 }
 type NativeGlonassRecord struct {
-	SatelliteID        string
-	ToeUTCJ2000S       float64
-	PositionM          [3]float64
-	VelocityMPerS      [3]float64
-	AccelerationMPerS2 [3]float64
-	ClockBiasS         float64
-	GammaN             float64
-	SVHealth           float64
-	FrequencyChannel   int32
+	SatelliteID             string
+	ToeUTCJ2000S            float64
+	EpochUTCJ2000S          float64
+	PositionM               [3]float64
+	VelocityMPerS           [3]float64
+	AccelerationMPerS2      [3]float64
+	ClockBiasS              float64
+	GammaN                  float64
+	SVHealth                float64
+	FrequencyChannel        int32
+	StatedFrequencyChannel  int32
+	HasMessageFrameTime     bool
+	MessageFrameTimeS       float64
+	HasAgeDays              bool
+	AgeDays                 float64
+	HasStatusFlags          bool
+	StatusFlags             float64
+	HasL1L2GroupDelayFieldS bool
+	L1L2GroupDelayFieldS    float64
+	HasURAI                 bool
+	URAI                    float64
+	HasHealthFlags          bool
+	HealthFlags             float64
 }
 type NativeSkippedGlonassRecord struct{ SatelliteID string }
 type RinexGlonassRecords struct{}
@@ -533,22 +1029,31 @@ type NativeSBASIGP struct {
 }
 type SBASCorrectionStore struct{}
 type NativeSSRClockCorrection struct {
-	Source                                                       uint32
-	ProviderID                                                   uint16
-	SolutionID, IODSSR                                           uint8
-	C0M, C1MPerS, C2MPerS2, RefEpochJ2000S, UpdateIntervalS      float64
-	HasHighRate                                                  bool
-	HighRateC0M, HighRateRefEpochJ2000S, HighRateUpdateIntervalS float64
+	Source                                                                                       uint32
+	ProviderID                                                                                   uint16
+	SolutionID, IODSSR                                                                           uint8
+	NavMessage                                                                                   uint32
+	HasNavigationMessageIndex                                                                    bool
+	NavigationMessageIndex                                                                       uint8
+	C0M, C1MPerS, C2MPerS2, RefEpochJ2000S, TransmittedEpochJ2000S, UpdateIntervalS              float64
+	HasHighRate                                                                                  bool
+	HighRateC0M, HighRateRefEpochJ2000S, HighRateTransmittedEpochJ2000S, HighRateUpdateIntervalS float64
 }
 type NativeSSROrbitCorrection struct {
-	Source                                                                                                    uint32
-	ProviderID                                                                                                uint16
-	SolutionID                                                                                                uint8
-	IODE                                                                                                      uint32
-	IODSSR                                                                                                    uint8
-	CRSRegional                                                                                               bool
-	ReferencePoint                                                                                            uint32
-	RadialM, AlongM, CrossM, RadialRateMPerS, AlongRateMPerS, CrossRateMPerS, RefEpochJ2000S, UpdateIntervalS float64
+	Source                                                                                                                            uint32
+	ProviderID                                                                                                                        uint16
+	SolutionID                                                                                                                        uint8
+	NavMessage                                                                                                                        uint32
+	HasNavigationMessageIndex                                                                                                         bool
+	NavigationMessageIndex                                                                                                            uint8
+	IODE                                                                                                                              uint32
+	HasIODCRC                                                                                                                         bool
+	IODCRC                                                                                                                            uint32
+	IODSSR                                                                                                                            uint8
+	Basis                                                                                                                             uint32
+	CRSRegional                                                                                                                       bool
+	ReferencePoint                                                                                                                    uint32
+	RadialM, AlongM, CrossM, RadialRateMPerS, AlongRateMPerS, CrossRateMPerS, RefEpochJ2000S, TransmittedEpochJ2000S, UpdateIntervalS float64
 }
 type SSRCorrectionStore struct{}
 
@@ -577,6 +1082,24 @@ func (*SBASCorrectionStore) SlantDelay(string, Geodetic, float64, float64, float
 func (*SBASCorrectionStore) CorrectedState(*BroadcastEphemeris, string, uint32, string, float64) ([3]float64, float64, bool, error) {
 	return [3]float64{}, 0, false, protocolUnavailable()
 }
+func (*SBASCorrectionStore) SolveBroadcastAtExactEpoch(*BroadcastEphemeris, string, uint32, SPPConfig, *ExactEpoch) (SPPSolution, error) {
+	return SPPSolution{}, protocolUnavailable()
+}
+func (*SBASCorrectionStore) SolveBroadcastV2AtExactEpoch(*BroadcastEphemeris, string, uint32, SppInputsV2, *ExactEpoch) (SPPSolution, error) {
+	return SPPSolution{}, protocolUnavailable()
+}
+func (*SBASCorrectionStore) SourceStateAtEpochQueries(*BroadcastEphemeris, string, uint32, string, *ExactEpochQuery, *ExactEpochQuery) (EphemerisSourceState, error) {
+	return EphemerisSourceState{}, protocolUnavailable()
+}
+func (*SBASCorrectionStore) TransmitEpochClockAtEpochQueries(*BroadcastEphemeris, string, uint32, string, *ExactEpochQuery, *ExactEpochQuery) (TransmitEpochClock, error) {
+	return TransmitEpochClock{}, protocolUnavailable()
+}
+func (*SBASCorrectionStore) ClockRelativityAtEpochQuery(*BroadcastEphemeris, string, uint32, string, *ExactEpochQuery, [3]float64) (ClockRelativity, error) {
+	return ClockRelativity{}, protocolUnavailable()
+}
+func (*SBASCorrectionStore) EphemerisVarianceAtEpochQueries(*BroadcastEphemeris, string, uint32, string, *ExactEpochQuery, *ExactEpochQuery) (float64, error) {
+	return 0, protocolUnavailable()
+}
 func NewSSRStore(uint32) (*SSRCorrectionStore, error) { return nil, protocolUnavailable() }
 func NewSSRStoreFromRTCM([]byte, NativeGnssWeekTow) (*SSRCorrectionStore, error) {
 	return nil, protocolUnavailable()
@@ -591,13 +1114,31 @@ func (*SSRCorrectionStore) Orbit(string) (NativeSSROrbitCorrection, bool, error)
 func (*SSRCorrectionStore) Clock(string) (NativeSSRClockCorrection, bool, error) {
 	return NativeSSRClockCorrection{}, false, protocolUnavailable()
 }
-func (*SSRCorrectionStore) CodeBias(string, uint8) (float64, bool, error) {
+func (*SSRCorrectionStore) CodeBias(string, uint32, uint8) (float64, bool, error) {
 	return 0, false, protocolUnavailable()
 }
-func (*SSRCorrectionStore) PhaseBias(string, uint8) (float64, bool, error) {
+func (*SSRCorrectionStore) PhaseBias(string, uint32, uint8) (float64, bool, error) {
 	return 0, false, protocolUnavailable()
 }
 func (*SSRCorrectionStore) URA(string) (uint8, bool, error) { return 0, false, protocolUnavailable() }
 func (*SSRCorrectionStore) CorrectedState(*BroadcastEphemeris, string, float64, float64, uint32, bool, uint16) ([3]float64, float64, bool, error) {
 	return [3]float64{}, 0, false, protocolUnavailable()
+}
+func (*SSRCorrectionStore) SolveBroadcastAtExactEpoch(*BroadcastEphemeris, SPPConfig, float64, uint32, bool, uint16, uint32, *ExactEpoch) (SPPSolution, error) {
+	return SPPSolution{}, protocolUnavailable()
+}
+func (*SSRCorrectionStore) SolveBroadcastV2AtExactEpoch(*BroadcastEphemeris, SppInputsV2, float64, uint32, bool, uint16, uint32, *ExactEpoch) (SPPSolution, error) {
+	return SPPSolution{}, protocolUnavailable()
+}
+func (*SSRCorrectionStore) SourceStateAtEpochQueries(*BroadcastEphemeris, string, *ExactEpochQuery, *ExactEpochQuery, float64, uint32, bool, uint16, uint32) (SSRCorrectedState, error) {
+	return SSRCorrectedState{}, protocolUnavailable()
+}
+func (*SSRCorrectionStore) TransmitEpochClockAtEpochQueries(*BroadcastEphemeris, string, *ExactEpochQuery, *ExactEpochQuery, float64, uint32, bool, uint16, uint32) (TransmitEpochClock, SSRCorrectedState, error) {
+	return TransmitEpochClock{}, SSRCorrectedState{}, protocolUnavailable()
+}
+func (*SSRCorrectionStore) ClockRelativityAtEpochQuery(*BroadcastEphemeris, string, *ExactEpochQuery, [3]float64, float64, uint32, bool, uint16, uint32) (ClockRelativity, SSRCorrectedState, error) {
+	return ClockRelativity{}, SSRCorrectedState{}, protocolUnavailable()
+}
+func (*SSRCorrectionStore) EphemerisVarianceAtEpochQueries(*BroadcastEphemeris, string, *ExactEpochQuery, *ExactEpochQuery, float64, uint32, bool, uint16, uint32) (float64, SSRCorrectedState, error) {
+	return 0, SSRCorrectedState{}, protocolUnavailable()
 }

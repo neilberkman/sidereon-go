@@ -18,7 +18,7 @@ jobs:
     # host OS, so the other five targets cross-compile the same way from here.
     runs-on: macos-15
     env:
-      SIDEREON_RELEASE_VERSION: 2.1.0
+      SIDEREON_RELEASE_VERSION: 3.0.0
       SIDEREON_GLIBC_FLOOR: 2.17
       CARGO_ZIGBUILD_VERSION: 0.23.3
       CARGO_HOME: ${{ github.workspace }}/.cargo-home
@@ -35,7 +35,7 @@ jobs:
         run: test "$(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' internal/native/lib/sidereon-c.ref)" = "$GITHUB_REF_NAME"
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.98.0
+        uses: dtolnay/rust-toolchain@1.98.1
 
       - name: Install Zig 0.15.2
         shell: bash
@@ -60,11 +60,17 @@ jobs:
           set -Eeuo pipefail
           ./scripts/build-native-archives.sh
 
-      - name: Verify checked-in archive set
+      - name: Test native archive set
         shell: bash
         run: |
           set -Eeuo pipefail
           ./scripts/test-native-archives.sh
+
+      - name: Verify checked-in archive set reproduces exactly
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
           git diff --exit-code -- internal/native/lib/
 
       - name: Upload archives

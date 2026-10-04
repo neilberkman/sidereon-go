@@ -9,56 +9,68 @@ var errNegativeIndex = errors.New("sidereon: index must not be negative")
 func protocolUnavailable() error { return unavailable() }
 
 const (
-	RTCMMessageMSMValue                   = uint32(0)
-	RTCMMessageStationCoordinatesValue    = uint32(1)
-	RTCMMessageAntennaDescriptorValue     = uint32(2)
-	RTCMMessageGPSEphemerisValue          = uint32(3)
-	RTCMMessageGLONASSEphemerisValue      = uint32(4)
-	RTCMMessageSSRValue                   = uint32(5)
-	RTCMMessageUnsupportedValue           = uint32(6)
-	RTCMMessageBeiDouEphemerisValue       = uint32(7)
-	RTCMMessageQZSSEphemerisValue         = uint32(8)
-	RTCMMessageGalileoFNavEphemerisValue  = uint32(9)
-	RTCMMessageGalileoINavEphemerisValue  = uint32(10)
-	RTCMMSM4Value                         = uint32(0)
-	RTCMMSM7Value                         = uint32(1)
-	RTCMFrameTruncatedValue               = uint32(0)
-	RTCMFrameMalformedValue               = uint32(1)
-	RTCMAntennaDescriptorFieldValue       = uint32(0)
-	RTCMAntennaSerialNumberFieldValue     = uint32(1)
-	RTCMReceiverTypeFieldValue            = uint32(2)
-	RTCMReceiverFirmwareVersionFieldValue = uint32(3)
-	RTCMReceiverSerialNumberFieldValue    = uint32(4)
-	EphemerisSampleValidValue             = uint32(0)
-	EphemerisSampleGapValue               = uint32(1)
-	ObservableStateValidValue             = uint32(0)
-	ObservableStateGapValue               = uint32(1)
-	ObservableStateErrorValue             = uint32(2)
-	EmissionMediaValidValue               = uint32(0)
-	EmissionMediaGapValue                 = uint32(1)
-	EmissionMediaBelowElevationValue      = uint32(2)
-	EmissionMediaErrorValue               = uint32(3)
-	SignalModulationBPSKValue             = uint32(0)
-	SignalModulationBOCSineValue          = uint32(1)
-	SignalModulationBOCCosineValue        = uint32(2)
-	SignalModulationMBOCValue             = uint32(3)
-	SignalModulationTMBOCValue            = uint32(4)
-	SignalModulationCBOCPlusValue         = uint32(5)
-	SignalModulationCBOCMinusValue        = uint32(6)
-	DLLCoherentValue                      = uint32(0)
-	DLLNonCoherentValue                   = uint32(1)
-	SBASPLNoErrorValue                    = uint32(0)
-	SBASPLInsufficientGeometryValue       = uint32(1)
-	SBASPLNumericalFailureValue           = uint32(2)
-	SBASPLInvalidErrorModelValue          = uint32(3)
-	SBASSolveMixedValue                   = uint32(0)
-	SBASSolveSBASOnlyValue                = uint32(1)
-	SSRReferencePointAntennaValue         = uint32(0)
-	SSRReferencePointCenterOfMassValue    = uint32(1)
-	SSRSourceRTCMValue                    = uint32(0)
-	SSRSourceGalileoHASValue              = uint32(1)
-	SSRMissingDeclineValue                = uint32(0)
-	SSRMissingFallbackValue               = uint32(1)
+	RTCMMessageMSMValue                                  = uint32(0)
+	RTCMMessageStationCoordinatesValue                   = uint32(1)
+	RTCMMessageAntennaDescriptorValue                    = uint32(2)
+	RTCMMessageGPSEphemerisValue                         = uint32(3)
+	RTCMMessageGLONASSEphemerisValue                     = uint32(4)
+	RTCMMessageSSRValue                                  = uint32(5)
+	RTCMMessageUnsupportedValue                          = uint32(6)
+	RTCMMessageBeiDouEphemerisValue                      = uint32(7)
+	RTCMMessageQZSSEphemerisValue                        = uint32(8)
+	RTCMMessageGalileoFNavEphemerisValue                 = uint32(9)
+	RTCMMessageGalileoINavEphemerisValue                 = uint32(10)
+	RTCMMessageNavICEphemerisValue                       = uint32(17)
+	RTCMMessageLegacyObservationsValue                   = uint32(11)
+	RTCMMessageSystemParametersValue                     = uint32(12)
+	RTCMMessageTextValue                                 = uint32(13)
+	RTCMMessageNetworkValue                              = uint32(14)
+	RTCMMessageTransformationValue                       = uint32(15)
+	RTCMMessageGLONASSCodePhaseBiasesValue               = uint32(16)
+	RTCMMessageSSRVTECValue                              = uint32(18)
+	PPPUnplacedObservationCodeNotPositiveValue           = uint32(0)
+	PPPUnplacedObservationSsrCorrectionExceedsLimitValue = uint32(1)
+	PPPUnplacedObservationUnknownValue                   = uint32(999)
+	RTCMMSM4Value                                        = uint32(0)
+	RTCMMSM7Value                                        = uint32(1)
+	RTCMFrameTruncatedValue                              = uint32(0)
+	RTCMFrameMalformedValue                              = uint32(1)
+	RTCMAntennaDescriptorFieldValue                      = uint32(0)
+	RTCMAntennaSerialNumberFieldValue                    = uint32(1)
+	RTCMReceiverTypeFieldValue                           = uint32(2)
+	RTCMReceiverFirmwareVersionFieldValue                = uint32(3)
+	RTCMReceiverSerialNumberFieldValue                   = uint32(4)
+	EphemerisSampleValidValue                            = uint32(0)
+	EphemerisSampleGapValue                              = uint32(1)
+	ObservableStateValidValue                            = uint32(0)
+	ObservableStateGapValue                              = uint32(1)
+	ObservableStateErrorValue                            = uint32(2)
+	EmissionMediaValidValue                              = uint32(0)
+	EmissionMediaGapValue                                = uint32(1)
+	EmissionMediaBelowElevationValue                     = uint32(2)
+	EmissionMediaErrorValue                              = uint32(3)
+	SignalModulationBPSKValue                            = uint32(0)
+	SignalModulationBOCSineValue                         = uint32(1)
+	SignalModulationBOCCosineValue                       = uint32(2)
+	SignalModulationMBOCValue                            = uint32(3)
+	SignalModulationTMBOCValue                           = uint32(4)
+	SignalModulationCBOCPlusValue                        = uint32(5)
+	SignalModulationCBOCMinusValue                       = uint32(6)
+	DLLCoherentValue                                     = uint32(0)
+	DLLNonCoherentValue                                  = uint32(1)
+	SBASPLNoErrorValue                                   = uint32(0)
+	SBASPLInsufficientGeometryValue                      = uint32(1)
+	SBASPLNumericalFailureValue                          = uint32(2)
+	SBASPLInvalidErrorModelValue                         = uint32(3)
+	SBASSolveMixedValue                                  = uint32(0)
+	SBASSolveSBASOnlyValue                               = uint32(1)
+	SSRReferencePointAntennaValue                        = uint32(0)
+	SSRReferencePointCenterOfMassValue                   = uint32(1)
+	SSRSourceRTCMValue                                   = uint32(0)
+	SSRSourceGalileoHASValue                             = uint32(1)
+	SSRSourceIGSSSRValue                                 = uint32(2)
+	SSRMissingDeclineValue                               = uint32(0)
+	SSRMissingFallbackValue                              = uint32(1)
 
 	SBASWireFramed250Value = uint32(0)
 	SBASWireBody226Value   = uint32(1)
@@ -131,17 +143,55 @@ type NativeBroadcastCNAV struct {
 	HasFlags                      bool
 	Flags                         uint32
 }
+
+type NativeStatedNavFields struct {
+	HasOrbit5Field2        bool
+	Orbit5Field2           float64
+	HasOrbit5Field4        bool
+	Orbit5Field4           float64
+	HasOrbit6Field4        bool
+	Orbit6Field4           float64
+	HasTransmissionTimeSOW bool
+	TransmissionTimeSOW    float64
+	HasOrbit7Field2        bool
+	Orbit7Field2           float64
+	HasOrbit7Field3        bool
+	Orbit7Field3           float64
+	HasOrbit7Field4        bool
+	Orbit7Field4           float64
+}
 type NativeBroadcastRecord struct {
 	SatelliteID                        string
 	Message, Issue, IssueMessage, Week uint32
+	HasIssue                           bool
 	Toe, Toc                           NativeGnssWeekTow
 	Elements                           NativeKeplerianElements
 	Clock                              NativeClockPolynomial
 	GroupDelays                        NativeBroadcastGroupDelays
 	CNAV                               NativeBroadcastCNAV
 	SVHealth, SVAccuracyM              float64
+	HasSVAccuracyM                     bool
 	HasFitInterval                     bool
 	FitIntervalS                       float64
+	Stated                             NativeStatedNavFields
+}
+type NativeBroadcastRecordInfo struct {
+	SatelliteID       string
+	Message           uint32
+	HasIssue          bool
+	Issue             uint32
+	IssueMessage      uint32
+	Week, ToeWeek     uint32
+	ToeTOWSeconds     float64
+	TocWeek           uint32
+	TocTOWSeconds     float64
+	SVHealth          float64
+	HasSVAccuracyM    bool
+	SVAccuracyM       float64
+	HasFitInterval    bool
+	FitIntervalS      float64
+	DefaultGroupDelay float64
+	CNAV              NativeBroadcastCNAV
 }
 type NativeSkippedNavBlock struct{ SatelliteID, Message string }
 type NativeIonoCorrections struct {
@@ -185,13 +235,49 @@ type NativeClockEpoch struct {
 	NanosLow                    uint64
 }
 type NativeClockPoint struct {
-	Epoch NativeClockEpoch
-	BiasS float64
+	Epoch            NativeClockEpoch
+	BiasS            float64
+	AdditionalValues []float64
+}
+type NativeClockSatellitePoint struct {
+	Satellite string
+	Point     NativeClockPoint
 }
 type RinexClock struct{}
+type ClockDiagnostic struct {
+	Kind                                                    uint32
+	HasLine                                                 bool
+	Line                                                    uint64
+	HasErrorLine                                            bool
+	ErrorLine                                               uint64
+	HasTimeScale                                            bool
+	TimeScale                                               uint32
+	HasField, HasReason, HasRecord, HasRecordType, HasValue bool
+	Message, Field, Reason, Record, RecordType, Value       string
+}
+type ClockNotice struct {
+	Kind                                         uint32
+	HasTimeSystem                                bool
+	TimeSystem                                   uint32
+	HasLine                                      bool
+	Line                                         uint64
+	HasRecords                                   bool
+	Records, FirstLine                           uint64
+	KindUnknownVariant, TimeSystemUnknownVariant string
+}
+type ClockSkip struct {
+	Line       uint64
+	RecordType uint32
+}
 type ClockSeries struct{}
 
-func ParseRinexClock([]byte, bool) (*RinexClock, error)    { return nil, protocolUnavailable() }
+func ParseRinexClock([]byte, bool) (*RinexClock, error) { return nil, protocolUnavailable() }
+func ParseRinexClockWithOutcome([]byte) (*RinexClock, *NativeClockWriteFailure, error) {
+	return nil, nil, protocolUnavailable()
+}
+func NewRinexClockFromPoints(uint32, []NativeClockSatellitePoint) (*RinexClock, error) {
+	return nil, protocolUnavailable()
+}
 func (*RinexClock) Close() error                           { return nil }
 func (*RinexClock) Satellites() ([]string, error)          { return nil, protocolUnavailable() }
 func (*RinexClock) SatelliteCount() (int, error)           { return 0, protocolUnavailable() }
@@ -202,7 +288,45 @@ func (*RinexClock) SeriesFor(string) (*ClockSeries, error) { return nil, protoco
 func (*RinexClock) BiasAtGPSSeconds(string, float64) (float64, bool, error) {
 	return 0, false, protocolUnavailable()
 }
-func (*RinexClock) Text() ([]byte, error)                 { return nil, protocolUnavailable() }
+func (*RinexClock) BiasAtCivil(string, CivilDateTime) (float64, bool, error) {
+	return 0, false, protocolUnavailable()
+}
+func (*RinexClock) BiasAtEpoch(string, NativeClockEpoch) (float64, bool, error) {
+	return 0, false, protocolUnavailable()
+}
+func (*RinexClock) Text() ([]byte, error)                   { return nil, protocolUnavailable() }
+func (*RinexClock) Diagnostics() ([]ClockDiagnostic, error) { return nil, protocolUnavailable() }
+func (*RinexClock) Notices() ([]ClockNotice, error)         { return nil, protocolUnavailable() }
+func (*RinexClock) SkippedRecords() ([]ClockSkip, error)    { return nil, protocolUnavailable() }
+func (*RinexClock) Records() ([]NativeClockRecord, error)   { return nil, protocolUnavailable() }
+func (*RinexClock) RecordCount() (int, error)               { return 0, protocolUnavailable() }
+func (*RinexClock) Info() (NativeRinexClockInfo, error) {
+	return NativeRinexClockInfo{}, protocolUnavailable()
+}
+func (*RinexClock) SourceLine(uint64) (string, bool, error) { return "", false, protocolUnavailable() }
+func (*RinexClock) TimeSystemLabel(int) (string, error)     { return "", protocolUnavailable() }
+func CivilToClockEpoch(uint32, CivilDateTime) (NativeClockEpoch, bool, error) {
+	return NativeClockEpoch{}, false, protocolUnavailable()
+}
+func (*RinexClock) HeaderRecords() ([]NativeClockHeaderRecord, error) {
+	return nil, protocolUnavailable()
+}
+func (*RinexClock) InsertRecord(int, uint32, string, CivilDateTime, []float64) error {
+	return protocolUnavailable()
+}
+func (*RinexClock) SetRecordValues(int, []float64) error { return protocolUnavailable() }
+func (*RinexClock) RemoveRecords([]int) (int, error)     { return 0, protocolUnavailable() }
+func (*RinexClock) SetRecordsValues([]NativeClockRecordValuesEdit) (int, error) {
+	return 0, protocolUnavailable()
+}
+func (*RinexClock) RemoveRecord(int) error { return protocolUnavailable() }
+func (*RinexClock) RemoveRecordWithValue(int) (NativeClockRecord, bool, error) {
+	return NativeClockRecord{}, false, protocolUnavailable()
+}
+func (*RinexClock) SetTimeSystem(uint32) error { return protocolUnavailable() }
+func (*RinexClock) TextWithPolicy(bool) (NativeClockWriteResult, error) {
+	return NativeClockWriteResult{}, protocolUnavailable()
+}
 func (*ClockSeries) Close() error                         { return nil }
 func (*ClockSeries) Satellite() (string, error)           { return "", protocolUnavailable() }
 func (*ClockSeries) Samples() ([]NativeClockPoint, error) { return nil, protocolUnavailable() }
@@ -321,6 +445,7 @@ func (*SbasLogBlocks) Items() ([]NativeSbasLogBlock, error) { return nil, protoc
 func (*SbasLogBlocks) Bytes(int) ([]byte, error)            { return nil, protocolUnavailable() }
 func (*SbasLogBlocks) Count() (int, error)                  { return 0, protocolUnavailable() }
 func SbasPRNToSatelliteID(uint16) (string, bool, error)     { return "", false, protocolUnavailable() }
+func SatelliteIDToSbasPRN(string) (uint16, bool, error)     { return 0, false, protocolUnavailable() }
 
 type NativeSsrClockRecord struct {
 	SatelliteID uint8

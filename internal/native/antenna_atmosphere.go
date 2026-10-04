@@ -125,8 +125,10 @@ func (a *Antenna) PCO(frequency string) (AntennaPco, error) {
 	}
 	var output [3]C.double
 	err := a.handle.with(func(pointer unsafe.Pointer) error {
-		return withString(frequency, func(input *C.char) uint32 {
-			return C.sidereon_antenna_pco((*C.SidereonAntenna)(pointer), input, &output[0])
+		return withCThreadError(func() error {
+			return withStringStatus(frequency, func(input *C.char) uint32 {
+				return C.sidereon_antenna_pco((*C.SidereonAntenna)(pointer), input, &output[0])
+			}, antexStatusErrorLocked)
 		})
 	})
 	runtime.KeepAlive(a)
@@ -139,8 +141,10 @@ func (a *Antenna) PCV(frequency string, zenithDeg float64, hasAzimuth bool, azim
 	}
 	var output C.double
 	err := a.handle.with(func(pointer unsafe.Pointer) error {
-		return withString(frequency, func(input *C.char) uint32 {
-			return C.sidereon_antenna_pcv((*C.SidereonAntenna)(pointer), input, C.double(zenithDeg), C.bool(hasAzimuth), C.double(azimuthDeg), &output)
+		return withCThreadError(func() error {
+			return withStringStatus(frequency, func(input *C.char) uint32 {
+				return C.sidereon_antenna_pcv((*C.SidereonAntenna)(pointer), input, C.double(zenithDeg), C.bool(hasAzimuth), C.double(azimuthDeg), &output)
+			}, antexStatusErrorLocked)
 		})
 	})
 	runtime.KeepAlive(a)

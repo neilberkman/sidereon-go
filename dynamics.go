@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // SolarRadiationPressure contains the coefficient and area-to-mass ratio used
 // by the C solar-radiation-pressure model.

@@ -3,7 +3,7 @@ package sidereon
 import (
 	"time"
 
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
 )
 
 // TEMEState is one TEME state detached from C TLE propagation. Position is
@@ -92,6 +92,23 @@ func ParseTLE(line1, line2 string) (*TLE, error) {
 // operations mode.
 func ParseTLEWithOpsMode(line1, line2 string, mode OpsMode) (*TLE, error) {
 	handle, err := native.LoadTLE(line1, line2, uint32(mode))
+	if err != nil {
+		return nil, publicError(err)
+	}
+	if handle == nil {
+		return nil, errNilNativeHandle
+	}
+	return &TLE{handle: handle}, nil
+}
+
+// ParseTLEWithPolicy parses two TLE lines using AFSPC mode and the selected checksum policy.
+func ParseTLEWithPolicy(line1, line2 string, policy TLEFilePolicy) (*TLE, error) {
+	return ParseTLEWithOpsModeAndPolicy(line1, line2, OpsModeAFSPC, policy)
+}
+
+// ParseTLEWithOpsModeAndPolicy parses two TLE lines with explicit SGP4 operations mode and checksum policy.
+func ParseTLEWithOpsModeAndPolicy(line1, line2 string, mode OpsMode, policy TLEFilePolicy) (*TLE, error) {
+	handle, err := native.LoadTLEWithPolicy(line1, line2, uint32(mode), uint32(policy))
 	if err != nil {
 		return nil, publicError(err)
 	}

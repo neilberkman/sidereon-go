@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // CivilDateTime is a UTC-like proleptic-Gregorian calendar instant. Second
 // may contain a fractional part.

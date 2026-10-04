@@ -76,6 +76,37 @@ const (
 	TerrainStoreErrorChecksumValue                 = uint32(C.SIDEREON_TERRAIN_STORE_ERROR_KIND_CHECKSUM)
 	TerrainStoreErrorTileIDMismatchValue           = uint32(C.SIDEREON_TERRAIN_STORE_ERROR_KIND_TILE_ID_MISMATCH)
 	TerrainStoreErrorAttestedChecksumMismatchValue = uint32(C.SIDEREON_TERRAIN_STORE_ERROR_KIND_ATTESTED_CHECKSUM_MISMATCH)
+	TerrainStoreErrorTileIDOutOfRangeValue         = uint32(C.SIDEREON_TERRAIN_STORE_ERROR_KIND_TILE_ID_OUT_OF_RANGE)
+	TerrainStoreErrorTileBoundsMismatchValue       = uint32(C.SIDEREON_TERRAIN_STORE_ERROR_KIND_TILE_BOUNDS_MISMATCH)
+	TerrainStoreErrorNonWgs84TileValue             = uint32(C.SIDEREON_TERRAIN_STORE_ERROR_KIND_NON_WGS84_TILE)
+	TerrainStoreErrorTileValue                     = uint32(C.SIDEREON_TERRAIN_STORE_ERROR_KIND_TILE)
+
+	TerrainLookupErrorNoneValue             = uint32(C.SIDEREON_TERRAIN_LOOKUP_ERROR_KIND_NONE)
+	TerrainLookupErrorInvalidInputValue     = uint32(C.SIDEREON_TERRAIN_LOOKUP_ERROR_KIND_INVALID_INPUT)
+	TerrainLookupErrorMissingTileValue      = uint32(C.SIDEREON_TERRAIN_LOOKUP_ERROR_KIND_MISSING_TILE)
+	TerrainLookupErrorUnknownElevationValue = uint32(C.SIDEREON_TERRAIN_LOOKUP_ERROR_KIND_UNKNOWN_ELEVATION)
+	TerrainLookupErrorNonWgs84TileValue     = uint32(C.SIDEREON_TERRAIN_LOOKUP_ERROR_KIND_NON_WGS84_TILE)
+	TerrainLookupErrorParseValue            = uint32(C.SIDEREON_TERRAIN_LOOKUP_ERROR_KIND_PARSE)
+	TerrainLookupErrorTileValue             = uint32(C.SIDEREON_TERRAIN_LOOKUP_ERROR_KIND_TILE)
+	TerrainLookupErrorTileOriginValue       = uint32(C.SIDEREON_TERRAIN_LOOKUP_ERROR_KIND_TILE_ORIGIN)
+	TerrainLookupErrorOtherValue            = uint32(C.SIDEREON_TERRAIN_LOOKUP_ERROR_KIND_OTHER)
+
+	GeoidErrorNoneValue              = uint32(C.SIDEREON_GEOID_ERROR_KIND_NONE)
+	GeoidErrorInvalidDimensionsValue = uint32(C.SIDEREON_GEOID_ERROR_KIND_INVALID_DIMENSIONS)
+	GeoidErrorInvalidSpacingValue    = uint32(C.SIDEREON_GEOID_ERROR_KIND_INVALID_SPACING)
+	GeoidErrorNonFiniteValueValue    = uint32(C.SIDEREON_GEOID_ERROR_KIND_NON_FINITE_VALUE)
+	GeoidErrorParseValue             = uint32(C.SIDEREON_GEOID_ERROR_KIND_PARSE)
+	GeoidErrorUnknownValue           = uint32(C.SIDEREON_GEOID_ERROR_KIND_UNKNOWN)
+
+	TerrainErrorFamilyTileValue      = uint32(C.SIDEREON_TERRAIN_ERROR_FAMILY_DTED_TILE)
+	TerrainErrorFamilyStoreValue     = uint32(C.SIDEREON_TERRAIN_ERROR_FAMILY_TERRAIN_STORE)
+	TerrainErrorFamilyDatumValue     = uint32(C.SIDEREON_TERRAIN_ERROR_FAMILY_TERRAIN_DATUM)
+	TerrainErrorFamilyLookupValue    = uint32(C.SIDEREON_TERRAIN_ERROR_FAMILY_TERRAIN_LOOKUP)
+	TerrainErrorTextPathValue        = uint32(C.SIDEREON_TERRAIN_ERROR_TEXT_PATH)
+	TerrainErrorTextMessageValue     = uint32(C.SIDEREON_TERRAIN_ERROR_TEXT_MESSAGE)
+	TerrainErrorTextReasonValue      = uint32(C.SIDEREON_TERRAIN_ERROR_TEXT_REASON)
+	TerrainErrorTextRemediationValue = uint32(C.SIDEREON_TERRAIN_ERROR_TEXT_REMEDIATION)
+	TerrainErrorTextFieldValue       = uint32(C.SIDEREON_TERRAIN_ERROR_TEXT_FIELD)
 
 	TropoMappingErrorNoneValue         = uint32(C.SIDEREON_TROPO_MAPPING_ERROR_KIND_NONE)
 	TropoMappingErrorLowElevationValue = uint32(C.SIDEREON_TROPO_MAPPING_ERROR_KIND_LOW_ELEVATION)
@@ -194,8 +225,8 @@ func geoidPointSlice(points []GeoidPoint) ([]C.SidereonGeoidPoint, error) {
 
 func geoidGridFromBytes(data []byte, fn func(*C.uint8_t, C.size_t, **C.SidereonGeoidGrid) uint32) (*GeoidGrid, error) {
 	var pointer *C.SidereonGeoidGrid
-	operationErr := withInput(data, func(input *C.uint8_t, length C.size_t) uint32 {
-		return fn(input, length, &pointer)
+	operationErr := withInputError(data, func(input *C.uint8_t, length C.size_t) error {
+		return statusGeoidErrorLocked(fn(input, length, &pointer))
 	})
 	if operationErr != nil {
 		if pointer != nil {
@@ -266,12 +297,8 @@ func NewGeoidGrid(latMinDeg, lonMinDeg, dLatDeg, dLonDeg float64, nLat, nLon int
 	if err != nil {
 		return nil, err
 	}
-	valueCount, err := checkedProduct(nLat, nLon, "geoid grid dimensions")
-	if err != nil {
+	if _, err := checkedProduct(nLat, nLon, "geoid grid dimensions"); err != nil {
 		return nil, err
-	}
-	if valueCount != len(values) {
-		return nil, errors.New("sidereon: geoid grid value count does not match dimensions")
 	}
 	if _, err := checkedNativeAllocationSize(len(values), unsafe.Sizeof(C.double(0))); err != nil {
 		return nil, err
@@ -287,7 +314,7 @@ func NewGeoidGrid(latMinDeg, lonMinDeg, dLatDeg, dLonDeg float64, nLat, nLon int
 		if len(cValues) != 0 {
 			input = &cValues[0]
 		}
-		operationErr = statusErrorLocked(C.sidereon_geoid_grid_new(
+		operationErr = statusGeoidErrorLocked(C.sidereon_geoid_grid_new(
 			C.double(latMinDeg), C.double(lonMinDeg), C.double(dLatDeg), C.double(dLonDeg),
 			latCount, lonCount, input, C.size_t(len(cValues)), &pointer,
 		))

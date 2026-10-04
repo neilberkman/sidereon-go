@@ -19,56 +19,68 @@ var errTokenTooLong = errors.New("sidereon: satellite token is too long")
 var errNilNativeHandle = errors.New("sidereon: native constructor returned a nil handle")
 
 const (
-	RTCMMessageMSMValue                   = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_MSM)
-	RTCMMessageStationCoordinatesValue    = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_STATION_COORDINATES)
-	RTCMMessageAntennaDescriptorValue     = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_ANTENNA_DESCRIPTOR)
-	RTCMMessageGPSEphemerisValue          = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GPS_EPHEMERIS)
-	RTCMMessageGLONASSEphemerisValue      = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GLONASS_EPHEMERIS)
-	RTCMMessageSSRValue                   = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_SSR)
-	RTCMMessageUnsupportedValue           = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_UNSUPPORTED)
-	RTCMMessageBeiDouEphemerisValue       = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_BEIDOU_EPHEMERIS)
-	RTCMMessageQZSSEphemerisValue         = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_QZSS_EPHEMERIS)
-	RTCMMessageGalileoFNavEphemerisValue  = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GALILEO_FNAV_EPHEMERIS)
-	RTCMMessageGalileoINavEphemerisValue  = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GALILEO_INAV_EPHEMERIS)
-	RTCMMSM4Value                         = uint32(C.SIDEREON_RTCM_MSM_KIND_MSM4)
-	RTCMMSM7Value                         = uint32(C.SIDEREON_RTCM_MSM_KIND_MSM7)
-	RTCMFrameTruncatedValue               = uint32(C.SIDEREON_RTCM_FRAME_SKIP_REASON_TRUNCATED)
-	RTCMFrameMalformedValue               = uint32(C.SIDEREON_RTCM_FRAME_SKIP_REASON_MALFORMED)
-	RTCMAntennaDescriptorFieldValue       = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_ANTENNA_DESCRIPTOR)
-	RTCMAntennaSerialNumberFieldValue     = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_ANTENNA_SERIAL_NUMBER)
-	RTCMReceiverTypeFieldValue            = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_RECEIVER_TYPE)
-	RTCMReceiverFirmwareVersionFieldValue = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_RECEIVER_FIRMWARE_VERSION)
-	RTCMReceiverSerialNumberFieldValue    = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_RECEIVER_SERIAL_NUMBER)
-	EphemerisSampleValidValue             = uint32(C.SIDEREON_EPHEMERIS_SAMPLE_STATUS_VALID)
-	EphemerisSampleGapValue               = uint32(C.SIDEREON_EPHEMERIS_SAMPLE_STATUS_GAP)
-	ObservableStateValidValue             = uint32(C.SIDEREON_OBSERVABLE_STATE_ELEMENT_STATUS_VALID)
-	ObservableStateGapValue               = uint32(C.SIDEREON_OBSERVABLE_STATE_ELEMENT_STATUS_GAP)
-	ObservableStateErrorValue             = uint32(C.SIDEREON_OBSERVABLE_STATE_ELEMENT_STATUS_ERROR)
-	EmissionMediaValidValue               = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_VALID)
-	EmissionMediaGapValue                 = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_GAP)
-	EmissionMediaBelowElevationValue      = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_BELOW_ELEVATION_CUTOFF)
-	EmissionMediaErrorValue               = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_ERROR)
-	SignalModulationBPSKValue             = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_BPSK)
-	SignalModulationBOCSineValue          = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_BOC_SINE)
-	SignalModulationBOCCosineValue        = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_BOC_COSINE)
-	SignalModulationMBOCValue             = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_MBOC611_OVER11)
-	SignalModulationTMBOCValue            = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_TMBOC614_OVER33)
-	SignalModulationCBOCPlusValue         = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_CBOC611_OVER11_PLUS)
-	SignalModulationCBOCMinusValue        = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_CBOC611_OVER11_MINUS)
-	DLLCoherentValue                      = uint32(C.SIDEREON_SIGNAL_ANALYSIS_DLL_PROCESSING_COHERENT)
-	DLLNonCoherentValue                   = uint32(C.SIDEREON_SIGNAL_ANALYSIS_DLL_PROCESSING_NON_COHERENT)
-	SBASPLNoErrorValue                    = uint32(C.SIDEREON_SBAS_PL_ERROR_NONE)
-	SBASPLInsufficientGeometryValue       = uint32(C.SIDEREON_SBAS_PL_ERROR_INSUFFICIENT_GEOMETRY)
-	SBASPLNumericalFailureValue           = uint32(C.SIDEREON_SBAS_PL_ERROR_NUMERICAL_FAILURE)
-	SBASPLInvalidErrorModelValue          = uint32(C.SIDEREON_SBAS_PL_ERROR_INVALID_ERROR_MODEL)
-	SBASSolveMixedValue                   = uint32(C.SIDEREON_SBAS_SOLVE_MODE_MIXED_AUGMENTATION)
-	SBASSolveSBASOnlyValue                = uint32(C.SIDEREON_SBAS_SOLVE_MODE_SBAS_ONLY)
-	SSRReferencePointAntennaValue         = uint32(C.SIDEREON_SSR_REFERENCE_POINT_ANTENNA_PHASE_CENTER)
-	SSRReferencePointCenterOfMassValue    = uint32(C.SIDEREON_SSR_REFERENCE_POINT_CENTER_OF_MASS)
-	SSRSourceRTCMValue                    = uint32(0)
-	SSRSourceGalileoHASValue              = uint32(1)
-	SSRMissingDeclineValue                = uint32(C.SIDEREON_SSR_MISSING_CORRECTION_ACTION_DECLINE)
-	SSRMissingFallbackValue               = uint32(C.SIDEREON_SSR_MISSING_CORRECTION_ACTION_FALL_BACK_TO_BROADCAST)
+	RTCMMessageMSMValue                                  = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_MSM)
+	RTCMMessageStationCoordinatesValue                   = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_STATION_COORDINATES)
+	RTCMMessageAntennaDescriptorValue                    = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_ANTENNA_DESCRIPTOR)
+	RTCMMessageGPSEphemerisValue                         = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GPS_EPHEMERIS)
+	RTCMMessageGLONASSEphemerisValue                     = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GLONASS_EPHEMERIS)
+	RTCMMessageSSRValue                                  = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_SSR)
+	RTCMMessageUnsupportedValue                          = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_UNSUPPORTED)
+	RTCMMessageBeiDouEphemerisValue                      = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_BEIDOU_EPHEMERIS)
+	RTCMMessageQZSSEphemerisValue                        = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_QZSS_EPHEMERIS)
+	RTCMMessageGalileoFNavEphemerisValue                 = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GALILEO_FNAV_EPHEMERIS)
+	RTCMMessageGalileoINavEphemerisValue                 = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GALILEO_INAV_EPHEMERIS)
+	RTCMMessageNavICEphemerisValue                       = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_NAVIC_EPHEMERIS)
+	RTCMMessageLegacyObservationsValue                   = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_LEGACY_OBSERVATIONS)
+	RTCMMessageSystemParametersValue                     = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_SYSTEM_PARAMETERS)
+	RTCMMessageTextValue                                 = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_TEXT)
+	RTCMMessageNetworkValue                              = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_NETWORK)
+	RTCMMessageTransformationValue                       = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_TRANSFORMATION)
+	RTCMMessageGLONASSCodePhaseBiasesValue               = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_GLONASS_CODE_PHASE_BIASES)
+	RTCMMessageSSRVTECValue                              = uint32(C.SIDEREON_RTCM_MESSAGE_KIND_SSR_VTEC)
+	PPPUnplacedObservationCodeNotPositiveValue           = uint32(C.SIDEREON_PPP_UNPLACED_OBSERVATION_REASON_CODE_NOT_POSITIVE)
+	PPPUnplacedObservationSsrCorrectionExceedsLimitValue = uint32(C.SIDEREON_PPP_UNPLACED_OBSERVATION_REASON_SSR_CORRECTION_EXCEEDS_LIMIT)
+	PPPUnplacedObservationUnknownValue                   = uint32(C.SIDEREON_PPP_UNPLACED_OBSERVATION_REASON_UNKNOWN)
+	RTCMMSM4Value                                        = uint32(C.SIDEREON_RTCM_MSM_KIND_MSM4)
+	RTCMMSM7Value                                        = uint32(C.SIDEREON_RTCM_MSM_KIND_MSM7)
+	RTCMFrameTruncatedValue                              = uint32(C.SIDEREON_RTCM_FRAME_SKIP_REASON_TRUNCATED)
+	RTCMFrameMalformedValue                              = uint32(C.SIDEREON_RTCM_FRAME_SKIP_REASON_MALFORMED)
+	RTCMAntennaDescriptorFieldValue                      = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_ANTENNA_DESCRIPTOR)
+	RTCMAntennaSerialNumberFieldValue                    = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_ANTENNA_SERIAL_NUMBER)
+	RTCMReceiverTypeFieldValue                           = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_RECEIVER_TYPE)
+	RTCMReceiverFirmwareVersionFieldValue                = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_RECEIVER_FIRMWARE_VERSION)
+	RTCMReceiverSerialNumberFieldValue                   = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_RECEIVER_SERIAL_NUMBER)
+	EphemerisSampleValidValue                            = uint32(C.SIDEREON_EPHEMERIS_SAMPLE_STATUS_VALID)
+	EphemerisSampleGapValue                              = uint32(C.SIDEREON_EPHEMERIS_SAMPLE_STATUS_GAP)
+	ObservableStateValidValue                            = uint32(C.SIDEREON_OBSERVABLE_STATE_ELEMENT_STATUS_VALID)
+	ObservableStateGapValue                              = uint32(C.SIDEREON_OBSERVABLE_STATE_ELEMENT_STATUS_GAP)
+	ObservableStateErrorValue                            = uint32(C.SIDEREON_OBSERVABLE_STATE_ELEMENT_STATUS_ERROR)
+	EmissionMediaValidValue                              = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_VALID)
+	EmissionMediaGapValue                                = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_GAP)
+	EmissionMediaBelowElevationValue                     = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_BELOW_ELEVATION_CUTOFF)
+	EmissionMediaErrorValue                              = uint32(C.SIDEREON_EMISSION_MEDIA_STATUS_ERROR)
+	SignalModulationBPSKValue                            = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_BPSK)
+	SignalModulationBOCSineValue                         = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_BOC_SINE)
+	SignalModulationBOCCosineValue                       = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_BOC_COSINE)
+	SignalModulationMBOCValue                            = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_MBOC611_OVER11)
+	SignalModulationTMBOCValue                           = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_TMBOC614_OVER33)
+	SignalModulationCBOCPlusValue                        = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_CBOC611_OVER11_PLUS)
+	SignalModulationCBOCMinusValue                       = uint32(C.SIDEREON_SIGNAL_ANALYSIS_MODULATION_KIND_CBOC611_OVER11_MINUS)
+	DLLCoherentValue                                     = uint32(C.SIDEREON_SIGNAL_ANALYSIS_DLL_PROCESSING_COHERENT)
+	DLLNonCoherentValue                                  = uint32(C.SIDEREON_SIGNAL_ANALYSIS_DLL_PROCESSING_NON_COHERENT)
+	SBASPLNoErrorValue                                   = uint32(C.SIDEREON_SBAS_PL_ERROR_NONE)
+	SBASPLInsufficientGeometryValue                      = uint32(C.SIDEREON_SBAS_PL_ERROR_INSUFFICIENT_GEOMETRY)
+	SBASPLNumericalFailureValue                          = uint32(C.SIDEREON_SBAS_PL_ERROR_NUMERICAL_FAILURE)
+	SBASPLInvalidErrorModelValue                         = uint32(C.SIDEREON_SBAS_PL_ERROR_INVALID_ERROR_MODEL)
+	SBASSolveMixedValue                                  = uint32(C.SIDEREON_SBAS_SOLVE_MODE_MIXED_AUGMENTATION)
+	SBASSolveSBASOnlyValue                               = uint32(C.SIDEREON_SBAS_SOLVE_MODE_SBAS_ONLY)
+	SSRReferencePointAntennaValue                        = uint32(C.SIDEREON_SSR_REFERENCE_POINT_ANTENNA_PHASE_CENTER)
+	SSRReferencePointCenterOfMassValue                   = uint32(C.SIDEREON_SSR_REFERENCE_POINT_CENTER_OF_MASS)
+	SSRSourceRTCMValue                                   = uint32(0)
+	SSRSourceGalileoHASValue                             = uint32(1)
+	SSRSourceIGSSSRValue                                 = uint32(2)
+	SSRMissingDeclineValue                               = uint32(C.SIDEREON_SSR_MISSING_CORRECTION_ACTION_DECLINE)
+	SSRMissingFallbackValue                              = uint32(C.SIDEREON_SSR_MISSING_CORRECTION_ACTION_FALL_BACK_TO_BROADCAST)
 
 	SBASWireFramed250Value = uint32(C.SIDEREON_SBAS_WIRE_FORM_FRAMED250)
 	SBASWireBody226Value   = uint32(C.SIDEREON_SBAS_WIRE_FORM_BODY226)
@@ -280,9 +292,27 @@ type NativeBroadcastCNAV struct {
 	Flags               uint32
 }
 
+type NativeStatedNavFields struct {
+	HasOrbit5Field2        bool
+	Orbit5Field2           float64
+	HasOrbit5Field4        bool
+	Orbit5Field4           float64
+	HasOrbit6Field4        bool
+	Orbit6Field4           float64
+	HasTransmissionTimeSOW bool
+	TransmissionTimeSOW    float64
+	HasOrbit7Field2        bool
+	Orbit7Field2           float64
+	HasOrbit7Field3        bool
+	Orbit7Field3           float64
+	HasOrbit7Field4        bool
+	Orbit7Field4           float64
+}
+
 type NativeBroadcastRecord struct {
 	SatelliteID    string
 	Message        uint32
+	HasIssue       bool
 	Issue          uint32
 	IssueMessage   uint32
 	Week           uint32
@@ -293,15 +323,18 @@ type NativeBroadcastRecord struct {
 	GroupDelays    NativeBroadcastGroupDelays
 	CNAV           NativeBroadcastCNAV
 	SVHealth       float64
+	HasSVAccuracyM bool
 	SVAccuracyM    float64
 	HasFitInterval bool
 	FitIntervalS   float64
+	Stated         NativeStatedNavFields
 }
 
 func broadcastRecordFromC(value C.SidereonBroadcastRecord) NativeBroadcastRecord {
 	return NativeBroadcastRecord{
 		SatelliteID:  tokenFromC(value.sat_id),
 		Message:      uint32(value.message),
+		HasIssue:     bool(value.has_issue),
 		Issue:        uint32(value.issue),
 		IssueMessage: uint32(value.issue_message),
 		Week:         uint32(value.week),
@@ -335,7 +368,16 @@ func broadcastRecordFromC(value C.SidereonBroadcastRecord) NativeBroadcastRecord
 			URAEDIndex: int8(value.cnav.ura_ed_index), URANED0Index: int8(value.cnav.ura_ned0_index), URANED1Index: uint8(value.cnav.ura_ned1_index), URANED2Index: uint8(value.cnav.ura_ned2_index),
 			TransmissionTimeSOW: float64(value.cnav.transmission_time_sow), HasFlags: bool(value.cnav.has_flags), Flags: uint32(value.cnav.flags),
 		},
-		SVHealth: float64(value.sv_health), SVAccuracyM: float64(value.sv_accuracy_m), HasFitInterval: bool(value.has_fit_interval_s), FitIntervalS: float64(value.fit_interval_s),
+		SVHealth: float64(value.sv_health), HasSVAccuracyM: bool(value.has_sv_accuracy_m), SVAccuracyM: float64(value.sv_accuracy_m), HasFitInterval: bool(value.has_fit_interval_s), FitIntervalS: float64(value.fit_interval_s),
+		Stated: NativeStatedNavFields{
+			HasOrbit5Field2: bool(value.stated.has_orbit5_field2), Orbit5Field2: float64(value.stated.orbit5_field2),
+			HasOrbit5Field4: bool(value.stated.has_orbit5_field4), Orbit5Field4: float64(value.stated.orbit5_field4),
+			HasOrbit6Field4: bool(value.stated.has_orbit6_field4), Orbit6Field4: float64(value.stated.orbit6_field4),
+			HasTransmissionTimeSOW: bool(value.stated.has_transmission_time_sow), TransmissionTimeSOW: float64(value.stated.transmission_time_sow),
+			HasOrbit7Field2: bool(value.stated.has_orbit7_field2), Orbit7Field2: float64(value.stated.orbit7_field2),
+			HasOrbit7Field3: bool(value.stated.has_orbit7_field3), Orbit7Field3: float64(value.stated.orbit7_field3),
+			HasOrbit7Field4: bool(value.stated.has_orbit7_field4), Orbit7Field4: float64(value.stated.orbit7_field4),
+		},
 	}
 }
 
@@ -718,7 +760,7 @@ func broadcastRecordToC(value NativeBroadcastRecord) (C.SidereonBroadcastRecord,
 		return C.SidereonBroadcastRecord{}, err
 	}
 	return C.SidereonBroadcastRecord{
-		sat_id: satelliteID, message: C.uint32_t(value.Message), issue: C.uint32_t(value.Issue), issue_message: C.uint32_t(value.IssueMessage), week: C.uint32_t(value.Week),
+		sat_id: satelliteID, message: C.uint32_t(value.Message), has_issue: C.bool(value.HasIssue || value.Issue != 0), issue: C.uint32_t(value.Issue), issue_message: C.uint32_t(value.IssueMessage), week: C.uint32_t(value.Week),
 		toe: weekTowToC(value.Toe), toc: weekTowToC(value.Toc),
 		elements: C.SidereonKeplerianElements{
 			sqrt_a: C.double(value.Elements.SqrtA), e: C.double(value.Elements.E), m0: C.double(value.Elements.M0), delta_n: C.double(value.Elements.DeltaN),
@@ -740,7 +782,16 @@ func broadcastRecordToC(value NativeBroadcastRecord) (C.SidereonBroadcastRecord,
 			ura_ed_index: C.int8_t(value.CNAV.URAEDIndex), ura_ned0_index: C.int8_t(value.CNAV.URANED0Index), ura_ned1_index: C.uint8_t(value.CNAV.URANED1Index), ura_ned2_index: C.uint8_t(value.CNAV.URANED2Index),
 			transmission_time_sow: C.double(value.CNAV.TransmissionTimeSOW), has_flags: C.bool(value.CNAV.HasFlags), flags: C.uint32_t(value.CNAV.Flags),
 		},
-		sv_health: C.double(value.SVHealth), sv_accuracy_m: C.double(value.SVAccuracyM), has_fit_interval_s: C.bool(value.HasFitInterval), fit_interval_s: C.double(value.FitIntervalS),
+		sv_health: C.double(value.SVHealth), has_sv_accuracy_m: C.bool(value.HasSVAccuracyM || value.SVAccuracyM != 0), sv_accuracy_m: C.double(value.SVAccuracyM), has_fit_interval_s: C.bool(value.HasFitInterval), fit_interval_s: C.double(value.FitIntervalS),
+		stated: C.SidereonStatedNavFields{
+			has_orbit5_field2: C.bool(value.Stated.HasOrbit5Field2), orbit5_field2: C.double(value.Stated.Orbit5Field2),
+			has_orbit5_field4: C.bool(value.Stated.HasOrbit5Field4), orbit5_field4: C.double(value.Stated.Orbit5Field4),
+			has_orbit6_field4: C.bool(value.Stated.HasOrbit6Field4), orbit6_field4: C.double(value.Stated.Orbit6Field4),
+			has_transmission_time_sow: C.bool(value.Stated.HasTransmissionTimeSOW), transmission_time_sow: C.double(value.Stated.TransmissionTimeSOW),
+			has_orbit7_field2: C.bool(value.Stated.HasOrbit7Field2), orbit7_field2: C.double(value.Stated.Orbit7Field2),
+			has_orbit7_field3: C.bool(value.Stated.HasOrbit7Field3), orbit7_field3: C.double(value.Stated.Orbit7Field3),
+			has_orbit7_field4: C.bool(value.Stated.HasOrbit7Field4), orbit7_field4: C.double(value.Stated.Orbit7Field4),
+		},
 	}, nil
 }
 
@@ -819,8 +870,14 @@ type NativeClockEpoch struct {
 }
 
 type NativeClockPoint struct {
-	Epoch NativeClockEpoch
-	BiasS float64
+	Epoch            NativeClockEpoch
+	BiasS            float64
+	AdditionalValues []float64
+}
+
+type NativeClockSatellitePoint struct {
+	Satellite string
+	Point     NativeClockPoint
 }
 
 type RinexClock struct {
@@ -876,6 +933,65 @@ func ParseRinexClock(data []byte, lossy bool) (*RinexClock, error) {
 		withCThread(func() { C.sidereon_rinex_clock_free(pointer) })
 	}
 	return handle, err
+}
+
+// ParseRinexClockWithOutcome keeps the native parse-result failure alive long
+// enough to copy all typed fields and message before releasing its owner.
+func ParseRinexClockWithOutcome(data []byte) (*RinexClock, *NativeClockWriteFailure, error) {
+	var pointer *C.SidereonRinexClock
+	var result *C.SidereonRinexClockResult
+	err := withInput(data, func(input *C.uint8_t, length C.size_t) uint32 {
+		return C.sidereon_rinex_clock_parse_result(input, length, &pointer, &result)
+	})
+	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_rinex_clock_free(pointer) })
+		}
+		if result != nil {
+			withCThread(func() { C.sidereon_rinex_clock_result_free(result) })
+		}
+		return nil, nil, err
+	}
+	if result == nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_rinex_clock_free(pointer) })
+		}
+		return nil, nil, missingNativeHandle("RINEX clock parse outcome")
+	}
+	var outcome C.SidereonRinexClockOutcome
+	var failure *NativeClockWriteFailure
+	err = withCThreadError(func() error {
+		if err := callStatus(func() uint32 { return uint32(C.sidereon_rinex_clock_result_get_outcome(result, &outcome)) }); err != nil {
+			return err
+		}
+		failure, err = readClockWriteFailureLocked(result, outcome)
+		return err
+	})
+	withCThread(func() { C.sidereon_rinex_clock_result_free(result) })
+	if err != nil {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_rinex_clock_free(pointer) })
+		}
+		return nil, nil, err
+	}
+	if !bool(outcome.is_ok) {
+		if pointer != nil {
+			withCThread(func() { C.sidereon_rinex_clock_free(pointer) })
+		}
+		if failure == nil {
+			return nil, nil, missingNativeHandle("RINEX clock parse failure details")
+		}
+		return nil, failure, nil
+	}
+	if pointer == nil {
+		return nil, nil, missingNativeHandle("RINEX clock")
+	}
+	handle, err := newRinexClock(pointer)
+	if err != nil {
+		withCThread(func() { C.sidereon_rinex_clock_free(pointer) })
+		return nil, nil, err
+	}
+	return handle, nil, nil
 }
 
 func (clock *RinexClock) Close() error {
@@ -1090,6 +1206,218 @@ func (clock *RinexClock) Text() ([]byte, error) {
 	})
 	runtime.KeepAlive(clock)
 	return out, err
+}
+
+// ClockDiagnostic is a copied lossy-read or header-time-system finding.
+type ClockDiagnostic struct {
+	// Kind is the native error-kind discriminant.
+	Kind uint32
+	// HasLine and Line preserve optional source-line attribution.
+	HasLine bool
+	Line    uint64
+	// HasErrorLine and ErrorLine preserve the nested typed error location.
+	HasErrorLine bool
+	ErrorLine    uint64
+	// HasTimeScale and TimeScale preserve an optional refused scale.
+	HasTimeScale bool
+	TimeScale    uint32
+	// These flags preserve which optional text parts are available.
+	HasField, HasReason, HasRecord, HasRecordType, HasValue bool
+	// Text values are detached copies of the matching native parts.
+	Message, Field, Reason, Record, RecordType, Value string
+}
+
+// ClockNotice retains one non-fatal parser finding.
+type ClockNotice struct {
+	// Kind is the native notice-kind discriminant.
+	Kind uint32
+	// HasTimeSystem reports whether TimeSystem is present.
+	HasTimeSystem bool
+	// TimeSystem is the native time-system discriminant.
+	TimeSystem uint32
+	// HasLine reports whether Line identifies a source line.
+	HasLine bool
+	// Line is a one-based source line when present.
+	Line uint64
+	// HasRecords reports whether Records and FirstLine are meaningful.
+	HasRecords bool
+	// Records and FirstLine identify the affected record range.
+	Records, FirstLine uint64
+	// Unknown variant fields preserve names introduced by newer native versions.
+	KindUnknownVariant, TimeSystemUnknownVariant string
+}
+
+// ClockSkip identifies a source record outside the satellite-series API.
+type ClockSkip struct {
+	// Line is the one-based source line.
+	Line uint64
+	// RecordType is the native clock-record discriminant.
+	RecordType uint32
+}
+
+// Diagnostics copies every retained parser diagnostic and its available text parts.
+func (clock *RinexClock) Diagnostics() ([]ClockDiagnostic, error) {
+	if clock == nil || clock.resource == nil {
+		return nil, ErrClosed
+	}
+	var out []ClockDiagnostic
+	err := clock.resource.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var written, required C.size_t
+			status := C.sidereon_rinex_clock_diagnostics((*C.SidereonRinexClock)(pointer), nil, 0, &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			n, err := validateNativeQuery("RINEX clock diagnostics", uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if _, err := checkedNativeAllocationSize(n, unsafe.Sizeof(C.SidereonClockDiagnostic{})); err != nil {
+				return err
+			}
+			values := make([]C.SidereonClockDiagnostic, n)
+			var output *C.SidereonClockDiagnostic
+			if n > 0 {
+				output = &values[0]
+			}
+			written, required = 0, 0
+			status = C.sidereon_rinex_clock_diagnostics((*C.SidereonRinexClock)(pointer), output, C.size_t(n), &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			if _, err := validateTwoPassCounts("RINEX clock diagnostics", n, n, uint64(written), uint64(required)); err != nil {
+				return err
+			}
+			out = make([]ClockDiagnostic, n)
+			for index, value := range values {
+				idx, err := cSize(index, "RINEX clock diagnostic index")
+				if err != nil {
+					return err
+				}
+				getText := func(part C.uint32_t) (string, error) {
+					bytes, err := copyNativeBytesLocked("RINEX clock diagnostic text", func(o *C.uint8_t, l C.size_t, w, r *C.size_t) C.enum_SidereonStatus {
+						return C.sidereon_rinex_clock_diagnostic_text((*C.SidereonRinexClock)(pointer), idx, part, o, l, w, r)
+					})
+					return string(bytes), err
+				}
+				row := ClockDiagnostic{Kind: uint32(value.error.kind), HasLine: true, Line: uint64(value.line), HasErrorLine: bool(value.error.has_line), ErrorLine: uint64(value.error.line), HasTimeScale: bool(value.error.has_time_scale), TimeScale: uint32(value.error.time_scale), HasField: bool(value.error.has_field), HasReason: bool(value.error.has_reason), HasRecord: bool(value.error.has_record), HasRecordType: bool(value.error.has_record_type), HasValue: bool(value.error.has_value)}
+				row.Message, err = getText(C.SIDEREON_RINEX_CLOCK_ERROR_TEXT_MESSAGE)
+				if err != nil {
+					return err
+				}
+				for _, field := range []struct {
+					present bool
+					part    C.uint32_t
+					dest    *string
+				}{{row.HasField, C.SIDEREON_RINEX_CLOCK_ERROR_TEXT_FIELD, &row.Field}, {row.HasReason, C.SIDEREON_RINEX_CLOCK_ERROR_TEXT_REASON, &row.Reason}, {row.HasRecord, C.SIDEREON_RINEX_CLOCK_ERROR_TEXT_RECORD, &row.Record}, {row.HasRecordType, C.SIDEREON_RINEX_CLOCK_ERROR_TEXT_RECORD_TYPE, &row.RecordType}, {row.HasValue, C.SIDEREON_RINEX_CLOCK_ERROR_TEXT_VALUE, &row.Value}} {
+					if field.present {
+						*field.dest, err = getText(field.part)
+						if err != nil {
+							return err
+						}
+					}
+				}
+				out[index] = row
+			}
+			return nil
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Notices copies every non-fatal parser finding, including future enum names.
+func (clock *RinexClock) Notices() ([]ClockNotice, error) {
+	if clock == nil || clock.resource == nil {
+		return nil, ErrClosed
+	}
+	var out []ClockNotice
+	err := clock.resource.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var written, required C.size_t
+			status := C.sidereon_rinex_clock_notices((*C.SidereonRinexClock)(pointer), nil, 0, &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			n, err := validateNativeQuery("RINEX clock notices", uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if _, err := checkedNativeAllocationSize(n, unsafe.Sizeof(C.SidereonClockNotice{})); err != nil {
+				return err
+			}
+			values := make([]C.SidereonClockNotice, n)
+			var output *C.SidereonClockNotice
+			if n > 0 {
+				output = &values[0]
+			}
+			written, required = 0, 0
+			status = C.sidereon_rinex_clock_notices((*C.SidereonRinexClock)(pointer), output, C.size_t(n), &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			if _, err := validateTwoPassCounts("RINEX clock notices", n, n, uint64(written), uint64(required)); err != nil {
+				return err
+			}
+			out = make([]ClockNotice, n)
+			for i, value := range values {
+				out[i] = ClockNotice{Kind: uint32(value.kind), HasTimeSystem: bool(value.has_time_system), TimeSystem: uint32(value.time_system), HasLine: bool(value.has_line), Line: uint64(value.line), HasRecords: bool(value.has_records), Records: uint64(value.records), FirstLine: uint64(value.first_line), KindUnknownVariant: C.GoString(&value.kind_unknown_variant[0]), TimeSystemUnknownVariant: C.GoString(&value.time_system_unknown_variant[0])}
+			}
+			return nil
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// SkippedRecords copies source records that do not form satellite clock series.
+func (clock *RinexClock) SkippedRecords() ([]ClockSkip, error) {
+	if clock == nil || clock.resource == nil {
+		return nil, ErrClosed
+	}
+	var out []ClockSkip
+	err := clock.resource.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var written, required C.size_t
+			status := C.sidereon_rinex_clock_skipped_records((*C.SidereonRinexClock)(pointer), nil, 0, &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			n, err := validateNativeQuery("RINEX clock skipped records", uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if _, err := checkedNativeAllocationSize(n, unsafe.Sizeof(C.SidereonClockSkip{})); err != nil {
+				return err
+			}
+			values := make([]C.SidereonClockSkip, n)
+			var output *C.SidereonClockSkip
+			if n > 0 {
+				output = &values[0]
+			}
+			written, required = 0, 0
+			status = C.sidereon_rinex_clock_skipped_records((*C.SidereonRinexClock)(pointer), output, C.size_t(n), &written, &required)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				return err
+			}
+			if _, err := validateTwoPassCounts("RINEX clock skipped records", n, n, uint64(written), uint64(required)); err != nil {
+				return err
+			}
+			out = make([]ClockSkip, n)
+			for i, value := range values {
+				out[i] = ClockSkip{Line: uint64(value.line), RecordType: uint32(value.record_type)}
+			}
+			return nil
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (series *ClockSeries) Close() error {
@@ -1597,7 +1925,7 @@ func (block *SbasBlock) Encode() ([]byte, error) {
 	var out []byte
 	err := block.resource.with(func(pointer unsafe.Pointer) error {
 		var written, required C.size_t
-		if err := callStatus(func() uint32 {
+		if err := rtcmCallStatus(func() uint32 {
 			return C.sidereon_sbas_block_encode((*C.SidereonSbasBlock)(pointer), nil, 0, &written, &required)
 		}); err != nil {
 			return err
@@ -1614,7 +1942,7 @@ func (block *SbasBlock) Encode() ([]byte, error) {
 		if len(values) != 0 {
 			output = &values[0]
 		}
-		if err := callStatus(func() uint32 {
+		if err := rtcmCallStatus(func() uint32 {
 			return C.sidereon_sbas_block_encode((*C.SidereonSbasBlock)(pointer), output, C.size_t(len(values)), &written, &required)
 		}); err != nil {
 			return err
@@ -1826,6 +2154,21 @@ func SbasPRNToSatelliteID(prn uint16) (string, bool, error) {
 		out = string(bytes)
 	})
 	return out, out != "", result
+}
+
+func SatelliteIDToSbasPRN(satelliteID string) (uint16, bool, error) {
+	var prn uint16
+	var present bool
+	err := withStringError(satelliteID, func(token *C.char) error {
+		var nativePRN C.uint16_t
+		var nativePresent C.bool
+		if err := statusErrorLocked(uint32(C.sidereon_satellite_id_to_sbas_prn(token, &nativePRN, &nativePresent))); err != nil {
+			return err
+		}
+		prn, present = uint16(nativePRN), bool(nativePresent)
+		return nil
+	})
+	return prn, present, err
 }
 
 type NativeSsrClockRecord struct {

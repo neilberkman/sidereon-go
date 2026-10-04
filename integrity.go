@@ -3,7 +3,7 @@ package sidereon
 import (
 	"errors"
 
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
 )
 
 // ARAIMSatelliteModel contains per-satellite ARAIM integrity model parameters.
@@ -381,8 +381,12 @@ func (r *ReliabilityReport) Observations() ([]ReliabilityObservation, error) {
 type RangeFDEOptions struct {
 	// PFA is the probability of false alarm.
 	PFA float64
-	// MaxExclusions is the maximum number of exclusions allowed; MinRedundancy is the minimum redundancy required by RangeFDEOptions.
-	MaxExclusions, MinRedundancy int
+	// MaxExclusions is optional; nil uses the core default, and explicit zero disables exclusion.
+	MaxExclusions *uint64
+	// MinRedundancy is optional; nil uses the core default of one.
+	MinRedundancy *uint64
+	// MaxExclusionRMSM is optional; nil uses the 100 m core default. Positive infinity disables this cap.
+	MaxExclusionRMSM *float64
 }
 
 // RangeFDERow contains one range fault-detection and exclusion row.
@@ -449,27 +453,16 @@ func DefaultRangeFDEOptions() (RangeFDEOptions, error) {
 	if e != nil {
 		return RangeFDEOptions{}, publicError(e)
 	}
-	maxExclusions, conversionErr := nativeCountToInt(v.MaxExclusions, "range FDE maximum exclusions")
-	if conversionErr != nil {
-		return RangeFDEOptions{}, conversionErr
-	}
-	minRedundancy, conversionErr := nativeCountToInt(v.MinRedundancy, "range FDE minimum redundancy")
-	if conversionErr != nil {
-		return RangeFDEOptions{}, conversionErr
-	}
-	return RangeFDEOptions{v.PFA, maxExclusions, minRedundancy}, nil
+	return RangeFDEOptions{PFA: v.PFA, MaxExclusions: v.MaxExclusions, MinRedundancy: v.MinRedundancy, MaxExclusionRMSM: v.MaxExclusionRMSM}, nil
 }
 
 // RunRangeFDE returns the range fault-detection and exclusion data.
 func RunRangeFDE(rows []RangeFDERow, options RangeFDEOptions) (*RangeFDEResult, error) {
-	if options.MaxExclusions < 0 || options.MinRedundancy < 0 {
-		return nil, errors.New("sidereon: range FDE limits must not be negative")
-	}
 	r := make([]native.NativeRangeFDERow, len(rows))
 	for i, x := range rows {
 		r[i] = native.NativeRangeFDERow{ID: x.ID, Residual: x.ResidualM, Design: append([]float64(nil), x.DesignRow...), Weight: x.Weight}
 	}
-	h, e := native.RangeFDE(r, native.NativeRangeFDEOptions{PFA: options.PFA, MaxExclusions: uint64(options.MaxExclusions), MinRedundancy: uint64(options.MinRedundancy)})
+	h, e := native.RangeFDE(r, native.NativeRangeFDEOptions{PFA: options.PFA, MaxExclusions: options.MaxExclusions, MinRedundancy: options.MinRedundancy, MaxExclusionRMSM: options.MaxExclusionRMSM})
 	if e != nil {
 		return nil, publicError(e)
 	}

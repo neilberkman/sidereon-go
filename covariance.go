@@ -1,6 +1,6 @@
 package sidereon
 
-import "github.com/neilberkman/sidereon-go/v2/internal/native"
+import "sidereon.dev/go/v3/internal/native"
 
 // Covariance6 is a value-owned row-major six-by-six covariance matrix.
 // Methods delegate validation and transformations to the C library.
@@ -38,6 +38,34 @@ const (
 	// ProcessNoiseRTNAccelerationPSD selects RTN acceleration power spectral density.
 	ProcessNoiseRTNAccelerationPSD ProcessNoiseKind = 1
 )
+
+// GravityTideSystem selects the tide convention used by Earth gravity.
+type GravityTideSystem uint32
+
+const (
+	// GravityTideSystemTideFree applies the tide-free convention.
+	GravityTideSystemTideFree GravityTideSystem = 0
+	// GravityTideSystemZeroTide applies the zero-tide convention.
+	GravityTideSystemZeroTide GravityTideSystem = 1
+	// GravityTideSystemMeanTide applies the mean-tide convention.
+	GravityTideSystemMeanTide GravityTideSystem = 2
+)
+
+func nativePropagationConfig(config PropagationConfig) native.NativePropagationConfig {
+	return native.NativePropagationConfig{
+		Epoch: config.EpochTDBSeconds, Position: config.PositionKm, Velocity: config.VelocityKmPerS,
+		ForceModel: uint32(config.ForceModel), Integrator: uint32(config.Integrator),
+		AbsTol: config.AbsTol, RelTol: config.RelTol, InitialStep: config.InitialStepS,
+		MinStep: config.MinStepS, MaxStep: config.MaxStepS, MaxSteps: config.MaxSteps,
+		MuEnabled: config.MuEnabled, Mu: config.MuKm3S2, HasDrag: config.HasDrag,
+		Drag:            native.DragParameters{BCFactorM2PerKg: config.Drag.BCFactorM2PerKg, Weather: nativeSpaceWeather(config.Drag.Weather), CutoffAltitudeKm: config.Drag.CutoffAltitudeKm},
+		ForceComponents: nativeForceComponents(config.ForceComponents),
+	}
+}
+
+func nativeProcessNoise(noise ProcessNoise) native.NativeProcessNoise {
+	return native.NativeProcessNoise{Kind: uint32(noise.Kind), RadialKm2S3: noise.RadialKm2S3, TransverseKm2S3: noise.TransverseKm2S3, NormalKm2S3: noise.NormalKm2S3}
+}
 
 // CovarianceFromDiagonal builds a covariance from exactly six diagonal
 // variances. The input is copied before crossing the cgo boundary.
@@ -162,9 +190,19 @@ func DefaultPropagationConfig() (PropagationConfig, error) {
 
 // PropagateCovariance propagates covariance samples at TDB seconds since J2000.
 func PropagateCovariance(config PropagationConfig, covariance Covariance6, epochs []float64, inputFrame, outputFrame CovarianceFrame, noise ProcessNoise) (*CovarianceEphemeris, error) {
-	v, e := native.PropagateCovariance(native.NativePropagationConfig{Epoch: config.EpochTDBSeconds, Position: config.PositionKm, Velocity: config.VelocityKmPerS, ForceModel: uint32(config.ForceModel), Integrator: uint32(config.Integrator), AbsTol: config.AbsTol, RelTol: config.RelTol, InitialStep: config.InitialStepS, MinStep: config.MinStepS, MaxStep: config.MaxStepS, MaxSteps: config.MaxSteps, MuEnabled: config.MuEnabled, Mu: config.MuKm3S2, HasDrag: config.HasDrag, Drag: native.DragParameters{BCFactorM2PerKg: config.Drag.BCFactorM2PerKg, Weather: nativeSpaceWeather(config.Drag.Weather), CutoffAltitudeKm: config.Drag.CutoffAltitudeKm}, ForceComponents: nativeForceComponents(config.ForceComponents)}, covariance.Values, append([]float64(nil), epochs...), uint32(inputFrame), uint32(outputFrame), native.NativeProcessNoise{Kind: uint32(noise.Kind), RadialKm2S3: noise.RadialKm2S3, TransverseKm2S3: noise.TransverseKm2S3, NormalKm2S3: noise.NormalKm2S3})
+	v, e := native.PropagateCovariance(nativePropagationConfig(config), covariance.Values, append([]float64(nil), epochs...), uint32(inputFrame), uint32(outputFrame), nativeProcessNoise(noise))
 	if e != nil {
 		return nil, publicError(e)
+	}
+	return &CovarianceEphemeris{handle: v}, nil
+}
+
+// PropagateCovarianceWithTideSystem propagates covariance with an explicit
+// Earth gravity tide convention. PropagateCovariance retains the legacy default.
+func PropagateCovarianceWithTideSystem(config PropagationConfig, covariance Covariance6, epochs []float64, inputFrame, outputFrame CovarianceFrame, noise ProcessNoise, tideSystem GravityTideSystem) (*CovarianceEphemeris, error) {
+	v, err := native.PropagateCovarianceWithTideSystem(nativePropagationConfig(config), covariance.Values, append([]float64(nil), epochs...), uint32(inputFrame), uint32(outputFrame), nativeProcessNoise(noise), uint32(tideSystem))
+	if err != nil {
+		return nil, publicError(err)
 	}
 	return &CovarianceEphemeris{handle: v}, nil
 }

@@ -1,7 +1,7 @@
 package sidereon
 
 import (
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
 )
 
 // RTKMeasurementModel selects the stochastic model for RTK code and carrier measurements.

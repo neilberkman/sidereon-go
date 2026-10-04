@@ -12,6 +12,32 @@ package native
 #cgo linux,arm64,sidereon_linux_musl,!sidereon_linux_glibc,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_linux_arm64_musl -lgcc_eh -lutil -lrt -lpthread -lm -ldl
 #cgo windows,amd64,!sidereon_use_system_lib LDFLAGS: -L${SRCDIR}/lib -lsidereon_windows_amd64_gnu -lgcc_eh -lws2_32 -luserenv -lbcrypt -lntdll
 #include <sidereon.h>
+
+#if defined(_MSC_VER)
+static __declspec(thread) int sidereon_c_thread_depth = 0;
+#elif defined(__GNUC__) || defined(__clang__)
+static __thread int sidereon_c_thread_depth = 0;
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+static _Thread_local int sidereon_c_thread_depth = 0;
+#else
+static __thread int sidereon_c_thread_depth = 0;
+#endif
+
+static inline int sidereon_enter_c_thread(void) {
+    int depth = sidereon_c_thread_depth++;
+    if (depth == 0) {
+        sidereon_clear_engine_error();
+    }
+    return depth;
+}
+
+static inline void sidereon_leave_c_thread(void) {
+    sidereon_c_thread_depth--;
+}
+
+static inline int sidereon_get_c_thread_depth(void) {
+    return sidereon_c_thread_depth;
+}
 */
 import "C"
 
@@ -25,11 +51,22 @@ import (
 
 // StatusError is the internal form translated to the public package error.
 type StatusError struct {
-	Code         int
-	Text         string
-	Detail       string
-	TerrainDatum *TerrainDatumError
-	TerrainStore *TerrainStoreError
+	Code            int
+	Text            string
+	Detail          string
+	QualityKind     uint32
+	Engine          *EngineError
+	SP3             *SP3Error
+	TerrainDatum    *TerrainDatumError
+	TerrainStore    *TerrainStoreError
+	TerrainLookup   *TerrainLookupError
+	Bias            *BiasError
+	RTCM            *RTCMError
+	ANTEX           *AntexError
+	DtedTile        *DtedTileError
+	Geoid           *GeoidError
+	PreciseArtifact *PreciseArtifactError
+	SGP4            *SGP4ErrorInfo
 }
 
 func (e *StatusError) Error() string {
@@ -41,13 +78,47 @@ func (e *StatusError) Error() string {
 
 func (e *StatusError) Unwrap() error {
 	var details []error
+	if e.Engine != nil {
+		details = append(details, e.Engine)
+	}
 	if e.TerrainDatum != nil {
 		details = append(details, e.TerrainDatum)
 	}
 	if e.TerrainStore != nil {
 		details = append(details, e.TerrainStore)
 	}
+	if e.TerrainLookup != nil {
+		details = append(details, e.TerrainLookup)
+	}
+	if e.SP3 != nil {
+		details = append(details, e.SP3)
+	}
+	if e.Bias != nil {
+		details = append(details, e.Bias)
+	}
+	if e.RTCM != nil {
+		details = append(details, e.RTCM)
+	}
+	if e.ANTEX != nil {
+		details = append(details, e.ANTEX)
+	}
+	if e.DtedTile != nil {
+		details = append(details, e.DtedTile)
+	}
+	if e.Geoid != nil {
+		details = append(details, e.Geoid)
+	}
+	if e.PreciseArtifact != nil {
+		details = append(details, e.PreciseArtifact)
+	}
 	return errors.Join(details...)
+}
+
+func (e *StatusError) EngineError() *EngineError {
+	if e == nil {
+		return nil
+	}
+	return e.Engine
 }
 
 var ErrClosed = errors.New("sidereon: handle is closed")
@@ -55,7 +126,14 @@ var ErrClosed = errors.New("sidereon: handle is closed")
 func withCThread(fn func()) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
+	C.sidereon_enter_c_thread()
+	defer C.sidereon_leave_c_thread()
 	fn()
+}
+
+// CThreadDepth returns the current nesting depth on this locked OS thread.
+func CThreadDepth() int {
+	return int(C.sidereon_get_c_thread_depth())
 }
 
 func copyNativeInput(data []byte) (unsafe.Pointer, error) {
@@ -121,6 +199,28 @@ func callStatus(fn func() uint32) error {
 	return err
 }
 
+func callSGP4Status(fn func() uint32) error {
+	var err error
+	withCThread(func() {
+		err = sgp4StatusErrorLocked(C.enum_SidereonStatus(fn()))
+	})
+	return err
+}
+
+func callQualityStatus(fn func() uint32) error {
+	var err error
+	withCThread(func() { err = qualityStatusErrorLocked(fn()) })
+	return err
+}
+
+func callStatusWithSp3Diagnostics(fn func() uint32) error {
+	var err error
+	withCThread(func() {
+		err = statusSp3ErrorLocked(fn())
+	})
+	return err
+}
+
 func callStatusWithTerrainDiagnostics(fn func() uint32, captureDatum, captureStore bool) error {
 	var err error
 	withCThread(func() {
@@ -129,7 +229,15 @@ func callStatusWithTerrainDiagnostics(fn func() uint32, captureDatum, captureSto
 	return err
 }
 
-func statusErrorLocked(status uint32) error {
+func callStatusWithTerrainLookupDiagnostics(fn func() uint32) error {
+	var err error
+	withCThread(func() {
+		err = statusErrorLockedWithTerrainLookupDiagnostics(fn())
+	})
+	return err
+}
+
+func bareStatusErrorLocked(status uint32) error {
 	if status == C.SIDEREON_STATUS_OK {
 		return nil
 	}
@@ -164,6 +272,32 @@ func statusErrorLocked(status uint32) error {
 	return &StatusError{Code: int(status), Text: text, Detail: detail}
 }
 
+func statusErrorLocked(status uint32) error {
+	err := bareStatusErrorLocked(status)
+	if err == nil {
+		return nil
+	}
+	statusErr, ok := err.(*StatusError)
+	if !ok {
+		return err
+	}
+	engineErr, captureErr := currentEngineErrorLocked()
+	if engineErr != nil {
+		statusErr.Engine = engineErr
+	}
+	if captureErr != nil {
+		if statusErr.Engine == nil {
+			statusErr.Engine = &EngineError{
+				Family:       EngineErrorFamilyUnknown,
+				FamilyName:   "unknown",
+				CaptureError: captureErr,
+			}
+		}
+		statusErr.Detail = appendDiagnostic(statusErr.Detail, "engine error capture failed: "+captureErr.Error())
+	}
+	return statusErr
+}
+
 func statusErrorLockedWithTerrainDiagnostics(status uint32, captureDatum, captureStore bool) error {
 	err := statusErrorLocked(status)
 	if err == nil || (!captureDatum && !captureStore) {
@@ -184,6 +318,22 @@ func statusErrorLockedWithTerrainDiagnostics(status uint32, captureDatum, captur
 		if diagnosticErr == nil && value.Kind != TerrainStoreErrorNoneValue {
 			statusErr.TerrainStore = &value
 		}
+	}
+	return statusErr
+}
+
+func statusErrorLockedWithTerrainLookupDiagnostics(status uint32) error {
+	err := statusErrorLocked(status)
+	if err == nil {
+		return nil
+	}
+	statusErr, ok := err.(*StatusError)
+	if !ok {
+		return err
+	}
+	value, diagnosticErr := lastTerrainLookupErrorLocked()
+	if diagnosticErr == nil && value.Kind != TerrainLookupErrorNoneValue {
+		statusErr.TerrainLookup = &value
 	}
 	return statusErr
 }
@@ -542,6 +692,15 @@ type resource struct {
 func (r *resource) with(fn func(unsafe.Pointer) error) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	if r.ptr == nil {
+		return ErrClosed
+	}
+	return fn(r.ptr)
+}
+
+func (r *resource) withExclusive(fn func(unsafe.Pointer) error) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.ptr == nil {
 		return ErrClosed
 	}

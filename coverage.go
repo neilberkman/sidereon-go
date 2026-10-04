@@ -1,15 +1,16 @@
 package sidereon
 
 import (
+	"encoding/json"
 	"time"
 
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
 )
 
 // CoverageLookAngle is one satellite/station cell from a coverage grid. OK
 // is false when C could not compute a look angle for that pair.
 type CoverageLookAngle struct {
-	// OK is the ok in kelvin.
+	// OK reports whether C computed a look angle for this pair.
 	OK bool
 	// AzimuthDeg is the azimuth deg in degrees.
 	AzimuthDeg float64
@@ -85,6 +86,78 @@ func (g *CoverageGrid) LookAngle(satelliteIndex, stationIndex int) (CoverageLook
 	}
 	value, err := g.handle.LookAngle(satelliteIndex, stationIndex)
 	return CoverageLookAngle{OK: value.OK, AzimuthDeg: value.AzimuthDeg, ElevationDeg: value.ElevationDeg, RangeKm: value.RangeKm}, publicError(err)
+}
+
+// LookAngleErrorPayload copies the complete typed JSON error for a failed
+// cell. The bytes remain usable after the grid is closed.
+func (g *CoverageGrid) LookAngleErrorPayload(satelliteIndex, stationIndex int) ([]byte, error) {
+	if g == nil || g.handle == nil {
+		return nil, ErrClosed
+	}
+	value, err := g.handle.LookAngleErrorPayload(satelliteIndex, stationIndex)
+	return value, publicError(err)
+}
+
+// LookAngleError returns the tagged, complete error details for a failed cell.
+// Raw retains the exact JSON so future fields remain accessible.
+func (g *CoverageGrid) LookAngleError(satelliteIndex, stationIndex int) (CoverageLookAngleError, error) {
+	payload, err := g.LookAngleErrorPayload(satelliteIndex, stationIndex)
+	if err != nil {
+		return CoverageLookAngleError{}, err
+	}
+	return decodeCoverageLookAngleError(payload)
+}
+
+func decodeCoverageLookAngleError(payload []byte) (CoverageLookAngleError, error) {
+	var value CoverageLookAngleError
+	if err := json.Unmarshal(payload, &value); err != nil {
+		return CoverageLookAngleError{}, err
+	}
+	value.Raw = append(json.RawMessage(nil), payload...)
+	var fields struct {
+		Fields struct {
+			Cause json.RawMessage `json:"cause"`
+		} `json:"fields"`
+	}
+	if err := json.Unmarshal(payload, &fields); err != nil {
+		return CoverageLookAngleError{}, err
+	}
+	if value.Fields.Cause != nil {
+		value.Fields.Cause.Raw = append(json.RawMessage(nil), fields.Fields.Cause...)
+	}
+	return value, nil
+}
+
+// CoverageLookAngleError is the typed error for one failed coverage cell.
+type CoverageLookAngleError struct {
+	Kind   string                       `json:"kind"`
+	Fields CoverageLookAngleErrorFields `json:"fields"`
+	Raw    json.RawMessage              `json:"-"`
+}
+
+// CoverageLookAngleErrorFields holds fields used by all current cell errors.
+type CoverageLookAngleErrorFields struct {
+	Field  string                       `json:"field,omitempty"`
+	Reason string                       `json:"reason,omitempty"`
+	Cause  *CoverageLookAngleErrorCause `json:"cause,omitempty"`
+}
+
+// CoverageLookAngleErrorCause is a typed nested SGP4 or frame-transform error.
+type CoverageLookAngleErrorCause struct {
+	Kind   string                            `json:"kind"`
+	Fields CoverageLookAngleErrorCauseFields `json:"fields"`
+	Raw    json.RawMessage                   `json:"-"`
+}
+
+// CoverageLookAngleErrorCauseFields contains all currently serialized nested
+// diagnostic fields.
+type CoverageLookAngleErrorCauseFields struct {
+	Field     string  `json:"field,omitempty"`
+	InputKind string  `json:"kind,omitempty"`
+	Message   string  `json:"message,omitempty"`
+	Code      *int32  `json:"code,omitempty"`
+	Budget    *uint64 `json:"budget,omitempty"`
+	Reason    string  `json:"reason,omitempty"`
 }
 
 // CoverageGridLookAngle returns one copied cell from a coverage grid.

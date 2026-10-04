@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/neilberkman/sidereon-go/v2/internal/native"
+	"sidereon.dev/go/v3/internal/native"
 )
 
 func metadataUnixMicroseconds(value time.Time) (int64, error) {

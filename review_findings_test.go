@@ -139,6 +139,10 @@ func TestNonRobustFDEPropagatesInputAndNativeErrors(t *testing.T) {
 			if !errors.As(err, &statusErr) {
 				t.Fatalf("solve error = %T %v, want *StatusError", err, err)
 			}
+			var unresolved *FDEUnresolvedError
+			if errors.As(err, &unresolved) {
+				t.Fatalf("ordinary solve failure was misclassified as unresolved FDE: %+v", unresolved)
+			}
 			if statusErr.Code != StatusSolve || statusErr.Detail == "" {
 				t.Fatalf("solve status = %+v, want detailed solve failure", statusErr)
 			}

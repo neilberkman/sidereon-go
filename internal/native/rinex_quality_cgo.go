@@ -19,6 +19,9 @@ type NativeRINEXLintSummary struct {
 	IsClean, DecodedFromCRINEX                                    bool
 }
 type NativeRINEXLintFinding struct {
+	Kind          string
+	SpecRef       string
+	Details       map[string]any
 	Code          string
 	Severity      uint32
 	Repairable    bool
@@ -146,10 +149,14 @@ func (r *RinexLintReport) Findings() ([]NativeRINEXLintFinding, error) {
 		}
 		out = make([]NativeRINEXLintFinding, z)
 		for i := range out {
+			detail, e := rinexLintFindingDetails(p, C.size_t(i))
+			if e != nil {
+				return e
+			}
 			if e := validateRINEXLintSeverityValue(uint32(v[i].severity)); e != nil {
 				return e
 			}
-			out[i] = NativeRINEXLintFinding{Code: observationFixedString(v[i].code[:]), Severity: uint32(v[i].severity), Repairable: bool(v[i].repairable), HasEpochIndex: bool(v[i].has_epoch_index), HasSatellite: bool(v[i].has_satellite), Satellite: tokenFromC(v[i].satellite), HasField: bool(v[i].has_field), Field: observationFixedString(v[i].field[:])}
+			out[i] = NativeRINEXLintFinding{Kind: detail.Kind, SpecRef: detail.SpecRef, Details: detail.Details, Code: observationFixedString(v[i].code[:]), Severity: uint32(v[i].severity), Repairable: bool(v[i].repairable), HasEpochIndex: bool(v[i].has_epoch_index), HasSatellite: bool(v[i].has_satellite), Satellite: tokenFromC(v[i].satellite), HasField: bool(v[i].has_field), Field: observationFixedString(v[i].field[:])}
 			out[i].EpochIndex, e = checkedNativeCount(uint64(v[i].epoch_index))
 			if e != nil {
 				return e
@@ -159,6 +166,40 @@ func (r *RinexLintReport) Findings() ([]NativeRINEXLintFinding, error) {
 	})
 	runtime.KeepAlive(r)
 	return out, err
+}
+
+func rinexLintFindingDetails(report unsafe.Pointer, index C.size_t) (rinexLintFindingDetail, error) {
+	var written, required C.size_t
+	call := func(out *C.uint8_t, n C.size_t) uint32 {
+		return C.sidereon_rinex_lint_finding_details_json(
+			(*C.SidereonRinexLintReport)(report), index, out, n, &written, &required,
+		)
+	}
+	if err := callStatus(func() uint32 { return call(nil, 0) }); err != nil {
+		return rinexLintFindingDetail{}, err
+	}
+	n, err := checkedNativeCount(uint64(required))
+	if err != nil {
+		return rinexLintFindingDetail{}, err
+	}
+	if n == 0 {
+		return rinexLintFindingDetail{}, errors.New("sidereon: empty RINEX finding detail JSON")
+	}
+	if _, err := checkedNativeAllocationSize(n, 1); err != nil {
+		return rinexLintFindingDetail{}, err
+	}
+	buf := make([]C.uint8_t, n)
+	if err := callStatus(func() uint32 { return call(&buf[0], C.size_t(n)) }); err != nil {
+		return rinexLintFindingDetail{}, err
+	}
+	if uint64(written) != uint64(required) {
+		return rinexLintFindingDetail{}, errors.New("sidereon: inconsistent RINEX finding detail JSON length")
+	}
+	payload := make([]byte, n)
+	for i := range buf {
+		payload[i] = byte(buf[i])
+	}
+	return decodeRINEXLintFindingDetail(payload)
 }
 
 func cRepairOptions(v NativeRINEXRepairOptions) (C.SidereonRinexRepairOptions, error) {
@@ -317,6 +358,67 @@ func (r *RinexRepair) Text() ([]byte, error) {
 		})
 		return e
 	})
+	return out, err
+}
+func (r *RinexRepair) TextWithOutcome() (NativeRinexObsWriteOutcome, error) {
+	var out NativeRinexObsWriteOutcome
+	err := r.resource.with(func(p unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var result *C.SidereonRinexObsWriteResult
+			if err := callStatus(func() uint32 { return C.sidereon_rinex_repair_text_result((*C.SidereonRinexRepair)(p), &result) }); err != nil {
+				return err
+			}
+			if result == nil {
+				return missingNativeHandle("RINEX repair write result")
+			}
+			defer C.sidereon_rinex_obs_write_result_free(result)
+			var raw C.SidereonRinexObsWriteOutcome
+			if err := callStatus(func() uint32 { return C.sidereon_rinex_obs_write_result_get_outcome(result, &raw) }); err != nil {
+				return err
+			}
+			e := raw.error
+			out = NativeRinexObsWriteOutcome{IsOK: bool(raw.is_ok), Status: uint32(raw.status), Error: NativeRinexObsWriteError{Kind: uint32(e.kind), HasSystem: bool(e.has_system), System: uint32(e.system), HasSatellite: bool(e.has_satellite), SatelliteID: tokenFromC(e.satellite), HasEpochIndex: bool(e.has_epoch_index), EpochIndex: uint64(e.epoch_index), HasPosition: bool(e.has_position), Position: uint64(e.position), HasFlag: bool(e.has_flag), Flag: uint8(e.flag), HasVersion: bool(e.has_version), Version: float64(e.version), HasCount: bool(e.has_count), Count: uint64(e.count), HasCodes: bool(e.has_codes), Codes: uint64(e.codes), HasValues: bool(e.has_values), Values: uint64(e.values), HasCode: bool(e.has_code), HasDetail: bool(e.has_detail)}}
+			copyText := func(label string, fn func(*C.uint8_t, C.size_t, *C.size_t, *C.size_t) C.enum_SidereonStatus) ([]byte, error) {
+				return copyNativeBytesLocked(label, fn)
+			}
+			var err error
+			if out.IsOK {
+				out.Text, err = copyText("RINEX repair text", func(b *C.uint8_t, n C.size_t, w, q *C.size_t) C.enum_SidereonStatus {
+					return C.sidereon_rinex_obs_write_result_get_text(result, b, n, w, q)
+				})
+				if err != nil {
+					return err
+				}
+			}
+			message, err := copyText("RINEX repair write message", func(b *C.uint8_t, n C.size_t, w, q *C.size_t) C.enum_SidereonStatus {
+				return C.sidereon_rinex_obs_write_result_get_message(result, b, n, w, q)
+			})
+			if err != nil {
+				return err
+			}
+			out.Message = string(message)
+			if out.Error.HasCode {
+				code, err := copyText("RINEX repair write code", func(b *C.uint8_t, n C.size_t, w, q *C.size_t) C.enum_SidereonStatus {
+					return C.sidereon_rinex_obs_write_result_get_code(result, b, n, w, q)
+				})
+				if err != nil {
+					return err
+				}
+				out.Code = string(code)
+			}
+			if out.Error.HasDetail {
+				detail, err := copyText("RINEX repair write detail", func(b *C.uint8_t, n C.size_t, w, q *C.size_t) C.enum_SidereonStatus {
+					return C.sidereon_rinex_obs_write_result_get_detail(result, b, n, w, q)
+				})
+				if err != nil {
+					return err
+				}
+				out.Detail = string(detail)
+			}
+			return nil
+		})
+	})
+	runtime.KeepAlive(r)
 	return out, err
 }
 func (r *RinexRepair) CRINEXText() ([]byte, error) {
