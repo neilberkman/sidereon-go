@@ -293,6 +293,45 @@ func (obs *RinexObs) HeaderTimeline() ([]NativeRinexObsHeaderSegment, error) {
 	return result, err
 }
 
+func (obs *RinexObs) HeaderDetailsJSON() ([]byte, error) {
+	var result []byte
+	err := obs.with(func(pointer *C.SidereonRinexObs) error {
+		var written, required C.size_t
+		call := func(out *C.uint8_t, n C.size_t) uint32 {
+			return C.sidereon_rinex_obs_header_details_json(pointer, out, n, &written, &required)
+		}
+		if err := callStatus(func() uint32 { return call(nil, 0) }); err != nil {
+			return err
+		}
+		n, err := validateNativeQuery("RINEX observation header details", uint64(written), uint64(required))
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return errors.New("sidereon: empty RINEX observation header details JSON")
+		}
+		if _, err := checkedNativeAllocationSize(n, 1); err != nil {
+			return err
+		}
+		out := make([]C.uint8_t, n)
+		written, required = 0, 0
+		if err := callStatus(func() uint32 { return call(&out[0], C.size_t(n)) }); err != nil {
+			return err
+		}
+		count, err := validateTwoPassCounts("RINEX observation header details", n, n, uint64(written), uint64(required))
+		if err != nil {
+			return err
+		}
+		result = make([]byte, count)
+		for i := range result {
+			result[i] = byte(out[i])
+		}
+		return nil
+	})
+	runtime.KeepAlive(obs)
+	return result, err
+}
+
 func (obs *RinexObs) SkippedRecords() (int, error) {
 	var count C.size_t
 	err := obs.with(func(pointer *C.SidereonRinexObs) error {

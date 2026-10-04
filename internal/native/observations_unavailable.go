@@ -168,6 +168,7 @@ func (*RinexObs) HeaderAt(int) (NativeRinexObsHeader, error) {
 func (*RinexObs) HeaderTimeline() ([]NativeRinexObsHeaderSegment, error) {
 	return nil, protocolUnavailable()
 }
+func (*RinexObs) HeaderDetailsJSON() ([]byte, error)        { return nil, protocolUnavailable() }
 func (*RinexObs) SkippedRecords() (int, error)              { return 0, protocolUnavailable() }
 func (*RinexObs) EpochCount() (int, error)                  { return 0, protocolUnavailable() }
 func (*RinexObs) Codes() ([]NativeRinexObsCode, error)      { return nil, protocolUnavailable() }
