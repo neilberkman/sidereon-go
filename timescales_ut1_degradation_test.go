@@ -62,9 +62,10 @@ func assertUT1CoverageCause(t *testing.T, err error, wantReason string) {
 		t.Fatalf("expected status error with UT1 diagnostic, got %T: %v", err, err)
 	}
 	wantText := "UT1 table coverage"
-	if wantReason == "before_coverage" {
+	switch wantReason {
+	case "before_coverage":
 		wantText = "precedes the UT1 table coverage"
-	} else if wantReason == "after_coverage" {
+	case "after_coverage":
 		wantText = "follows the UT1 table coverage"
 	}
 	if !strings.Contains(status.Detail, wantText) {
