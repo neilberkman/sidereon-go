@@ -150,7 +150,7 @@ func TestPublishedPPPUT1RefusalAndPermissiveResult(t *testing.T) {
 	if err != nil || len(tide) != 1 {
 		t.Fatalf("permissive tide = %+v, %v", tide, err)
 	}
-	for axis, value := range tide[0].VectorM {
+	for axis, value := range tide[0].ValueM {
 		if math.IsNaN(value) || math.IsInf(value, 0) {
 			t.Fatalf("permissive tide axis %d = %v", axis, value)
 		}
