@@ -3,6 +3,16 @@ name: Native archives
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: Optional tag or commit to build instead of the workflow ref
+        required: false
+        type: string
+      verify_reproduction:
+        description: Require rebuilt archives to match the checked-in archive set
+        required: false
+        default: false
+        type: boolean
   push:
     tags:
       - 'v*'
@@ -28,11 +38,24 @@ jobs:
       CARGO_TARGET_DIR: ${{ github.workspace }}/.native-build/target
     steps:
       - uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Verify requested checkout
+        if: github.event_name == 'workflow_dispatch' && inputs.ref != ''
+        shell: bash
+        env:
+          REQUESTED_REF: ${{ inputs.ref }}
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "${REQUESTED_REF}^{commit}")"
 
       - name: Verify release tag source pin
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && startsWith(inputs.ref, 'v'))
         shell: bash
-        run: test "$(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' internal/native/lib/sidereon-c.ref)" = "$GITHUB_REF_NAME"
+        env:
+          EXPECTED_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref_name }}
+        run: test "$(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' internal/native/lib/sidereon-c.ref)" = "$EXPECTED_REF"
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.98.1
@@ -67,7 +90,7 @@ jobs:
           ./scripts/test-native-archives.sh
 
       - name: Verify checked-in archive set reproduces exactly
-        if: ${{ github.event_name != 'workflow_dispatch' }}
+        if: github.event_name != 'workflow_dispatch' || inputs.verify_reproduction
         shell: bash
         run: |
           set -Eeuo pipefail
