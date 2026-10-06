@@ -94,6 +94,57 @@ func TestWriteNMEAGGA(t *testing.T) {
 	}
 }
 
+func TestNMEAEpochInstantUsesCanonicalUTCValidation(t *testing.T) {
+	readEpoch := func(body string) NMEAEpoch {
+		t.Helper()
+		log, err := ParseNMEA([]byte(nmeaTestSentence(body) + "\n"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := log.Close(); err != nil {
+				t.Error(err)
+			}
+		})
+		epochs, err := log.Epochs()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(epochs) != 1 {
+			t.Fatalf("epochs = %+v, want one", epochs)
+		}
+		return epochs[0]
+	}
+
+	ordinary := readEpoch("GPRMC,120000.123456789,A,4807.038,N,01131.000,E,0.0,0.0,010100,,,A")
+	if !ordinary.HasInstantJ2000S || ordinary.InstantJ2000S != 0.12345678900000001 {
+		t.Fatalf("ordinary instant = present %v, %.17g", ordinary.HasInstantJ2000S, ordinary.InstantJ2000S)
+	}
+
+	wholeLeap := readEpoch("GPRMC,235960,A,4807.038,N,01131.000,E,0.0,0.0,010100,,,A")
+	if !wholeLeap.HasInstantJ2000S || wholeLeap.InstantJ2000S != 43_200 {
+		t.Fatalf("whole leap instant = present %v, %.17g", wholeLeap.HasInstantJ2000S, wholeLeap.InstantJ2000S)
+	}
+
+	fractionalLeap := readEpoch("GPRMC,235960.123456789,A,4807.038,N,01131.000,E,0.0,0.0,010100,,,A")
+	if !fractionalLeap.HasCalendarEpoch || fractionalLeap.CalendarEpoch.Second != 60.123456789 {
+		t.Fatalf("fractional leap calendar = %+v", fractionalLeap)
+	}
+	if fractionalLeap.HasInstantJ2000S || fractionalLeap.InstantJ2000S != 0 {
+		t.Fatalf("fractional leap instant = present %v, %.17g", fractionalLeap.HasInstantJ2000S, fractionalLeap.InstantJ2000S)
+	}
+
+	missingDate := readEpoch("GPGGA,120000,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,")
+	if missingDate.HasInstantJ2000S || missingDate.InstantJ2000S != 0 {
+		t.Fatalf("missing-date instant = present %v, %.17g", missingDate.HasInstantJ2000S, missingDate.InstantJ2000S)
+	}
+
+	missingTime := readEpoch("GPRMC,,A,4807.038,N,01131.000,E,0.0,0.0,010100,,,A")
+	if missingTime.HasInstantJ2000S || missingTime.InstantJ2000S != 0 {
+		t.Fatalf("missing-time instant = present %v, %.17g", missingTime.HasInstantJ2000S, missingTime.InstantJ2000S)
+	}
+}
+
 func TestNMEAAccumulatorCloseIsIdempotent(t *testing.T) {
 	accumulator, err := NewNMEAAccumulator()
 	if err != nil {

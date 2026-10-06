@@ -4,6 +4,11 @@ All notable changes to this module are documented here.
 
 ## Unreleased
 
+## 3.0.2 - 2026-10-05
+
+- NMEA epoch snapshots follow the canonical UTC validation for their optional instant, including fractional leap seconds and missing date or time components.
+- PPP correction builders preserve native strict UT1 coverage status and detail; permissive evaluation continues to return a degraded correction.
+
 ## 3.0.1 - 2026-10-04
 
 - Preserve UT1 table-coverage status in time-scale values so frame and Doppler

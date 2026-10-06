@@ -7,6 +7,7 @@ import (
 	"errors"
 	"math"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -318,6 +319,70 @@ func TestPPPInvalidShapesAndText(t *testing.T) {
 	}
 	if _, err := BuildPPPCorrections(sp3, nil, [3]float64{}, PPPCorrectionsOptions{CodeBiasSystemPairs: []PPPCodeBiasSystemPair{{System: GNSSSystem(99)}}}); err == nil {
 		t.Fatal("invalid PPP code-bias GNSS system accepted")
+	}
+}
+
+func TestPPPCorrectionsStrictUT1StatusAndPermissiveDegradation(t *testing.T) {
+	sp3, _, _, _ := pppFixture(t)
+	epochs := []PPPCorrectionEpoch{{
+		Epoch:     CivilDateTime{Year: 1900, Month: 1, Day: 1},
+		TRxJ2000S: -3_155_716_800,
+	}}
+	receiver := [3]float64{4.5e6, 0.5e6, 4.5e6}
+	options := PPPCorrectionsOptions{SolidEarthTide: true}
+
+	strictBuilders := []struct {
+		name  string
+		build func() (*PPPCorrections, error)
+	}{
+		{name: "default", build: func() (*PPPCorrections, error) {
+			return BuildPPPCorrections(sp3, epochs, receiver, options)
+		}},
+		{name: "explicit", build: func() (*PPPCorrections, error) {
+			return BuildPPPCorrectionsWithValidityAndTideConstants(sp3, epochs, receiver, options, PPPValidityStrict, StationTideConventions)
+		}},
+	}
+	for _, test := range strictBuilders {
+		t.Run(test.name, func(t *testing.T) {
+			corrections, err := test.build()
+			if err == nil || corrections != nil {
+				t.Fatalf("strict result = %v, %v; want nil handle and refusal", corrections, err)
+			}
+			var buildErr *PPPCorrectionsBuildError
+			if !errors.As(err, &buildErr) || buildErr.Kind != 2 {
+				t.Fatalf("strict correction error = %T %+v", err, err)
+			}
+			var statusErr *StatusError
+			if !errors.As(err, &statusErr) || statusErr.Code != StatusCode(8) {
+				t.Fatalf("strict status = %T %+v, want native status 8", err, err)
+			}
+			if !strings.Contains(statusErr.Detail, "precedes") || !strings.Contains(statusErr.Detail, "UT1") || !strings.Contains(statusErr.Detail, "coverage") {
+				t.Fatalf("strict detail = %q", statusErr.Detail)
+			}
+		})
+	}
+
+	permissive, err := BuildPPPCorrectionsWithValidityAndTideConstants(sp3, epochs, receiver, options, PPPValidityPermissive, StationTideConventions)
+	if err != nil || permissive == nil {
+		t.Fatalf("permissive result = %v, %v", permissive, err)
+	}
+	t.Cleanup(func() {
+		if err := permissive.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	degraded, err := permissive.DegradedReason()
+	if err != nil || degraded != StationTideBeforeCoverage {
+		t.Fatalf("permissive degradation = %v, %v", degraded, err)
+	}
+	tide, err := permissive.Tide()
+	if err != nil || len(tide) != 1 {
+		t.Fatalf("permissive tide = %+v, %v", tide, err)
+	}
+	for axis, value := range tide[0].ValueM {
+		if math.IsNaN(value) || math.IsInf(value, 0) {
+			t.Fatalf("permissive tide axis %d = %v", axis, value)
+		}
 	}
 }
 

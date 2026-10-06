@@ -1,0 +1,85 @@
+name: Public module consumer
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact published v3 module version (for example, v3.0.2)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  consumer:
+    name: proxy and sumdb consumer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CGO_ENABLED: "1"
+      GOFLAGS: "-tags=sidereon_linux_glibc"
+      GOPROXY: "https://proxy.golang.org"
+      GOSUMDB: "sum.golang.org"
+      GONOSUMDB: ""
+      GONOPROXY: ""
+      GOPRIVATE: ""
+      GOWORK: "off"
+      REQUESTED_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: '1.24.x'
+          cache: false
+      - name: Fetch the exact public module
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ ! "$REQUESTED_VERSION" =~ ^v3\.[0-9]+\.[0-9]+$ ]]; then
+            echo "version must be an exact v3 semantic version: $REQUESTED_VERSION" >&2
+            exit 1
+          fi
+
+          consumer="$RUNNER_TEMP/public-module-consumer"
+          mkdir -p "$consumer/testdata"
+          cp .github/public-module-consumer/public_consumer_test.go "$consumer/"
+          cp testdata/trimmed.sp3 "$consumer/testdata/"
+          go -C "$consumer" mod init sidereon.dev/public-consumer
+          go -C "$consumer" mod edit -require="sidereon.dev/go/v3@$REQUESTED_VERSION"
+
+          for attempt in {1..20}; do
+            if go -C "$consumer" mod download "sidereon.dev/go/v3@$REQUESTED_VERSION"; then
+              break
+            fi
+            if [[ "$attempt" == 20 ]]; then
+              echo "public proxy did not serve sidereon.dev/go/v3@$REQUESTED_VERSION" >&2
+              exit 1
+            fi
+            sleep 15
+          done
+          go -C "$consumer" mod tidy
+
+          resolved="$(go -C "$consumer" list -m -f '{{.Version}}' sidereon.dev/go/v3)"
+          replacement="$(go -C "$consumer" list -m -f '{{with .Replace}}{{.Path}}{{end}}' sidereon.dev/go/v3)"
+          module_dir="$(go -C "$consumer" list -m -f '{{.Dir}}' sidereon.dev/go/v3)"
+          module_cache="$(go env GOMODCACHE)"
+          test "$resolved" = "$REQUESTED_VERSION"
+          test -z "$replacement"
+          case "$module_dir" in
+            "$module_cache"/*) ;;
+            *) echo "module was not loaded from GOMODCACHE: $module_dir" >&2; exit 1 ;;
+          esac
+          test "$module_dir" != "$GITHUB_WORKSPACE"
+          go -C "$consumer" mod verify
+          grep -F "sidereon.dev/go/v3 $REQUESTED_VERSION " "$consumer/go.sum"
+          echo "PUBLIC_CONSUMER_DIR=$consumer" >> "$GITHUB_ENV"
+          echo "SIDEREON_EXPECTED_VERSION=$REQUESTED_VERSION" >> "$GITHUB_ENV"
+      - name: Run public numerical and regression tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          go -C "$PUBLIC_CONSUMER_DIR" test -v ./...
