@@ -43,3 +43,12 @@ cp "$PACKED/testdata/trimmed.sp3" "$CONSUMER/trimmed.sp3"
 
 GOTOOLCHAIN=local GOPROXY=off CGO_ENABLED=1 GOFLAGS="$PACKED_GOFLAGS" \
 	go -C "$CONSUMER" run .
+
+REGRESSION=$CONSUMER/regression
+mkdir -p "$REGRESSION/testdata"
+cp "$PACKED/.github/public-module-consumer/public_consumer_test.go" "$REGRESSION/public_consumer_test.go"
+cp "$PACKED/testdata/trimmed.sp3" "$REGRESSION/testdata/trimmed.sp3"
+
+GOTOOLCHAIN=local GOPROXY=off CGO_ENABLED=1 GOFLAGS="$PACKED_GOFLAGS" \
+	SIDEREON_EXPECTED_VERSION=v3.0.2 \
+	go -C "$REGRESSION" test -v .
