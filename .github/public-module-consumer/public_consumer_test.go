@@ -24,10 +24,10 @@ func TestPublishedSPPIndependentReference(t *testing.T) {
 	observations := []sidereon.SPPObservation{
 		{SatelliteID: "G08", PseudorangeM: math.Float64frombits(0x4176b8c6fd82e861)},
 		{SatelliteID: "G10", PseudorangeM: math.Float64frombits(0x4175aa4fa1a0c21f)},
-		{SatelliteID: "G16", PseudorangeM: math.Float64frombits(0x417e9e575c4eb87b)},
-		{SatelliteID: "G18", PseudorangeM: math.Float64frombits(0x417f9cc78862439f)},
-		{SatelliteID: "G20", PseudorangeM: math.Float64frombits(0x4173d8405cd09f84)},
-		{SatelliteID: "G21", PseudorangeM: math.Float64frombits(0x417c1b70fd3eab2c)},
+		{SatelliteID: "G16", PseudorangeM: math.Float64frombits(0x417387abd6052c3b)},
+		{SatelliteID: "G18", PseudorangeM: math.Float64frombits(0x4174c288f3bd1166)},
+		{SatelliteID: "G20", PseudorangeM: math.Float64frombits(0x417443947bd00bd6)},
+		{SatelliteID: "G21", PseudorangeM: math.Float64frombits(0x4173d8405cd09f84)},
 		{SatelliteID: "G26", PseudorangeM: math.Float64frombits(0x417425d51967e798)},
 		{SatelliteID: "G27", PseudorangeM: math.Float64frombits(0x41745a4b78a81707)},
 	}
