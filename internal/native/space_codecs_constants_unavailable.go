@@ -29,6 +29,11 @@ const (
 	BiasTargetSatelliteValue         uint32 = 1
 	BiasTargetReceiverValue          uint32 = 2
 	BiasTargetSatelliteReceiverValue uint32 = 3
+	BiasObservableCodeValue          uint32 = 0
+	BiasObservablePhaseValue         uint32 = 1
+	BiasObservableMixedValue         uint32 = 2
+	BiasUnitNanosecondsValue         uint32 = 0
+	BiasUnitCyclesValue              uint32 = 1
 
 	GNSSSystemGPS     uint32 = 0
 	GNSSSystemGLONASS uint32 = 1

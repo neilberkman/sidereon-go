@@ -64,6 +64,8 @@ const (
 	RTCMFrameTruncated RTCMFrameSkipReason = RTCMFrameSkipReason(native.RTCMFrameTruncatedValue)
 	// RTCMFrameMalformed identifies a malformed frame.
 	RTCMFrameMalformed RTCMFrameSkipReason = RTCMFrameSkipReason(native.RTCMFrameMalformedValue)
+	// RTCMFrameDeparture identifies a frame rejected by the selected RTCM policy.
+	RTCMFrameDeparture RTCMFrameSkipReason = RTCMFrameSkipReason(native.RTCMFrameDepartureValue)
 )
 
 // RTCMMSMHeader contains raw MSM header fields. EpochTime is the native

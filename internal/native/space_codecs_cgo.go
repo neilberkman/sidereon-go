@@ -57,6 +57,10 @@ type BiasRecord struct {
 	HasSlopeSigma  bool
 	SlopeSigma     float64
 	IsPhase        bool
+	Family         uint32
+	Unit           uint32
+	HasLine        bool
+	Line           uint64
 }
 
 type CodeDCBOptions struct {
@@ -315,6 +319,7 @@ func biasRecordFromC(value C.SidereonBiasRecord) BiasRecord {
 		ValidFrom: biasEpochFromC(value.valid_from), HasValidUntil: bool(value.has_valid_until), ValidUntil: biasEpochFromC(value.valid_until),
 		Value: float64(value.value), HasSigma: bool(value.has_sigma), Sigma: float64(value.sigma), HasSlope: bool(value.has_slope),
 		Slope: float64(value.slope), HasSlopeSigma: bool(value.has_slope_sigma), SlopeSigma: float64(value.slope_sigma), IsPhase: bool(value.is_phase),
+		Family: uint32(value.family), Unit: uint32(value.unit), HasLine: bool(value.has_line), Line: uint64(value.line),
 	}
 }
 

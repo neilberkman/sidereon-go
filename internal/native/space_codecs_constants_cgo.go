@@ -32,6 +32,11 @@ const (
 	BiasTargetSatelliteValue         = uint32(C.SIDEREON_BIAS_TARGET_KIND_SATELLITE)
 	BiasTargetReceiverValue          = uint32(C.SIDEREON_BIAS_TARGET_KIND_RECEIVER)
 	BiasTargetSatelliteReceiverValue = uint32(C.SIDEREON_BIAS_TARGET_KIND_SATELLITE_RECEIVER)
+	BiasObservableCodeValue          = uint32(C.SIDEREON_BIAS_OBSERVABLE_FAMILY_CODE)
+	BiasObservablePhaseValue         = uint32(C.SIDEREON_BIAS_OBSERVABLE_FAMILY_PHASE)
+	BiasObservableMixedValue         = uint32(C.SIDEREON_BIAS_OBSERVABLE_FAMILY_MIXED)
+	BiasUnitNanosecondsValue         = uint32(C.SIDEREON_BIAS_UNIT_NANOSECONDS)
+	BiasUnitCyclesValue              = uint32(C.SIDEREON_BIAS_UNIT_CYCLES)
 
 	GNSSSystemGPS     = uint32(C.SIDEREON_GNSS_SYSTEM_GPS)
 	GNSSSystemGLONASS = uint32(C.SIDEREON_GNSS_SYSTEM_GLONASS)

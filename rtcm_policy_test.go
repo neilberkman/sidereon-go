@@ -117,8 +117,44 @@ func TestRTCMPolicyEncodingStreamAndOwnedDiagnostics(t *testing.T) {
 	if count, err := strictDiagnostics.SkippedCount(); err != nil || count != 1 {
 		t.Fatalf("strict skipped frames=%d, err=%v", count, err)
 	}
+	skip, err := strictDiagnostics.Skipped(0)
+	if err != nil || skip.Offset != len(badCRC) || !skip.HasMessageNumber || skip.MessageNumber != 1006 || skip.Reason != RTCMFrameDeparture {
+		t.Fatalf("strict skipped frame=%+v, err=%v", skip, err)
+	}
+	if message, err := strictDiagnostics.SkippedMessage(0); err != nil || message == "" {
+		t.Fatalf("strict skipped message=%q, err=%v", message, err)
+	}
 	if count, err := strictDiagnostics.DepartureCount(); err != nil || count != 0 {
 		t.Fatalf("strict departures=%d, err=%v", count, err)
+	}
+}
+
+func TestBuildRTCMMSMPreservesRequiredFields(t *testing.T) {
+	messages, err := BuildRTCMMSM(
+		RTCMMSMInfo{MessageNumber: 1074, System: GNSSSystemGPS, Kind: RTCMMSM4, Header: RTCMMSMHeader{ReferenceStationID: 17}},
+		[]RTCMMSMSatellite{{ID: 1, RoughRangeMS: 70, RoughRangeMod1: 512}},
+		[]RTCMMSMSignal{{SatelliteID: 1, SignalID: 1, FinePseudorange: 10, FinePhaseRange: 20, LockTimeIndicator: 3, HalfCycleAmbiguity: true, CNR: 40}},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeAfterTest(t, messages)
+	frame, err := messages.Frame(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := DecodeRTCM(frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeAfterTest(t, decoded)
+	satellites, err := decoded.MSMSatellites(0)
+	if err != nil || len(satellites) != 1 || satellites[0].RoughRangeMS != 70 || satellites[0].RoughRangeMod1 != 512 {
+		t.Fatalf("decoded MSM satellites=%+v, err=%v", satellites, err)
+	}
+	signals, err := decoded.MSMSignals(0)
+	if err != nil || len(signals) != 1 || signals[0].FinePseudorange != 10 || signals[0].FinePhaseRange != 20 || signals[0].LockTimeIndicator != 3 || !signals[0].HalfCycleAmbiguity || signals[0].CNR != 40 {
+		t.Fatalf("decoded MSM signals=%+v, err=%v", signals, err)
 	}
 }
 

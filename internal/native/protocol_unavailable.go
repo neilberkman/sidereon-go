@@ -35,6 +35,7 @@ const (
 	RTCMMSM7Value                                        = uint32(1)
 	RTCMFrameTruncatedValue                              = uint32(0)
 	RTCMFrameMalformedValue                              = uint32(1)
+	RTCMFrameDepartureValue                              = uint32(2)
 	RTCMAntennaDescriptorFieldValue                      = uint32(0)
 	RTCMAntennaSerialNumberFieldValue                    = uint32(1)
 	RTCMReceiverTypeFieldValue                           = uint32(2)
