@@ -258,6 +258,16 @@ func TestBiasPhaseBRecordsAndOwnership(t *testing.T) {
 		if got.ValidFrom != from || got.ValidUntil != until {
 			t.Fatalf("bias record %d epochs = %#v", i, got)
 		}
+		if !got.HasLine || got.Line != uint64(16+i) {
+			t.Fatalf("bias record %d source line = %d, present=%v", i, got.Line, got.HasLine)
+		}
+		expectedFamily, expectedUnit := BiasObservableCode, BiasUnitNanoseconds
+		if i == 5 {
+			expectedFamily, expectedUnit = BiasObservablePhase, BiasUnitCycles
+		}
+		if got.Family != expectedFamily || got.Unit != expectedUnit {
+			t.Fatalf("bias record %d family/unit = %v/%v", i, got.Family, got.Unit)
+		}
 	}
 	value, present, err := set.CodeOSBSeconds("G01", "C1C", BiasEpoch{Year: 2020, DayOfYear: 1})
 	if err != nil || !present || value != -3.732603456789e-5 {

@@ -45,6 +45,7 @@ const (
 	RTCMMSM7Value                                        = uint32(C.SIDEREON_RTCM_MSM_KIND_MSM7)
 	RTCMFrameTruncatedValue                              = uint32(C.SIDEREON_RTCM_FRAME_SKIP_REASON_TRUNCATED)
 	RTCMFrameMalformedValue                              = uint32(C.SIDEREON_RTCM_FRAME_SKIP_REASON_MALFORMED)
+	RTCMFrameDepartureValue                              = uint32(C.SIDEREON_RTCM_FRAME_SKIP_REASON_DEPARTURE)
 	RTCMAntennaDescriptorFieldValue                      = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_ANTENNA_DESCRIPTOR)
 	RTCMAntennaSerialNumberFieldValue                    = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_ANTENNA_SERIAL_NUMBER)
 	RTCMReceiverTypeFieldValue                           = uint32(C.SIDEREON_RTCM_ANTENNA_STRING_FIELD_RECEIVER_TYPE)

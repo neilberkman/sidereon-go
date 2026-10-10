@@ -110,6 +110,28 @@ const (
 	BiasTargetSatelliteReceiver BiasTargetKind = BiasTargetKind(native.BiasTargetSatelliteReceiverValue)
 )
 
+// BiasObservableFamily identifies whether a record contains code, phase, or mixed observables.
+type BiasObservableFamily uint32
+
+const (
+	// BiasObservableCode contains only code observables.
+	BiasObservableCode BiasObservableFamily = BiasObservableFamily(native.BiasObservableCodeValue)
+	// BiasObservablePhase contains only phase observables.
+	BiasObservablePhase BiasObservableFamily = BiasObservableFamily(native.BiasObservablePhaseValue)
+	// BiasObservableMixed pairs code and phase observables.
+	BiasObservableMixed BiasObservableFamily = BiasObservableFamily(native.BiasObservableMixedValue)
+)
+
+// BiasUnit identifies the unit stated by a source bias row.
+type BiasUnit uint32
+
+const (
+	// BiasUnitNanoseconds means the source row states nanoseconds; Value is stored in seconds.
+	BiasUnitNanoseconds BiasUnit = BiasUnit(native.BiasUnitNanosecondsValue)
+	// BiasUnitCycles means the source row states carrier cycles.
+	BiasUnitCycles BiasUnit = BiasUnit(native.BiasUnitCyclesValue)
+)
+
 // BiasEpoch is a GNSS calendar epoch used by SINEX and code-DCB products.
 type BiasEpoch struct {
 	// Year is the proleptic calendar year.
@@ -167,6 +189,14 @@ type BiasRecord struct {
 	SlopeSigma float64
 	// IsPhase reports whether Value and Sigma are in carrier cycles.
 	IsPhase bool
+	// Family identifies whether the record's observables are code, phase, or mixed.
+	Family BiasObservableFamily
+	// Unit identifies the unit stated by the source row.
+	Unit BiasUnit
+	// HasLine reports whether Line is present.
+	HasLine bool
+	// Line is the one-based source line when the record was read from text.
+	Line uint64
 }
 
 // CodeDCBOptions selects the observation pair and epoch policy for a code-DCB
@@ -792,7 +822,7 @@ func (s *BiasSet) Record(index int) (BiasRecord, error) {
 		return BiasRecord{}, ErrClosed
 	}
 	v, err := s.native.Record(index)
-	return BiasRecord{Kind: BiasKind(v.Kind), TargetKind: BiasTargetKind(v.TargetKind), System: GNSSSystem(v.System), HasSatelliteID: v.HasSatelliteID, SatelliteID: v.SatelliteID, Station: v.Station, SVN: v.SVN, Obs1: v.Obs1, HasObs2: v.HasObs2, Obs2: v.Obs2, HasValidFrom: v.HasValidFrom, ValidFrom: BiasEpoch{Year: v.ValidFrom.Year, DayOfYear: v.ValidFrom.DayOfYear, SecondOfDay: v.ValidFrom.SecondOfDay}, HasValidUntil: v.HasValidUntil, ValidUntil: BiasEpoch{Year: v.ValidUntil.Year, DayOfYear: v.ValidUntil.DayOfYear, SecondOfDay: v.ValidUntil.SecondOfDay}, Value: v.Value, HasSigma: v.HasSigma, Sigma: v.Sigma, HasSlope: v.HasSlope, Slope: v.Slope, HasSlopeSigma: v.HasSlopeSigma, SlopeSigma: v.SlopeSigma, IsPhase: v.IsPhase}, publicError(err)
+	return BiasRecord{Kind: BiasKind(v.Kind), TargetKind: BiasTargetKind(v.TargetKind), System: GNSSSystem(v.System), HasSatelliteID: v.HasSatelliteID, SatelliteID: v.SatelliteID, Station: v.Station, SVN: v.SVN, Obs1: v.Obs1, HasObs2: v.HasObs2, Obs2: v.Obs2, HasValidFrom: v.HasValidFrom, ValidFrom: BiasEpoch{Year: v.ValidFrom.Year, DayOfYear: v.ValidFrom.DayOfYear, SecondOfDay: v.ValidFrom.SecondOfDay}, HasValidUntil: v.HasValidUntil, ValidUntil: BiasEpoch{Year: v.ValidUntil.Year, DayOfYear: v.ValidUntil.DayOfYear, SecondOfDay: v.ValidUntil.SecondOfDay}, Value: v.Value, HasSigma: v.HasSigma, Sigma: v.Sigma, HasSlope: v.HasSlope, Slope: v.Slope, HasSlopeSigma: v.HasSlopeSigma, SlopeSigma: v.SlopeSigma, IsPhase: v.IsPhase, Family: BiasObservableFamily(v.Family), Unit: BiasUnit(v.Unit), HasLine: v.HasLine, Line: v.Line}, publicError(err)
 }
 
 // Records returns independent copies of all retained records in native order.

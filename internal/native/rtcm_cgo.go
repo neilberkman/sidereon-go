@@ -318,7 +318,7 @@ func validateRTCMSSRKindValue(value uint32) error {
 }
 
 func validateRTCMFrameSkipReasonValue(value uint32) error {
-	if value > RTCMFrameMalformedValue {
+	if value > RTCMFrameDepartureValue {
 		return invalidArgument("invalid RTCM frame skip reason returned by native code")
 	}
 	return nil
@@ -1230,7 +1230,7 @@ func BuildRTCMMSM(info NativeRTCMMSMInfo, satellites []NativeRTCMMSMSatellite, s
 	}
 	csatellites := unsafe.Slice((*C.SidereonRtcmMsmSatellite)(satelliteMemory), len(satellites))
 	for i, value := range satellites {
-		csatellites[i] = C.SidereonRtcmMsmSatellite{id: C.uint8_t(value.ID), rough_range_ms: C.uint8_t(value.RoughRangeMS), rough_range_mod1: C.uint16_t(value.RoughRangeMod1), has_extended_info: C.bool(value.HasExtendedInfo), extended_info: C.uint8_t(value.ExtendedInfo), has_rough_phase_range_rate: C.bool(value.HasRoughPhaseRangeRate), rough_phase_range_rate_m_s: C.int16_t(value.RoughPhaseRangeRateMS)}
+		csatellites[i] = C.SidereonRtcmMsmSatellite{id: C.uint8_t(value.ID), has_rough_range_ms: true, rough_range_ms: C.uint8_t(value.RoughRangeMS), rough_range_mod1: C.uint16_t(value.RoughRangeMod1), has_extended_info: C.bool(value.HasExtendedInfo), extended_info: C.uint8_t(value.ExtendedInfo), has_rough_phase_range_rate: C.bool(value.HasRoughPhaseRangeRate), rough_phase_range_rate_m_s: C.int16_t(value.RoughPhaseRangeRateMS)}
 	}
 	signalMemory, err := checkedNativeMalloc(len(signals), unsafe.Sizeof(C.SidereonRtcmMsmSignal{}))
 	if err != nil {
@@ -1241,7 +1241,7 @@ func BuildRTCMMSM(info NativeRTCMMSMInfo, satellites []NativeRTCMMSMSatellite, s
 	}
 	csignals := unsafe.Slice((*C.SidereonRtcmMsmSignal)(signalMemory), len(signals))
 	for i, value := range signals {
-		csignals[i] = C.SidereonRtcmMsmSignal{satellite_id: C.uint8_t(value.SatelliteID), signal_id: C.uint8_t(value.SignalID), fine_pseudorange: C.int32_t(value.FinePseudorange), fine_phase_range: C.int32_t(value.FinePhaseRange), lock_time_indicator: C.uint16_t(value.LockTimeIndicator), half_cycle_ambiguity: C.bool(value.HalfCycleAmbiguity), cnr: C.uint16_t(value.CNR), has_fine_phase_range_rate: C.bool(value.HasFinePhaseRangeRate), fine_phase_range_rate: C.int16_t(value.FinePhaseRangeRate)}
+		csignals[i] = C.SidereonRtcmMsmSignal{satellite_id: C.uint8_t(value.SatelliteID), signal_id: C.uint8_t(value.SignalID), has_fine_pseudorange: true, fine_pseudorange: C.int32_t(value.FinePseudorange), has_fine_phase_range: true, fine_phase_range: C.int32_t(value.FinePhaseRange), has_lock_time_indicator: true, lock_time_indicator: C.uint16_t(value.LockTimeIndicator), has_half_cycle_ambiguity: true, half_cycle_ambiguity: C.bool(value.HalfCycleAmbiguity), has_cnr: true, cnr: C.uint16_t(value.CNR), has_fine_phase_range_rate: C.bool(value.HasFinePhaseRangeRate), fine_phase_range_rate: C.int16_t(value.FinePhaseRangeRate)}
 	}
 	infoMemory, err := checkedNativeMalloc(1, unsafe.Sizeof(C.SidereonRtcmMsmInfo{}))
 	if err != nil {
