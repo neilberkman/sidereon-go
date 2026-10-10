@@ -831,6 +831,29 @@ func TestNTRIPRequestSourcetableAndChunkedMachine(t *testing.T) {
 	}
 }
 
+func TestNTRIPFinishEmitsUnterminatedSourcetableOnce(t *testing.T) {
+	machine, err := NewNTRIPMachine(NTRIPConfig{Host: "caster.example.test", Mountpoint: "MOUNT", Version: NTRIPVersionRev1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanupTestResource(t, machine.Close) })
+	if _, err := machine.ConnectionRequest(); err != nil {
+		t.Fatal(err)
+	}
+	wire := []byte("SOURCETABLE 200 OK\r\nSTR;MP;ID;RTCM;;;;;;;;;;;;;;;N;;tail\r\nENDSOURCETABLE")
+	if events, err := machine.Push(wire); err != nil || len(events) != 0 {
+		t.Fatalf("Push() events=%+v err=%v", events, err)
+	}
+	events, err := machine.Finish()
+	if err != nil || len(events) != 1 || events[0].Kind != NTRIPEventSourcetable || events[0].Sourcetable == nil {
+		t.Fatalf("first Finish() events=%+v err=%v", events, err)
+	}
+	t.Cleanup(func() { cleanupTestResource(t, events[0].Sourcetable.Close) })
+	if repeated, err := machine.Finish(); err != nil || len(repeated) != 0 {
+		t.Fatalf("repeated Finish() events=%+v err=%v", repeated, err)
+	}
+}
+
 func TestNTRIPInputsAreCopiedAcrossTheNativeBoundary(t *testing.T) {
 	machine, err := NewNTRIPMachine(NTRIPConfig{Host: "caster.example.test", Mountpoint: "MOUNT", Version: NTRIPVersionRev1})
 	if err != nil {
