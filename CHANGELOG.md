@@ -4,6 +4,8 @@ All notable changes to this module are documented here.
 
 ## Unreleased
 
+## 3.0.3 - 2026-10-12
+
 - Preserve required RTCM MSM fields when building messages, expose policy-departure stream skips, and retain bias-record family, unit, and source-line metadata.
 - Decode GPS LNAV HOW fields correctly when a full subframe carries complemented data bits.
 - Emit one terminal sourcetable event when an NTRIP stream ends with an unterminated `ENDSOURCETABLE` line.

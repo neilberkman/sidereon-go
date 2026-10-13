@@ -27,7 +27,7 @@ func TestVendoredHeaderMatchesPinnedPublicHeader(t *testing.T) {
 
 func TestLibraryVersionAndCalendarValues(t *testing.T) {
 	version := LibraryVersion()
-	if version.Major != 3 || version.Minor != 0 || version.Patch != 2 || version.String != "3.0.2" {
+	if version.Major != 3 || version.Minor != 0 || version.Patch != 3 || version.String != "3.0.3" {
 		t.Fatalf("unexpected library version: %+v", version)
 	}
 
