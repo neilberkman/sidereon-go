@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Exact tag or commit to test (for example, v3.0.2)
+        description: Exact tag or commit to test (for example, v3.0.3)
         required: true
         type: string
 

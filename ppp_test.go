@@ -285,6 +285,35 @@ func TestPPPDeterministicSP3Fixture(t *testing.T) {
 	})
 }
 
+func TestPPPAutoInitTroposphereValidatesSeedMeteorology(t *testing.T) {
+	sp3, floatConfig, _, auto := pppFixture(t)
+	auto.SPPTroposphere = true
+	auto.SPPPressureHPA = 0
+
+	_, err := SolvePPPAutoInitFloat(sp3, floatConfig, auto)
+	var status *StatusError
+	if !errors.As(err, &status) || status.Code != StatusSolve || !strings.Contains(status.Detail, "code seed failed at epoch 0") || !strings.Contains(status.Detail, "met.pressure_hpa: not positive") {
+		t.Fatalf("enabled invalid SPP meteorology error = %#v", err)
+	}
+
+	disabled := auto
+	disabled.SPPTroposphere = false
+	disabledSolution, err := SolvePPPAutoInitFloat(sp3, floatConfig, disabled)
+	if err != nil {
+		t.Fatalf("disabled invalid SPP meteorology: %v", err)
+	}
+	t.Cleanup(func() { cleanupTestResource(t, disabledSolution.Close) })
+
+	explicit := auto
+	explicit.HasInitialGuess = true
+	explicit.InitialGuessPosition = floatConfig.InitialState.PositionM
+	explicitSolution, err := SolvePPPAutoInitFloat(sp3, floatConfig, explicit)
+	if err != nil {
+		t.Fatalf("explicit PPP seed with invalid SPP meteorology: %v", err)
+	}
+	t.Cleanup(func() { cleanupTestResource(t, explicitSolution.Close) })
+}
+
 func TestPPPInvalidShapesAndText(t *testing.T) {
 	sp3, config, _, _ := pppFixture(t)
 	invalid := config

@@ -120,6 +120,29 @@ func equalBytes(a, b []byte) bool {
 	return true
 }
 
+func TestLNAVFullSubframeRestoresComplementedHOW(t *testing.T) {
+	setBits := func(bits []byte, start, length int, value uint64) {
+		for index := 0; index < length; index++ {
+			bits[start+index] = byte(value >> (length - 1 - index) & 1)
+		}
+	}
+	sourceHOW := make([]byte, 30)
+	setBits(sourceHOW, 0, 17, 54_321)
+	setBits(sourceHOW, 19, 3, 1)
+	subframe := make([]byte, 300)
+	subframe[29] = 1
+	for index := 0; index < 24; index++ {
+		subframe[30+index] = sourceHOW[index] ^ 1
+	}
+	copy(subframe[54:60], sourceHOW[24:30])
+	if tow, err := LNAVTOW(subframe); err != nil || tow != 54_321 {
+		t.Fatalf("complemented full-subframe TOW = %d, %v", tow, err)
+	}
+	if id, err := LNAVSubframeID(subframe); err != nil || id != 1 {
+		t.Fatalf("complemented full-subframe ID = %d, %v", id, err)
+	}
+}
+
 func TestPropagatedEphemerisOwnershipAndClose(t *testing.T) {
 	config, err := DefaultPropagationConfig()
 	if err != nil {
