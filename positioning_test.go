@@ -373,6 +373,9 @@ func TestTLEFixtureDeterministicPropagationAndMetadata(t *testing.T) {
 	if metadata.CatalogNumber != "25544" || metadata.EpochYear != 2018 || metadata.RevolutionNumber != 12110 {
 		t.Fatalf("metadata = %+v", metadata)
 	}
+	if !metadata.HasEphemerisType || !metadata.HasElementSetNumber || !metadata.HasRevolutionNumber {
+		t.Fatalf("metadata presence = %+v", metadata)
+	}
 	encoded, err := tle.Lines()
 	if err != nil || encoded.Line1 != line1 || encoded.Line2 != line2 {
 		t.Fatalf("Lines = %+v, %v", encoded, err)
@@ -403,6 +406,54 @@ func TestTLEFixtureDeterministicPropagationAndMetadata(t *testing.T) {
 	if empty, err := tle.Propagate(nil); err != nil || len(empty) != 0 {
 		t.Fatalf("empty Propagate = %#v, %v", empty, err)
 	}
+}
+
+func TestTLEMetadataPreservesAbsentOptionalIntegers(t *testing.T) {
+	line1, line2, ok := splitTLELines(string(readPositioningFixture(t, "iss.tle")))
+	if !ok {
+		t.Fatal("invalid TLE fixture")
+	}
+	line1 = tleLineWithBlankField(line1, 62, 63)
+	line1 = tleLineWithBlankField(line1, 64, 68)
+	line2 = tleLineWithBlankField(line2, 63, 68)
+
+	tle, err := ParseTLE(line1, line2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := tle.Close(); err != nil {
+			t.Errorf("TLE.Close() = %v", err)
+		}
+	})
+	metadata, err := tle.Metadata()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if metadata.HasEphemerisType || metadata.HasElementSetNumber || metadata.HasRevolutionNumber {
+		t.Fatalf("metadata presence = %+v", metadata)
+	}
+	if metadata.EphemerisType != 0 || metadata.ElementSetNumber != 0 || metadata.RevolutionNumber != 0 {
+		t.Fatalf("absent metadata values = %+v", metadata)
+	}
+}
+
+func tleLineWithBlankField(line string, start, end int) string {
+	bytes := []byte(line)
+	for index := start; index < end; index++ {
+		bytes[index] = ' '
+	}
+	checksum := 0
+	for _, value := range bytes[:68] {
+		switch {
+		case value >= '0' && value <= '9':
+			checksum += int(value - '0')
+		case value == '-':
+			checksum++
+		}
+	}
+	bytes[68] = byte('0' + checksum%10)
+	return string(bytes)
 }
 
 func TestTLEDoubleConcurrentCloseAndUseAfterClose(t *testing.T) {

@@ -4,6 +4,9 @@ All notable changes to this module are documented here.
 
 ## Unreleased
 
+- Preserve whether parsed TLE ephemeris type, element-set number, and revolution
+  number fields were present instead of collapsing absent fields into zero.
+
 ## 3.0.4 - 2026-10-18
 
 - Reject RINEX 2 observation and cycle-slip epochs before an observation-type
