@@ -48,11 +48,17 @@ type TLEMetadata struct {
 	MeanMotionDoubleDot float64
 	// BStar is the parsed SGP4 B* drag term.
 	BStar float64
-	// EphemerisType is the TLE ephemeris-type code.
+	// HasEphemerisType reports whether line 1 states an ephemeris type.
+	HasEphemerisType bool
+	// EphemerisType is the TLE ephemeris-type code, or zero when absent.
 	EphemerisType int
-	// ElementSetNumber is the TLE element-set sequence number.
+	// HasElementSetNumber reports whether line 1 states an element-set number.
+	HasElementSetNumber bool
+	// ElementSetNumber is the TLE element-set sequence number, or zero when absent.
 	ElementSetNumber int
-	// RevolutionNumber is the revolution number at the TLE epoch.
+	// HasRevolutionNumber reports whether line 2 states a revolution number.
+	HasRevolutionNumber bool
+	// RevolutionNumber is the revolution number at the TLE epoch, or zero when absent.
 	RevolutionNumber int
 }
 
@@ -152,8 +158,11 @@ func (t *TLE) Metadata() (TLEMetadata, error) {
 		MeanMotionDot:           metadata.MeanMotionDot,
 		MeanMotionDoubleDot:     metadata.MeanMotionDoubleDot,
 		BStar:                   metadata.BStar,
+		HasEphemerisType:        metadata.HasEphemerisType,
 		EphemerisType:           metadata.EphemerisType,
+		HasElementSetNumber:     metadata.HasElementSetNumber,
 		ElementSetNumber:        metadata.ElementSetNumber,
+		HasRevolutionNumber:     metadata.HasRevolutionNumber,
 		RevolutionNumber:        metadata.RevolutionNumber,
 	}, nil
 }

@@ -15,6 +15,8 @@ All notable changes to this module are documented here.
 - Merge and clock-alignment products from column-grid inputs return on those
   columns, including mean and alignment arithmetic; higher-resolution inputs
   retain their precision.
+- Preserve whether parsed TLE ephemeris type, element-set number, and revolution
+  number fields were present instead of collapsing absent fields into zero.
 
 ## 3.0.4 - 2026-10-18
 
