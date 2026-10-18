@@ -4,6 +4,12 @@ All notable changes to this module are documented here.
 
 ## Unreleased
 
+## 3.0.4 - 2026-10-18
+
+- Reject RINEX 2 observation and cycle-slip epochs before an observation-type
+  declaration takes effect, including empty epochs written with version 3 record
+  layout.
+
 ## 3.0.3 - 2026-10-12
 
 - Preserve required RTCM MSM fields when building messages, expose policy-departure stream skips, and retain bias-record family, unit, and source-line metadata.
