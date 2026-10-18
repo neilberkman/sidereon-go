@@ -11,6 +11,18 @@ import (
 	"testing"
 )
 
+func TestRINEXRTKExplicitEmptySignalPairsRejected(t *testing.T) {
+	single, err := BuildRINEXRTKArc(nil, nil, nil, &RTKRINEXArcOptions{SignalPairs: []RTKRINEXSignalPair{}})
+	if single != nil || err == nil || err.Error() != "sidereon: RINEX RTK signal pairs must not be empty" {
+		t.Fatalf("single-frequency empty signal pairs = %v, %v", single, err)
+	}
+
+	dual, err := BuildDualFrequencyRINEXRTKArc(nil, nil, nil, &RTKRINEXDualArcOptions{SignalPairs: []RTKRINEXDualSignalPair{}})
+	if dual != nil || err == nil || err.Error() != "sidereon: dual-frequency RINEX RTK signal pairs must not be empty" {
+		t.Fatalf("dual-frequency empty signal pairs = %v, %v", dual, err)
+	}
+}
+
 // rtkR28Channel7Observations extends the checked-in mixed-system fixture with
 // the same out-of-allocation GLONASS channel used by core's RINEX arc test.
 func rtkR28Channel7Observations(t *testing.T) []byte {
