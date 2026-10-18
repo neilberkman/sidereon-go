@@ -52,7 +52,8 @@ type RTKRINEXDualSignalPair struct {
 
 // RTKRINEXArcOptions controls construction of a single-frequency RTK arc.
 type RTKRINEXArcOptions struct {
-	// SignalPairs contains a detached copy; nil means this field is absent.
+	// SignalPairs contains a detached copy; nil selects the native defaults,
+	// while an explicitly empty slice is invalid.
 	SignalPairs []RTKRINEXSignalPair
 	// HasMaxEpochs reports whether MaxEpochs bounds the number of epochs.
 	HasMaxEpochs bool
@@ -66,7 +67,8 @@ type RTKRINEXArcOptions struct {
 
 // RTKRINEXDualArcOptions controls construction of a dual-frequency RTK arc.
 type RTKRINEXDualArcOptions struct {
-	// SignalPairs contains a detached copy; nil means this field is absent.
+	// SignalPairs contains a detached copy; nil selects the native defaults,
+	// while an explicitly empty slice is invalid.
 	SignalPairs []RTKRINEXDualSignalPair
 	// HasMaxEpochs reports whether MaxEpochs bounds the number of epochs.
 	HasMaxEpochs bool
@@ -229,6 +231,9 @@ func DefaultRTKRINEXDualArcOptions() (RTKRINEXDualArcOptions, error) {
 func BuildRINEXRTKArc(sp3 *SP3, base, rover *RINEXObservation, options *RTKRINEXArcOptions) (*RTKRINEXArc, error) {
 	var nativeOptions *native.RtkRinexArcOptions
 	if options != nil {
+		if options.SignalPairs != nil && len(options.SignalPairs) == 0 {
+			return nil, invalidArgument("RINEX RTK signal pairs must not be empty")
+		}
 		value := nativeRTKRINEXArcOptions(*options)
 		nativeOptions = &value
 	}
@@ -249,6 +254,9 @@ func BuildRTKRINEXArc(sp3 *SP3, base, rover *RINEXObservation, options *RTKRINEX
 func BuildDualFrequencyRINEXRTKArc(sp3 *SP3, base, rover *RINEXObservation, options *RTKRINEXDualArcOptions) (*RTKRINEXDualFrequencyArc, error) {
 	var nativeOptions *native.RtkRinexDualArcOptions
 	if options != nil {
+		if options.SignalPairs != nil && len(options.SignalPairs) == 0 {
+			return nil, invalidArgument("dual-frequency RINEX RTK signal pairs must not be empty")
+		}
 		value := nativeRTKRINEXDualArcOptions(*options)
 		nativeOptions = &value
 	}
