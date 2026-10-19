@@ -171,7 +171,7 @@ type BiasRecord struct {
 	ValidFrom BiasEpoch
 	// HasValidUntil reports whether ValidUntil is present.
 	HasValidUntil bool
-	// ValidUntil is the inclusive end epoch when present.
+	// ValidUntil is the exclusive end epoch when present.
 	ValidUntil BiasEpoch
 	// Value is seconds for code records and cycles for phase records.
 	Value float64

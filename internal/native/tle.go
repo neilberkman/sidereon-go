@@ -31,8 +31,11 @@ type TLEMetadata struct {
 	MeanMotionDot           float64
 	MeanMotionDoubleDot     float64
 	BStar                   float64
+	HasEphemerisType        bool
 	EphemerisType           int
+	HasElementSetNumber     bool
 	ElementSetNumber        int
+	HasRevolutionNumber     bool
 	RevolutionNumber        int
 }
 
@@ -195,8 +198,11 @@ func (t *TLE) Metadata() (TLEMetadata, error) {
 		MeanMotionDot:           float64(metadata.mean_motion_dot),
 		MeanMotionDoubleDot:     float64(metadata.mean_motion_double_dot),
 		BStar:                   float64(metadata.bstar),
+		HasEphemerisType:        bool(metadata.has_ephemeris_type),
 		EphemerisType:           int(metadata.ephemeris_type),
+		HasElementSetNumber:     bool(metadata.has_elset_number),
 		ElementSetNumber:        int(metadata.elset_number),
+		HasRevolutionNumber:     bool(metadata.has_rev_number),
 		RevolutionNumber:        int(metadata.rev_number),
 	}, nil
 }
