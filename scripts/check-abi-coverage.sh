@@ -147,7 +147,7 @@ awk -F '\t' '{ print $1 "\tcomposed\t" $2 }' "$work/composed-proof" >>"$work/dis
 awk -F '\t' '{ print $1 "\texcluded\t" $2 }' "$work/excluded-proof" >>"$work/dispositions"
 sort -u "$work/dispositions" -o "$work/dispositions"
 
-pin=$(tr -d '[:space:]' <internal/native/lib/sidereon-c.ref)
+pin=$(sed '/^[[:space:]]*#/d' internal/native/lib/sidereon-c.ref | tr -d '[:space:]')
 {
 	printf '# Current C ABI implementation map\n\n'
 	printf 'This map is generated from the vendored header and production cgo calls for pinned public `sidereon-c` commit `%s`. Run `./scripts/check-abi-coverage.sh` to prove that every declaration has exactly one disposition.\n\n' "$pin"
