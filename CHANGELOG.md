@@ -4,6 +4,18 @@ All notable changes to this module are documented here.
 
 ## Unreleased
 
+## 3.0.5 - 2026-10-30
+
+- Update the bundled engine to sidereon-core 3.0.5 at
+  `7970b1a3332ceba70088b64b4849b12b6d2b4874`: normalize large finite quaternions
+  without norm overflow and enforce the open `(0, 1)` domain for NIS confidence
+  and CA-CFAR false-alarm probabilities, including positive and negative zero.
+- Add `SP3.ToSP3StringWithRounding`, an opt-in writer that quantizes a copy,
+  reports maximum changes per SI field, and retains typed writer refusals.
+- Merge and clock-alignment products from column-grid inputs return on those
+  columns, including mean and alignment arithmetic; higher-resolution inputs
+  retain their precision.
+
 ## 3.0.4 - 2026-10-18
 
 - Reject RINEX 2 observation and cycle-slip epochs before an observation-type

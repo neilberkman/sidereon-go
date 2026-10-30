@@ -28,6 +28,16 @@ type SP3WriteOutcome struct {
 	Error  SP3WriteError
 }
 
+type SP3RoundingReport struct {
+	PositionXM, PositionYM, PositionZM    float64
+	VelocityXMS, VelocityYMS, VelocityZMS float64
+	ClockS, ClockRateSS                   float64
+}
+
 func (*SP3) TextResult() ([]byte, SP3WriteOutcome, error) {
 	return nil, SP3WriteOutcome{}, unavailable()
+}
+
+func (*SP3) TextResultWithRounding() ([]byte, SP3WriteOutcome, SP3RoundingReport, error) {
+	return nil, SP3WriteOutcome{}, SP3RoundingReport{}, unavailable()
 }

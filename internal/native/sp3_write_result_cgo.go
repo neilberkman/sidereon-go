@@ -10,9 +10,17 @@ package native
 import "C"
 
 import (
+	"fmt"
 	"runtime"
 	"unsafe"
 )
+
+// SP3RoundingReport records maximum absolute changes per field, in SI units.
+type SP3RoundingReport struct {
+	PositionXM, PositionYM, PositionZM    float64
+	VelocityXMS, VelocityYMS, VelocityZMS float64
+	ClockS, ClockRateSS                   float64
+}
 
 type SP3WriteError struct {
 	Kind                                                                                uint32
@@ -50,15 +58,30 @@ func sp3WriteResultBytes(result *C.SidereonSp3WriteResult, text bool, label stri
 }
 
 func (s *SP3) TextResult() ([]byte, SP3WriteOutcome, error) {
+	text, outcome, _, err := s.textResult(false)
+	return text, outcome, err
+}
+
+func (s *SP3) TextResultWithRounding() ([]byte, SP3WriteOutcome, SP3RoundingReport, error) {
+	return s.textResult(true)
+}
+
+func (s *SP3) textResult(withRounding bool) ([]byte, SP3WriteOutcome, SP3RoundingReport, error) {
 	if s == nil || s.handle == nil {
-		return nil, SP3WriteOutcome{}, ErrClosed
+		return nil, SP3WriteOutcome{}, SP3RoundingReport{}, ErrClosed
 	}
 	var output []byte
 	var outcome SP3WriteOutcome
+	var rounding SP3RoundingReport
 	err := s.handle.with(func(pointer unsafe.Pointer) error {
 		return withCThreadError(func() error {
 			var result *C.SidereonSp3WriteResult
-			if err := callStatus(func() uint32 { return uint32(C.sidereon_sp3_to_sp3_text_result((*C.SidereonSp3)(pointer), &result)) }); err != nil {
+			if err := callStatus(func() uint32 {
+				if withRounding {
+					return uint32(C.sidereon_sp3_to_sp3_text_with_rounding_result((*C.SidereonSp3)(pointer), &result))
+				}
+				return uint32(C.sidereon_sp3_to_sp3_text_result((*C.SidereonSp3)(pointer), &result))
+			}); err != nil {
 				return err
 			}
 			if result == nil {
@@ -146,11 +169,28 @@ func (s *SP3) TextResult() ([]byte, SP3WriteOutcome, error) {
 				v.TextValue = string(b)
 			}
 			if outcome.IsOK {
+				if withRounding {
+					var hasReport C.bool
+					var rawReport C.SidereonSp3RoundingReport
+					if err := callStatus(func() uint32 {
+						return uint32(C.sidereon_sp3_write_result_get_rounding_report(result, &hasReport, &rawReport))
+					}); err != nil {
+						return err
+					}
+					if !bool(hasReport) {
+						return fmt.Errorf("rounded SP3 write succeeded without a rounding report")
+					}
+					rounding = SP3RoundingReport{
+						PositionXM: float64(rawReport.position_x_m), PositionYM: float64(rawReport.position_y_m), PositionZM: float64(rawReport.position_z_m),
+						VelocityXMS: float64(rawReport.velocity_x_m_s), VelocityYMS: float64(rawReport.velocity_y_m_s), VelocityZMS: float64(rawReport.velocity_z_m_s),
+						ClockS: float64(rawReport.clock_s), ClockRateSS: float64(rawReport.clock_rate_s_s),
+					}
+				}
 				output, err = sp3WriteResultBytes(result, true, "SP3 text")
 			}
 			return err
 		})
 	})
 	runtime.KeepAlive(s)
-	return output, outcome, err
+	return output, outcome, rounding, err
 }
