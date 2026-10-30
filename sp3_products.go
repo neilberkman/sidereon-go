@@ -207,6 +207,7 @@ type SP3WriteRefusalError struct {
 	Outcome SP3WriteOutcome
 }
 
+// Error returns the writer's refusal message, or a default message when none was provided.
 func (e SP3WriteRefusalError) Error() string {
 	if e.Outcome.Error.Message != "" {
 		return e.Outcome.Error.Message
