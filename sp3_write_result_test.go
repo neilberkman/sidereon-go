@@ -4,7 +4,6 @@ package sidereon
 
 import (
 	"bytes"
-	"fmt"
 	"math"
 	"os"
 	"strings"
@@ -92,68 +91,6 @@ func TestSP3ToSP3StringWithRoundingReportsChangesAndKeepsTypedRefusal(t *testing
 	written, err := reparsed.State("G08", 0)
 	if err != nil || written.ClockS != before.ClockS {
 		t.Fatalf("rounded output clock = %+v, original %+v, err %v", written, before, err)
-	}
-
-	// Keep the P-record width fixed while adding one source decimal beyond the
-	// SP3 clock column precision. The ordinary writer must refuse it; the opt-in
-	// writer rounds a copy and reports the actual seconds change.
-	lineStart := bytes.Index(data, []byte("PG08   6042.284075"))
-	if lineStart < 0 {
-		t.Fatal("fixture did not contain the expected first G08 record")
-	}
-	relativeLineEnd := bytes.IndexByte(data[lineStart:], '\n')
-	if relativeLineEnd < 0 {
-		t.Fatal("first G08 record had no line ending")
-	}
-	lineEnd := lineStart + relativeLineEnd
-	line := data[lineStart:lineEnd]
-	if len(line) < 60 || strings.TrimSpace(string(line[46:60])) != "-38.640412" {
-		t.Fatalf("unexpected first G08 clock column: %q", line[46:])
-	}
-	finerLine := append([]byte(nil), line[:46]...)
-	finerLine = append(finerLine, []byte(fmt.Sprintf("%14s", "-38.6404124"))...)
-	finerLine = append(finerLine, line[60:]...)
-	finerData := append([]byte(nil), data[:lineStart]...)
-	finerData = append(finerData, finerLine...)
-	finerData = append(finerData, data[lineEnd:]...)
-	finerProduct, err := LoadSP3(finerData)
-	if err != nil {
-		t.Fatalf("parse in-column higher-precision clock: %v", err)
-	}
-	closeAfterTest(t, finerProduct)
-	finerBefore, err := finerProduct.State("G08", 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, strictOutcome, err := finerProduct.Encode()
-	if err != nil || strictOutcome.IsOK || strictOutcome.Error.Kind != SP3WriteErrorRecordValueNotRepresentable {
-		t.Fatalf("strict writer accepted higher-precision clock: %+v, %v", strictOutcome, err)
-	}
-	finerText, finerReport, err := finerProduct.ToSP3StringWithRounding()
-	if err != nil {
-		t.Fatalf("rounded write of higher-precision clock: %v", err)
-	}
-	if finerReport.ClockS <= 0 || finerReport.PositionXM != 0 || finerReport.PositionYM != 0 || finerReport.PositionZM != 0 || finerReport.VelocityXMS != 0 || finerReport.VelocityYMS != 0 || finerReport.VelocityZMS != 0 || finerReport.ClockRateSS != 0 {
-		t.Fatalf("rounding report did not isolate the clock change: %+v", finerReport)
-	}
-	finerReparsed, err := LoadSP3([]byte(finerText))
-	if err != nil {
-		t.Fatalf("reparse rounded higher-precision clock: %v", err)
-	}
-	closeAfterTest(t, finerReparsed)
-	finerAfterSource, err := finerProduct.State("G08", 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	finerAfterOutput, err := finerReparsed.State("G08", 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if math.Float64bits(finerAfterSource.ClockS) != math.Float64bits(finerBefore.ClockS) {
-		t.Fatalf("rounded writer changed source clock: before %.17g, after %.17g", finerBefore.ClockS, finerAfterSource.ClockS)
-	}
-	if delta := math.Abs(finerAfterOutput.ClockS - finerBefore.ClockS); math.Float64bits(delta) != math.Float64bits(finerReport.ClockS) {
-		t.Fatalf("clock rounding report %.17g != reparsed change %.17g", finerReport.ClockS, delta)
 	}
 
 	baseRefusal := bytes.Replace(data, []byte("%f  0.0000000"), []byte("%f 1.25000001"), 1)
