@@ -19,7 +19,7 @@ Install a released version with `go get` and cgo enabled (a branch or commit
 reference such as `@main` works the same way):
 
 ```sh
-CGO_ENABLED=1 go get sidereon.dev/go/v3@v3.0.4
+CGO_ENABLED=1 go get sidereon.dev/go/v3@v3.0.5
 ```
 
 On Linux, select the matching bundled libc explicitly. For the usual glibc
@@ -27,7 +27,7 @@ distribution:
 
 ```sh
 CGO_ENABLED=1 GOFLAGS='-tags=sidereon_linux_glibc' \
-  go get sidereon.dev/go/v3@v3.0.4
+  go get sidereon.dev/go/v3@v3.0.5
 ```
 
 Use `sidereon_linux_musl` instead when building with a musl C toolchain.
@@ -208,6 +208,17 @@ continuity, err := sp3.ContinuityWithOptions(1, 1.0, sidereon.SP3ContinuityOptio
 verdictJSON, err := sp3.ContinuityVerdictJSON(1, 1.0, fromJ2000S, throughJ2000S, sidereon.WithGapThresholdFactor(13.0))
 ```
 
+To opt into record-column quantization while writing, call
+`SP3.ToSP3StringWithRounding()`. It writes a copy, returns the maximum change
+per position, velocity, clock, and clock-rate component in SI units, and keeps
+a typed writer refusal in `SP3WriteRefusalError` when the product still cannot
+be written. The refusal error retains its `SP3WriteOutcome`; the source product
+remains unchanged.
+
+Merging or aligning inputs already on SP3 record columns returns records on
+those columns. Merge agreement metrics describe contributor dispersion before
+that final rounding; higher-precision inputs retain their precision.
+
 These examples demonstrate the public operation and units; they do not imply
 that every sibling-language convenience name is present in Go. Consult the Go
 package documentation for the routes included in the current module.
@@ -256,8 +267,8 @@ if errors.As(err, &statusErr) {
 ## Versioning
 
 Go, C, and the canonical Sidereon engine release in lockstep: a published
-`v3.0.4` Go module uses the matching C header macros and static library for
-`3.0.4`. Go semantic import versioning requires the module path to carry the
+`v3.0.5` Go module uses the matching C header macros and static library for
+`3.0.5`. Go semantic import versioning requires the module path to carry the
 major version from 2 onward, so the module path is
 `sidereon.dev/go/v3` and each later major version moves
 the suffix with it (`/v4`, ...), whether or not the Go API itself changed.

@@ -184,6 +184,37 @@ type SP3WriteOutcome struct {
 	Error SP3WriteError
 }
 
+// SP3RoundingReport records the maximum absolute change made to each SP3
+// record component, in meters, meters per second, seconds, and seconds per
+// second respectively.
+type SP3RoundingReport struct {
+	// PositionXM, PositionYM, and PositionZM are maximum changes in meters.
+	PositionXM float64
+	PositionYM float64
+	PositionZM float64
+	// VelocityXMS, VelocityYMS, and VelocityZMS are maximum changes in meters per second.
+	VelocityXMS float64
+	VelocityYMS float64
+	VelocityZMS float64
+	// ClockS is the maximum change in seconds.
+	ClockS float64
+	// ClockRateSS is the maximum change in seconds per second.
+	ClockRateSS float64
+}
+
+// SP3WriteRefusalError retains the typed writer refusal from a rounded write.
+type SP3WriteRefusalError struct {
+	Outcome SP3WriteOutcome
+}
+
+// Error returns the writer's refusal message, or a default message when none was provided.
+func (e SP3WriteRefusalError) Error() string {
+	if e.Outcome.Error.Message != "" {
+		return e.Outcome.Error.Message
+	}
+	return "SP3 writer refused the product"
+}
+
 func publicSP3WriteOutcome(value native.SP3WriteOutcome) SP3WriteOutcome {
 	e := value.Error
 	return SP3WriteOutcome{IsOK: value.IsOK, Status: value.Status, Error: SP3WriteError{Kind: SP3WriteErrorKind(e.Kind), HasField: e.HasField, HasTextValue: e.HasTextValue, HasSatelliteID: e.HasSatelliteID, HasEpochIndex: e.HasEpochIndex, HasCommentIndex: e.HasCommentIndex, HasColumns: e.HasColumns, HasDecimals: e.HasDecimals, HasIntegerValue: e.HasIntegerValue, HasNumber: e.HasNumber, HasYear: e.HasYear, HasFieldSeconds: e.HasFieldSeconds, HasResidualS: e.HasResidualS, HasEpochTimeScale: e.HasEpochTimeScale, HasHeaderTimeScale: e.HasHeaderTimeScale, HasTimeSystem: e.HasTimeSystem, HasDeclaredEpochs: e.HasDeclaredEpochs, HasEpochs: e.HasEpochs, HasEntries: e.HasEntries, HasSatellites: e.HasSatellites, HasCodes: e.HasCodes, HasStored: e.HasStored, HasNative: e.HasNative, HasColumnValue: e.HasColumnValue, HasExponent: e.HasExponent, SatelliteID: e.SatelliteID, TimeSystem: e.TimeSystem, EpochIndex: e.EpochIndex, CommentIndex: e.CommentIndex, Columns: e.Columns, Decimals: e.Decimals, IntegerValue: e.IntegerValue, Number: e.Number, Year: e.Year, FieldSeconds: e.FieldSeconds, ResidualS: e.ResidualS, EpochTimeScale: TimeScale(e.EpochTimeScale), HeaderTimeScale: TimeScale(e.HeaderTimeScale), DeclaredEpochs: e.DeclaredEpochs, Epochs: e.Epochs, Entries: e.Entries, Satellites: e.Satellites, Codes: e.Codes, Stored: e.Stored, Native: e.Native, ColumnValue: e.ColumnValue, Exponent: e.Exponent, Message: e.Message, Field: e.Field, TextValue: e.TextValue}}
@@ -196,6 +227,28 @@ func (s *SP3) Encode() ([]byte, SP3WriteOutcome, error) {
 	}
 	text, outcome, err := s.handle.TextResult()
 	return text, publicSP3WriteOutcome(outcome), publicError(err)
+}
+
+// ToSP3StringWithRounding writes a quantized copy of the product and reports
+// the maximum absolute change for each modeled record field. It does not
+// modify the source product. A serialization refusal is returned as
+// SP3WriteRefusalError, which retains the typed SP3WriteOutcome.
+func (s *SP3) ToSP3StringWithRounding() (string, SP3RoundingReport, error) {
+	if s == nil || s.handle == nil {
+		return "", SP3RoundingReport{}, ErrClosed
+	}
+	text, outcome, report, err := s.handle.TextResultWithRounding()
+	if err != nil {
+		return "", SP3RoundingReport{}, publicError(err)
+	}
+	if !outcome.IsOK {
+		return "", SP3RoundingReport{}, SP3WriteRefusalError{Outcome: publicSP3WriteOutcome(outcome)}
+	}
+	return string(text), SP3RoundingReport{
+		PositionXM: report.PositionXM, PositionYM: report.PositionYM, PositionZM: report.PositionZM,
+		VelocityXMS: report.VelocityXMS, VelocityYMS: report.VelocityYMS, VelocityZMS: report.VelocityZMS,
+		ClockS: report.ClockS, ClockRateSS: report.ClockRateSS,
+	}, nil
 }
 
 // ExactSP3Coverage identifies whether the declared end epoch is excluded or included.

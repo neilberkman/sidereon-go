@@ -113,10 +113,10 @@ direct_count=$(wc -l <"$work/direct" | tr -d ' ')
 composed_count=$(wc -l <"$work/composed" | tr -d ' ')
 excluded_count=$(wc -l <"$work/excluded" | tr -d ' ')
 
-# The reviewed header adds complete SSR projection, RINEX finding-detail, and observation header-detail routes
+# The reviewed header adds complete SSR projection, RINEX finding-detail, observation header-detail, and SP3 writer-rounding routes
 # while retaining legacy projection symbols; every declaration still has one disposition.
-[[ "$header_count" == 2060 ]] || {
-    printf 'ABI coverage: expected 2060 pinned v3 header declarations, found %s\n' "$header_count" >&2
+[[ "$header_count" == 2062 ]] || {
+    printf 'ABI coverage: expected 2062 pinned v3 header declarations, found %s\n' "$header_count" >&2
     exit 1
 }
 
@@ -147,7 +147,7 @@ awk -F '\t' '{ print $1 "\tcomposed\t" $2 }' "$work/composed-proof" >>"$work/dis
 awk -F '\t' '{ print $1 "\texcluded\t" $2 }' "$work/excluded-proof" >>"$work/dispositions"
 sort -u "$work/dispositions" -o "$work/dispositions"
 
-pin=$(tr -d '[:space:]' <internal/native/lib/sidereon-c.ref)
+pin=$(sed '/^[[:space:]]*#/d' internal/native/lib/sidereon-c.ref | tr -d '[:space:]')
 {
 	printf '# Current C ABI implementation map\n\n'
 	printf 'This map is generated from the vendored header and production cgo calls for pinned public `sidereon-c` commit `%s`. Run `./scripts/check-abi-coverage.sh` to prove that every declaration has exactly one disposition.\n\n' "$pin"

@@ -471,7 +471,8 @@ func IODHGibbs(r1, r2, r3 [3]float64, jd1, jd2, jd3 float64) (GibbsResult, error
 }
 
 func IODGaussAngles(declRad, rightAscensionRad, jd, jdFraction [3]float64, siteECIKm [3][3]float64) (GaussAnglesResult, error) {
-	var d, r, j, f, sites [3]C.double
+	var d, r, j, f [3]C.double
+	var sites [9]C.double
 	for i := 0; i < 3; i++ {
 		d[i], r[i], j[i], f[i] = C.double(declRad[i]), C.double(rightAscensionRad[i]), C.double(jd[i]), C.double(jdFraction[i])
 		for k := 0; k < 3; k++ {
