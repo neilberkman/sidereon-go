@@ -34,10 +34,20 @@ type SP3RoundingReport struct {
 	ClockS, ClockRateSS                   float64
 }
 
+type SP3AccuracyRoundingReport struct {
+	PositionSigmaXM, PositionSigmaYM, PositionSigmaZM    float64
+	VelocitySigmaXMS, VelocitySigmaYMS, VelocitySigmaZMS float64
+	ClockSigmaM, ClockRateSigmaMS                        float64
+}
+
 func (*SP3) TextResult() ([]byte, SP3WriteOutcome, error) {
 	return nil, SP3WriteOutcome{}, unavailable()
 }
 
 func (*SP3) TextResultWithRounding() ([]byte, SP3WriteOutcome, SP3RoundingReport, error) {
 	return nil, SP3WriteOutcome{}, SP3RoundingReport{}, unavailable()
+}
+
+func (*SP3) TextResultWithAccuracyRounding(uint32) ([]byte, SP3WriteOutcome, SP3RoundingReport, SP3AccuracyRoundingReport, error) {
+	return nil, SP3WriteOutcome{}, SP3RoundingReport{}, SP3AccuracyRoundingReport{}, unavailable()
 }

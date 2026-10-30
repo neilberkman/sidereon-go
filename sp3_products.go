@@ -202,6 +202,39 @@ type SP3RoundingReport struct {
 	ClockRateSS float64
 }
 
+// SP3AccuracyRoundingPolicy selects how decoded accuracy sigmas are
+// quantized by the opt-in accuracy writer.
+type SP3AccuracyRoundingPolicy uint32
+
+const (
+	// SP3AccuracyRoundingConservative selects the smallest legal sigma that is
+	// at least as large as the source sigma.
+	SP3AccuracyRoundingConservative SP3AccuracyRoundingPolicy = 0
+)
+
+// SP3AccuracyRoundingReport records maximum increases to decoded accuracy
+// sigmas in SI units.
+type SP3AccuracyRoundingReport struct {
+	// PositionSigmaXM, PositionSigmaYM, and PositionSigmaZM are meters.
+	PositionSigmaXM float64
+	PositionSigmaYM float64
+	PositionSigmaZM float64
+	// VelocitySigmaXMS, VelocitySigmaYMS, and VelocitySigmaZMS are meters per second.
+	VelocitySigmaXMS float64
+	VelocitySigmaYMS float64
+	VelocitySigmaZMS float64
+	// ClockSigmaM is meters; ClockRateSigmaMS is meters per second.
+	ClockSigmaM      float64
+	ClockRateSigmaMS float64
+}
+
+// SP3DetailedRoundingReport keeps the record-value and accuracy-sigma changes
+// separate because they use different units and rounding policies.
+type SP3DetailedRoundingReport struct {
+	RecordValues   SP3RoundingReport
+	AccuracySigmas SP3AccuracyRoundingReport
+}
+
 // SP3WriteRefusalError retains the typed writer refusal from a rounded write.
 type SP3WriteRefusalError struct {
 	Outcome SP3WriteOutcome
@@ -248,6 +281,42 @@ func (s *SP3) ToSP3StringWithRounding() (string, SP3RoundingReport, error) {
 		PositionXM: report.PositionXM, PositionYM: report.PositionYM, PositionZM: report.PositionZM,
 		VelocityXMS: report.VelocityXMS, VelocityYMS: report.VelocityYMS, VelocityZMS: report.VelocityZMS,
 		ClockS: report.ClockS, ClockRateSS: report.ClockRateSS,
+	}, nil
+}
+
+// ToSP3StringWithAccuracyRounding writes a copy using the required accuracy
+// sigma policy and reports record-value changes separately from accuracy
+// sigma increases. The source product is unchanged. Unknown policies are
+// rejected instead of selecting a default. A serialization refusal is
+// returned as SP3WriteRefusalError.
+func (s *SP3) ToSP3StringWithAccuracyRounding(policy SP3AccuracyRoundingPolicy) (string, SP3DetailedRoundingReport, error) {
+	if s == nil || s.handle == nil {
+		return "", SP3DetailedRoundingReport{}, ErrClosed
+	}
+	text, outcome, recordReport, accuracyReport, err := s.handle.TextResultWithAccuracyRounding(uint32(policy))
+	if err != nil {
+		return "", SP3DetailedRoundingReport{}, publicError(err)
+	}
+	if !outcome.IsOK {
+		return "", SP3DetailedRoundingReport{}, SP3WriteRefusalError{Outcome: publicSP3WriteOutcome(outcome)}
+	}
+	return string(text), SP3DetailedRoundingReport{
+		RecordValues: SP3RoundingReport{
+			PositionXM: recordReport.PositionXM, PositionYM: recordReport.PositionYM,
+			PositionZM: recordReport.PositionZM, VelocityXMS: recordReport.VelocityXMS,
+			VelocityYMS: recordReport.VelocityYMS, VelocityZMS: recordReport.VelocityZMS,
+			ClockS: recordReport.ClockS, ClockRateSS: recordReport.ClockRateSS,
+		},
+		AccuracySigmas: SP3AccuracyRoundingReport{
+			PositionSigmaXM:  accuracyReport.PositionSigmaXM,
+			PositionSigmaYM:  accuracyReport.PositionSigmaYM,
+			PositionSigmaZM:  accuracyReport.PositionSigmaZM,
+			VelocitySigmaXMS: accuracyReport.VelocitySigmaXMS,
+			VelocitySigmaYMS: accuracyReport.VelocitySigmaYMS,
+			VelocitySigmaZMS: accuracyReport.VelocitySigmaZMS,
+			ClockSigmaM:      accuracyReport.ClockSigmaM,
+			ClockRateSigmaMS: accuracyReport.ClockRateSigmaMS,
+		},
 	}, nil
 }
 

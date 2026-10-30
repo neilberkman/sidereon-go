@@ -48,6 +48,7 @@ jobs:
           mkdir -p "$consumer/testdata"
           cp .github/public-module-consumer/public_consumer_test.go "$consumer/"
           cp testdata/trimmed.sp3 "$consumer/testdata/"
+          cp -R testdata/sp3_accuracy_306 "$consumer/testdata/"
           go -C "$consumer" mod init sidereon.dev/public-consumer
           go -C "$consumer" mod edit -require="sidereon.dev/go/v3@$REQUESTED_VERSION"
 

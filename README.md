@@ -19,7 +19,7 @@ Install a released version with `go get` and cgo enabled (a branch or commit
 reference such as `@main` works the same way):
 
 ```sh
-CGO_ENABLED=1 go get sidereon.dev/go/v3@v3.0.5
+CGO_ENABLED=1 go get sidereon.dev/go/v3@v3.0.6
 ```
 
 On Linux, select the matching bundled libc explicitly. For the usual glibc
@@ -27,7 +27,7 @@ distribution:
 
 ```sh
 CGO_ENABLED=1 GOFLAGS='-tags=sidereon_linux_glibc' \
-  go get sidereon.dev/go/v3@v3.0.5
+  go get sidereon.dev/go/v3@v3.0.6
 ```
 
 Use `sidereon_linux_musl` instead when building with a musl C toolchain.
@@ -267,8 +267,8 @@ if errors.As(err, &statusErr) {
 ## Versioning
 
 Go, C, and the canonical Sidereon engine release in lockstep: a published
-`v3.0.5` Go module uses the matching C header macros and static library for
-`3.0.5`. Go semantic import versioning requires the module path to carry the
+`v3.0.6` Go module uses the matching C header macros and static library for
+`3.0.6`. Go semantic import versioning requires the module path to carry the
 major version from 2 onward, so the module path is
 `sidereon.dev/go/v3` and each later major version moves
 the suffix with it (`/v4`, ...), whether or not the Go API itself changed.

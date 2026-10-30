@@ -22,13 +22,14 @@ permissions:
 
 jobs:
   archives:
+    if: github.event_name == 'workflow_dispatch' && !inputs.verify_reproduction
     # macOS host: build-native-archives.sh builds the two darwin targets via a
     # plain `cargo build` (Apple's own toolchain cross-links arm64<->amd64
     # natively); cargo-zigbuild handles the Linux/Windows targets regardless of
     # host OS, so the other five targets cross-compile the same way from here.
     runs-on: macos-15
     env:
-      SIDEREON_RELEASE_VERSION: 3.0.5
+      SIDEREON_RELEASE_VERSION: 3.0.6
       SIDEREON_GLIBC_FLOOR: 2.17
       CARGO_ZIGBUILD_VERSION: 0.23.3
       CARGO_HOME: ${{ github.workspace }}/.cargo-home
@@ -89,16 +90,84 @@ jobs:
           set -Eeuo pipefail
           ./scripts/test-native-archives.sh
 
-      - name: Verify checked-in archive set reproduces exactly
-        if: github.event_name != 'workflow_dispatch' || inputs.verify_reproduction
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          git diff --exit-code -- internal/native/lib/
-
       - name: Upload archives
         uses: actions/upload-artifact@v7.0.1
         with:
           name: sidereon-go-native-archives
           path: internal/native/lib/
           if-no-files-found: error
+
+  reproduce:
+    if: github.event_name != 'workflow_dispatch' || inputs.verify_reproduction
+    # macOS host: build-native-archives.sh builds the two darwin targets via a
+    # plain `cargo build` (Apple's own toolchain cross-links arm64<->amd64
+    # natively); cargo-zigbuild handles the Linux/Windows targets regardless of
+    # host OS, so the other five targets cross-compile the same way from here.
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        archive:
+          - libsidereon_darwin_arm64.a
+          - libsidereon_darwin_amd64.a
+          - libsidereon_linux_amd64_glibc.a
+          - libsidereon_linux_arm64_glibc.a
+          - libsidereon_linux_amd64_musl.a
+          - libsidereon_linux_arm64_musl.a
+          - libsidereon_windows_amd64_gnu.a
+    env:
+      SIDEREON_RELEASE_VERSION: 3.0.6
+      SIDEREON_GLIBC_FLOOR: 2.17
+      CARGO_ZIGBUILD_VERSION: 0.23.3
+      CARGO_HOME: ${{ github.workspace }}/.cargo-home
+      GOPATH: ${{ github.workspace }}/.gopath
+      GOMODCACHE: ${{ github.workspace }}/.gopath/pkg/mod
+      GOCACHE: ${{ github.workspace }}/.gocache
+      CARGO_TARGET_DIR: ${{ github.workspace }}/.native-build/target
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Verify requested checkout
+        if: github.event_name == 'workflow_dispatch' && inputs.ref != ''
+        shell: bash
+        env:
+          REQUESTED_REF: ${{ inputs.ref }}
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "${REQUESTED_REF}^{commit}")"
+
+      - name: Verify release tag source pin
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && startsWith(inputs.ref, 'v'))
+        shell: bash
+        env:
+          EXPECTED_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref_name }}
+        run: test "$(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' internal/native/lib/sidereon-c.ref)" = "$EXPECTED_REF"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.98.1
+
+      - name: Install Zig 0.15.2
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          zig_root="$HOME/.local/share/mise/installs/zig/0.15.2"
+          archive="$RUNNER_TEMP/zig-0.15.2.tar.xz"
+          mkdir -p "$zig_root"
+          curl --fail --silent --show-error --location \
+            https://ziglang.org/download/0.15.2/zig-aarch64-macos-0.15.2.tar.xz \
+            --output "$archive"
+          tar -xJf "$archive" --strip-components=1 --directory "$zig_root"
+          mkdir -p "$zig_root/bin"
+          ln -sf ../zig "$zig_root/bin/zig"
+          test "$("$zig_root/bin/zig" version)" = 0.15.2
+
+      - name: Reproduce and verify archive
+        shell: bash
+        env:
+          TMPDIR: ${{ runner.temp }}
+          ARCHIVE_NAME: ${{ matrix.archive }}
+        run: |
+          set -Eeuo pipefail
+          ./scripts/build-native-archives.sh --reproduce-archive "$ARCHIVE_NAME"
