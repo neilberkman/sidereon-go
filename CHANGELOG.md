@@ -7,7 +7,7 @@ All notable changes to this module are documented here.
 ## 3.0.5 - 2026-10-30
 
 - Update the bundled engine to sidereon-core 3.0.5 at
-  `7970b1a3332ceba70088b64b4849b12b6d2b4874`: normalize large finite quaternions
+  `da59d0eba8e273cc37821eac5535662e5d991126`: normalize large finite quaternions
   without norm overflow and enforce the open `(0, 1)` domain for NIS confidence
   and CA-CFAR false-alarm probabilities, including positive and negative zero.
 - Add `SP3.ToSP3StringWithRounding`, an opt-in writer that quantizes a copy,
