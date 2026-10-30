@@ -609,6 +609,9 @@ func DefaultStaticReferenceStationRinexConfig() (StaticReferenceStationRinexConf
 
 // SolveStaticReferenceStationRINEX solves a static reference-station coordinate.
 func SolveStaticReferenceStationRINEX(sp3 *SP3, reference, rover *RINEXObservation, config StaticReferenceStationRinexConfig) (*StaticReferenceStationSolution, error) {
+	if err := validateRTKRINEXArcOptions(config.Carrier.ArcOptions); err != nil {
+		return nil, err
+	}
 	if sp3 == nil || sp3.handle == nil || reference == nil || reference.handle == nil || rover == nil || rover.handle == nil {
 		return nil, ErrClosed
 	}

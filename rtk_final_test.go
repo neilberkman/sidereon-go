@@ -263,3 +263,32 @@ func TestRTKFinalStaticRawFixture(t *testing.T) {
 		t.Fatalf("raw static float metadata = %+v", metadata)
 	}
 }
+
+func TestRTKFinalExplicitEmptySignalPairsRejected(t *testing.T) {
+	static, err := DefaultRTKRINEXStaticBaselineConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	static.ArcOptions.SignalPairs = []RTKRINEXSignalPair{}
+	if _, err := SolveStaticRINEXRTKBaseline(nil, nil, nil, static); err == nil || err.Error() != "sidereon: RINEX RTK signal pairs must not be empty" {
+		t.Fatalf("static baseline empty signal pairs error = %v", err)
+	}
+
+	reference, err := DefaultStaticReferenceStationRinexConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	reference.Carrier.ArcOptions.SignalPairs = []RTKRINEXSignalPair{}
+	if _, err := SolveStaticReferenceStationRINEX(nil, nil, nil, reference); err == nil || err.Error() != "sidereon: RINEX RTK signal pairs must not be empty" {
+		t.Fatalf("static reference empty signal pairs error = %v", err)
+	}
+
+	wideLane, err := DefaultRTKRINEXWideLaneFixedConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wideLane.ArcOptions.SignalPairs = []RTKRINEXDualSignalPair{}
+	if _, err := SolveWideLaneFixedRINEXRTKBaseline(nil, nil, nil, wideLane); err == nil || err.Error() != "sidereon: dual-frequency RINEX RTK signal pairs must not be empty" {
+		t.Fatalf("wide-lane empty signal pairs error = %v", err)
+	}
+}

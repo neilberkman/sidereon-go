@@ -201,6 +201,9 @@ func SolveStaticRTKArc(epochs []RTKArcEpoch, config RTKStaticArcConfig) (*RTKSta
 // SP3 handles.
 // SolveStaticRINEXRTKBaseline solves a static RTK baseline from RINEX observations and SP3 positions.
 func SolveStaticRINEXRTKBaseline(sp3 *SP3, base, rover *RINEXObservation, config RTKRINEXStaticBaselineConfig) (*RTKStaticArcSolution, error) {
+	if err := validateRTKRINEXArcOptions(config.ArcOptions); err != nil {
+		return nil, err
+	}
 	result, err := native.SolveStaticRinexRtkBaseline(nativeSP3(sp3), nativeRinexObs(base), nativeRinexObs(rover), nativeRTKRINEXStaticConfig(config))
 	if err != nil {
 		return nil, publicError(err)
@@ -212,6 +215,9 @@ func SolveStaticRINEXRTKBaseline(sp3 *SP3, base, rover *RINEXObservation, config
 // fixed baseline from RINEX OBS and SP3 handles.
 // SolveWideLaneFixedRINEXRTKBaseline solves a dual-frequency wide-lane-fixed RINEX baseline.
 func SolveWideLaneFixedRINEXRTKBaseline(sp3 *SP3, base, rover *RINEXObservation, config RTKRINEXWideLaneFixedConfig) (*RTKWideLaneFixedRINEXSolution, error) {
+	if err := validateRTKRINEXDualArcOptions(config.ArcOptions); err != nil {
+		return nil, err
+	}
 	result, err := native.SolveWideLaneFixedRinexRtkBaseline(nativeSP3(sp3), nativeRinexObs(base), nativeRinexObs(rover), nativeRTKRINEXWideLaneFixedConfig(config))
 	if err != nil {
 		return nil, publicError(err)

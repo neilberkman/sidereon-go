@@ -196,6 +196,20 @@ type RINEXRTKArc = RTKRINEXArc
 // RTKRINEXDualFrequencyArc.
 type RINEXRTKDualFrequencyArc = RTKRINEXDualFrequencyArc
 
+func validateRTKRINEXArcOptions(value RTKRINEXArcOptions) error {
+	if value.SignalPairs != nil && len(value.SignalPairs) == 0 {
+		return invalidArgument("RINEX RTK signal pairs must not be empty")
+	}
+	return nil
+}
+
+func validateRTKRINEXDualArcOptions(value RTKRINEXDualArcOptions) error {
+	if value.SignalPairs != nil && len(value.SignalPairs) == 0 {
+		return invalidArgument("dual-frequency RINEX RTK signal pairs must not be empty")
+	}
+	return nil
+}
+
 func nativeRTKRINEXArcOptions(value RTKRINEXArcOptions) native.RtkRinexArcOptions {
 	result := native.RtkRinexArcOptions{HasMaxEpochs: value.HasMaxEpochs, MaxEpochs: value.MaxEpochs, MinCommonSatellites: value.MinCommonSatellites, IncludePredictionTime: value.IncludePredictionTime}
 	result.SignalPairs = make([]native.RtkRinexSignalPair, len(value.SignalPairs))
@@ -231,8 +245,8 @@ func DefaultRTKRINEXDualArcOptions() (RTKRINEXDualArcOptions, error) {
 func BuildRINEXRTKArc(sp3 *SP3, base, rover *RINEXObservation, options *RTKRINEXArcOptions) (*RTKRINEXArc, error) {
 	var nativeOptions *native.RtkRinexArcOptions
 	if options != nil {
-		if options.SignalPairs != nil && len(options.SignalPairs) == 0 {
-			return nil, invalidArgument("RINEX RTK signal pairs must not be empty")
+		if err := validateRTKRINEXArcOptions(*options); err != nil {
+			return nil, err
 		}
 		value := nativeRTKRINEXArcOptions(*options)
 		nativeOptions = &value
@@ -254,8 +268,8 @@ func BuildRTKRINEXArc(sp3 *SP3, base, rover *RINEXObservation, options *RTKRINEX
 func BuildDualFrequencyRINEXRTKArc(sp3 *SP3, base, rover *RINEXObservation, options *RTKRINEXDualArcOptions) (*RTKRINEXDualFrequencyArc, error) {
 	var nativeOptions *native.RtkRinexDualArcOptions
 	if options != nil {
-		if options.SignalPairs != nil && len(options.SignalPairs) == 0 {
-			return nil, invalidArgument("dual-frequency RINEX RTK signal pairs must not be empty")
+		if err := validateRTKRINEXDualArcOptions(*options); err != nil {
+			return nil, err
 		}
 		value := nativeRTKRINEXDualArcOptions(*options)
 		nativeOptions = &value
