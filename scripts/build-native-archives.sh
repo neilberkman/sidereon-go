@@ -35,7 +35,7 @@ SIDEREON_C_REF=$(awk '
 SIDEREON_C_REF=$(printf '%s' "$SIDEREON_C_REF" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
 SIDEREON_C_REPOSITORY="${SIDEREON_C_REPOSITORY:-https://github.com/neilberkman/sidereon-c.git}"
 SIDEREON_C_SOURCE="${SIDEREON_C_SOURCE:-}"
-RELEASE_VERSION="${SIDEREON_RELEASE_VERSION:-3.0.5}"
+RELEASE_VERSION="${SIDEREON_RELEASE_VERSION:-3.0.6}"
 GLIBC_FLOOR="${SIDEREON_GLIBC_FLOOR:-2.17}"
 CARGO_ZIGBUILD_VERSION="0.23.3"
 
@@ -66,6 +66,7 @@ export RUSTC
 export RUSTUP_TOOLCHAIN="1.98.1"
 
 MODE="build"
+REPRODUCE_ARCHIVE=""
 CLI_SOURCE_DIR=""
 CLI_SOURCE_REF=""
 # A release build normally follows the checked-in ref file. Before that ref is
@@ -75,8 +76,15 @@ CLI_SOURCE_REF=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --verify)
+      [[ "$MODE" == "build" ]] || { echo "native archive error: conflicting modes" >&2; exit 2; }
       MODE="verify"
       shift
+      ;;
+    --reproduce-archive)
+      [[ "$MODE" == "build" && $# -ge 2 && -n "$2" ]] || { echo "native archive error: --reproduce-archive requires one archive and no other mode" >&2; exit 2; }
+      MODE="reproduce"
+      REPRODUCE_ARCHIVE="$2"
+      shift 2
       ;;
     --source-dir)
       [[ $# -ge 2 && -n "$2" ]] || { echo "native archive error: --source-dir requires a path" >&2; exit 2; }
@@ -89,7 +97,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     *)
-      echo "usage: $0 [--verify] [--source-dir PATH --source-ref COMMIT]" >&2
+      echo "usage: $0 [--verify | --reproduce-archive NAME] [--source-dir PATH --source-ref COMMIT]" >&2
       exit 2
       ;;
   esac
@@ -359,6 +367,44 @@ build_one() {
   die "static archive was not produced for $target"
 }
 
+render_manifest() {
+  local archive_dir=$1 output_manifest=$2
+  local cargo_version rustc_version zig_version os arch libc rust_target build_mode zig_target archive_name
+  cargo_version=$("$CARGO" --version)
+  rustc_version=$("$RUSTC" --version)
+  zig_version=$("$CARGO_ZIGBUILD_ZIG_COMMAND" version)
+  {
+    printf '# sidereon-go static archive manifest\n'
+    printf '# manifest_version=1\n'
+    printf '# release_target=%s\n' "$RELEASE_VERSION"
+    printf '# source_ref=%s\n' "$SIDEREON_C_REF"
+    printf '# source_commit=%s\n' "$SOURCE_COMMIT"
+    printf '# header_version=%s\n' "$HEADER_VERSION"
+    printf '# source_header_sha256=%s\n' "$HEADER_SHA256"
+    printf '# glibc_floor=%s\n' "$GLIBC_FLOOR"
+    printf '# cargo=%s\n' "$cargo_version"
+    printf '# rustc=%s\n' "$rustc_version"
+    printf '# cargo_zigbuild=%s\n' "$cargo_zigbuild_version"
+    printf '# zig=%s\n' "$zig_version"
+    printf '# columns=sha256 bytes archive rust_target libc source_ref source_commit\n'
+    while IFS='|' read -r os arch libc rust_target build_mode zig_target archive_name; do
+      local archive_hash archive_size
+      archive_hash=$(sha256 "$archive_dir/$archive_name")
+      archive_size=$(file_size "$archive_dir/$archive_name")
+      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$archive_hash" "$archive_size" "$archive_name" "$rust_target" "$libc" "$SIDEREON_C_REF" "$SOURCE_COMMIT"
+    done <<'TARGETS'
+darwin|arm64|none|aarch64-apple-darwin|cargo||libsidereon_darwin_arm64.a
+darwin|amd64|none|x86_64-apple-darwin|cargo||libsidereon_darwin_amd64.a
+linux|amd64|glibc|x86_64-unknown-linux-gnu|zig||libsidereon_linux_amd64_glibc.a
+linux|arm64|glibc|aarch64-unknown-linux-gnu|zig||libsidereon_linux_arm64_glibc.a
+linux|amd64|musl|x86_64-unknown-linux-musl|zig|x86_64-unknown-linux-musl|libsidereon_linux_amd64_musl.a
+linux|arm64|musl|aarch64-unknown-linux-musl|zig|aarch64-unknown-linux-musl|libsidereon_linux_arm64_musl.a
+windows|amd64|gnu|x86_64-pc-windows-gnu|zig|x86_64-pc-windows-gnu|libsidereon_windows_amd64_gnu.a
+TARGETS
+  } > "$output_manifest"
+}
+
 build_all() {
   require_command awk
   require_command ar
@@ -385,6 +431,11 @@ build_all() {
   [[ "$cargo_version" =~ ^cargo[[:space:]]1\.98\.1([[:space:]]|$) ]] || die "Rust Cargo 1.98.1 is required; found: $cargo_version"
   [[ "$rustc_version" =~ ^rustc[[:space:]]1\.98\.1([[:space:]]|$) ]] || die "Rust compiler 1.98.1 is required; found: $rustc_version"
 
+  if [[ "$MODE" == "reproduce" ]]; then
+    verify_only
+    [[ "$(manifest_meta release_target)" == "$RELEASE_VERSION" ]] || die "release target differs from manifest"
+  fi
+
   mkdir -p "$BUILD_ROOT" "$TARGET_DIR" "$LIB_DIR" "$GOPATH" "$GOMODCACHE" "$GOCACHE" "$ZIG_LOCAL_CACHE_DIR" "$ZIG_GLOBAL_CACHE_DIR" "$CARGO_ZIGBUILD_CACHE_DIR"
   SOURCE_TEMP_PARENT=""
   checkout_source
@@ -394,6 +445,11 @@ build_all() {
   [[ -f "$SOURCE_HEADER" ]] || die "pinned source header is missing: $SOURCE_HEADER"
   HEADER_VERSION=$(header_version "$SOURCE_HEADER")
   HEADER_SHA256=$(sha256 "$SOURCE_HEADER")
+  if [[ "$MODE" == "reproduce" ]]; then
+    [[ "$SOURCE_COMMIT" == "$(manifest_meta source_commit)" ]] || die "source commit differs from manifest"
+    [[ "$HEADER_SHA256" == "$(manifest_meta source_header_sha256)" ]] || die "source header differs from manifest"
+    [[ "$HEADER_VERSION" == "$(manifest_meta header_version)" ]] || die "source header version differs from manifest"
+  fi
 
   VENDORED_HEADER="${SIDEREON_VENDORED_HEADER:-$ROOT_DIR/internal/native/include/sidereon.h}"
   if [[ -e "$VENDORED_HEADER" ]]; then
@@ -442,6 +498,11 @@ build_all() {
     x86_64-unknown-linux-musl \
     aarch64-unknown-linux-musl \
     x86_64-pc-windows-gnu; do
+    if [[ "$MODE" == "reproduce" ]]; then
+      local selected_target selected_libc
+      IFS=$'\t' read -r selected_target selected_libc <<< "$(expected_archive_metadata "$REPRODUCE_ARCHIVE")"
+      [[ "$target" == "$selected_target" ]] || continue
+    fi
     installed=$($RUSTUP target list --installed | awk -v wanted="$target" '$1 == wanted { print; exit }')
     if [[ "$installed" != "$target" ]]; then
       note "installing Rust target $target"
@@ -455,6 +516,9 @@ build_all() {
   # os|arch|libc|Rust target|build mode|cargo-zigbuild target|archive name
   local row os arch libc rust_target build_mode zig_target archive_name
   while IFS='|' read -r os arch libc rust_target build_mode zig_target archive_name; do
+    if [[ "$MODE" == "reproduce" && "$archive_name" != "$REPRODUCE_ARCHIVE" ]]; then
+      continue
+    fi
     if [[ "$libc" == "glibc" ]]; then
       zig_target="$rust_target.$GLIBC_FLOOR"
     fi
@@ -469,39 +533,15 @@ linux|arm64|musl|aarch64-unknown-linux-musl|zig|aarch64-unknown-linux-musl|libsi
 windows|amd64|gnu|x86_64-pc-windows-gnu|zig|x86_64-pc-windows-gnu|libsidereon_windows_amd64_gnu.a
 TARGETS
 
-  cargo_version=$("$CARGO" --version)
-  rustc_version=$("$RUSTC" --version)
-  zig_version=$("$CARGO_ZIGBUILD_ZIG_COMMAND" version)
-  {
-    printf '# sidereon-go static archive manifest\n'
-    printf '# manifest_version=1\n'
-    printf '# release_target=%s\n' "$RELEASE_VERSION"
-    printf '# source_ref=%s\n' "$SIDEREON_C_REF"
-    printf '# source_commit=%s\n' "$SOURCE_COMMIT"
-    printf '# header_version=%s\n' "$HEADER_VERSION"
-    printf '# source_header_sha256=%s\n' "$HEADER_SHA256"
-    printf '# glibc_floor=%s\n' "$GLIBC_FLOOR"
-    printf '# cargo=%s\n' "$cargo_version"
-    printf '# rustc=%s\n' "$rustc_version"
-    printf '# cargo_zigbuild=%s\n' "$cargo_zigbuild_version"
-    printf '# zig=%s\n' "$zig_version"
-    printf '# columns=sha256 bytes archive rust_target libc source_ref source_commit\n'
-    while IFS='|' read -r os arch libc rust_target build_mode zig_target archive_name; do
-      local archive_hash archive_size
-      archive_hash=$(sha256 "$STAGING_DIR/$archive_name")
-      archive_size=$(file_size "$STAGING_DIR/$archive_name")
-      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-        "$archive_hash" "$archive_size" "$archive_name" "$rust_target" "$libc" "$SIDEREON_C_REF" "$SOURCE_COMMIT"
-    done <<'TARGETS'
-darwin|arm64|none|aarch64-apple-darwin|cargo||libsidereon_darwin_arm64.a
-darwin|amd64|none|x86_64-apple-darwin|cargo||libsidereon_darwin_amd64.a
-linux|amd64|glibc|x86_64-unknown-linux-gnu|zig||libsidereon_linux_amd64_glibc.a
-linux|arm64|glibc|aarch64-unknown-linux-gnu|zig||libsidereon_linux_arm64_glibc.a
-linux|amd64|musl|x86_64-unknown-linux-musl|zig|x86_64-unknown-linux-musl|libsidereon_linux_amd64_musl.a
-linux|arm64|musl|aarch64-unknown-linux-musl|zig|aarch64-unknown-linux-musl|libsidereon_linux_arm64_musl.a
-windows|amd64|gnu|x86_64-pc-windows-gnu|zig|x86_64-pc-windows-gnu|libsidereon_windows_amd64_gnu.a
-TARGETS
-  } > "$STAGING_DIR/manifest.sha256"
+  if [[ "$MODE" == "reproduce" ]]; then
+    cmp -s "$STAGING_DIR/$REPRODUCE_ARCHIVE" "$LIB_DIR/$REPRODUCE_ARCHIVE" || die "reproduced archive differs: $REPRODUCE_ARCHIVE"
+    render_manifest "$LIB_DIR" "$STAGING_DIR/manifest.sha256"
+    cmp -s "$STAGING_DIR/manifest.sha256" "$LIB_DIR/manifest.sha256" || die "reproduced manifest differs"
+    note "reproduced $REPRODUCE_ARCHIVE and manifest byte-for-byte ($(sha256 "$STAGING_DIR/$REPRODUCE_ARCHIVE"))"
+    return
+  fi
+
+  render_manifest "$STAGING_DIR" "$STAGING_DIR/manifest.sha256"
 
   # Check the staging paths before the final copies. The manifest verifier is
   # parameterized by LIB_DIR, so temporarily point it at the staging set.
@@ -519,6 +559,10 @@ TARGETS
   verify_only
   note "wrote seven archives and manifest under $LIB_DIR"
 }
+
+if [[ "$MODE" == "reproduce" ]]; then
+  expected_archive_metadata "$REPRODUCE_ARCHIVE" >/dev/null
+fi
 
 if [[ "$MODE" == "verify" ]]; then
   require_command awk
