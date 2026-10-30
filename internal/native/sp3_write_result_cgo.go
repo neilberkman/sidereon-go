@@ -22,6 +22,12 @@ type SP3RoundingReport struct {
 	ClockS, ClockRateSS                   float64
 }
 
+type SP3AccuracyRoundingReport struct {
+	PositionSigmaXM, PositionSigmaYM, PositionSigmaZM    float64
+	VelocitySigmaXMS, VelocitySigmaYMS, VelocitySigmaZMS float64
+	ClockSigmaM, ClockRateSigmaMS                        float64
+}
+
 type SP3WriteError struct {
 	Kind                                                                                uint32
 	HasField, HasTextValue, HasSatelliteID, HasEpochIndex, HasCommentIndex              bool
@@ -66,17 +72,31 @@ func (s *SP3) TextResultWithRounding() ([]byte, SP3WriteOutcome, SP3RoundingRepo
 	return s.textResult(true)
 }
 
+func (s *SP3) TextResultWithAccuracyRounding(policy uint32) ([]byte, SP3WriteOutcome, SP3RoundingReport, SP3AccuracyRoundingReport, error) {
+	return s.textResultWithAccuracyPolicy(false, &policy)
+}
+
 func (s *SP3) textResult(withRounding bool) ([]byte, SP3WriteOutcome, SP3RoundingReport, error) {
+	text, outcome, recordReport, _, err := s.textResultWithAccuracyPolicy(withRounding, nil)
+	return text, outcome, recordReport, err
+}
+
+func (s *SP3) textResultWithAccuracyPolicy(withRounding bool, accuracyPolicy *uint32) ([]byte, SP3WriteOutcome, SP3RoundingReport, SP3AccuracyRoundingReport, error) {
 	if s == nil || s.handle == nil {
-		return nil, SP3WriteOutcome{}, SP3RoundingReport{}, ErrClosed
+		return nil, SP3WriteOutcome{}, SP3RoundingReport{}, SP3AccuracyRoundingReport{}, ErrClosed
 	}
 	var output []byte
 	var outcome SP3WriteOutcome
 	var rounding SP3RoundingReport
+	var accuracyRounding SP3AccuracyRoundingReport
 	err := s.handle.with(func(pointer unsafe.Pointer) error {
 		return withCThreadError(func() error {
 			var result *C.SidereonSp3WriteResult
 			if err := callStatus(func() uint32 {
+				if accuracyPolicy != nil {
+					return uint32(C.sidereon_sp3_to_sp3_text_with_accuracy_rounding_result(
+						(*C.SidereonSp3)(pointer), C.uint32_t(*accuracyPolicy), &result))
+				}
 				if withRounding {
 					return uint32(C.sidereon_sp3_to_sp3_text_with_rounding_result((*C.SidereonSp3)(pointer), &result))
 				}
@@ -169,7 +189,7 @@ func (s *SP3) textResult(withRounding bool) ([]byte, SP3WriteOutcome, SP3Roundin
 				v.TextValue = string(b)
 			}
 			if outcome.IsOK {
-				if withRounding {
+				if withRounding || accuracyPolicy != nil {
 					var hasReport C.bool
 					var rawReport C.SidereonSp3RoundingReport
 					if err := callStatus(func() uint32 {
@@ -186,11 +206,33 @@ func (s *SP3) textResult(withRounding bool) ([]byte, SP3WriteOutcome, SP3Roundin
 						ClockS: float64(rawReport.clock_s), ClockRateSS: float64(rawReport.clock_rate_s_s),
 					}
 				}
+				if accuracyPolicy != nil {
+					var hasReport C.bool
+					var rawReport C.SidereonSp3AccuracyRoundingReport
+					if err := callStatus(func() uint32 {
+						return uint32(C.sidereon_sp3_write_result_get_accuracy_rounding_report(result, &hasReport, &rawReport))
+					}); err != nil {
+						return err
+					}
+					if !bool(hasReport) {
+						return fmt.Errorf("accuracy-rounded SP3 write succeeded without an accuracy report")
+					}
+					accuracyRounding = SP3AccuracyRoundingReport{
+						PositionSigmaXM:  float64(rawReport.position_sigma_x_m),
+						PositionSigmaYM:  float64(rawReport.position_sigma_y_m),
+						PositionSigmaZM:  float64(rawReport.position_sigma_z_m),
+						VelocitySigmaXMS: float64(rawReport.velocity_sigma_x_m_s),
+						VelocitySigmaYMS: float64(rawReport.velocity_sigma_y_m_s),
+						VelocitySigmaZMS: float64(rawReport.velocity_sigma_z_m_s),
+						ClockSigmaM:      float64(rawReport.clock_sigma_m),
+						ClockRateSigmaMS: float64(rawReport.clock_rate_sigma_m_s),
+					}
+				}
 				output, err = sp3WriteResultBytes(result, true, "SP3 text")
 			}
 			return err
 		})
 	})
 	runtime.KeepAlive(s)
-	return output, outcome, rounding, err
+	return output, outcome, rounding, accuracyRounding, err
 }

@@ -4,6 +4,15 @@ All notable changes to this module are documented here.
 
 ## Unreleased
 
+## 3.0.6 - 2026-10-30
+
+- Add `SP3.ToSP3StringWithAccuracyRounding`, with a required conservative
+  policy and a detailed report separating record-value changes from accuracy
+  sigma increases.
+- Preserve merge output accuracy bases when contributor codes cannot be
+  represented exactly under one shared base, so strict writing retains its
+  refusal and the explicit accuracy writer can conservatively convert values.
+
 ## 3.0.5 - 2026-10-30
 
 - Update the bundled engine to sidereon-core 3.0.5 at

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -137,6 +138,155 @@ func TestPublishedMergedGridSP3WritesAndRoundTrips(t *testing.T) {
 	}
 	if _, outcome, err := reparsed.Encode(); err != nil || !outcome.IsOK {
 		t.Fatalf("strict write after merge/read-back = %+v, %v", outcome, err)
+	}
+}
+
+func TestPublishedSP3ConservativeAccuracyRounding(t *testing.T) {
+	load := func(name string) *sidereon.SP3 {
+		t.Helper()
+		data, err := os.ReadFile("testdata/sp3_accuracy_306/" + name + ".sp3")
+		if err != nil {
+			t.Fatal(err)
+		}
+		product, err := sidereon.LoadSP3(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = product.Close() })
+		if _, outcome, err := product.Encode(); err != nil || !outcome.IsOK {
+			t.Fatalf("source %s strict write = %+v, %v", name, outcome, err)
+		}
+		return product
+	}
+	a, b := load("A-velocity"), load("B-velocity")
+	directText, directReport, err := b.ToSP3StringWithAccuracyRounding(sidereon.SP3AccuracyRoundingConservative)
+	if err != nil || directText == "" || directReport.AccuracySigmas != (sidereon.SP3AccuracyRoundingReport{}) {
+		t.Fatalf("direct all-field accuracy report = %+v, err %v", directReport.AccuracySigmas, err)
+	}
+	directReparsed, err := sidereon.LoadSP3([]byte(directText))
+	if err != nil {
+		t.Fatalf("parse direct all-field output: %v", err)
+	}
+	t.Cleanup(func() { _ = directReparsed.Close() })
+	for epoch := 0; epoch < 2; epoch++ {
+		before, err := b.RecordAccuracy("G12", epoch)
+		if err != nil {
+			t.Fatal(err)
+		}
+		after, err := directReparsed.RecordAccuracy("G12", epoch)
+		if err != nil || !reflect.DeepEqual(before, after) {
+			t.Fatalf("direct writer changed all-field accuracy epoch %d: before %+v after %+v err %v", epoch, before, after, err)
+		}
+	}
+	options, err := sidereon.NewSP3MergeOptions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	options.MinAgree = 1
+	options.ClockMinCommon = 1
+	merged, report, err := sidereon.MergeSP3([]*sidereon.SP3{a, b}, &options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = merged.Close() })
+	t.Cleanup(func() { _ = report.Close() })
+	_, strict, err := merged.Encode()
+	if err != nil || strict.IsOK || strict.Error.Kind != sidereon.SP3WriteErrorAccuracyNotRepresentable {
+		t.Fatalf("strict merged write = %+v, %v", strict, err)
+	}
+	text, detailed, err := merged.ToSP3StringWithAccuracyRounding(sidereon.SP3AccuracyRoundingConservative)
+	if err != nil {
+		t.Fatalf("conservative accuracy write: %v", err)
+	}
+	wantSigma := 0.032
+	wantSource := math.Pow(1.25, 13) * 1e-3
+	wantClock := 2*299792458e-12 - math.Pow(1.025, 13)*299792458e-12
+	gotReport := detailed.AccuracySigmas
+	wantReport := sidereon.SP3AccuracyRoundingReport{
+		PositionSigmaXM: wantSigma - wantSource, PositionSigmaYM: wantSigma - wantSource, PositionSigmaZM: wantSigma - wantSource,
+		ClockSigmaM: wantClock,
+	}
+	gotFields := []float64{gotReport.PositionSigmaXM, gotReport.PositionSigmaYM, gotReport.PositionSigmaZM, gotReport.VelocitySigmaXMS, gotReport.VelocitySigmaYMS, gotReport.VelocitySigmaZMS, gotReport.ClockSigmaM, gotReport.ClockRateSigmaMS}
+	wantFields := []float64{wantReport.PositionSigmaXM, wantReport.PositionSigmaYM, wantReport.PositionSigmaZM, wantReport.VelocitySigmaXMS, wantReport.VelocitySigmaYMS, wantReport.VelocitySigmaZMS, wantReport.ClockSigmaM, wantReport.ClockRateSigmaMS}
+	for index, want := range wantFields {
+		if math.Abs(gotFields[index]-want) > 1e-15 {
+			t.Fatalf("accuracy report = %+v, want x delta %.17g", detailed.AccuracySigmas, wantSigma-wantSource)
+		}
+	}
+	reparsed, err := sidereon.LoadSP3([]byte(text))
+	if err != nil {
+		t.Fatalf("parse conservative output: %v", err)
+	}
+	t.Cleanup(func() { _ = reparsed.Close() })
+	for epoch := 0; epoch < 2; epoch++ {
+		got, err := reparsed.RecordAccuracy("G12", epoch)
+		if err != nil || !got.HasP || got.HasV || got.P.PositionSigmaM[0].Kind != sidereon.SP3AccuracyKnown || got.P.PositionSigmaM[0].Value != wantSigma {
+			t.Fatalf("G12 accuracy epoch %d = %+v, err %v", epoch, got, err)
+		}
+		for axis := 0; axis < 3; axis++ {
+			if math.Abs(got.P.PositionSigmaM[axis].Value-wantSigma) > 1e-15 {
+				t.Fatalf("G12 rounded axis %d epoch %d = %.17g", axis, epoch, got.P.PositionSigmaM[axis].Value)
+			}
+		}
+		if math.Abs(got.P.ClockSigmaM.Value-2*299792458e-12) > 1e-15 {
+			t.Fatalf("G12 rounded clock sigma epoch %d = %.17g", epoch, got.P.ClockSigmaM.Value)
+		}
+		anchor, err := reparsed.State("G02", epoch)
+		wantAnchorClock := -20e-6
+		if epoch == 1 {
+			wantAnchorClock = -19e-6
+		}
+		if err != nil || !anchor.HasClock || math.Abs(anchor.ClockS-wantAnchorClock) > 1e-18 {
+			t.Fatalf("G02 clock anchor epoch %d = %+v, err %v", epoch, anchor, err)
+		}
+		clock, err := reparsed.RecordAccuracy("G02", epoch)
+		if err != nil || !clock.HasP || clock.HasV || clock.P.ClockSigmaM.Kind != sidereon.SP3AccuracyUnknown {
+			t.Fatalf("G02 rounded clock sigma epoch %d = %+v, err %v", epoch, clock.P.ClockSigmaM, err)
+		}
+	}
+	if _, outcome, err := reparsed.Encode(); err != nil || !outcome.IsOK {
+		t.Fatalf("strict write of conservative output = %+v, %v", outcome, err)
+	}
+
+	reverseOptions, err := sidereon.NewSP3MergeOptions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	reverseOptions.MinAgree = 1
+	reverseOptions.ClockMinCommon = 1
+	reverse, reverseReport, err := sidereon.MergeSP3([]*sidereon.SP3{b, a}, &reverseOptions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reverse.Close() })
+	t.Cleanup(func() { _ = reverseReport.Close() })
+	_, reverseStrict, err := reverse.Encode()
+	if err != nil || reverseStrict.IsOK || reverseStrict.Error.Kind != sidereon.SP3WriteErrorAccuracyNotRepresentable {
+		t.Fatalf("reverse strict merge write = %+v, %v", reverseStrict, err)
+	}
+	reverseText, reverseDetailed, err := reverse.ToSP3StringWithAccuracyRounding(sidereon.SP3AccuracyRoundingConservative)
+	if err != nil || reverseText == "" {
+		t.Fatalf("reverse conservative merge write = %+v, %v", reverseDetailed, err)
+	}
+	reverseReparsed, err := sidereon.LoadSP3([]byte(reverseText))
+	if err != nil {
+		t.Fatalf("parse reverse conservative output: %v", err)
+	}
+	t.Cleanup(func() { _ = reverseReparsed.Close() })
+	before, err := reverse.RecordAccuracy("G01", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := reverseReparsed.RecordAccuracy("G01", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantPositionDelta := after.P.PositionSigmaM[0].Value - before.P.PositionSigmaM[0].Value
+	wantClockDelta := after.P.ClockSigmaM.Value - before.P.ClockSigmaM.Value
+	if wantPositionDelta <= 0 || wantClockDelta <= 0 ||
+		math.Abs(reverseDetailed.AccuracySigmas.PositionSigmaXM-wantPositionDelta) > 1e-15 ||
+		math.Abs(reverseDetailed.AccuracySigmas.ClockSigmaM-wantClockDelta) > 1e-15 {
+		t.Fatalf("reverse report %+v differs from reparsed G01 changes pos %.17g clock %.17g, err %v", reverseDetailed.AccuracySigmas, wantPositionDelta, wantClockDelta, err)
 	}
 }
 
