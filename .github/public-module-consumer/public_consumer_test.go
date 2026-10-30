@@ -1,6 +1,7 @@
 package consumer_test
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
@@ -63,6 +64,79 @@ func TestPublishedSPPIndependentReference(t *testing.T) {
 	}
 	if !solution.Metadata.Converged || solution.DOP == nil || solution.Geodetic == nil {
 		t.Fatalf("incomplete SPP solution: %+v", solution)
+	}
+}
+
+func TestPublishedMergedGridSP3WritesAndRoundTrips(t *testing.T) {
+	data, err := os.ReadFile("testdata/trimmed.sp3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Change one valid six-decimal clock column by one column unit, so the
+	// two-source mean falls halfway between representable clock columns.
+	secondData := bytes.Replace(data,
+		[]byte("PG08   6042.284075 -25684.525952  -1323.814227    -38.640412"),
+		[]byte("PG08   6042.284075 -25684.525952  -1323.814227    -38.640413"), 1)
+	if bytes.Equal(secondData, data) {
+		t.Fatal("fixture did not contain the expected first G08 record")
+	}
+	first, err := sidereon.LoadSP3(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = first.Close() })
+	second, err := sidereon.LoadSP3(secondData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = second.Close() })
+	for label, source := range map[string]*sidereon.SP3{"first": first, "second": second} {
+		if _, outcome, err := source.Encode(); err != nil || !outcome.IsOK {
+			t.Fatalf("%s writable SP3 input = %+v, %v", label, outcome, err)
+		}
+	}
+
+	options, err := sidereon.NewSP3MergeOptions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	options.MinAgree = 1
+	options.ClockMinCommon = 1
+	merged, report, err := sidereon.MergeSP3([]*sidereon.SP3{first, second}, &options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = merged.Close() })
+	t.Cleanup(func() { _ = report.Close() })
+	encoded, outcome, err := merged.Encode()
+	if err != nil || !outcome.IsOK || len(encoded) == 0 {
+		t.Fatalf("strict write of merged grid product = %+v, %v", outcome, err)
+	}
+	roundedText, rounding, err := merged.ToSP3StringWithRounding()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rounding != (sidereon.SP3RoundingReport{}) || roundedText != string(encoded) {
+		t.Fatalf("explicit writer changed already-quantized merge: report=%+v", rounding)
+	}
+	reparsed, err := sidereon.LoadSP3(encoded)
+	if err != nil {
+		t.Fatalf("reparse merged output: %v", err)
+	}
+	t.Cleanup(func() { _ = reparsed.Close() })
+	mergedState, err := merged.State("G08", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reparsedState, err := reparsed.State("G08", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if math.Float64bits(mergedState.ClockS) != math.Float64bits(reparsedState.ClockS) {
+		t.Fatalf("merged/read-back clock differs: merged %.17g, read-back %.17g", mergedState.ClockS, reparsedState.ClockS)
+	}
+	if _, outcome, err := reparsed.Encode(); err != nil || !outcome.IsOK {
+		t.Fatalf("strict write after merge/read-back = %+v, %v", outcome, err)
 	}
 }
 
