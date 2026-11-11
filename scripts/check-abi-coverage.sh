@@ -113,10 +113,10 @@ direct_count=$(wc -l <"$work/direct" | tr -d ' ')
 composed_count=$(wc -l <"$work/composed" | tr -d ' ')
 excluded_count=$(wc -l <"$work/excluded" | tr -d ' ')
 
-# The reviewed header adds complete SSR projection, RINEX finding-detail, observation header-detail, and SP3 writer-rounding routes
-# while retaining legacy projection symbols; every declaration still has one disposition.
-[[ "$header_count" == 2064 ]] || {
-    printf 'ABI coverage: expected 2064 pinned v3 header declarations, found %s\n' "$header_count" >&2
+# The reviewed header adds the complete TDM surface while retaining legacy
+# projection symbols; every declaration still has one disposition.
+[[ "$header_count" == 2095 ]] || {
+    printf 'ABI coverage: expected 2095 pinned v3 header declarations, found %s\n' "$header_count" >&2
     exit 1
 }
 

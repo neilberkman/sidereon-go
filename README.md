@@ -105,6 +105,29 @@ The Go surface follows the C binding's byte-oriented contracts. Names below
 show the package-level API used by the release examples; all input bytes may
 come from a file, an HTTP response, or another Go-owned reader.
 
+### CCSDS TDM
+
+`ParseTDMKVN` and `ParseTDMKVNWithPolicy` read CCSDS Tracking Data Messages.
+`NewTDM` constructs a message from raw header, metadata, comment, and record
+values. A `TDM` retains lossless KVN text, exposes participants, paths,
+segments, and records, and supports atomic header, metadata, and data edits.
+Strict operations reject non-conforming messages; explicit read and write
+policies return typed warnings and departures when a rule is forgiven.
+Edits use `TDMHeaderValues`, `TDMCommentInput`, `TDMFieldInput`, and
+`TDMRecordInput`; read methods return the corresponding lossless output types.
+Optional header text uses `TDMStringField`, for example
+`TDMStringField{Present: true, Value: "2026-001T00:00:00"}`.
+
+```go
+tdm, warnings, err := sidereon.ParseTDMKVNWithPolicy(data, sidereon.LenientTDMPolicy())
+if err != nil {
+	return err
+}
+defer tdm.Close()
+
+kvn, departures, err := tdm.ToKVNWithPolicy(sidereon.StrictTDMWritePolicy())
+```
+
 Parse a TLE and propagate one epoch:
 
 ```go

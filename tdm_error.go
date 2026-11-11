@@ -10,6 +10,8 @@ type TDMErrorDetail struct {
 	Kind string
 	// Fields is the recursive, lossless field object for Kind.
 	Fields map[string]EngineJSONValue
+	// OperationClass distinguishes parse, write, and validation failures.
+	OperationClass string
 	// Display is the native diagnostic text captured with the same C call.
 	Display string
 }

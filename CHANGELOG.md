@@ -4,6 +4,10 @@ All notable changes to this module are documented here.
 
 ## Unreleased
 
+- Add the complete CCSDS TDM API: strict and policy-aware parsing and writing,
+  lossless headers/comments/fields/records, typed warnings and departures,
+  policy presets, construction, and atomic segment/metadata/data editing.
+
 ## 3.0.6 - 2026-10-30
 
 - Add `SP3.ToSP3StringWithAccuracyRounding`, with a required conservative
