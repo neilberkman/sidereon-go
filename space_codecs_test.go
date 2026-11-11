@@ -922,7 +922,7 @@ func TestCCSDSFixturesRoundTrip(t *testing.T) {
 	if !reflect.DeepEqual(segments, wantSegments) {
 		t.Fatalf("TDM segments = %#v", segments)
 	}
-	if rows[0] != (TDMDataRecord{SegmentIndex: 0, Observable: TDMObservableOther, Unit: TDMUnitDimensionless, Keyword: "TRANSMIT_PHASE_CT_1", Epoch: "2005-184T11:12:23", ValueText: "7175173383.615373", Value: 7175173383.615373}) {
+	if rows[0] != (TDMDataRecord{SegmentIndex: 0, Observable: TDMObservableOther, ObservableName: "TRANSMIT_PHASE_CT_1", Unit: TDMUnitDimensionless, UnitLabel: "n/a", Keyword: "TRANSMIT_PHASE_CT_1", Epoch: "2005-184T11:12:23", ValueText: "7175173383.615373", Value: 7175173383.615373}) {
 		t.Fatalf("TDM first record = %#v", rows[0])
 	}
 	if output, err := tdm.ToKVN(); err != nil || len(output) == 0 {

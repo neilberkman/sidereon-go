@@ -861,7 +861,18 @@ func (e *StatusError) TDMError() *TDMErrorDetail {
 	if e.Engine == nil || e.Engine.Family != EngineErrorFamilyTdm || e.Engine.CaptureError != nil {
 		return nil
 	}
-	return &TDMErrorDetail{Kind: e.Engine.Kind, Fields: publicEngineJSONFields(e.Engine.TypedFields), Display: e.Detail}
+	fields := publicEngineJSONFields(e.Engine.TypedFields)
+	var envelope struct {
+		Error struct {
+			OperationClass string `json:"operation_class"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(e.Engine.Payload, &envelope); err != nil {
+		// TypedFields was decoded from the same payload, so failure here only
+		// means the optional operation-class projection remains unavailable.
+		envelope.Error.OperationClass = ""
+	}
+	return &TDMErrorDetail{Kind: e.Engine.Kind, Fields: fields, OperationClass: envelope.Error.OperationClass, Display: e.Detail}
 }
 
 // ErrClosed is returned when an operation uses a handle after Close.
