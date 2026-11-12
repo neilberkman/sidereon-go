@@ -1,8 +1,13 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import (
+	"slices"
+
+	"sidereon.dev/go/v3/internal/native"
+)
 
 // TDMLeniency controls whether one class of non-conforming TDM input is refused or retained.
+// Values are comparable with ==.
 type TDMLeniency uint32
 
 const (
@@ -12,7 +17,7 @@ const (
 	TDMLeniencyForgive TDMLeniency = TDMLeniency(native.TDMLeniencyForgive)
 )
 
-// TDMObservable identifies a TDM measurement keyword family.
+// TDMObservable identifies a TDM measurement keyword family. Values are comparable with ==.
 type TDMObservable uint32
 
 const (
@@ -36,7 +41,7 @@ const (
 	TDMObservableOther TDMObservable = TDMObservable(native.TDMObservableOther)
 )
 
-// TDMUnit identifies the unit of a TDM record value.
+// TDMUnit identifies the unit of a TDM record value. Values are comparable with ==.
 type TDMUnit uint32
 
 const (
@@ -79,6 +84,7 @@ const (
 )
 
 // TDMSection identifies the header, metadata, or data section containing a returned row.
+// Values are comparable with ==.
 type TDMSection uint32
 
 const (
@@ -90,7 +96,7 @@ const (
 	TDMSectionData TDMSection = 2
 )
 
-// TDMPolicy controls policy-aware KVN parsing.
+// TDMPolicy controls policy-aware KVN parsing. Values are comparable with ==.
 type TDMPolicy struct {
 	// NonPrintable controls non-printable character handling.
 	NonPrintable TDMLeniency
@@ -151,7 +157,7 @@ func nativeTDMPolicy(policy TDMPolicy) native.TDMPolicy {
 	}
 }
 
-// TDMWritePolicy controls policy-aware validation and KVN encoding.
+// TDMWritePolicy controls policy-aware validation and KVN encoding. Values are comparable with ==.
 type TDMWritePolicy struct {
 	// NonPrintable controls non-printable character handling.
 	NonPrintable TDMLeniency
@@ -223,6 +229,7 @@ func (policy TDMWritePolicy) AsRead() (TDMPolicy, error) {
 }
 
 // TDMComment is a lossless positioned comment returned by a TDM read operation.
+// Values are comparable with ==.
 type TDMComment struct {
 	// SegmentIndex is the zero-based segment index; header comments use zero.
 	SegmentIndex int
@@ -235,6 +242,7 @@ type TDMComment struct {
 }
 
 // TDMCommentInput describes a positioned comment accepted by a TDM edit operation.
+// Values are comparable with ==.
 type TDMCommentInput struct {
 	// BeforeRecord is the zero-based field or record index the comment precedes.
 	BeforeRecord int
@@ -243,6 +251,7 @@ type TDMCommentInput struct {
 }
 
 // TDMField is a lossless ordered raw field returned by a TDM read operation.
+// Values are comparable with ==.
 type TDMField struct {
 	// SegmentIndex is the zero-based segment index; header fields use zero.
 	SegmentIndex int
@@ -255,6 +264,7 @@ type TDMField struct {
 }
 
 // TDMFieldInput describes an ordered raw field accepted by a TDM edit operation.
+// Values are comparable with ==.
 type TDMFieldInput struct {
 	// Key is the KVN keyword.
 	Key string
@@ -280,7 +290,19 @@ type TDMHeader struct {
 	SegmentCount int
 }
 
+// Equal reports whether every scalar value and raw header row is equal.
+func (header TDMHeader) Equal(other TDMHeader) bool {
+	return header.Version == other.Version &&
+		header.CreationDate == other.CreationDate &&
+		header.Originator == other.Originator &&
+		header.MessageID == other.MessageID &&
+		slices.Equal(header.Comments, other.Comments) &&
+		slices.Equal(header.Fields, other.Fields) &&
+		header.SegmentCount == other.SegmentCount
+}
+
 // TDMHeaderValues contains only the scalar header values accepted by SetHeader.
+// Values are comparable with ==.
 type TDMHeaderValues struct {
 	// Version is the CCSDS TDM version.
 	Version string
@@ -293,6 +315,7 @@ type TDMHeaderValues struct {
 }
 
 // TDMParticipant is one participant declaration copied from a TDM segment.
+// Values are comparable with ==.
 type TDMParticipant struct {
 	// SegmentIndex is the zero-based parse-order segment.
 	SegmentIndex int
@@ -316,7 +339,17 @@ type TDMPath struct {
 	Participants []uint8
 }
 
+// Equal reports whether every path field and participant index is equal.
+func (path TDMPath) Equal(other TDMPath) bool {
+	return path.SegmentIndex == other.SegmentIndex &&
+		path.Key == other.Key &&
+		path.HasIndex == other.HasIndex &&
+		path.Index == other.Index &&
+		slices.Equal(path.Participants, other.Participants)
+}
+
 // TDMRecord is one lossless time-tagged measurement returned by Records.
+// Values are comparable with ==.
 type TDMRecord struct {
 	// SegmentIndex is the zero-based parse-order segment.
 	SegmentIndex int
@@ -343,6 +376,7 @@ type TDMRecord struct {
 }
 
 // TDMRecordInput describes one lossless time-tagged measurement accepted by an edit operation.
+// Values are comparable with ==.
 type TDMRecordInput struct {
 	// Observable identifies the measurement family.
 	Observable TDMObservable
@@ -370,6 +404,7 @@ type TDMRecordInput struct {
 type TDMDataRecord = TDMRecord
 
 // TDMStringField preserves presence separately from a possibly empty value.
+// Values are comparable with ==.
 type TDMStringField struct {
 	// Present reports whether Value was declared.
 	Present bool
@@ -378,6 +413,7 @@ type TDMStringField struct {
 }
 
 // TDMSegmentSummary contains metadata and counts for one TDM segment.
+// Values are comparable with ==.
 type TDMSegmentSummary struct {
 	// SegmentIndex is the zero-based parse-order segment.
 	SegmentIndex int
@@ -407,6 +443,13 @@ type TDMWarning struct {
 	Message string
 }
 
+// Equal reports whether every warning discriminator, detail field, and message is equal.
+func (warning TDMWarning) Equal(other TDMWarning) bool {
+	return warning.Kind == other.Kind &&
+		engineJSONFieldsEqual(warning.Fields, other.Fields) &&
+		warning.Message == other.Message
+}
+
 // TDMDeparture describes one forgiven validation or write departure.
 type TDMDeparture struct {
 	// Kind is the stable departure discriminator.
@@ -415,6 +458,13 @@ type TDMDeparture struct {
 	Fields map[string]EngineJSONValue
 	// Message is the native diagnostic text.
 	Message string
+}
+
+// Equal reports whether every departure discriminator, detail field, and message is equal.
+func (departure TDMDeparture) Equal(other TDMDeparture) bool {
+	return departure.Kind == other.Kind &&
+		engineJSONFieldsEqual(departure.Fields, other.Fields) &&
+		departure.Message == other.Message
 }
 
 // TDM owns a parsed or constructed CCSDS Tracking Data Message. It is non-copyable; reads synchronize with Close.
@@ -463,6 +513,15 @@ func (tdm *TDM) Close() error {
 		return nil
 	}
 	return publicError(tdm.handle.Close())
+}
+
+// Equal reports whether two complete TDM messages have equal engine values.
+func (tdm *TDM) Equal(other *TDM) (bool, error) {
+	if tdm == nil || tdm.handle == nil || other == nil || other.handle == nil {
+		return false, ErrClosed
+	}
+	value, err := tdm.handle.Equal(other.handle)
+	return value, publicError(err)
 }
 
 func (tdm *TDM) valid() error {

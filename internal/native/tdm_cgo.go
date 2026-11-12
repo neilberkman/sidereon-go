@@ -105,6 +105,23 @@ func (t *TDMFull) Close() error {
 	return t.handle.close()
 }
 
+func (t *TDMFull) Equal(other *TDMFull) (bool, error) {
+	if t == nil || t.handle == nil || other == nil || other.handle == nil {
+		return false, ErrClosed
+	}
+	var equal C.bool
+	err := withPositioningPair(t.handle, other.handle, func(first, second unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_tdm_equal(
+				(*C.SidereonTdm)(first),
+				(*C.SidereonTdm)(second),
+				&equal,
+			))
+		})
+	})
+	return bool(equal), err
+}
+
 func cPolicy(p TDMPolicy) C.SidereonTdmPolicy {
 	return C.SidereonTdmPolicy{non_printable: C.uint32_t(p.NonPrintable), missing_keywords: C.uint32_t(p.MissingKeywords), long_lines: C.uint32_t(p.LongLines), empty_data_sections: C.uint32_t(p.EmptyDataSections), record_order: C.uint32_t(p.RecordOrder), duplicate_records: C.uint32_t(p.DuplicateRecords), keyword_order: C.uint32_t(p.KeywordOrder), final_terminator: C.uint32_t(p.FinalTerminator)}
 }

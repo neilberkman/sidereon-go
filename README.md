@@ -111,6 +111,8 @@ come from a file, an HTTP response, or another Go-owned reader.
 `NewTDM` constructs a message from raw header, metadata, comment, and record
 values. A `TDM` retains lossless KVN text, exposes participants, paths,
 segments, and records, and supports atomic header, metadata, and data edits.
+`TDM.Equal` delegates complete message value equality to the engine. Plain TDM
+value structs use Go's `==` where comparable and provide `Equal` otherwise.
 Strict operations reject non-conforming messages; explicit read and write
 policies return typed warnings and departures when a rule is forgiven.
 Edits use `TDMHeaderValues`, `TDMCommentInput`, `TDMFieldInput`, and
