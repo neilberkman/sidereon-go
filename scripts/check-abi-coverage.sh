@@ -115,8 +115,8 @@ excluded_count=$(wc -l <"$work/excluded" | tr -d ' ')
 
 # The reviewed header adds the complete TDM surface while retaining legacy
 # projection symbols; every declaration still has one disposition.
-[[ "$header_count" == 2095 ]] || {
-    printf 'ABI coverage: expected 2095 pinned v3 header declarations, found %s\n' "$header_count" >&2
+[[ "$header_count" == 2096 ]] || {
+    printf 'ABI coverage: expected 2096 pinned v3 header declarations, found %s\n' "$header_count" >&2
     exit 1
 }
 

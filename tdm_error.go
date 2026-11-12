@@ -16,6 +16,15 @@ type TDMErrorDetail struct {
 	Display string
 }
 
+// Equal reports whether every error discriminator, detail field, operation
+// class, and display string is equal.
+func (e TDMErrorDetail) Equal(other TDMErrorDetail) bool {
+	return e.Kind == other.Kind &&
+		engineJSONFieldsEqual(e.Fields, other.Fields) &&
+		e.OperationClass == other.OperationClass &&
+		e.Display == other.Display
+}
+
 // Error returns native display text when present, preserving the C diagnostic;
 // otherwise it returns a stable summary for manually constructed values.
 func (e *TDMErrorDetail) Error() string {

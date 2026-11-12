@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 
 	"sidereon.dev/go/v3/internal/native"
 )
@@ -655,6 +657,23 @@ const (
 // EngineJSONValue is a recursively typed engine-error field. Number preserves
 // the original JSON token using json.Number; Object and Array retain all nested values.
 type EngineJSONValue = native.EngineJSONValue
+
+// engineJSONFieldsEqual reports whether two detail maps hold the same keys and
+// equal values. A nil map and an empty map are equal.
+func engineJSONFieldsEqual(first, second map[string]EngineJSONValue) bool {
+	return maps.EqualFunc(first, second, engineJSONValuesEqual)
+}
+
+// engineJSONValuesEqual compares two JSON values by kind and content. Number
+// tokens compare as written, and nil and empty containers are equal.
+func engineJSONValuesEqual(first, second EngineJSONValue) bool {
+	return first.Kind == second.Kind &&
+		first.String == second.String &&
+		first.Number == second.Number &&
+		first.Bool == second.Bool &&
+		maps.EqualFunc(first.Object, second.Object, engineJSONValuesEqual) &&
+		slices.EqualFunc(first.Array, second.Array, engineJSONValuesEqual)
+}
 
 func publicEngineJSONFields(fields map[string]native.EngineJSONValue) map[string]EngineJSONValue {
 	if fields == nil {

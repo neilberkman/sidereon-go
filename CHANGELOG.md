@@ -6,7 +6,8 @@ All notable changes to this module are documented here.
 
 - Add the complete CCSDS TDM API: strict and policy-aware parsing and writing,
   lossless headers/comments/fields/records, typed warnings and departures,
-  policy presets, construction, and atomic segment/metadata/data editing.
+  policy presets, construction, atomic segment/metadata/data editing, and
+  value equality for complete messages and their public value types.
 
 ## 3.0.6 - 2026-10-30
 
