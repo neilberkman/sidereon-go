@@ -565,6 +565,8 @@ const (
 	EngineErrorFamilyTimeOffset EngineErrorFamily = 71
 	// EngineErrorFamilyTimeModel identifies typed engine errors from time models.
 	EngineErrorFamilyTimeModel EngineErrorFamily = 72
+	// EngineErrorFamilyPPPVelocity identifies typed range-rate velocity errors.
+	EngineErrorFamilyPPPVelocity EngineErrorFamily = 73
 	// EngineErrorFamilyUnknown identifies typed engine errors from an unrecognized engine subsystem.
 	EngineErrorFamilyUnknown EngineErrorFamily = 999
 )

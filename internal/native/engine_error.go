@@ -86,6 +86,7 @@ const (
 	EngineErrorFamilyStaticPositioning  EngineErrorFamily = 70
 	EngineErrorFamilyTimeOffset         EngineErrorFamily = 71
 	EngineErrorFamilyTimeModel          EngineErrorFamily = 72
+	EngineErrorFamilyPppVelocity        EngineErrorFamily = 73
 	EngineErrorFamilyUnknown            EngineErrorFamily = 999
 )
 
@@ -237,6 +238,8 @@ func (f EngineErrorFamily) Name() string {
 		return "time_offset"
 	case EngineErrorFamilyTimeModel:
 		return "time_model"
+	case EngineErrorFamilyPppVelocity:
+		return "ppp_velocity"
 	case EngineErrorFamilyUnknown:
 		return "unknown"
 	default:
@@ -396,6 +399,8 @@ func EngineErrorFamilyFromName(name string) EngineErrorFamily {
 		return EngineErrorFamilyTimeOffset
 	case "time_model":
 		return EngineErrorFamilyTimeModel
+	case "ppp_velocity":
+		return EngineErrorFamilyPppVelocity
 	default:
 		return EngineErrorFamilyUnknown
 	}

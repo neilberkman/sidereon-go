@@ -101,6 +101,21 @@ Alternatively, link against an external compatible `libsidereon` using `-tags si
 
 ## Quickstarts
 
+### Precise positioning
+
+The PPP API supports float, fixed, single-epoch, and strategy-selected
+auto-initialized solves. Additive configuration fields enable residual-ionosphere
+estimation without changing existing call sites. `BuildPPPLookup` creates owned,
+indexed correction tables, and fixed solutions can clone owned ambiguity-search
+metadata. Float and fixed solutions expose posterior variance and residual
+ionosphere; float solutions also expose weighted residuals and decorrelation time.
+The low-level range-rate API predicts pseudorange rate and solves receiver
+velocity and clock drift, with optional robust reweighting.
+
+SSR bias records, application reports, aggregate status, phase-continuity
+tokens, `SsrPppBiasOptions`, and `with_ssr_biases` are not yet exposed by the C
+library and therefore are not available in this Go binding.
+
 The Go surface follows the C binding's byte-oriented contracts. Names below
 show the package-level API used by the release examples; all input bytes may
 come from a file, an HTTP response, or another Go-owned reader.
