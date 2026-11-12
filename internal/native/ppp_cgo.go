@@ -24,6 +24,10 @@ const (
 	PppSolveMaxIterationsValue  = uint32(C.SIDEREON_PPP_SOLVE_STATUS_MAX_ITERATIONS)
 	PppIntegerFixedValue        = uint32(C.SIDEREON_PPP_INTEGER_STATUS_FIXED)
 	PppIntegerNotFixedValue     = uint32(C.SIDEREON_PPP_INTEGER_STATUS_NOT_FIXED)
+	PppAutoInitReferenceValue   = uint32(C.SIDEREON_PPP_AUTO_INIT_STRATEGY_REFERENCE)
+	PppAutoInitCanonicalValue   = uint32(C.SIDEREON_PPP_AUTO_INIT_STRATEGY_CANONICAL)
+	PppVmfSiteMaxSamples        = int(C.SIDEREON_PPP_VMF_SITE_MAX_SAMPLES)
+	PppVmfSiteClampDays         = float64(C.SIDEREON_PPP_VMF_SITE_SINGLE_SAMPLE_CLAMP_DAYS)
 )
 
 type PppAutoInitOptions struct {
@@ -239,15 +243,16 @@ type PppFloatOptions struct {
 }
 
 type PppFloatConfig struct {
-	Epochs             []PppEpoch
-	InitialState       PppFloatState
-	Weights            PppMeasurementWeights
-	Troposphere        PppTroposphereOptions
-	Corrections        PppRangeCorrections
-	Options            PppFloatOptions
-	HasElevationCutoff bool
-	ElevationCutoffDeg float64
-	ResidualScreen     bool
+	Epochs                     []PppEpoch
+	InitialState               PppFloatState
+	Weights                    PppMeasurementWeights
+	Troposphere                PppTroposphereOptions
+	Corrections                PppRangeCorrections
+	Options                    PppFloatOptions
+	HasElevationCutoff         bool
+	ElevationCutoffDeg         float64
+	ResidualScreen             bool
+	EstimateResidualIonosphere bool
 }
 
 type PppFixedAmbiguityOptions struct {
@@ -257,14 +262,15 @@ type PppFixedAmbiguityOptions struct {
 }
 
 type PppFixedConfig struct {
-	Epochs             []PppEpoch
-	Weights            PppMeasurementWeights
-	Troposphere        PppTroposphereOptions
-	Corrections        PppRangeCorrections
-	Options            PppFloatOptions
-	HasElevationCutoff bool
-	ElevationCutoffDeg float64
-	Ambiguity          PppFixedAmbiguityOptions
+	Epochs                     []PppEpoch
+	Weights                    PppMeasurementWeights
+	Troposphere                PppTroposphereOptions
+	Corrections                PppRangeCorrections
+	Options                    PppFloatOptions
+	HasElevationCutoff         bool
+	ElevationCutoffDeg         float64
+	Ambiguity                  PppFixedAmbiguityOptions
+	EstimateResidualIonosphere bool
 }
 
 type PppSatScalarCorrection struct {
@@ -1144,6 +1150,15 @@ func PppAutoInitOptionsInit() (PppAutoInitOptions, error) {
 	return PppAutoInitOptions{HasInitialGuess: bool(value.has_initial_guess), InitialGuessPosition: [3]float64{float64(value.initial_guess_position_m[0]), float64(value.initial_guess_position_m[1]), float64(value.initial_guess_position_m[2])}, InitialGuessClockM: float64(value.initial_guess_clock_m), SPPInitialGuess: [4]float64{float64(value.spp_initial_guess[0]), float64(value.spp_initial_guess[1]), float64(value.spp_initial_guess[2]), float64(value.spp_initial_guess[3])}, SPPTroposphere: bool(value.spp_troposphere), SPPPressureHPA: float64(value.spp_pressure_hpa), SPPTemperatureK: float64(value.spp_temperature_k), SPPRelativeHumidity: float64(value.spp_relative_humidity)}, err
 }
 
+func PppAutoInitStrategyDefault() (uint32, error) {
+	var value C.enum_SidereonPppAutoInitStrategy
+	err := callStatus(func() uint32 { return uint32(C.sidereon_ppp_auto_init_strategy_default(&value)) })
+	if err == nil && uint32(value) > PppAutoInitCanonicalValue {
+		err = invalidArgument("native PPP auto-init strategy default is invalid")
+	}
+	return uint32(value), err
+}
+
 func PppFloatOptionsInit() (PppFloatOptions, error) {
 	var value C.SidereonPppFloatOptions
 	err := callStatus(func() uint32 { return uint32(C.sidereon_ppp_float_options_init(&value)) })
@@ -1316,7 +1331,7 @@ func (corrections *PppCorrections) DegradedReason() (uint32, error) {
 	return uint32(reason), err
 }
 
-func solvePppFloat(sp3 *SP3, config PppFloatConfig, auto *PppAutoInitOptions) (*PppFloatSolution, error) {
+func solvePppFloat(sp3 *SP3, config PppFloatConfig, auto *PppAutoInitOptions, strategy *uint32, singleEpoch bool) (*PppFloatSolution, error) {
 	if sp3 == nil || sp3.handle == nil {
 		return nil, ErrClosed
 	}
@@ -1332,11 +1347,22 @@ func solvePppFloat(sp3 *SP3, config PppFloatConfig, auto *PppAutoInitOptions) (*
 				return
 			}
 			status := C.enum_SidereonStatus(0)
-			if auto == nil {
+			if auto == nil && !config.EstimateResidualIonosphere && !singleEpoch {
 				status = C.sidereon_solve_ppp_float((*C.SidereonSp3)(sp3Pointer), &cConfig, &output)
+			} else if auto == nil {
+				v2 := C.SidereonPppFloatConfigV2{legacy: cConfig, estimate_residual_ionosphere: C.bool(config.EstimateResidualIonosphere)}
+				if singleEpoch {
+					status = C.sidereon_solve_ppp_float_epoch((*C.SidereonSp3)(sp3Pointer), &v2, &output)
+				} else {
+					status = C.sidereon_solve_ppp_float_v2((*C.SidereonSp3)(sp3Pointer), &v2, &output)
+				}
 			} else {
 				cAuto := cPppAutoInit(*auto)
-				status = C.sidereon_solve_ppp_auto_init_float((*C.SidereonSp3)(sp3Pointer), &cConfig, &cAuto, &output)
+				if strategy == nil {
+					status = C.sidereon_solve_ppp_auto_init_float((*C.SidereonSp3)(sp3Pointer), &cConfig, &cAuto, &output)
+				} else {
+					status = C.sidereon_solve_ppp_auto_init_float_with_strategy((*C.SidereonSp3)(sp3Pointer), &cConfig, &cAuto, C.uint32_t(*strategy), &output)
+				}
 			}
 			operationErr = statusErrorLocked(uint32(status))
 			if operationErr != nil && output != nil {
@@ -1354,14 +1380,36 @@ func solvePppFloat(sp3 *SP3, config PppFloatConfig, auto *PppAutoInitOptions) (*
 }
 
 func SolvePppFloat(sp3 *SP3, config PppFloatConfig) (*PppFloatSolution, error) {
-	return solvePppFloat(sp3, config, nil)
+	return solvePppFloat(sp3, config, nil, nil, false)
+}
+
+func SolvePppFloatEpoch(sp3 *SP3, config PppFloatConfig) (*PppFloatSolution, error) {
+	return solvePppFloat(sp3, config, nil, nil, true)
 }
 
 func SolvePppAutoInitFloat(sp3 *SP3, config PppFloatConfig, options PppAutoInitOptions) (*PppFloatSolution, error) {
-	return solvePppFloat(sp3, config, &options)
+	return solvePppFloat(sp3, config, &options, nil, false)
+}
+
+func SolvePppAutoInitFloatWithStrategy(sp3 *SP3, config PppFloatConfig, options PppAutoInitOptions, strategy uint32) (*PppFloatSolution, error) {
+	if strategy > PppAutoInitCanonicalValue {
+		return nil, invalidArgument("invalid PPP auto-init strategy")
+	}
+	return solvePppFloat(sp3, config, &options, &strategy, false)
 }
 
 func SolvePppAutoInitFixed(sp3 *SP3, floatConfig PppFloatConfig, fixedConfig PppFixedConfig, options PppAutoInitOptions) (*PppFixedSolution, error) {
+	return solvePppAutoInitFixed(sp3, floatConfig, fixedConfig, options, nil)
+}
+
+func SolvePppAutoInitFixedWithStrategy(sp3 *SP3, floatConfig PppFloatConfig, fixedConfig PppFixedConfig, options PppAutoInitOptions, strategy uint32) (*PppFixedSolution, error) {
+	if strategy > PppAutoInitCanonicalValue {
+		return nil, invalidArgument("invalid PPP auto-init strategy")
+	}
+	return solvePppAutoInitFixed(sp3, floatConfig, fixedConfig, options, &strategy)
+}
+
+func solvePppAutoInitFixed(sp3 *SP3, floatConfig PppFloatConfig, fixedConfig PppFixedConfig, options PppAutoInitOptions, strategy *uint32) (*PppFixedSolution, error) {
 	if sp3 == nil || sp3.handle == nil {
 		return nil, ErrClosed
 	}
@@ -1382,7 +1430,12 @@ func SolvePppAutoInitFixed(sp3 *SP3, floatConfig PppFloatConfig, fixedConfig Ppp
 				return
 			}
 			cAuto := cPppAutoInit(options)
-			status := C.sidereon_solve_ppp_auto_init_fixed((*C.SidereonSp3)(sp3Pointer), &cFloat, &cFixed, &cAuto, &output)
+			status := C.enum_SidereonStatus(0)
+			if strategy == nil {
+				status = C.sidereon_solve_ppp_auto_init_fixed((*C.SidereonSp3)(sp3Pointer), &cFloat, &cFixed, &cAuto, &output)
+			} else {
+				status = C.sidereon_solve_ppp_auto_init_fixed_with_strategy((*C.SidereonSp3)(sp3Pointer), &cFloat, &cFixed, &cAuto, C.uint32_t(*strategy), &output)
+			}
 			operationErr = statusErrorLocked(uint32(status))
 			if operationErr != nil && output != nil {
 				C.sidereon_ppp_fixed_solution_free(output)
@@ -1413,7 +1466,13 @@ func SolvePppFixed(sp3 *SP3, floatSolution *PppFloatSolution, config PppFixedCon
 				operationErr = conversionErr
 				return
 			}
-			status := C.sidereon_solve_ppp_fixed((*C.SidereonSp3)(sp3Pointer), (*C.SidereonPppFloatSolution)(solutionPointer), &cConfig, &output)
+			status := C.enum_SidereonStatus(0)
+			if config.EstimateResidualIonosphere {
+				v2 := C.SidereonPppFixedConfigV2{legacy: cConfig, estimate_residual_ionosphere: true}
+				status = C.sidereon_solve_ppp_fixed_v2((*C.SidereonSp3)(sp3Pointer), (*C.SidereonPppFloatSolution)(solutionPointer), &v2, &output)
+			} else {
+				status = C.sidereon_solve_ppp_fixed((*C.SidereonSp3)(sp3Pointer), (*C.SidereonPppFloatSolution)(solutionPointer), &cConfig, &output)
+			}
 			operationErr = statusErrorLocked(uint32(status))
 			if operationErr != nil && output != nil {
 				C.sidereon_ppp_fixed_solution_free(output)

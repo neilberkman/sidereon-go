@@ -4,6 +4,11 @@ All notable changes to this module are documented here.
 
 ## Unreleased
 
+- Add precise-positioning auto-init strategies, single-epoch and residual-ionosphere
+  solves, indexed correction lookups, ambiguity-search metadata, weighted residual
+  diagnostics, value equality, and the range-rate receiver-velocity model with
+  typed engine errors.
+
 - Add the complete CCSDS TDM API: strict and policy-aware parsing and writing,
   lossless headers/comments/fields/records, typed warnings and departures,
   policy presets, construction, atomic segment/metadata/data editing, and

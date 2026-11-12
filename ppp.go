@@ -19,6 +19,20 @@ const (
 // PPPSolveStatus is the terminal status reported by a PPP solve.
 type PPPSolveStatus uint32
 
+// PPPAutoInitStrategy selects the engine's PPP auto-initialization solve path.
+type PPPAutoInitStrategy uint32
+
+const (
+	// PPPAutoInitReference selects the reference static PPP path.
+	PPPAutoInitReference PPPAutoInitStrategy = PPPAutoInitStrategy(native.PppAutoInitReferenceValue)
+	// PPPAutoInitCanonical selects the canonical estimation-recipe path.
+	PPPAutoInitCanonical PPPAutoInitStrategy = PPPAutoInitStrategy(native.PppAutoInitCanonicalValue)
+	// PPPVMFSiteMaxSamples is the maximum number of inline VMF site samples.
+	PPPVMFSiteMaxSamples = native.PppVmfSiteMaxSamples
+	// PPPVMFSiteSingleSampleClampDays is the one-sample VMF clamp window in days.
+	PPPVMFSiteSingleSampleClampDays = native.PppVmfSiteClampDays
+)
+
 const (
 	// PPPSolveStateTolerance means the state tolerances were reached.
 	PPPSolveStateTolerance PPPSolveStatus = PPPSolveStatus(native.PppSolveStateToleranceValue)
@@ -259,6 +273,8 @@ type PPPFloatConfig struct {
 	ElevationCutoffDeg float64
 	// ResidualScreen enables native residual screening during the float solve.
 	ResidualScreen bool
+	// EstimateResidualIonosphere estimates one state per ambiguity arc.
+	EstimateResidualIonosphere bool
 }
 
 // PPPFixedAmbiguityOptions controls integer ambiguity fixing.
@@ -289,6 +305,8 @@ type PPPFixedConfig struct {
 	ElevationCutoffDeg float64
 	// Ambiguity contains wavelength, offset, and ratio settings for integer fixing.
 	Ambiguity PPPFixedAmbiguityOptions
+	// EstimateResidualIonosphere estimates one state per ambiguity arc.
+	EstimateResidualIonosphere bool
 }
 
 // PPPPoleTideOptions contains IERS polar motion in arcseconds.
@@ -453,6 +471,34 @@ type PPPFloatAmbiguity struct {
 	ValueM float64
 }
 
+// PPPFloatResidual is one weighted residual row. Values are comparable with
+// Go's == operator.
+type PPPFloatResidual struct {
+	// EpochIndex is the zero-based input epoch index.
+	EpochIndex int
+	// SatelliteID is the satellite identifier.
+	SatelliteID string
+	// AmbiguityID is the ambiguity-state identifier.
+	AmbiguityID string
+	// CodeM is the code prefit residual in metres.
+	CodeM float64
+	// PhaseM is the phase prefit residual in metres.
+	PhaseM float64
+	// CodeWeight is the code inverse-sigma row weight.
+	CodeWeight float64
+	// PhaseWeight is the phase inverse-sigma row weight.
+	PhaseWeight float64
+}
+
+// PPPResidualIonosphere is one residual-ionosphere estimate. Values are
+// comparable with Go's == operator.
+type PPPResidualIonosphere struct {
+	// AmbiguityID is the ambiguity-state identifier.
+	AmbiguityID string
+	// ValueM is the estimated residual ionosphere in metres.
+	ValueM float64
+}
+
 // PPPFixedAmbiguity is one detached fixed ambiguity estimate.
 type PPPFixedAmbiguity struct {
 	// ID identifies the fixed ambiguity represented by Cycles and ValueM.
@@ -602,6 +648,78 @@ type PPPFixedSolution struct {
 	handle *native.PppFixedSolution
 }
 
+// Equal compares two auto-init option values through the engine.
+func (value PPPAutoInitOptions) Equal(other PPPAutoInitOptions) (bool, error) {
+	result, err := native.PppAutoInitOptionsEqual(nativePPPAutoInitOptions(value), nativePPPAutoInitOptions(other))
+	return result, publicError(err)
+}
+
+// Equal compares two observations through the engine.
+func (value PPPObservation) Equal(other PPPObservation) (bool, error) {
+	result, err := native.PppObservationEqual(nativePPPObservation(value), nativePPPObservation(other))
+	return result, publicError(err)
+}
+
+// Equal compares two epochs through the engine.
+func (value PPPEpoch) Equal(other PPPEpoch) (bool, error) {
+	result, err := native.PppEpochEqual(nativePPPEpoch(value), nativePPPEpoch(other))
+	return result, publicError(err)
+}
+
+// Equal compares two measurement-weight values through the engine.
+func (value PPPMeasurementWeights) Equal(other PPPMeasurementWeights) (bool, error) {
+	result, err := native.PppMeasurementWeightsEqual(nativePPPWeights(value), nativePPPWeights(other))
+	return result, publicError(err)
+}
+
+// Equal compares two float option values through the engine.
+func (value PPPFloatOptions) Equal(other PPPFloatOptions) (bool, error) {
+	result, err := native.PppFloatOptionsEqual(nativePPPFloatOptions(value), nativePPPFloatOptions(other))
+	return result, publicError(err)
+}
+
+// Equal compares two troposphere option values through the engine.
+func (value PPPTroposphereOptions) Equal(other PPPTroposphereOptions) (bool, error) {
+	result, err := native.PppTroposphereOptionsEqual(nativePPPTroposphere(value), nativePPPTroposphere(other))
+	return result, publicError(err)
+}
+
+// Equal compares two range-correction values through the engine.
+func (value PPPRangeCorrections) Equal(other PPPRangeCorrections) (bool, error) {
+	result, err := native.PppRangeCorrectionsEqual(nativePPPRangeCorrections(value), nativePPPRangeCorrections(other))
+	return result, publicError(err)
+}
+
+// Equal compares two fixed ambiguity option values through the engine.
+func (value PPPFixedAmbiguityOptions) Equal(other PPPFixedAmbiguityOptions) (bool, error) {
+	result, err := native.PppFixedAmbiguityOptionsEqual(nativePPPFixedConfig(PPPFixedConfig{Ambiguity: value}).Ambiguity, nativePPPFixedConfig(PPPFixedConfig{Ambiguity: other}).Ambiguity)
+	return result, publicError(err)
+}
+
+// Equal compares two float solve configurations through the engine.
+func (value PPPFloatConfig) Equal(other PPPFloatConfig) (bool, error) {
+	result, err := native.PppFloatConfigEqual(nativePPPFloatConfig(value), nativePPPFloatConfig(other))
+	return result, publicError(err)
+}
+
+// Equal compares two fixed solve configurations through the engine.
+func (value PPPFixedConfig) Equal(other PPPFixedConfig) (bool, error) {
+	result, err := native.PppFixedConfigEqual(nativePPPFixedConfig(value), nativePPPFixedConfig(other))
+	return result, publicError(err)
+}
+
+// PPPAmbiguitySearch owns integer ambiguity-search metadata.
+type PPPAmbiguitySearch struct{ handle *native.PppAmbiguitySearch }
+
+// PPPFloatAmbiguityCycles is one float ambiguity in carrier cycles. Values are
+// comparable with Go's == operator.
+type PPPFloatAmbiguityCycles struct {
+	// ID is the ambiguity identifier.
+	ID string
+	// ValueCycles is the float ambiguity in carrier cycles.
+	ValueCycles float64
+}
+
 // PPPUnplacedObservationV2 retains typed reasons and strict-SSR size values.
 type PPPUnplacedObservationV2 struct {
 	EpochIndex               int
@@ -636,6 +754,30 @@ type PPPResidualScreenRemoval struct {
 type PPPCorrections struct {
 	_      noCopy
 	handle *native.PppCorrections
+}
+
+// PPPCorrectionLookup owns indexed PPP correction tables.
+type PPPCorrectionLookup struct {
+	handle *native.PppCorrectionLookup
+}
+
+// PPPCorrectionLookupInfo reports lookup validity and enabled correction families.
+// Values are comparable with Go's == operator.
+type PPPCorrectionLookupInfo struct {
+	// DegradedReason reports UT1 validity degradation.
+	DegradedReason StationTideDegradeReason
+	// TideEnabled reports whether solid-Earth tide entries are required.
+	TideEnabled bool
+	// PoleTideEnabled reports whether pole-tide entries are required.
+	PoleTideEnabled bool
+	// OceanLoadingEnabled reports whether ocean-loading entries are required.
+	OceanLoadingEnabled bool
+	// WindupEnabled reports whether phase wind-up entries are required.
+	WindupEnabled bool
+	// SatelliteAntennaEnabled reports whether satellite antenna entries are required.
+	SatelliteAntennaEnabled bool
+	// CodeBiasEnabled reports whether clock-datum code-bias entries are required.
+	CodeBiasEnabled bool
 }
 
 // PPPValidityMode selects whether PPP correction building rejects or tolerates validity gaps.
@@ -752,7 +894,7 @@ func nativePPPFloatOptions(value PPPFloatOptions) native.PppFloatOptions {
 }
 
 func nativePPPFloatConfig(value PPPFloatConfig) native.PppFloatConfig {
-	out := native.PppFloatConfig{Epochs: make([]native.PppEpoch, len(value.Epochs)), InitialState: nativePPPState(value.InitialState), Weights: nativePPPWeights(value.Weights), Troposphere: nativePPPTroposphere(value.Troposphere), Corrections: nativePPPRangeCorrections(value.Corrections), Options: nativePPPFloatOptions(value.Options), HasElevationCutoff: value.HasElevationCutoff, ElevationCutoffDeg: value.ElevationCutoffDeg, ResidualScreen: value.ResidualScreen}
+	out := native.PppFloatConfig{Epochs: make([]native.PppEpoch, len(value.Epochs)), InitialState: nativePPPState(value.InitialState), Weights: nativePPPWeights(value.Weights), Troposphere: nativePPPTroposphere(value.Troposphere), Corrections: nativePPPRangeCorrections(value.Corrections), Options: nativePPPFloatOptions(value.Options), HasElevationCutoff: value.HasElevationCutoff, ElevationCutoffDeg: value.ElevationCutoffDeg, ResidualScreen: value.ResidualScreen, EstimateResidualIonosphere: value.EstimateResidualIonosphere}
 	for i, epoch := range value.Epochs {
 		out.Epochs[i] = nativePPPEpoch(epoch)
 	}
@@ -760,7 +902,7 @@ func nativePPPFloatConfig(value PPPFloatConfig) native.PppFloatConfig {
 }
 
 func nativePPPFixedConfig(value PPPFixedConfig) native.PppFixedConfig {
-	out := native.PppFixedConfig{Epochs: make([]native.PppEpoch, len(value.Epochs)), Weights: nativePPPWeights(value.Weights), Troposphere: nativePPPTroposphere(value.Troposphere), Corrections: nativePPPRangeCorrections(value.Corrections), Options: nativePPPFloatOptions(value.Options), HasElevationCutoff: value.HasElevationCutoff, ElevationCutoffDeg: value.ElevationCutoffDeg, Ambiguity: native.PppFixedAmbiguityOptions{WavelengthsM: nativePPPMapEntries(value.Ambiguity.WavelengthsM), OffsetsM: nativePPPMapEntries(value.Ambiguity.OffsetsM), RatioThreshold: value.Ambiguity.RatioThreshold}}
+	out := native.PppFixedConfig{Epochs: make([]native.PppEpoch, len(value.Epochs)), Weights: nativePPPWeights(value.Weights), Troposphere: nativePPPTroposphere(value.Troposphere), Corrections: nativePPPRangeCorrections(value.Corrections), Options: nativePPPFloatOptions(value.Options), HasElevationCutoff: value.HasElevationCutoff, ElevationCutoffDeg: value.ElevationCutoffDeg, Ambiguity: native.PppFixedAmbiguityOptions{WavelengthsM: nativePPPMapEntries(value.Ambiguity.WavelengthsM), OffsetsM: nativePPPMapEntries(value.Ambiguity.OffsetsM), RatioThreshold: value.Ambiguity.RatioThreshold}, EstimateResidualIonosphere: value.EstimateResidualIonosphere}
 	for i, epoch := range value.Epochs {
 		out.Epochs[i] = nativePPPEpoch(epoch)
 	}
@@ -821,6 +963,12 @@ func nativePPPCorrectionsOptions(value PPPCorrectionsOptions) native.PppCorrecti
 func DefaultPPPAutoInitOptions() (PPPAutoInitOptions, error) {
 	value, err := native.PppAutoInitOptionsInit()
 	return PPPAutoInitOptions{HasInitialGuess: value.HasInitialGuess, InitialGuessPosition: value.InitialGuessPosition, InitialGuessClockM: value.InitialGuessClockM, SPPInitialGuess: value.SPPInitialGuess, SPPTroposphere: value.SPPTroposphere, SPPPressureHPA: value.SPPPressureHPA, SPPTemperatureK: value.SPPTemperatureK, SPPRelativeHumidity: value.SPPRelativeHumidity}, publicError(err)
+}
+
+// DefaultPPPAutoInitStrategy returns the engine's default auto-init strategy.
+func DefaultPPPAutoInitStrategy() (PPPAutoInitStrategy, error) {
+	value, err := native.PppAutoInitStrategyDefault()
+	return PPPAutoInitStrategy(value), publicError(err)
 }
 
 // DefaultPPPFloatOptions returns the C engine's PPP float-solver defaults.
@@ -894,6 +1042,171 @@ func BuildPPPCorrections(sp3 *SP3, epochs []PPPCorrectionEpoch, receiverECEFM [3
 	return &PPPCorrections{handle: value}, nil
 }
 
+// DefaultPPPCorrectionLookup returns an empty, all-disabled engine lookup.
+func DefaultPPPCorrectionLookup() (*PPPCorrectionLookup, error) {
+	value, err := native.PppCorrectionLookupDefault()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return &PPPCorrectionLookup{handle: value}, nil
+}
+
+// NewPPPCorrectionLookup converts precomputed correction tables into an indexed lookup.
+func NewPPPCorrectionLookup(corrections *PPPCorrections) (*PPPCorrectionLookup, error) {
+	if corrections == nil || corrections.handle == nil {
+		return nil, ErrClosed
+	}
+	value, err := native.PppCorrectionLookupFromCorrections(corrections.handle)
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return &PPPCorrectionLookup{handle: value}, nil
+}
+
+// BuildPPPLookup builds indexed correction tables at the receiver seed position.
+func BuildPPPLookup(sp3 *SP3, epochs []PPPEpoch, receiverECEFM [3]float64, options PPPCorrectionsOptions) (*PPPCorrectionLookup, error) {
+	if sp3 == nil || sp3.handle == nil {
+		return nil, ErrClosed
+	}
+	nativeEpochs := make([]native.PppEpoch, len(epochs))
+	for index, epoch := range epochs {
+		nativeEpochs[index] = nativePPPEpoch(epoch)
+	}
+	value, err := native.PppBuildLookup(sp3.handle, nativeEpochs, receiverECEFM, nativePPPCorrectionsOptions(options), nil)
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return &PPPCorrectionLookup{handle: value}, nil
+}
+
+// BuildPPPLookupWithValidity builds indexed correction tables under an explicit UT1 validity mode.
+func BuildPPPLookupWithValidity(sp3 *SP3, epochs []PPPEpoch, receiverECEFM [3]float64, options PPPCorrectionsOptions, validity PPPValidityMode) (*PPPCorrectionLookup, error) {
+	if sp3 == nil || sp3.handle == nil {
+		return nil, ErrClosed
+	}
+	if validity > PPPValidityPermissive {
+		return nil, invalidArgument("invalid PPP validity selector")
+	}
+	nativeEpochs := make([]native.PppEpoch, len(epochs))
+	for index, epoch := range epochs {
+		nativeEpochs[index] = nativePPPEpoch(epoch)
+	}
+	selector := uint32(validity)
+	value, err := native.PppBuildLookup(sp3.handle, nativeEpochs, receiverECEFM, nativePPPCorrectionsOptions(options), &selector)
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return &PPPCorrectionLookup{handle: value}, nil
+}
+
+// Close releases the correction lookup and is safe to call repeatedly.
+func (lookup *PPPCorrectionLookup) Close() error {
+	if lookup == nil || lookup.handle == nil {
+		return nil
+	}
+	return publicError(lookup.handle.Close())
+}
+
+// Equal compares two correction lookups by their complete engine values.
+func (lookup *PPPCorrectionLookup) Equal(other *PPPCorrectionLookup) (bool, error) {
+	if lookup == nil || lookup.handle == nil || other == nil || other.handle == nil {
+		return false, ErrClosed
+	}
+	value, err := lookup.handle.Equal(other.handle)
+	return value, publicError(err)
+}
+
+// Info returns lookup validity and enabled correction families.
+func (lookup *PPPCorrectionLookup) Info() (PPPCorrectionLookupInfo, error) {
+	if lookup == nil || lookup.handle == nil {
+		return PPPCorrectionLookupInfo{}, ErrClosed
+	}
+	value, err := lookup.handle.Info()
+	return PPPCorrectionLookupInfo{DegradedReason: StationTideDegradeReason(value.DegradedReason), TideEnabled: value.TideEnabled, PoleTideEnabled: value.PoleTideEnabled, OceanLoadingEnabled: value.OceanLoadingEnabled, WindupEnabled: value.WindupEnabled, SatelliteAntennaEnabled: value.SatelliteAntennaEnabled, CodeBiasEnabled: value.CodeBiasEnabled}, publicError(err)
+}
+
+// CodeBias returns detached clock-datum code-bias values.
+func (lookup *PPPCorrectionLookup) CodeBias() ([]PPPSatScalarCorrection, error) {
+	if lookup == nil || lookup.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := lookup.handle.CodeBias()
+	return publicPPPSatScalars(values), publicError(err)
+}
+
+// SatellitePCV returns detached satellite antenna PCV values.
+func (lookup *PPPCorrectionLookup) SatellitePCV() ([]PPPSatScalarCorrection, error) {
+	if lookup == nil || lookup.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := lookup.handle.SatellitePCV()
+	return publicPPPSatScalars(values), publicError(err)
+}
+
+// Windup returns detached phase wind-up values.
+func (lookup *PPPCorrectionLookup) Windup() ([]PPPSatScalarCorrection, error) {
+	if lookup == nil || lookup.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := lookup.handle.Windup()
+	return publicPPPSatScalars(values), publicError(err)
+}
+
+func publicPPPSatScalars(values []native.PppSatScalarCorrection) []PPPSatScalarCorrection {
+	out := make([]PPPSatScalarCorrection, len(values))
+	for index, value := range values {
+		out[index] = PPPSatScalarCorrection{SatelliteID: value.SatelliteID, EpochIndex: value.EpochIndex, ValueM: value.Value}
+	}
+	return out
+}
+func publicPPPEpochVectors(values []native.PppEpochVectorCorrection) []PPPEpochVectorCorrection {
+	out := make([]PPPEpochVectorCorrection, len(values))
+	for index, value := range values {
+		out[index] = PPPEpochVectorCorrection{EpochIndex: value.EpochIndex, ValueM: value.ValueM}
+	}
+	return out
+}
+
+// Tide returns detached solid-Earth tide vectors.
+func (lookup *PPPCorrectionLookup) Tide() ([]PPPEpochVectorCorrection, error) {
+	if lookup == nil || lookup.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := lookup.handle.Tide()
+	return publicPPPEpochVectors(values), publicError(err)
+}
+
+// PoleTide returns detached pole-tide vectors.
+func (lookup *PPPCorrectionLookup) PoleTide() ([]PPPEpochVectorCorrection, error) {
+	if lookup == nil || lookup.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := lookup.handle.PoleTide()
+	return publicPPPEpochVectors(values), publicError(err)
+}
+
+// OceanLoading returns detached ocean-loading vectors.
+func (lookup *PPPCorrectionLookup) OceanLoading() ([]PPPEpochVectorCorrection, error) {
+	if lookup == nil || lookup.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := lookup.handle.OceanLoading()
+	return publicPPPEpochVectors(values), publicError(err)
+}
+
+// SatellitePCOECEF returns detached satellite antenna PCO vectors.
+func (lookup *PPPCorrectionLookup) SatellitePCOECEF() ([]PPPSatVectorCorrection, error) {
+	if lookup == nil || lookup.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := lookup.handle.SatellitePCOECEF()
+	out := make([]PPPSatVectorCorrection, len(values))
+	for index, value := range values {
+		out[index] = PPPSatVectorCorrection{SatelliteID: value.SatelliteID, EpochIndex: value.EpochIndex, ValueM: value.ValueM}
+	}
+	return out, publicError(err)
+}
+
 // BuildPPPCorrectionsWithValidityAndTideConstants selects UT1 validity and solid-Earth tide constants.
 func BuildPPPCorrectionsWithValidityAndTideConstants(sp3 *SP3, epochs []PPPCorrectionEpoch, receiverECEFM [3]float64, options PPPCorrectionsOptions, validity PPPValidityMode, constants StationTideConstants) (*PPPCorrections, error) {
 	if validity > PPPValidityPermissive || constants > StationTideIERSRoutine {
@@ -950,6 +1263,19 @@ func SolvePPPFloat(sp3 *SP3, config PPPFloatConfig) (*PPPFloatSolution, error) {
 	return &PPPFloatSolution{handle: value}, nil
 }
 
+// SolvePPPFloatEpoch solves exactly one float PPP epoch through the engine's
+// single-epoch entry point.
+func SolvePPPFloatEpoch(sp3 *SP3, config PPPFloatConfig) (*PPPFloatSolution, error) {
+	if sp3 == nil || sp3.handle == nil {
+		return nil, ErrClosed
+	}
+	value, err := native.SolvePppFloatEpoch(sp3.handle, nativePPPFloatConfig(config))
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return &PPPFloatSolution{handle: value}, nil
+}
+
 // SolvePPPAutoInitFloat solves a static float PPP arc using C's SPP auto-seed.
 func SolvePPPAutoInitFloat(sp3 *SP3, config PPPFloatConfig, options PPPAutoInitOptions) (*PPPFloatSolution, error) {
 	if sp3 == nil || sp3.handle == nil {
@@ -961,6 +1287,22 @@ func SolvePPPAutoInitFloat(sp3 *SP3, config PPPFloatConfig, options PPPAutoInitO
 	}
 	if value == nil {
 		return nil, errNilNativeHandle
+	}
+	return &PPPFloatSolution{handle: value}, nil
+}
+
+// SolvePPPAutoInitFloatWithStrategy solves a float PPP arc using the selected
+// engine auto-initialization strategy.
+func SolvePPPAutoInitFloatWithStrategy(sp3 *SP3, config PPPFloatConfig, options PPPAutoInitOptions, strategy PPPAutoInitStrategy) (*PPPFloatSolution, error) {
+	if sp3 == nil || sp3.handle == nil {
+		return nil, ErrClosed
+	}
+	if strategy > PPPAutoInitCanonical {
+		return nil, invalidArgument("invalid PPP auto-init strategy")
+	}
+	value, err := native.SolvePppAutoInitFloatWithStrategy(sp3.handle, nativePPPFloatConfig(config), nativePPPAutoInitOptions(options), uint32(strategy))
+	if err != nil {
+		return nil, publicError(err)
 	}
 	return &PPPFloatSolution{handle: value}, nil
 }
@@ -977,6 +1319,22 @@ func SolvePPPAutoInitFixed(sp3 *SP3, floatConfig PPPFloatConfig, fixedConfig PPP
 	}
 	if value == nil {
 		return nil, errNilNativeHandle
+	}
+	return &PPPFixedSolution{handle: value}, nil
+}
+
+// SolvePPPAutoInitFixedWithStrategy solves and integer-fixes a PPP arc using
+// the selected engine auto-initialization strategy.
+func SolvePPPAutoInitFixedWithStrategy(sp3 *SP3, floatConfig PPPFloatConfig, fixedConfig PPPFixedConfig, options PPPAutoInitOptions, strategy PPPAutoInitStrategy) (*PPPFixedSolution, error) {
+	if sp3 == nil || sp3.handle == nil {
+		return nil, ErrClosed
+	}
+	if strategy > PPPAutoInitCanonical {
+		return nil, invalidArgument("invalid PPP auto-init strategy")
+	}
+	value, err := native.SolvePppAutoInitFixedWithStrategy(sp3.handle, nativePPPFloatConfig(floatConfig), nativePPPFixedConfig(fixedConfig), nativePPPAutoInitOptions(options), uint32(strategy))
+	if err != nil {
+		return nil, publicError(err)
 	}
 	return &PPPFixedSolution{handle: value}, nil
 }
@@ -1019,6 +1377,150 @@ func (s *PPPFixedSolution) Close() error {
 		return nil
 	}
 	return publicError(s.handle.Close())
+}
+
+// AmbiguitySearch clones the fixed solution's integer-search metadata.
+func (s *PPPFixedSolution) AmbiguitySearch() (*PPPAmbiguitySearch, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	value, err := s.handle.AmbiguitySearch()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	return &PPPAmbiguitySearch{handle: value}, nil
+}
+
+// Close releases the ambiguity-search metadata and is safe to call repeatedly.
+func (search *PPPAmbiguitySearch) Close() error {
+	if search == nil || search.handle == nil {
+		return nil
+	}
+	return publicError(search.handle.Close())
+}
+
+// Equal compares two ambiguity searches by their complete engine values.
+func (search *PPPAmbiguitySearch) Equal(other *PPPAmbiguitySearch) (bool, error) {
+	if search == nil || search.handle == nil || other == nil || other.handle == nil {
+		return false, ErrClosed
+	}
+	value, err := search.handle.Equal(other.handle)
+	return value, publicError(err)
+}
+
+// FloatCycles returns float ambiguities in lattice-search order.
+func (search *PPPAmbiguitySearch) FloatCycles() ([]PPPFloatAmbiguityCycles, error) {
+	if search == nil || search.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := search.handle.FloatCycles()
+	out := make([]PPPFloatAmbiguityCycles, len(values))
+	for index, value := range values {
+		out[index] = PPPFloatAmbiguityCycles{ID: value.ID, ValueCycles: value.ValueCycles}
+	}
+	return out, publicError(err)
+}
+
+// CovarianceCycles returns the row-major ambiguity covariance matrix in cycles squared.
+func (search *PPPAmbiguitySearch) CovarianceCycles() ([]float64, error) {
+	if search == nil || search.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := search.handle.CovarianceCycles()
+	return values, publicError(err)
+}
+
+// CovarianceInverseCycles returns the row-major inverse covariance matrix.
+func (search *PPPAmbiguitySearch) CovarianceInverseCycles() ([]float64, error) {
+	if search == nil || search.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := search.handle.CovarianceInverseCycles()
+	return values, publicError(err)
+}
+
+// Equal compares two float solutions by their complete engine values.
+func (s *PPPFloatSolution) Equal(other *PPPFloatSolution) (bool, error) {
+	if s == nil || s.handle == nil || other == nil || other.handle == nil {
+		return false, ErrClosed
+	}
+	value, err := s.handle.Equal(other.handle)
+	return value, publicError(err)
+}
+
+// Equal compares two fixed solutions by their complete engine values.
+func (s *PPPFixedSolution) Equal(other *PPPFixedSolution) (bool, error) {
+	if s == nil || s.handle == nil || other == nil || other.handle == nil {
+		return false, ErrClosed
+	}
+	value, err := s.handle.Equal(other.handle)
+	return value, publicError(err)
+}
+
+// PosteriorVarianceFactor returns the float solution's posterior variance factor.
+func (s *PPPFloatSolution) PosteriorVarianceFactor() (float64, error) {
+	if s == nil || s.handle == nil {
+		return 0, ErrClosed
+	}
+	value, err := s.handle.PosteriorVarianceFactor()
+	return value, publicError(err)
+}
+
+// PosteriorVarianceFactor returns the fixed solution's posterior variance factor.
+func (s *PPPFixedSolution) PosteriorVarianceFactor() (float64, error) {
+	if s == nil || s.handle == nil {
+		return 0, ErrClosed
+	}
+	value, err := s.handle.PosteriorVarianceFactor()
+	return value, publicError(err)
+}
+
+// DecorrelationTimeEpochs returns residual decorrelation time in epoch spacings.
+func (s *PPPFloatSolution) DecorrelationTimeEpochs() (float64, error) {
+	if s == nil || s.handle == nil {
+		return 0, ErrClosed
+	}
+	value, err := s.handle.DecorrelationTimeEpochs()
+	return value, publicError(err)
+}
+
+// ResidualIonosphere returns detached residual-ionosphere estimates.
+func (s *PPPFloatSolution) ResidualIonosphere() ([]PPPResidualIonosphere, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := s.handle.ResidualIonosphere()
+	result := make([]PPPResidualIonosphere, len(values))
+	for index, value := range values {
+		result[index] = PPPResidualIonosphere{AmbiguityID: value.AmbiguityID, ValueM: value.ValueM}
+	}
+	return result, publicError(err)
+}
+
+// ResidualIonosphere returns detached residual-ionosphere estimates.
+func (s *PPPFixedSolution) ResidualIonosphere() ([]PPPResidualIonosphere, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := s.handle.ResidualIonosphere()
+	result := make([]PPPResidualIonosphere, len(values))
+	for index, value := range values {
+		result[index] = PPPResidualIonosphere{AmbiguityID: value.AmbiguityID, ValueM: value.ValueM}
+	}
+	return result, publicError(err)
+}
+
+// Residuals returns all weighted float residual rows.
+func (s *PPPFloatSolution) Residuals() ([]PPPFloatResidual, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := s.handle.Residuals()
+	result := make([]PPPFloatResidual, len(values))
+	for index, value := range values {
+		result[index] = PPPFloatResidual{EpochIndex: value.EpochIndex, SatelliteID: value.SatelliteID, AmbiguityID: value.AmbiguityID, CodeM: value.CodeM, PhaseM: value.PhaseM, CodeWeight: value.CodeWeight, PhaseWeight: value.PhaseWeight}
+	}
+	return result, publicError(err)
 }
 
 // UnplacedObservationsV2 returns float-solve rows with optional SSR sizes.

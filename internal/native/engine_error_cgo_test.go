@@ -98,6 +98,7 @@ func TestCgoEngineErrorFamilyNames(t *testing.T) {
 		{EngineErrorFamilyStaticPositioning, 70, "static_positioning"},
 		{EngineErrorFamilyTimeOffset, 71, "time_offset"},
 		{EngineErrorFamilyTimeModel, 72, "time_model"},
+		{EngineErrorFamilyPppVelocity, 73, "ppp_velocity"},
 		{EngineErrorFamilyUnknown, 999, "unknown"},
 	}
 
@@ -120,7 +121,7 @@ func TestCgoEngineErrorFamilyNames(t *testing.T) {
 		}
 	}
 
-	for id := uint32(0); id <= 72; id++ {
+	for id := uint32(0); id <= 73; id++ {
 		fam := EngineErrorFamily(id)
 		if fam.Name() == fmt.Sprintf("family_%d", id) {
 			t.Errorf("contiguous native family ID %d has unmapped name %q", id, fam.Name())
@@ -132,19 +133,19 @@ func TestCgoEngineErrorFamilyNames(t *testing.T) {
 	}
 
 	// Test future code cases
-	future73 := EngineErrorFamily(73)
-	if future73.Name() != "family_73" {
-		t.Errorf("future family 73 name = %q, expected \"family_73\"", future73.Name())
+	future74 := EngineErrorFamily(74)
+	if future74.Name() != "family_74" {
+		t.Errorf("future family 74 name = %q, expected \"family_74\"", future74.Name())
 	}
-	if future73.String() != "family_73" {
-		t.Errorf("future family 73 string = %q, expected \"family_73\"", future73.String())
+	if future74.String() != "family_74" {
+		t.Errorf("future family 74 string = %q, expected \"family_74\"", future74.String())
 	}
 	future1000 := EngineErrorFamily(1000)
 	if future1000.Name() != "family_1000" {
 		t.Errorf("future family 1000 name = %q, expected \"family_1000\"", future1000.Name())
 	}
-	if EngineErrorFamilyFromName("family_73") != EngineErrorFamilyUnknown {
-		t.Errorf("expected unmapped family_73 name to return EngineErrorFamilyUnknown")
+	if EngineErrorFamilyFromName("family_74") != EngineErrorFamilyUnknown {
+		t.Errorf("expected unmapped family_74 name to return EngineErrorFamilyUnknown")
 	}
 }
 
