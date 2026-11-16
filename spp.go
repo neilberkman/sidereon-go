@@ -138,6 +138,8 @@ type SPPMetadata struct {
 // SPPSolution owns only Go memory. It contains no live C solution handle and
 // can be copied as a value after SolveSPP returns.
 type SPPSolution struct {
+	// RTKLIBSingleClockDOP contains shared-clock RTKLIB geometry, or nil when singular.
+	RTKLIBSingleClockDOP *DOP
 	// PositionM is the position m in metres.
 	PositionM [3]float64
 	// ReceiverClockS is the receiver clock s in seconds.
@@ -183,6 +185,10 @@ func publicSPPSolution(result native.SPPSolution) SPPSolution {
 			},
 		},
 	}
+	if result.RTKLIBSingleClockDOP != nil {
+		v := result.RTKLIBSingleClockDOP
+		out.RTKLIBSingleClockDOP = &DOP{GDOP: v.GDOP, PDOP: v.PDOP, HDOP: v.HDOP, VDOP: v.VDOP, TDOP: v.TDOP}
+	}
 	if result.DOP != nil {
 		out.DOP = &DOP{GDOP: result.DOP.GDOP, PDOP: result.DOP.PDOP, HDOP: result.DOP.HDOP, VDOP: result.DOP.VDOP, TDOP: result.DOP.TDOP}
 	}
@@ -199,6 +205,7 @@ func SolveSPP(sp3 *SP3, config SPPConfig) (SPPSolution, error) {
 	}
 	if config.Models != (SPPModelOptions{}) {
 		input := SPPInputsV2{Base: config, Models: config.Models}
+		input.Base.Validation = nil
 		policy := SPPSolvePolicy{}
 		if config.Validation != nil {
 			policy.UseValidationOptions = true
@@ -229,7 +236,7 @@ func SolveSPP(sp3 *SP3, config SPPConfig) (SPPSolution, error) {
 		Models:           native.NativeSPPModelOptions{QZSSClock: uint32(config.Models.QZSSClock), TroposphereModel: uint32(config.Models.TroposphereModel)},
 	}
 	if config.Validation != nil {
-		value := native.NativeSolutionValidationOptions{HasMaxPDOP: config.Validation.HasMaxPDOP, MaxPDOP: config.Validation.MaxPDOP, MinPlausibleRadiusM: config.Validation.MinPlausibleRadiusM, MaxPlausibleRadiusM: config.Validation.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: config.Validation.MaxConvergedResidualRMSM}
+		value := native.NativeSolutionValidationOptions{HasMaxGDOP: config.Validation.HasMaxGDOP, MaxGDOP: config.Validation.MaxGDOP, HasMaxPDOP: config.Validation.HasMaxPDOP, MaxPDOP: config.Validation.MaxPDOP, MinPlausibleRadiusM: config.Validation.MinPlausibleRadiusM, MaxPlausibleRadiusM: config.Validation.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: config.Validation.MaxConvergedResidualRMSM}
 		nativeConfig.Validation = &value
 	}
 	nativeConfig.Observations = make([]native.SPPObservation, len(config.Observations))
@@ -263,7 +270,7 @@ func nativeSPPConfig(config SPPConfig) native.SPPConfig {
 		Models:           native.NativeSPPModelOptions{QZSSClock: uint32(config.Models.QZSSClock), TroposphereModel: uint32(config.Models.TroposphereModel)},
 	}
 	if config.Validation != nil {
-		value := native.NativeSolutionValidationOptions{HasMaxPDOP: config.Validation.HasMaxPDOP, MaxPDOP: config.Validation.MaxPDOP, MinPlausibleRadiusM: config.Validation.MinPlausibleRadiusM, MaxPlausibleRadiusM: config.Validation.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: config.Validation.MaxConvergedResidualRMSM}
+		value := native.NativeSolutionValidationOptions{HasMaxGDOP: config.Validation.HasMaxGDOP, MaxGDOP: config.Validation.MaxGDOP, HasMaxPDOP: config.Validation.HasMaxPDOP, MaxPDOP: config.Validation.MaxPDOP, MinPlausibleRadiusM: config.Validation.MinPlausibleRadiusM, MaxPlausibleRadiusM: config.Validation.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: config.Validation.MaxConvergedResidualRMSM}
 		out.Validation = &value
 	}
 	out.Observations = make([]native.SPPObservation, len(config.Observations))
@@ -308,6 +315,10 @@ func fromNativeSPPSolution(result native.SPPSolution) SPPSolution {
 				CovarianceValidated: result.Metadata.GeometryQuality.CovarianceValidated,
 			},
 		},
+	}
+	if result.RTKLIBSingleClockDOP != nil {
+		v := result.RTKLIBSingleClockDOP
+		out.RTKLIBSingleClockDOP = &DOP{GDOP: v.GDOP, PDOP: v.PDOP, HDOP: v.HDOP, VDOP: v.VDOP, TDOP: v.TDOP}
 	}
 	if result.DOP != nil {
 		out.DOP = &DOP{

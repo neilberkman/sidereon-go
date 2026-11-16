@@ -167,6 +167,8 @@ func CoverageGridLookAngle(g *CoverageGrid, satelliteIndex, stationIndex int) (C
 
 // CoverageGridAccessCounts returns the number of successful accesses per
 // station above the supplied elevation mask in degrees.
+//
+// Deprecated: use CoverageGridTryAccessCounts.
 func CoverageGridAccessCounts(g *CoverageGrid, minElevationDeg float64) ([]int, error) {
 	if g == nil || g.handle == nil {
 		return nil, ErrClosed
@@ -176,6 +178,8 @@ func CoverageGridAccessCounts(g *CoverageGrid, minElevationDeg float64) ([]int, 
 }
 
 // AccessCounts is the method form of CoverageGridAccessCounts.
+//
+// Deprecated: use TryAccessCounts.
 func (g *CoverageGrid) AccessCounts(minElevationDeg float64) ([]int, error) {
 	return CoverageGridAccessCounts(g, minElevationDeg)
 }
@@ -197,6 +201,8 @@ func (g *CoverageGrid) MaxElevationDeg() ([]float64, error) {
 
 // CoverageGridVisibleMask returns the flattened satellite-major visibility
 // mask for the supplied elevation threshold.
+//
+// Deprecated: use CoverageGridTryVisibleMask.
 func CoverageGridVisibleMask(g *CoverageGrid, minElevationDeg float64) ([]bool, error) {
 	if g == nil || g.handle == nil {
 		return nil, ErrClosed
@@ -206,6 +212,36 @@ func CoverageGridVisibleMask(g *CoverageGrid, minElevationDeg float64) ([]bool, 
 }
 
 // VisibleMask is the method form of CoverageGridVisibleMask.
+//
+// Deprecated: use TryVisibleMask.
 func (g *CoverageGrid) VisibleMask(minElevationDeg float64) ([]bool, error) {
 	return CoverageGridVisibleMask(g, minElevationDeg)
+}
+
+// CoverageGridTryAccessCounts returns checked per-station access counts.
+func CoverageGridTryAccessCounts(g *CoverageGrid, minElevationDeg float64) ([]int, error) {
+	if g == nil || g.handle == nil {
+		return nil, ErrClosed
+	}
+	value, err := g.handle.TryAccessCounts(minElevationDeg)
+	return value, publicError(err)
+}
+
+// TryAccessCounts returns checked per-station access counts.
+func (g *CoverageGrid) TryAccessCounts(minElevationDeg float64) ([]int, error) {
+	return CoverageGridTryAccessCounts(g, minElevationDeg)
+}
+
+// CoverageGridTryVisibleMask returns the checked satellite-major visibility mask.
+func CoverageGridTryVisibleMask(g *CoverageGrid, minElevationDeg float64) ([]bool, error) {
+	if g == nil || g.handle == nil {
+		return nil, ErrClosed
+	}
+	value, err := g.handle.TryVisibleMask(minElevationDeg)
+	return value, publicError(err)
+}
+
+// TryVisibleMask returns the checked satellite-major visibility mask.
+func (g *CoverageGrid) TryVisibleMask(minElevationDeg float64) ([]bool, error) {
+	return CoverageGridTryVisibleMask(g, minElevationDeg)
 }

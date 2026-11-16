@@ -104,6 +104,10 @@ const (
 	StaticPositionRejectionIonosphereCarrierUnresolved StaticPositionRejectionReason = 4
 	// StaticPositionRejectionSsrCorrectionExceedsLimit identifies strict SSR-size refusal.
 	StaticPositionRejectionSsrCorrectionExceedsLimit StaticPositionRejectionReason = 5
+	// StaticPositionRejectionNonFinitePseudorange identifies a NaN or infinite pseudorange.
+	StaticPositionRejectionNonFinitePseudorange StaticPositionRejectionReason = 6
+	// StaticPositionRejectionNonPositivePseudorange identifies a zero or negative pseudorange.
+	StaticPositionRejectionNonPositivePseudorange StaticPositionRejectionReason = 7
 )
 
 // StaticPositionClockBias is one detached receiver clock estimate in seconds.

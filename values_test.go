@@ -201,7 +201,8 @@ func TestValueRoutesDeterministic(t *testing.T) {
 		if err != nil || !gate.InGate || gate.NIS != 1 || gate.DOF != 1 || gate.Threshold != threshold {
 			t.Fatalf("TestNISGate = %#v, %v", gate, err)
 		}
-		if value, err := ChiSquareInverse(0.999, 1); err != nil || !(math.Abs(value-10.827566170662628) <= 1e-14) {
+		// Core's chi2_extended_mpmath.json gives this binary64 ppf.
+		if value, err := ChiSquareInverse(0.999, 1); err != nil || !(math.Abs(value-10.827566170662731) <= 1e-14) {
 			t.Fatalf("ChiSquareInverse = %.17g, %v", value, err)
 		}
 	})

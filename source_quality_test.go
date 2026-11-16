@@ -42,20 +42,65 @@ func TestSourceQualityFixture(t *testing.T) {
 	if guess2 != guess {
 		t.Fatalf("Chan-Ho and closed-form seeds differ: %+v vs %+v", guess2, guess)
 	}
-	dop, err := SourceDOP(sensors, []float64{200, 300, 400}, 299792458)
-	if err != nil {
-		t.Fatal(err)
+	// The ToA design has literal rows [(receiver-sensor)/(range*c), 1].
+	// With c=299792458 the normal matrix is numerically rank deficient under
+	// the core's normalized-pivot rule (64*binary64 epsilon). This explains
+	// the former huge DOP, rather than treating its changed result as a new pin.
+	var normal [4][4]float64
+	for _, sensor := range sensors {
+		delta := [3]float64{200 - sensor.PositionM[0], 300 - sensor.PositionM[1], 400 - sensor.PositionM[2]}
+		distance := math.Sqrt(delta[0]*delta[0] + delta[1]*delta[1] + delta[2]*delta[2])
+		row := [4]float64{delta[0] / distance / 299792458, delta[1] / distance / 299792458, delta[2] / distance / 299792458, 1}
+		for i := 0; i < 4; i++ {
+			for j := 0; j < 4; j++ {
+				normal[i][j] += row[i] * row[j]
+			}
+		}
 	}
-	wantDOP := DOP{GDOP: 4.891083916093432e8, PDOP: 4.891083916093432e8, HDOP: 4.1797252356646854e8, VDOP: 2.540196612196711e8, TDOP: 0.5482279079112733}
-	if math.Abs(dop.GDOP-wantDOP.GDOP) > 1e-6 || math.Abs(dop.PDOP-wantDOP.PDOP) > 1e-6 || math.Abs(dop.HDOP-wantDOP.HDOP) > 1e-6 || math.Abs(dop.VDOP-wantDOP.VDOP) > 1e-6 || math.Abs(dop.TDOP-wantDOP.TDOP) > 1e-15 {
-		t.Fatalf("unexpected DOP: %+v", dop)
+	// Normalize the normal matrix by its largest diagonal (four clock rows),
+	// then use partial-pivot Gaussian elimination and the documented cutoff.
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			normal[i][j] /= 4
+		}
 	}
-	crlb, err := SourceCRLB(sensors, []float64{200, 300, 400}, 299792458, 1e-9)
-	if err != nil {
-		t.Fatal(err)
+	deficient := false
+	for column := 0; column < 4; column++ {
+		pivotRow := column
+		for row := column + 1; row < 4; row++ {
+			if math.Abs(normal[row][column]) > math.Abs(normal[pivotRow][column]) {
+				pivotRow = row
+			}
+		}
+		pivot := math.Abs(normal[pivotRow][column])
+		if pivot <= 64*(math.Nextafter(1, 2)-1) {
+			deficient = true
+			break
+		}
+		normal[column], normal[pivotRow] = normal[pivotRow], normal[column]
+		for row := column + 1; row < 4; row++ {
+			factor := normal[row][column] / normal[column][column]
+			for next := column + 1; next < 4; next++ {
+				normal[row][next] -= factor * normal[column][next]
+			}
+		}
 	}
-	if crlb.Covariance.Dimension != 3 || crlb.Covariance.StateDimension != 4 || !crlb.Covariance.HasOriginTimeS2 || math.Abs(crlb.Covariance.TimingSigmaS-1e-9) > 1e-20 {
-		t.Fatalf("unexpected CRLB: %+v", crlb)
+	if !deficient {
+		t.Fatal("literal timing geometry unexpectedly has full numerical rank")
+	}
+	for _, call := range []func() error{
+		func() error { _, err := SourceDOP(sensors, []float64{200, 300, 400}, 299792458); return err },
+		func() error { _, err := SourceCRLB(sensors, []float64{200, 300, 400}, 299792458, 1e-9); return err },
+	} {
+		err := call()
+		var engine *EngineError
+		if !errors.As(err, &engine) || engine.Kind != "geometry" {
+			t.Fatalf("rank deficient error = %v", err)
+		}
+		cause := engine.TypedFields["cause"]
+		if cause.Object["kind"].String != "singular" {
+			t.Fatalf("rank deficient cause = %+v", cause)
+		}
 	}
 	opts, err := SourceLocateOptionsInit()
 	if err != nil {

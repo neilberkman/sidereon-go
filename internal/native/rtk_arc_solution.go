@@ -53,13 +53,17 @@ type RtkArcPreprocessing struct {
 }
 
 type RtkArcEpochMetadata struct {
-	ReportedBaselineM, FloatBaselineM              [3]float64
-	IntegerFixed                                   bool
-	IntegerRatio                                   float64
-	NewlyFixedCount, FixedIDCount                  int
-	FixedDoubleDifferenceCount, UsedSatelliteCount int
-	SDAmbiguityCount, ResidualCount                int
-	HasSearch                                      bool
+	// ElevationMaskConverged reports whether the rover screen stabilized.
+	ElevationMaskConverged bool
+	// ReleasedHoldCount, ReferenceSatelliteCount, and ElevationMaskedSatelliteCount are diagnostic list lengths.
+	ReleasedHoldCount, ReferenceSatelliteCount, ElevationMaskedSatelliteCount int
+	ReportedBaselineM, FloatBaselineM                                         [3]float64
+	IntegerFixed                                                              bool
+	IntegerRatio                                                              float64
+	NewlyFixedCount, FixedIDCount                                             int
+	FixedDoubleDifferenceCount, UsedSatelliteCount                            int
+	SDAmbiguityCount, ResidualCount                                           int
+	HasSearch                                                                 bool
 }
 
 type RtkArcReference struct {
@@ -863,6 +867,7 @@ func (s *RtkArcSolution) EpochMetadata(index int) (RtkArcEpochMetadata, error) {
 		{value.used_satellite_count, "RTK arc metadata used satellite count"},
 		{value.sd_ambiguity_count, "RTK arc metadata ambiguity count"},
 		{value.residual_count, "RTK arc metadata residual count"},
+		{value.released_hold_count, "released holds"}, {value.reference_satellite_count, "reference satellites"}, {value.elevation_masked_satellite_count, "masked satellites"},
 	}
 	converted := make([]int, len(counts))
 	for index, count := range counts {
@@ -871,7 +876,7 @@ func (s *RtkArcSolution) EpochMetadata(index int) (RtkArcEpochMetadata, error) {
 			return RtkArcEpochMetadata{}, err
 		}
 	}
-	return RtkArcEpochMetadata{ReportedBaselineM: [3]float64{float64(value.reported_baseline_m[0]), float64(value.reported_baseline_m[1]), float64(value.reported_baseline_m[2])}, FloatBaselineM: [3]float64{float64(value.float_baseline_m[0]), float64(value.float_baseline_m[1]), float64(value.float_baseline_m[2])}, IntegerFixed: bool(value.integer_fixed), IntegerRatio: float64(value.integer_ratio), NewlyFixedCount: converted[0], FixedIDCount: converted[1], FixedDoubleDifferenceCount: converted[2], UsedSatelliteCount: converted[3], SDAmbiguityCount: converted[4], ResidualCount: converted[5], HasSearch: bool(value.has_search)}, nil
+	return RtkArcEpochMetadata{ElevationMaskConverged: bool(value.elevation_mask_converged), ReleasedHoldCount: converted[6], ReferenceSatelliteCount: converted[7], ElevationMaskedSatelliteCount: converted[8], ReportedBaselineM: [3]float64{float64(value.reported_baseline_m[0]), float64(value.reported_baseline_m[1]), float64(value.reported_baseline_m[2])}, FloatBaselineM: [3]float64{float64(value.float_baseline_m[0]), float64(value.float_baseline_m[1]), float64(value.float_baseline_m[2])}, IntegerFixed: bool(value.integer_fixed), IntegerRatio: float64(value.integer_ratio), NewlyFixedCount: converted[0], FixedIDCount: converted[1], FixedDoubleDifferenceCount: converted[2], UsedSatelliteCount: converted[3], SDAmbiguityCount: converted[4], ResidualCount: converted[5], HasSearch: bool(value.has_search)}, nil
 }
 
 func (s *RtkArcSolution) EpochSDAmbiguities(index int) ([]RtkAmbiguity, error) {
@@ -1340,4 +1345,86 @@ func (s *RtkIonosphereFreeArcSolution) References() ([]RtkArcReference, error) {
 		return operationErr
 	})
 	return result, err
+}
+
+func (s *RtkArcSolution) EpochElevationMaskedSatellites(index int) ([]string, error) {
+	return s.epochDiagnosticSatellites(index, false)
+}
+func (s *RtkArcSolution) EpochReferenceSatellites(index int) ([]string, error) {
+	return s.epochDiagnosticSatellites(index, true)
+}
+func (s *RtkArcSolution) epochDiagnosticSatellites(index int, references bool) ([]string, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	i, err := checkedRtkArcSolutionIndex(index)
+	if err != nil {
+		return nil, err
+	}
+	var result []string
+	err = s.handle.read(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var e error
+			result, e = copyNativeTokensLocked("RTK epoch diagnostics", func(out *C.SidereonSatelliteToken, n C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+				if references {
+					return C.sidereon_rtk_arc_solution_epoch_reference_satellites((*C.SidereonRtkArcSolution)(pointer), i, out, n, written, required)
+				}
+				return C.sidereon_rtk_arc_solution_epoch_elevation_masked_satellites((*C.SidereonRtkArcSolution)(pointer), i, out, n, written, required)
+			})
+			return e
+		})
+	})
+	return result, err
+}
+func (s *RtkArcSolution) EpochReleasedHolds(index int) ([]ReleasedRtkHold, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	i, err := checkedRtkArcSolutionIndex(index)
+	if err != nil {
+		return nil, err
+	}
+	var result []ReleasedRtkHold
+	err = s.handle.read(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var written, required C.size_t
+			call := func(out *C.SidereonReleasedRtkHold, n C.size_t) C.enum_SidereonStatus {
+				return C.sidereon_rtk_arc_solution_epoch_released_holds((*C.SidereonRtkArcSolution)(pointer), i, out, n, &written, &required)
+			}
+			if err := statusErrorLocked(uint32(call(nil, 0))); err != nil {
+				return err
+			}
+			n, err := validateNativeQuery("released holds", uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			memory, err := allocNativeArray(n, unsafe.Sizeof(C.SidereonReleasedRtkHold{}))
+			if err != nil {
+				return err
+			}
+			defer C.free(memory)
+			written, required = 0, 0
+			if err := statusErrorLocked(uint32(call((*C.SidereonReleasedRtkHold)(memory), C.size_t(n)))); err != nil {
+				return err
+			}
+			count, err := validateTwoPassCounts("released holds", n, n, uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			result = make([]ReleasedRtkHold, count)
+			for i, row := range unsafe.Slice((*C.SidereonReleasedRtkHold)(memory), count) {
+				if row.reason != C.SIDEREON_RTK_HOLD_RELEASE_REASON_UNHELD_REFERENCE && row.reason != C.SIDEREON_RTK_HOLD_RELEASE_REASON_INCOMPATIBLE_WAVELENGTHS {
+					return invalidArgument("unknown RTK hold release reason")
+				}
+				result[i] = ReleasedRtkHold{AmbiguityID: rtkIDFromC(row.ambiguity_id).Value, Reason: uint32(row.reason)}
+			}
+			return nil
+		})
+	})
+	return result, err
+}
+
+type ReleasedRtkHold struct {
+	AmbiguityID string
+	Reason      uint32
 }

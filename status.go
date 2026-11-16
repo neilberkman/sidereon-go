@@ -567,6 +567,16 @@ const (
 	EngineErrorFamilyTimeModel EngineErrorFamily = 72
 	// EngineErrorFamilyPPPVelocity identifies typed range-rate velocity errors.
 	EngineErrorFamilyPPPVelocity EngineErrorFamily = 73
+	// EngineErrorFamilyTEC identifies typed engine errors from tec.
+	EngineErrorFamilyTEC EngineErrorFamily = 74
+	// EngineErrorFamilyPPPRaim identifies typed engine errors from ppp raim.
+	EngineErrorFamilyPPPRaim EngineErrorFamily = 75
+	// EngineErrorFamilyPPPCycleSlip identifies typed engine errors from ppp cycle slip.
+	EngineErrorFamilyPPPCycleSlip EngineErrorFamily = 76
+	// EngineErrorFamilyPPPPrep identifies typed engine errors from ppp prep.
+	EngineErrorFamilyPPPPrep EngineErrorFamily = 77
+	// EngineErrorFamilyPPPKinematic identifies typed engine errors from ppp kinematic.
+	EngineErrorFamilyPPPKinematic EngineErrorFamily = 78
 	// EngineErrorFamilyUnknown identifies typed engine errors from an unrecognized engine subsystem.
 	EngineErrorFamilyUnknown EngineErrorFamily = 999
 )

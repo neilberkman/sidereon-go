@@ -268,7 +268,8 @@ func NISThreshold(uint64, float64) (float64, error) { return 0, unavailableValue
 func ComputeNISGate(float64, float64, uint64, float64) (NISGate, error) {
 	return NISGate{}, unavailableValue()
 }
-func ChiSquareInverse(float64, uint64) (float64, error) { return 0, unavailableValue() }
+func ChiSquareInverse(float64, uint64) (float64, error)         { return 0, unavailableValue() }
+func ChiSquareInverseSurvival(float64, uint64) (float64, error) { return 0, unavailableValue() }
 
 func PolarMotionMatrix(float64, float64) ([3][3]float64, error) {
 	return [3][3]float64{}, unavailableValue()

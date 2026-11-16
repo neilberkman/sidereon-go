@@ -830,3 +830,11 @@ func (r *RangeFDEResult) Output() (NativeRangeFDEOutput, error) {
 	}
 	return NativeRangeFDEOutput{uint64(dimension), correction, covariance, NativeRangeFDEGlobalTest{float64(global.weighted_sum_squares), int64(global.dof), bool(global.has_threshold), float64(global.threshold), bool(global.testable), bool(global.fault_detected)}, uint64(iterations), excluded, outd}, nil
 }
+
+func ARAIMSatelliteModelADDV30(system uint32, elevation, ura, ure, bias, probability float64) (NativeARAIMSatelliteModel, error) {
+	var out C.SidereonAraimSatelliteIsmModel
+	err := callStatus(func() uint32 {
+		return uint32(C.sidereon_araim_satellite_ism_model_add_v3_0(C.uint32_t(system), C.double(elevation), C.double(ura), C.double(ure), C.double(bias), C.double(probability), &out))
+	})
+	return NativeARAIMSatelliteModel{SigmaURA: float64(out.sigma_ura_m), SigmaURE: float64(out.sigma_ure_m), HasEffectiveInt: bool(out.has_effective_sigma_int_m), EffectiveInt: float64(out.effective_sigma_int_m), HasEffectiveAcc: bool(out.has_effective_sigma_acc_m), EffectiveAcc: float64(out.effective_sigma_acc_m), BNom: float64(out.b_nom_m), PSat: float64(out.p_sat)}, err
+}

@@ -69,6 +69,7 @@ type SPPMetadata struct {
 }
 
 type SPPSolution struct {
+	RTKLIBSingleClockDOP   *Dop
 	PositionM              [3]float64
 	ReceiverClockS         float64
 	UsedSatelliteCount     int
@@ -359,6 +360,10 @@ func (s *SP3) Solve(config SPPConfig) (SPPSolution, error) {
 				},
 			}
 
+			result.RTKLIBSingleClockDOP, operationErr = sppSingleClockDopLocked(solution)
+			if operationErr != nil {
+				return
+			}
 			var dop C.SidereonDop
 			status = C.sidereon_spp_solution_dop(solution, &dop)
 			if status == C.SIDEREON_STATUS_OK {

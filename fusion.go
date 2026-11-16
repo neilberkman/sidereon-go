@@ -70,6 +70,19 @@ type FusionIMUSpec struct {
 
 // FusionFilterConfig configures a fusion filter and time-sync buffers.
 type FusionFilterConfig struct {
+	// HasLooseJointInnovationGateProbability enables the loose EKF joint chi-square gate.
+	HasLooseJointInnovationGateProbability bool
+	// LooseJointInnovationGateProbability is its false-alarm probability.
+	LooseJointInnovationGateProbability float64
+	// HasTightJointInnovationGateProbability requests the tight EKF joint gate.
+	// The current core does not apply this gate in tight EKF updates.
+	HasTightJointInnovationGateProbability bool
+	// TightJointInnovationGateProbability is the requested false-alarm probability.
+	TightJointInnovationGateProbability float64
+	// HasUKFJointInnovationGateProbability enables the UKF joint chi-square gate.
+	HasUKFJointInnovationGateProbability bool
+	// UKFJointInnovationGateProbability is its false-alarm probability.
+	UKFJointInnovationGateProbability float64
 	// FilterKind selects EKF or UKF processing.
 	FilterKind                                      FusionFilterKind
 	Layout                                          FusionErrorStateLayout
@@ -128,8 +141,24 @@ type FusionLooseMeasurement struct {
 	FixStatus                        FusionGNSSFixStatus
 }
 
+// JointInnovationGateReport describes a complete measurement-block chi-square test.
+type JointInnovationGateReport struct {
+	// Statistic is the joint normalized innovation squared.
+	Statistic float64
+	// DOF is the measurement-block degrees of freedom.
+	DOF uint64
+	// Threshold is the chi-square decision threshold.
+	Threshold float64
+	// Probability is the configured false-alarm probability.
+	Probability float64
+	// Accepted is the gate verdict.
+	Accepted bool
+}
+
 // FusionUpdate reports native update application and residual row counts.
 type FusionUpdate struct {
+	// JointInnovationGate is nil when the joint test did not run.
+	JointInnovationGate *JointInnovationGateReport
 	// Rows, AcceptedRows, and RejectedRows are native measurement counts.
 	Applied                          bool
 	NIS                              float64
@@ -227,10 +256,10 @@ func DefaultFusionFilterConfig() (FusionFilterConfig, error) {
 	if e == nil && conversionErr != nil {
 		return FusionFilterConfig{}, conversionErr
 	}
-	return FusionFilterConfig{FusionFilterKind(v.FilterKind), FusionErrorStateLayout(v.Layout), FusionIMUSpec{v.IMUSpec.AccelVRW, v.IMUSpec.GyroARW, v.IMUSpec.AccelBiasInstability, v.IMUSpec.GyroBiasInstability, v.IMUSpec.AccelBiasTau, v.IMUSpec.GyroBiasTau, v.IMUSpec.HasAccelScale, v.IMUSpec.HasGyroScale, v.IMUSpec.AccelScalePPM, v.IMUSpec.GyroScalePPM}, imuCapacity, checkpointCapacity}, publicError(e)
+	return FusionFilterConfig{FilterKind: FusionFilterKind(v.FilterKind), Layout: FusionErrorStateLayout(v.Layout), IMUSpec: FusionIMUSpec{v.IMUSpec.AccelVRW, v.IMUSpec.GyroARW, v.IMUSpec.AccelBiasInstability, v.IMUSpec.GyroBiasInstability, v.IMUSpec.AccelBiasTau, v.IMUSpec.GyroBiasTau, v.IMUSpec.HasAccelScale, v.IMUSpec.HasGyroScale, v.IMUSpec.AccelScalePPM, v.IMUSpec.GyroScalePPM}, TimeSyncIMUCapacity: imuCapacity, TimeSyncCheckpointCapacity: checkpointCapacity, HasLooseJointInnovationGateProbability: v.HasLooseJointGate, LooseJointInnovationGateProbability: v.LooseJointGateProbability, HasTightJointInnovationGateProbability: v.HasTightJointGate, TightJointInnovationGateProbability: v.TightJointGateProbability, HasUKFJointInnovationGateProbability: v.HasUKFJointGate, UKFJointInnovationGateProbability: v.UKFJointGateProbability}, publicError(e)
 }
 func nativeFusionConfig(v FusionFilterConfig) native.NativeFusionConfig {
-	return native.NativeFusionConfig{FilterKind: uint32(v.FilterKind), Layout: uint32(v.Layout), IMUSpec: native.NativeFusionIMUSpec{AccelVRW: v.IMUSpec.AccelVRWMPerSqrtS, GyroARW: v.IMUSpec.GyroARRadPerSqrtS, AccelBiasInstability: v.IMUSpec.AccelBiasInstabilityMPerS2, GyroBiasInstability: v.IMUSpec.GyroBiasInstabilityRadPerS, AccelBiasTau: v.IMUSpec.AccelBiasTauS, GyroBiasTau: v.IMUSpec.GyroBiasTauS, HasAccelScale: v.IMUSpec.HasAccelScaleInstability, HasGyroScale: v.IMUSpec.HasGyroScaleInstability, AccelScalePPM: v.IMUSpec.AccelScaleInstabilityPPM, GyroScalePPM: v.IMUSpec.GyroScaleInstabilityPPM}, TimeSyncIMUCapacity: uint64(v.TimeSyncIMUCapacity), TimeSyncCheckpointCapacity: uint64(v.TimeSyncCheckpointCapacity)}
+	return native.NativeFusionConfig{HasLooseJointGate: v.HasLooseJointInnovationGateProbability, LooseJointGateProbability: v.LooseJointInnovationGateProbability, HasTightJointGate: v.HasTightJointInnovationGateProbability, TightJointGateProbability: v.TightJointInnovationGateProbability, HasUKFJointGate: v.HasUKFJointInnovationGateProbability, UKFJointGateProbability: v.UKFJointInnovationGateProbability, FilterKind: uint32(v.FilterKind), Layout: uint32(v.Layout), IMUSpec: native.NativeFusionIMUSpec{AccelVRW: v.IMUSpec.AccelVRWMPerSqrtS, GyroARW: v.IMUSpec.GyroARRadPerSqrtS, AccelBiasInstability: v.IMUSpec.AccelBiasInstabilityMPerS2, GyroBiasInstability: v.IMUSpec.GyroBiasInstabilityRadPerS, AccelBiasTau: v.IMUSpec.AccelBiasTauS, GyroBiasTau: v.IMUSpec.GyroBiasTauS, HasAccelScale: v.IMUSpec.HasAccelScaleInstability, HasGyroScale: v.IMUSpec.HasGyroScaleInstability, AccelScalePPM: v.IMUSpec.AccelScaleInstabilityPPM, GyroScalePPM: v.IMUSpec.GyroScaleInstabilityPPM}, TimeSyncIMUCapacity: uint64(v.TimeSyncIMUCapacity), TimeSyncCheckpointCapacity: uint64(v.TimeSyncCheckpointCapacity)}
 }
 func nativeFusionNav(v FusionNavState) native.NativeFusionNavState {
 	return native.NativeFusionNavState{Epoch: v.EpochJ2000S, Position: v.PositionECEFM, Velocity: v.VelocityECEFMPerS, Attitude: v.AttitudeBodyToECEF, AccelBias: v.AccelBiasMPerS2, GyroBias: v.GyroBiasRadPerS, AccelScale: v.AccelScaleFactor, GyroScale: v.GyroScaleFactor}
@@ -308,7 +337,11 @@ func checkedFusionUpdate(v native.NativeFusionUpdate) (FusionUpdate, error) {
 	if err != nil {
 		return FusionUpdate{}, err
 	}
-	return FusionUpdate{v.Applied, v.NIS, rows, accepted, rejected}, nil
+	out := FusionUpdate{Applied: v.Applied, NIS: v.NIS, Rows: rows, AcceptedRows: accepted, RejectedRows: rejected}
+	if v.HasJointGate {
+		out.JointInnovationGate = &JointInnovationGateReport{Statistic: v.JointGateStatistic, DOF: v.JointGateDOF, Threshold: v.JointGateThreshold, Probability: v.JointGateProbability, Accepted: v.JointGateAccepted}
+	}
+	return out, nil
 }
 func checkedFusionTimeSyncUpdate(v native.NativeFusionTimeSyncUpdate) (FusionTimeSyncUpdate, error) {
 	update, err := checkedFusionUpdate(v.Update)

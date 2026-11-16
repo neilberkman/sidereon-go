@@ -63,7 +63,7 @@ func (s *SBASCorrectionStore) SolveBroadcastAtExactEpoch(broadcast *BroadcastEph
 	if err := validateSBASSolveMode(mode); err != nil {
 		return SPPSolution{}, err
 	}
-	if config.Models != (SPPModelOptions{}) {
+	if config.Models != (SPPModelOptions{}) || config.Validation != nil {
 		input, err := nativeSppV2(SPPInputsV2{Base: config, Models: config.Models})
 		if err != nil {
 			return SPPSolution{}, publicError(err)
@@ -90,7 +90,7 @@ func (s *SSRCorrectionStore) SolveBroadcastAtExactEpoch(broadcast *BroadcastEphe
 	if sizePolicy != SSRCorrectionSizeStrict && sizePolicy != SSRCorrectionSizeLenient {
 		return SPPSolution{}, invalidArgument("invalid SSR correction size policy")
 	}
-	if config.Models != (SPPModelOptions{}) {
+	if config.Models != (SPPModelOptions{}) || config.Validation != nil {
 		input, err := nativeSppV2(SPPInputsV2{Base: config, Models: config.Models})
 		if err != nil {
 			return SPPSolution{}, publicError(err)

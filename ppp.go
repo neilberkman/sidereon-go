@@ -1457,7 +1457,9 @@ func (s *PPPFixedSolution) Equal(other *PPPFixedSolution) (bool, error) {
 	return value, publicError(err)
 }
 
-// PosteriorVarianceFactor returns the float solution's posterior variance factor.
+// PosteriorVarianceFactor returns the float covariance scale. When
+// PosteriorVarianceFactorEstimated is false, it is the a-priori unit scale,
+// not a residual variance estimate.
 func (s *PPPFloatSolution) PosteriorVarianceFactor() (float64, error) {
 	if s == nil || s.handle == nil {
 		return 0, ErrClosed
@@ -1466,12 +1468,32 @@ func (s *PPPFloatSolution) PosteriorVarianceFactor() (float64, error) {
 	return value, publicError(err)
 }
 
-// PosteriorVarianceFactor returns the fixed solution's posterior variance factor.
+// PosteriorVarianceFactor returns the fixed covariance scale. When
+// PosteriorVarianceFactorEstimated is false, it is the a-priori unit scale,
+// not a residual variance estimate.
 func (s *PPPFixedSolution) PosteriorVarianceFactor() (float64, error) {
 	if s == nil || s.handle == nil {
 		return 0, ErrClosed
 	}
 	value, err := s.handle.PosteriorVarianceFactor()
+	return value, publicError(err)
+}
+
+// PosteriorVarianceFactorEstimated reports whether the float residual variance was estimated.
+func (s *PPPFloatSolution) PosteriorVarianceFactorEstimated() (bool, error) {
+	if s == nil || s.handle == nil {
+		return false, ErrClosed
+	}
+	value, err := s.handle.PosteriorVarianceFactorEstimated()
+	return value, publicError(err)
+}
+
+// PosteriorVarianceFactorEstimated reports whether the fixed residual variance was estimated.
+func (s *PPPFixedSolution) PosteriorVarianceFactorEstimated() (bool, error) {
+	if s == nil || s.handle == nil {
+		return false, ErrClosed
+	}
+	value, err := s.handle.PosteriorVarianceFactorEstimated()
 	return value, publicError(err)
 }
 

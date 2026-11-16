@@ -837,12 +837,14 @@ func PseudorangeVariance(elevation float64, options NativePseudorangeVarianceOpt
 }
 
 type NativeSolutionValidationOptions struct {
+	HasMaxGDOP                                                                  bool
+	MaxGDOP                                                                     float64
 	HasMaxPDOP                                                                  bool
 	MaxPDOP, MinPlausibleRadiusM, MaxPlausibleRadiusM, MaxConvergedResidualRMSM float64
 }
 
 func cSolutionValidationOptions(value NativeSolutionValidationOptions) C.SidereonSolutionValidationOptions {
-	return C.SidereonSolutionValidationOptions{has_max_pdop: C.bool(value.HasMaxPDOP), max_pdop: C.double(value.MaxPDOP), min_plausible_radius_m: C.double(value.MinPlausibleRadiusM), max_plausible_radius_m: C.double(value.MaxPlausibleRadiusM), max_converged_residual_rms_m: C.double(value.MaxConvergedResidualRMSM)}
+	return C.SidereonSolutionValidationOptions{has_max_gdop: C.bool(value.HasMaxGDOP), max_gdop: C.double(value.MaxGDOP), has_max_pdop: C.bool(value.HasMaxPDOP), max_pdop: C.double(value.MaxPDOP), min_plausible_radius_m: C.double(value.MinPlausibleRadiusM), max_plausible_radius_m: C.double(value.MaxPlausibleRadiusM), max_converged_residual_rms_m: C.double(value.MaxConvergedResidualRMSM)}
 }
 
 func validateReceiverSolutionLocked(solution *C.SidereonSppSolution, options NativeSolutionValidationOptions) error {
@@ -856,7 +858,7 @@ func validateReceiverSolutionLocked(solution *C.SidereonSppSolution, options Nat
 func SolutionValidationOptionsInit() (NativeSolutionValidationOptions, error) {
 	var output C.SidereonSolutionValidationOptions
 	err := callStatus(func() uint32 { return uint32(C.sidereon_solution_validation_options_init(&output)) })
-	return NativeSolutionValidationOptions{HasMaxPDOP: bool(output.has_max_pdop), MaxPDOP: float64(output.max_pdop), MinPlausibleRadiusM: float64(output.min_plausible_radius_m), MaxPlausibleRadiusM: float64(output.max_plausible_radius_m), MaxConvergedResidualRMSM: float64(output.max_converged_residual_rms_m)}, err
+	return NativeSolutionValidationOptions{HasMaxGDOP: bool(output.has_max_gdop), MaxGDOP: float64(output.max_gdop), HasMaxPDOP: bool(output.has_max_pdop), MaxPDOP: float64(output.max_pdop), MinPlausibleRadiusM: float64(output.min_plausible_radius_m), MaxPlausibleRadiusM: float64(output.max_plausible_radius_m), MaxConvergedResidualRMSM: float64(output.max_converged_residual_rms_m)}, err
 }
 
 // ValidateReceiverSolution is intentionally kept at the native boundary: the

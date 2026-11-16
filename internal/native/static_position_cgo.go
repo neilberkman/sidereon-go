@@ -128,7 +128,7 @@ const (
 	staticReferenceModeStatusMax = uint32(C.SIDEREON_STATIC_REFERENCE_MODE_STATUS_FAILED)
 	staticRtkIntegerStatusMax    = uint32(C.SIDEREON_RTK_INTEGER_STATUS_NOT_FIXED)
 	staticObservabilityTierMax   = uint32(C.SIDEREON_OBSERVABILITY_TIER_NOMINAL)
-	staticSppRejectionReasonMax  = uint32(C.SIDEREON_SPP_REJECTION_REASON_SBAS_IONO_UNCOVERED)
+	staticSppRejectionReasonMax  = uint32(C.SIDEREON_SPP_REJECTION_REASON_NON_POSITIVE_PSEUDORANGE)
 )
 
 func validateStaticPositionErrorKind(value uint32) error {
@@ -719,7 +719,7 @@ func (s *StaticPositionSolution) RejectedSatsV2(epoch int) ([]NativeSPPRejectedS
 			raw := unsafe.Slice((*C.SidereonSppRejectedSatV2)(memory), rows)
 			result = make([]NativeSPPRejectedSatelliteV2, rows)
 			for index, row := range raw {
-				if uint32(row.reason) > 5 {
+				if uint32(row.reason) > staticSppRejectionReasonMax {
 					return invalidArgument("invalid static rejection reason")
 				}
 				result[index] = NativeSPPRejectedSatelliteV2{SatelliteID: tokenFromC(row.sat_id), Reason: uint32(row.reason), HasSize: bool(row.has_size), OrbitM: float64(row.orbit_m), ClockM: float64(row.clock_m)}

@@ -158,3 +158,5 @@ sidereon_tec_slant_from_code_geometry_free_m	Not exposed in the Go API.
 sidereon_tec_slant_from_phase_geometry_free_m	Not exposed in the Go API.
 sidereon_tec_thin_shell_mapping_function	Not exposed in the Go API.
 sidereon_tec_vertical_from_slant	Not exposed in the Go API.
+sidereon_ppp_raim_fault_free_accuracy_bounds	PPP snapshot RAIM is not an existing Go API area; the complete sidereon_ppp_raim_* family remains unbound. Standalone quality RAIM and ARAIM use different core types.
+sidereon_ppp_raim_protection_levels_with_weights	PPP snapshot RAIM is not an existing Go API area; the complete sidereon_ppp_raim_* family remains unbound. Standalone quality RAIM and ARAIM use different core types.

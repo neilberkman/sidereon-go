@@ -87,6 +87,11 @@ const (
 	EngineErrorFamilyTimeOffset         EngineErrorFamily = 71
 	EngineErrorFamilyTimeModel          EngineErrorFamily = 72
 	EngineErrorFamilyPppVelocity        EngineErrorFamily = 73
+	EngineErrorFamilyTec                EngineErrorFamily = 74
+	EngineErrorFamilyPppRaim            EngineErrorFamily = 75
+	EngineErrorFamilyPppCycleSlip       EngineErrorFamily = 76
+	EngineErrorFamilyPppPrep            EngineErrorFamily = 77
+	EngineErrorFamilyPppKinematic       EngineErrorFamily = 78
 	EngineErrorFamilyUnknown            EngineErrorFamily = 999
 )
 
@@ -240,6 +245,16 @@ func (f EngineErrorFamily) Name() string {
 		return "time_model"
 	case EngineErrorFamilyPppVelocity:
 		return "ppp_velocity"
+	case EngineErrorFamilyTec:
+		return "tec"
+	case EngineErrorFamilyPppRaim:
+		return "ppp_raim"
+	case EngineErrorFamilyPppCycleSlip:
+		return "ppp_cycle_slip"
+	case EngineErrorFamilyPppPrep:
+		return "ppp_prep"
+	case EngineErrorFamilyPppKinematic:
+		return "ppp_kinematic"
 	case EngineErrorFamilyUnknown:
 		return "unknown"
 	default:
@@ -401,6 +416,16 @@ func EngineErrorFamilyFromName(name string) EngineErrorFamily {
 		return EngineErrorFamilyTimeModel
 	case "ppp_velocity":
 		return EngineErrorFamilyPppVelocity
+	case "tec":
+		return EngineErrorFamilyTec
+	case "ppp_raim":
+		return EngineErrorFamilyPppRaim
+	case "ppp_cycle_slip":
+		return EngineErrorFamilyPppCycleSlip
+	case "ppp_prep":
+		return EngineErrorFamilyPppPrep
+	case "ppp_kinematic":
+		return EngineErrorFamilyPppKinematic
 	default:
 		return EngineErrorFamilyUnknown
 	}

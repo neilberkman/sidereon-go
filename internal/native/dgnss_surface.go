@@ -160,6 +160,13 @@ func makeDgnssBaseInputs(config SPPConfig, alloc *cRtkAlloc) (*C.SidereonSppInpu
 	inputs.base.ionosphere = C.bool(config.Ionosphere)
 	inputs.base.troposphere = C.bool(config.Troposphere)
 	inputs.base.with_geodetic = C.bool(config.WithGeodetic)
+	if config.Validation != nil {
+		v := config.Validation
+		policy := NativeSPPSolvePolicy{UseValidationOptions: true, Validation: NativeSPPValidationOptions{MaxGDOPEnabled: v.HasMaxGDOP, MaxGDOP: v.MaxGDOP, MaxPDOPEnabled: v.HasMaxPDOP, MaxPDOP: v.MaxPDOP, MinPlausibleRadiusM: v.MinPlausibleRadiusM, MaxPlausibleRadiusM: v.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: v.MaxConvergedResidualRMSM}}
+		if err := nativePolicy(policy, &inputs.policy); err != nil {
+			return nil, err
+		}
+	}
 	return inputs, nil
 }
 

@@ -23,7 +23,12 @@ func recordedCallResult(done <-chan error) (error, bool) {
 func awaitRecordedCall(t *testing.T, name string, done <-chan error) {
 	t.Helper()
 	select {
-	case <-done:
+	case err := <-done:
+		if err != nil {
+			// These probes can intentionally submit invalid observations. The
+			// assertion concerns completion after unlocking, not solve validity.
+			t.Logf("%s completed after unlocking: %v", name, err)
+		}
 	case <-time.After(2 * time.Second):
 		t.Fatalf("%s did not finish after the builder lock was released", name)
 	}

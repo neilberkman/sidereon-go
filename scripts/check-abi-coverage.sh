@@ -114,10 +114,9 @@ direct_count=$(wc -l <"$work/direct" | tr -d ' ')
 composed_count=$(wc -l <"$work/composed" | tr -d ' ')
 excluded_count=$(wc -l <"$work/excluded" | tr -d ' ')
 
-# The reviewed header adds the complete TDM surface while retaining legacy
-# projection symbols; every declaration still has one disposition.
-[[ "$header_count" == 2349 ]] || {
-	printf 'ABI coverage: expected 2349 pinned v3 header declarations, found %s\n' "$header_count" >&2
+# Each public header declaration has exactly one reviewed disposition.
+[[ "$header_count" == 2362 ]] || {
+	printf 'ABI coverage: expected 2362 pinned v3 header declarations, found %s\n' "$header_count" >&2
     exit 1
 }
 
@@ -152,7 +151,7 @@ pin=$(sed '/^[[:space:]]*#/d' internal/native/lib/sidereon-c.ref | tr -d '[:spac
 {
 	printf '# Current C ABI implementation map\n\n'
 	printf 'This map is generated from the vendored header and production cgo calls for pinned public `sidereon-c` commit `%s`. Run `./scripts/check-abi-coverage.sh` to prove that every declaration has exactly one disposition.\n\n' "$pin"
-	printf 'Summary: **%s total = %s direct + %s composed + 0 excluded**. Direct rows name production cgo calls. Composed rows describe manually reviewed Go recipes and native replacements; this checker verifies declared entries and replacement call sites, not semantic equivalence. Private inline thread helpers are accounted for separately. This is C-symbol coverage; canonical Rust API parity is a separate audit.\n\n' "$header_count" "$direct_count" "$composed_count"
+	printf 'Summary: **%s total = %s direct + %s composed + %s excluded**. Direct rows name production cgo calls. Composed rows describe manually reviewed Go recipes and native replacements; this checker verifies declared entries and replacement call sites, not semantic equivalence. Private inline thread helpers are accounted for separately. This is C-symbol coverage; canonical Rust API coverage is a separate audit.\n\n' "$header_count" "$direct_count" "$composed_count" "$excluded_count"
 	printf '| # | C symbol | Disposition | Implementation proof |\n'
 	printf '|---:|---|---|---|\n'
 	awk -F '\t' '{ printf "| %d | `%s` | %s | %s |\n", NR, $1, $2, $3 }' "$work/dispositions"

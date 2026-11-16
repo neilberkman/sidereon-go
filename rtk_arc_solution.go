@@ -129,6 +129,10 @@ type RTKArcConfig struct {
 
 // RTKArcEpochMetadata contains one copied sequential solution epoch.
 type RTKArcEpochMetadata struct {
+	// ElevationMaskConverged reports whether the rover screen stabilized.
+	ElevationMaskConverged bool
+	// ReleasedHoldCount, ReferenceSatelliteCount, and ElevationMaskedSatelliteCount are diagnostic list lengths.
+	ReleasedHoldCount, ReferenceSatelliteCount, ElevationMaskedSatelliteCount int
 	// ReportedBaselineM and FloatBaselineM are rover-minus-base ECEF baselines in metres.
 	ReportedBaselineM, FloatBaselineM [3]float64
 	// IntegerFixed reports whether integer ambiguities were fixed.
@@ -497,7 +501,7 @@ func (s *RTKArcSolution) EpochMetadata(index int) (RTKArcEpochMetadata, error) {
 	if err != nil {
 		return RTKArcEpochMetadata{}, publicError(err)
 	}
-	return RTKArcEpochMetadata{ReportedBaselineM: value.ReportedBaselineM, FloatBaselineM: value.FloatBaselineM, IntegerFixed: value.IntegerFixed, IntegerRatio: value.IntegerRatio, NewlyFixedCount: value.NewlyFixedCount, FixedIDCount: value.FixedIDCount, FixedDoubleDifferenceCount: value.FixedDoubleDifferenceCount, UsedSatelliteCount: value.UsedSatelliteCount, SDAmbiguityCount: value.SDAmbiguityCount, ResidualCount: value.ResidualCount, HasSearch: value.HasSearch}, nil
+	return RTKArcEpochMetadata{ElevationMaskConverged: value.ElevationMaskConverged, ReleasedHoldCount: value.ReleasedHoldCount, ReferenceSatelliteCount: value.ReferenceSatelliteCount, ElevationMaskedSatelliteCount: value.ElevationMaskedSatelliteCount, ReportedBaselineM: value.ReportedBaselineM, FloatBaselineM: value.FloatBaselineM, IntegerFixed: value.IntegerFixed, IntegerRatio: value.IntegerRatio, NewlyFixedCount: value.NewlyFixedCount, FixedIDCount: value.FixedIDCount, FixedDoubleDifferenceCount: value.FixedDoubleDifferenceCount, UsedSatelliteCount: value.UsedSatelliteCount, SDAmbiguityCount: value.SDAmbiguityCount, ResidualCount: value.ResidualCount, HasSearch: value.HasSearch}, nil
 }
 
 // EpochSDAmbiguities returns detached single-difference ambiguities for the selected epoch.
@@ -745,4 +749,56 @@ func (s *RTKIonosphereFreeArcSolution) References() ([]RTKArcReference, error) {
 		result[index] = RTKArcReference{System: row.System, ReferenceID: row.ReferenceID}
 	}
 	return result, nil
+}
+
+// RTKHoldReleaseReason identifies why an ambiguity hold was released.
+type RTKHoldReleaseReason uint32
+
+const (
+	// RTKHoldReleaseUnheldReference means the replacement reference was not held.
+	RTKHoldReleaseUnheldReference RTKHoldReleaseReason = 0
+	// RTKHoldReleaseIncompatibleWavelengths means the carriers cannot share an integer lattice.
+	RTKHoldReleaseIncompatibleWavelengths RTKHoldReleaseReason = 1
+)
+
+// ReleasedRTKHold is an ambiguity hold released during reference transport.
+type ReleasedRTKHold struct {
+	// AmbiguityID identifies the released ambiguity.
+	AmbiguityID string
+	// Reason identifies the release cause.
+	Reason RTKHoldReleaseReason
+}
+
+// EpochElevationMaskedSatellites returns the rover-mask rejections at one epoch.
+func (s *RTKArcSolution) EpochElevationMaskedSatellites(index int) ([]string, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	out, err := s.handle.EpochElevationMaskedSatellites(index)
+	return out, publicError(err)
+}
+
+// EpochReferenceSatellites returns per-system reference satellite identifiers.
+func (s *RTKArcSolution) EpochReferenceSatellites(index int) ([]string, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	out, err := s.handle.EpochReferenceSatellites(index)
+	return out, publicError(err)
+}
+
+// EpochReleasedHolds returns ambiguity holds released at one epoch.
+func (s *RTKArcSolution) EpochReleasedHolds(index int) ([]ReleasedRTKHold, error) {
+	if s == nil || s.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := s.handle.EpochReleasedHolds(index)
+	if err != nil {
+		return nil, publicError(err)
+	}
+	out := make([]ReleasedRTKHold, len(values))
+	for i, v := range values {
+		out[i] = ReleasedRTKHold{AmbiguityID: v.AmbiguityID, Reason: RTKHoldReleaseReason(v.Reason)}
+	}
+	return out, nil
 }

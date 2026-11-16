@@ -125,7 +125,7 @@ func CelestrakConstellationURL(system GNSSSystem, format CelestrakGPFormat) (str
 
 // CelestrakGPURL builds a URL for the supplied GP selector.
 func CelestrakGPURL(query CelestrakGPQuery, format CelestrakGPFormat) (string, error) {
-	if query == nil || (reflect.ValueOf(query).Kind() == reflect.Ptr && reflect.ValueOf(query).IsNil()) {
+	if query == nil || (reflect.ValueOf(query).Kind() == reflect.Pointer && reflect.ValueOf(query).IsNil()) {
 		return "", &StatusError{Code: StatusInvalidArgument, Text: "invalid argument", Detail: "GP query is nil"}
 	}
 	return query.gpURL(format)

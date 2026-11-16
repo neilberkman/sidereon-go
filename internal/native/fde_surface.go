@@ -332,6 +332,14 @@ func solveFDE(source unsafe.Pointer, sp3 bool, config SPPConfig, options NativeF
 	}
 	defer C.free(wmemory)
 	defer freeCStrings(wids)
+	if config.Validation != nil {
+		var policy C.SidereonSppSolvePolicy
+		if err := nativePolicy(sppValidationPolicy(*config.Validation), &policy); err != nil {
+			return nil, err
+		}
+		coptions.use_validation_options = policy.use_validation_options
+		coptions.validation = policy.validation
+	}
 	var out *C.SidereonFdeSolution
 	var opErr error
 	withCThread(func() {
@@ -367,6 +375,14 @@ func solveRobustFDE(source unsafe.Pointer, sp3 bool, config SPPConfig, robust Na
 	cr := C.SidereonSppRobustConfig{
 		huber_k: C.double(robust.HuberK), scale_floor_m: C.double(robust.ScaleFloorM),
 		max_outer: maxOuter, outer_tol_m: C.double(robust.OuterToleranceM),
+	}
+	if config.Validation != nil {
+		var policy C.SidereonSppSolvePolicy
+		if err := nativePolicy(sppValidationPolicy(*config.Validation), &policy); err != nil {
+			return nil, err
+		}
+		coptions.use_validation_options = policy.use_validation_options
+		coptions.validation = policy.validation
 	}
 	var out *C.SidereonFdeSolution
 	var callErr error

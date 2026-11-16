@@ -6,6 +6,21 @@ All notable changes to this module are documented here.
 
 ### Added
 
+- Name the non-finite and non-positive pseudorange rejection reasons for SPP
+  and static positioning, and retain them in rejected-satellite results.
+- Add the chi-square inverse survival function and checked coverage operations;
+  deprecate the legacy coverage methods without changing their behavior.
+- Add the opt-in GDOP validation ceiling and retain its structured refusal.
+  Forward it through validation policies and refuse routes without a policy.
+  FDE and robust FDE return native status and text for validation refusals;
+  their C entry points do not supply structured validation fields.
+- Add PPP variance-factor estimation flags, RTK per-epoch rover-mask/reference
+  diagnostics and released-hold reasons, static RTK mask convergence, the ADD
+  v3.0 ARAIM satellite model, and RTKLIB shared-clock SPP DOP.
+- Expose EKF and UKF joint innovation gate configuration and a separate joint
+  report containing statistic, degrees of freedom, threshold, probability,
+  and verdict.
+- Support GPS and BeiDou together in the combined wide-lane/ionosphere-free RTK driver.
 - Add `OMM.ToKVNLenient` and `OMM.ToXMLLenient` for partial CCSDS messages.
 - Add CelesTrak GP and NAVCEN source metadata and URL builders, GP response
   parsing, OMM source spans and conversions, and an SGP4 fit OMM header.

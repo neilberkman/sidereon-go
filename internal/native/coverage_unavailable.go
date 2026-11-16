@@ -24,6 +24,8 @@ func (*CoverageGrid) LookAngle(int, int) (CoverageLookAngle, error) {
 func (*CoverageGrid) LookAngleErrorPayload(int, int) ([]byte, error) {
 	return nil, unavailable()
 }
-func (*CoverageGrid) AccessCounts(float64) ([]int, error) { return nil, unavailable() }
-func (*CoverageGrid) MaxElevationDeg() ([]float64, error) { return nil, unavailable() }
-func (*CoverageGrid) VisibleMask(float64) ([]bool, error) { return nil, unavailable() }
+func (*CoverageGrid) AccessCounts(float64) ([]int, error)    { return nil, unavailable() }
+func (*CoverageGrid) TryAccessCounts(float64) ([]int, error) { return nil, unavailable() }
+func (*CoverageGrid) MaxElevationDeg() ([]float64, error)    { return nil, unavailable() }
+func (*CoverageGrid) VisibleMask(float64) ([]bool, error)    { return nil, unavailable() }
+func (*CoverageGrid) TryVisibleMask(float64) ([]bool, error) { return nil, unavailable() }

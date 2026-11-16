@@ -97,13 +97,7 @@ func SolveFDE(sp3 *SP3, config SPPConfig, options FDEOptions) (*FDEResult, error
 	if sp3 == nil || sp3.handle == nil {
 		return nil, ErrClosed
 	}
-	h, e := native.SolveFDESPP(sp3.handle, native.SPPConfig{Observations: func() []native.SPPObservation {
-		v := make([]native.SPPObservation, len(config.Observations))
-		for i, o := range config.Observations {
-			v[i] = native.SPPObservation{SatelliteID: o.SatelliteID, PseudorangeM: o.PseudorangeM}
-		}
-		return v
-	}(), TRxJ2000S: config.TRxJ2000S, TRxSecondOfDayS: config.TRxSecondOfDayS, DayOfYear: config.DayOfYear, InitialGuess: config.InitialGuess, Ionosphere: config.Ionosphere, Troposphere: config.Troposphere, WithGeodetic: config.WithGeodetic}, nativeFDEOptions(options))
+	h, e := native.SolveFDESPP(sp3.handle, nativeSPPConfig(config), nativeFDEOptions(options))
 	if e != nil {
 		return nil, publicError(e)
 	}
@@ -115,11 +109,7 @@ func SolveFDEBroadcast(b *BroadcastEphemeris, config SPPConfig, options FDEOptio
 	if b == nil || b.handle == nil {
 		return nil, ErrClosed
 	}
-	v := make([]native.SPPObservation, len(config.Observations))
-	for i, o := range config.Observations {
-		v[i] = native.SPPObservation{SatelliteID: o.SatelliteID, PseudorangeM: o.PseudorangeM}
-	}
-	h, e := native.SolveFDEBroadcast(b.handle, native.SPPConfig{Observations: v, TRxJ2000S: config.TRxJ2000S, TRxSecondOfDayS: config.TRxSecondOfDayS, DayOfYear: config.DayOfYear, InitialGuess: config.InitialGuess, Ionosphere: config.Ionosphere, Troposphere: config.Troposphere, WithGeodetic: config.WithGeodetic}, nativeFDEOptions(options))
+	h, e := native.SolveFDEBroadcast(b.handle, nativeSPPConfig(config), nativeFDEOptions(options))
 	if e != nil {
 		return nil, publicError(e)
 	}

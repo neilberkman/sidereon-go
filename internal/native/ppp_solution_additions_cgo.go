@@ -216,3 +216,37 @@ func (solution *PppFloatSolution) Residuals() (result []PppFloatResidual, err er
 	runtime.KeepAlive(solution)
 	return result, err
 }
+
+func pppVarianceEstimated(handle *positioningHandle, fixed bool) (value bool, err error) {
+	if handle == nil {
+		return false, ErrClosed
+	}
+	err = handle.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var output C.bool
+			var status C.enum_SidereonStatus
+			if fixed {
+				status = C.sidereon_ppp_fixed_solution_posterior_variance_factor_estimated((*C.SidereonPppFixedSolution)(pointer), &output)
+			} else {
+				status = C.sidereon_ppp_float_solution_posterior_variance_factor_estimated((*C.SidereonPppFloatSolution)(pointer), &output)
+			}
+			value = bool(output)
+			return statusErrorLocked(uint32(status))
+		})
+	})
+	return
+}
+
+func (solution *PppFloatSolution) PosteriorVarianceFactorEstimated() (bool, error) {
+	if solution == nil {
+		return false, ErrClosed
+	}
+	return pppVarianceEstimated(solution.handle, false)
+}
+
+func (solution *PppFixedSolution) PosteriorVarianceFactorEstimated() (bool, error) {
+	if solution == nil {
+		return false, ErrClosed
+	}
+	return pppVarianceEstimated(solution.handle, true)
+}
