@@ -8,6 +8,17 @@ work; the C library owns byte parsing and numerical evaluation.
 The package name is `sidereon` and the module path is
 `sidereon.dev/go/v3`.
 
+OMM KVN and XML writers require complete CCSDS messages. Use
+`OMM.ToKVNLenient` or `OMM.ToXMLLenient` to write partial messages.
+The catalog API provides CelesTrak GP and NAVCEN source metadata and URL
+builders. `ParseCelestrakGPResponse` parses supplied response bytes without
+performing a network request.
+Record TLE handles support AFSPC or improved operations mode and strict or
+lenient checksum policy through `TLEWithOpsModeAndPolicy`.
+Detached record, rejection and error details can be compared with
+`reflect.DeepEqual`; catalog and record conversion errors also provide
+`Equal`. Response and record references use native equality methods.
+
 ## Install
 
 The binding requires cgo and a C compiler on the host. On macOS, install the

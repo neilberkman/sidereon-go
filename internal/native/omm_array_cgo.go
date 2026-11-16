@@ -260,3 +260,47 @@ func ParseOMMEpoch(text string) (OMMEpoch, error) {
 	}
 	return OMMEpoch{Year: int32(value.year), Month: uint32(value.month), Day: uint32(value.day), Hour: uint32(value.hour), Minute: uint32(value.minute), Second: uint32(value.second), Microsecond: uint32(value.microsecond), Femtosecond: uint32(value.femtosecond)}, nil
 }
+
+// OMMRecordSpan describes a source record's location.
+type OMMRecordSpan struct{ Index, ByteStart, ByteEnd, Line uint64 }
+
+func (a *OMMArray) Spans() ([]OMMRecordSpan, error) {
+	if a == nil || a.handle == nil {
+		return nil, ErrClosed
+	}
+	var spans []OMMRecordSpan
+	err := a.handle.with(func(p unsafe.Pointer) error {
+		var count C.size_t
+		if err := callStatus(func() uint32 { return uint32(C.sidereon_omm_array_span_count((*C.SidereonOmmArray)(p), &count)) }); err != nil {
+			return err
+		}
+		n, err := sizeTToInt(count, "OMM span count")
+		if err != nil {
+			return err
+		}
+		spans = make([]OMMRecordSpan, n)
+		for i := range spans {
+			var s C.SidereonOmmRecordSpan
+			if err := callStatus(func() uint32 { return uint32(C.sidereon_omm_array_span((*C.SidereonOmmArray)(p), C.size_t(i), &s)) }); err != nil {
+				return err
+			}
+			spans[i] = OMMRecordSpan{uint64(s.index), uint64(s.byte_start), uint64(s.byte_end), uint64(s.line)}
+		}
+		return nil
+	})
+	runtime.KeepAlive(a)
+	return spans, err
+}
+
+func (a *OMMArray) Equal(other *OMMArray) (bool, error) {
+	if a == nil || a.handle == nil || other == nil || other.handle == nil {
+		return false, ErrClosed
+	}
+	var out C.bool
+	err := withPositioningPair(a.handle, other.handle, func(x, y unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_omm_array_equal((*C.SidereonOmmArray)(x), (*C.SidereonOmmArray)(y), &out))
+		})
+	})
+	return bool(out), err
+}

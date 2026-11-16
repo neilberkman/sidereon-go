@@ -816,9 +816,9 @@ func TestCCSDSFixturesRoundTrip(t *testing.T) {
 		var output []byte
 		switch name {
 		case "KVN":
-			output, err = omm.ToKVN()
+			output, err = omm.ToKVNLenient()
 		case "XML":
-			output, err = omm.ToXML()
+			output, err = omm.ToXMLLenient()
 		case "JSON":
 			output, err = omm.ToJSON()
 		}

@@ -4,6 +4,19 @@ All notable changes to this module are documented here.
 
 ## Unreleased
 
+### Added
+
+- Add `OMM.ToKVNLenient` and `OMM.ToXMLLenient` for partial CCSDS messages.
+- Add CelesTrak GP and NAVCEN source metadata and URL builders, GP response
+  parsing, OMM source spans and conversions, and an SGP4 fit OMM header.
+- Allow GP TLE handles to select the operations mode and checksum policy.
+
+### Changed
+
+- OMM KVN and XML writers require the mandatory CCSDS fields.
+- TLE element conversion rejects negative, non-finite, or 1000-and-greater
+  epoch days. The SBAS constellation maps to the `sbas` CelesTrak group.
+
 - Add precise-positioning auto-init strategies, single-epoch and residual-ionosphere
   solves, indexed correction lookups, ambiguity-search metadata, weighted residual
   diagnostics, value equality, and the range-rate receiver-velocity model with

@@ -299,6 +299,38 @@ func TestAstrodynamicsSurfaceFixtureDeterministic(t *testing.T) {
 		t.Fatal(err)
 	}
 	fitConfig.MaxNFEV = -1 // ignored by the C ABI while HasMaxNFEV is false
+	withHeaderConfig := fitConfig
+	withHeaderConfig.OMMHeader = &SGP4FitOMMHeader{CreationDate: "2026-04-06T00:00:00", Originator: "TEST"}
+	if *withHeaderConfig.OMMHeader != (SGP4FitOMMHeader{CreationDate: "2026-04-06T00:00:00", Originator: "TEST"}) {
+		t.Fatal("fit header value differs")
+	}
+	withHeaderConfig.ObjectName = "ISS (ZARYA)"
+	withHeaderConfig.InternationalDesignator = "98067A"
+	withHeaderFit, err := FitSGP4TLE(fitSamples, withHeaderConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanupClose(t, "header fit", withHeaderFit.Close)
+	headerOMM, err := withHeaderFit.OMM()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanupClose(t, "header OMM", headerOMM.Close)
+	headerSnapshot, err := headerOMM.Snapshot()
+	if err != nil || headerSnapshot.Originator == nil || *headerSnapshot.Originator != "TEST" || headerSnapshot.CreationDate == nil || *headerSnapshot.CreationDate != "2026-04-06T00:00:00" {
+		t.Fatalf("fit header: %+v, %v", headerSnapshot, err)
+	}
+	invalidHeaderConfig := withHeaderConfig
+	invalidHeaderConfig.OMMHeader = &SGP4FitOMMHeader{CreationDate: "bad", Originator: "TEST"}
+	_, err = FitSGP4TLE(fitSamples, invalidHeaderConfig)
+	var headerError *SGP4FitOMMHeaderError
+	if !errors.As(err, &headerError) || headerError.Cause.Kind != "invalid_field" || headerError.Cause.Fields.Field == nil || *headerError.Cause.Fields.Field != "CREATION_DATE" || headerError.Cause.Fields.KindValue == nil || *headerError.Cause.Fields.KindValue != "invalid_civil_date" {
+		t.Fatalf("invalid fit header: %v", err)
+	}
+	var headerStatus *StatusError
+	if !errors.As(err, &headerStatus) || headerStatus.Code != StatusInvalidArgument {
+		t.Fatalf("fit header status: %v", err)
+	}
 	sgp4Fit, err := FitSGP4TLE(fitSamples, fitConfig)
 	if err != nil {
 		t.Fatal(err)
@@ -348,7 +380,7 @@ func TestAstrodynamicsSurfaceFixtureDeterministic(t *testing.T) {
 	if fitElementSet.Epoch.Whole != fitOMMSnapshot.ExactSGP4Epoch.Whole || fitElementSet.Epoch.Fraction != fitOMMSnapshot.ExactSGP4Epoch.Fraction || fitElementSet.OMMEpochDays != nil {
 		t.Fatalf("fitted OMM bridge did not preserve its exact split epoch: snapshot=%+v elements=%+v", fitOMMSnapshot.ExactSGP4Epoch, fitElementSet)
 	}
-	if encoded, err := fitOMM.KVN(); err != nil || len(encoded) == 0 {
+	if encoded, err := fitOMM.ToKVNLenient(); err != nil || len(encoded) == 0 {
 		t.Fatalf("fitted OMM KVN = %d bytes, %v", len(encoded), err)
 	} else {
 		parsedOMM, err := ParseOMMKVN(encoded)
@@ -356,7 +388,7 @@ func TestAstrodynamicsSurfaceFixtureDeterministic(t *testing.T) {
 			t.Fatal(err)
 		}
 		cleanupClose(t, "round-trip OMM", parsedOMM.Close)
-		if roundTrip, err := parsedOMM.KVN(); err != nil || len(roundTrip) == 0 {
+		if roundTrip, err := parsedOMM.ToKVNLenient(); err != nil || len(roundTrip) == 0 {
 			t.Fatalf("round-trip OMM = %d bytes, %v", len(roundTrip), err)
 		}
 	}

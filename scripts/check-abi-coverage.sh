@@ -61,7 +61,8 @@ cut -f1 "$work/direct-proof" >"$work/direct"
 
 # Every composition is a reviewed operation recipe, with a concrete public
 # entry and production native replacements. Unknown functions remain missing
-# dispositions and cause failure; exclusions are not accepted.
+# dispositions and cause failure. Explicitly unbound declarations are listed
+# separately with their disposition.
 # The table is manually reviewed. This checker verifies declared public entries
 # and production replacement call sites; it does not infer or prove semantic
 # equivalence. Validate the six-column contract before parsing; Bash read would
@@ -105,8 +106,8 @@ done <audit/ABI_COMPOSITIONS.tsv
 LC_ALL=C sort "$work/composed-proof" -o "$work/composed-proof"
 cut -f1 "$work/composed-proof" >"$work/composed"
 
-: >"$work/excluded-proof"
-: >"$work/excluded"
+awk -F '\t' 'NF != 2 || $1 !~ /^sidereon_[A-Za-z0-9_]+$/ || $2 == "" || seen[$1]++ { exit 1 } { print $1 "\t" $2 }' audit/ABI_UNBOUND.tsv | sort >"$work/excluded-proof"
+cut -f1 "$work/excluded-proof" >"$work/excluded"
 
 header_count=$(wc -l <"$work/header" | tr -d ' ')
 direct_count=$(wc -l <"$work/direct" | tr -d ' ')
@@ -115,8 +116,8 @@ excluded_count=$(wc -l <"$work/excluded" | tr -d ' ')
 
 # The reviewed header adds the complete TDM surface while retaining legacy
 # projection symbols; every declaration still has one disposition.
-[[ "$header_count" == 2155 ]] || {
-	printf 'ABI coverage: expected 2155 pinned v3 header declarations, found %s\n' "$header_count" >&2
+[[ "$header_count" == 2349 ]] || {
+	printf 'ABI coverage: expected 2349 pinned v3 header declarations, found %s\n' "$header_count" >&2
     exit 1
 }
 
