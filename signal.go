@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // SignalModulationKind selects the native signal-analysis model.
 type SignalModulationKind uint32

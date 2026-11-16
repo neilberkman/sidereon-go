@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // PreciseEphemerisSampleV2 retains the source epoch's tagged instant.
 type PreciseEphemerisSampleV2 struct {

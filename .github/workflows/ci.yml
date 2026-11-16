@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Exact tag or commit to test (for example, v3.0.4)
+        description: Exact tag or commit to test (for example, v4.0.0)
         required: true
         type: string
 
@@ -20,12 +20,13 @@ env:
 
 jobs:
   ordinary:
-    name: ordinary (${{ matrix.os }})
+    name: ordinary (${{ matrix.os }}, Go ${{ matrix.go }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [macos-15-intel, macos-15, ubuntu-24.04]
+        go: [module, stable]
     steps:
       - uses: actions/checkout@v6.0.2
         with:
@@ -39,15 +40,24 @@ jobs:
           set -Eeuo pipefail
           test "$(git rev-parse HEAD)" = "$(git rev-parse "${REQUESTED_REF}^{commit}")"
       - uses: actions/setup-go@v7.0.0
+        if: matrix.go == 'module'
         with:
           go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-go@v7.0.0
+        if: matrix.go == 'stable'
+        with:
+          go-version: stable
           cache: true
       - name: gofmt
         shell: bash
         run: test -z "$(gofmt -l .)"
       - name: go vet
         run: go vet ./...
+      # The pinned linter binary is built with the module Go version and
+      # refuses a newer toolchain, so lint once, on that version.
       - name: golangci-lint
+        if: matrix.go == 'module'
         uses: golangci/golangci-lint-action@v9.3.0
         with:
           version: v2.12.2

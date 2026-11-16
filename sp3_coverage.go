@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // SP3CoverageGrid describes the product epoch grid without discarding irregular epochs.
 type SP3CoverageGrid struct {

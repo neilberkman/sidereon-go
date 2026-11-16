@@ -3,7 +3,7 @@ package sidereon
 import (
 	"fmt"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // StationTideConstants selects the diurnal-band coefficients for solid Earth tide displacement.

@@ -3,7 +3,7 @@ package sidereon
 import (
 	"slices"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // TDMLeniency controls whether one class of non-conforming TDM input is refused or retained.

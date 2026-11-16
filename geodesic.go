@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // GeodesicDirectResult is a WGS84 direct-geodesic result. Angles are degrees
 // and distance is metres.

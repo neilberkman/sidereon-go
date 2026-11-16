@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // OMMSkippedRecord preserves the parser's zero-based input index and typed cause.

@@ -3,7 +3,7 @@ package sidereon
 import (
 	"errors"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // TRLSKind selects the residual model solved by TRLS.

@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 func TestRAIMPreservesQualityErrorKinds(t *testing.T) {

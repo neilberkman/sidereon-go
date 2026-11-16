@@ -1,6 +1,6 @@
 # Current C ABI implementation map
 
-This map is generated from the vendored header and production cgo calls for pinned public `sidereon-c` commit `v3.0.6`. Run `./scripts/check-abi-coverage.sh` to prove that every declaration has exactly one disposition.
+This map is generated from the vendored header and production cgo calls for pinned public `sidereon-c` commit `v4.0.0`. Run `./scripts/check-abi-coverage.sh` to prove that every declaration has exactly one disposition.
 
 Summary: **2362 total = 2157 direct + 43 composed + 162 excluded**. Direct rows name production cgo calls. Composed rows describe manually reviewed Go recipes and native replacements; this checker verifies declared entries and replacement call sites, not semantic equivalence. Private inline thread helpers are accounted for separately. This is C-symbol coverage; canonical Rust API coverage is a separate audit.
 

@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // TECGridInput contains the axes and flat values for an independently queryable
 // TEC grid. Values use epoch-latitude-longitude order, with longitude varying

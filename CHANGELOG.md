@@ -4,6 +4,15 @@ All notable changes to this module are documented here.
 
 ## Unreleased
 
+## 4.0.0 - 2026-11-16
+
+### Breaking
+
+- Change the module path to `sidereon.dev/go/v4`.
+- OMM KVN and XML writers require the mandatory CCSDS fields.
+- Options for an inactive fusion filter kind are refused. Per-row and joint
+  gates are mutually exclusive; joint probabilities must be finite in (0, 1).
+
 ### Added
 
 - Add per-row innovation gate reports, separate EKF/UKF gate settings, loose
@@ -34,12 +43,8 @@ All notable changes to this module are documented here.
 - Rejected loose updates preserve carried tight covariance cross-terms.
 - Loose IGG III updates coast when every row is removed; per-row reports count
   those removals and joint diagnostics remain absent.
-- Options for an inactive filter kind are refused. Gate probabilities must be
-  finite and strictly between zero and one. Per-row and joint gates are mutually
-  exclusive.
 - FDE and robust FDE validation errors retain structured GDOP and its ceiling.
 
-- OMM KVN and XML writers require the mandatory CCSDS fields.
 - TLE element conversion rejects negative, non-finite, or 1000-and-greater
   epoch days. The SBAS constellation maps to the `sbas` CelesTrak group.
 
@@ -52,6 +57,12 @@ All notable changes to this module are documented here.
   lossless headers/comments/fields/records, typed warnings and departures,
   policy presets, construction, atomic segment/metadata/data editing, and
   value equality for complete messages and their public value types.
+
+### Fixed
+
+- Native archives no longer carry LLVM bitcode sections, including macOS
+  `__LLVM,__bitcode` and Linux/Windows `.llvmbc` sections, which current Go
+  toolchains reject when linking.
 
 ## 3.0.6 - 2026-10-30
 

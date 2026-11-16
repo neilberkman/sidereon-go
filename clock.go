@@ -3,7 +3,7 @@ package sidereon
 import (
 	"errors"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // AllanSeriesKind identifies the units and missing-sample policy of a clock

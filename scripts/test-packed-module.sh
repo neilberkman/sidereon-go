@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Test the packed, tracked module from an outside consumer module.
 #
 # Integration seam: the tracked consumer program assumes these root exports:
@@ -29,14 +29,14 @@ if [ "$(go env GOOS)" = linux ]; then
 	PACKED_GOFLAGS="${PACKED_GOFLAGS:+$PACKED_GOFLAGS }-tags=sidereon_linux_glibc"
 fi
 
-# git archive contains only committed/tracked module content and has no .git
-# directory or untracked build output.
-git archive --format=tar HEAD | tar -xf - -C "$PACKED"
+git ls-files --cached --others --exclude-standard -z | while IFS= read -r -d '' path; do
+	[ -f "$path" ] && printf '%s\0' "$path"
+done | tar --null -T - -cf - | tar -xf - -C "$PACKED"
 
 go -C "$CONSUMER" mod init example.com/sidereon-consumer
-go -C "$CONSUMER" mod edit -replace sidereon.dev/go/v3="$PACKED"
+go -C "$CONSUMER" mod edit -replace sidereon.dev/go/v4="$PACKED"
 GOTOOLCHAIN=local GOPROXY=off CGO_ENABLED=1 GOFLAGS="$PACKED_GOFLAGS" \
-	go -C "$CONSUMER" get sidereon.dev/go/v3@v3.0.6
+	go -C "$CONSUMER" get sidereon.dev/go/v4@v4.0.0
 
 cp "$PACKED/scripts/testdata/packed-consumer/main.go" "$CONSUMER/main.go"
 cp "$PACKED/testdata/trimmed.sp3" "$CONSUMER/trimmed.sp3"
@@ -51,5 +51,5 @@ cp "$PACKED/testdata/trimmed.sp3" "$REGRESSION/testdata/trimmed.sp3"
 cp -R "$PACKED/testdata/sp3_accuracy_306" "$REGRESSION/testdata/"
 
 GOTOOLCHAIN=local GOPROXY=off CGO_ENABLED=1 GOFLAGS="$PACKED_GOFLAGS" \
-	SIDEREON_EXPECTED_VERSION=v3.0.6 \
+	SIDEREON_EXPECTED_VERSION=v4.0.0 \
 	go -C "$REGRESSION" test -v .

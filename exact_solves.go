@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // SolveBroadcastV2AtExactEpoch solves broadcast SPP with exact receive time and model selectors.
 func SolveBroadcastV2AtExactEpoch(broadcast *BroadcastEphemeris, input SPPInputsV2, receiveEpoch *ExactEpoch) (*SPPSolutionHandle, error) {

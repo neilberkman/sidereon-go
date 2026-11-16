@@ -8,7 +8,7 @@ import (
 	"maps"
 	"slices"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 func invalidArgument(detail string) error { return fmt.Errorf("sidereon: %s", detail) }

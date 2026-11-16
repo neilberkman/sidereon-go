@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // ErrorEllipse2 is a confidence ellipse from a 2x2 covariance block. Axes
 // have the covariance's units and orientation is radians.

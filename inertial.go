@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // InertialNavState stores position, velocity, and body attitude in ECEF at a J2000 epoch, together with IMU biases.

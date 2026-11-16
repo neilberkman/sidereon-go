@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 func TestPublicStatusErrorPreservesRTCMErrorPayload(t *testing.T) {

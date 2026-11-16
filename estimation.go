@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // NISGate is the normalized-innovation-squared gate result from C.
 type NISGate struct {

@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // EncounterFrame is the C B-plane frame. Unit vectors are dimensionless;
 // relative position and miss distance are km; relative velocity and speed are

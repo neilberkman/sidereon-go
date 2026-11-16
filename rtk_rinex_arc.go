@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // RTKRINEXReceiver identifies the receiver file containing an unresolved measurement.
 type RTKRINEXReceiver uint32

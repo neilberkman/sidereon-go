@@ -3,7 +3,7 @@ package sidereon
 import (
 	"errors"
 	"runtime"
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // SGP4Satellite is an independently owned propagation-ready satellite created

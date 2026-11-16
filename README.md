@@ -6,7 +6,7 @@ verbatim `sidereon.h` interface. Go owns the surrounding I/O and transport
 work; the C library owns byte parsing and numerical evaluation.
 
 The package name is `sidereon` and the module path is
-`sidereon.dev/go/v3`.
+`sidereon.dev/go/v4`.
 
 OMM KVN and XML writers require complete CCSDS messages. Use
 `OMM.ToKVNLenient` or `OMM.ToXMLLenient` to write partial messages.
@@ -30,7 +30,7 @@ Install a released version with `go get` and cgo enabled (a branch or commit
 reference such as `@main` works the same way):
 
 ```sh
-CGO_ENABLED=1 go get sidereon.dev/go/v3@v3.0.6
+CGO_ENABLED=1 go get sidereon.dev/go/v4@v4.0.0
 ```
 
 On Linux, select the matching bundled libc explicitly. For the usual glibc
@@ -38,7 +38,7 @@ distribution:
 
 ```sh
 CGO_ENABLED=1 GOFLAGS='-tags=sidereon_linux_glibc' \
-  go get sidereon.dev/go/v3@v3.0.6
+  go get sidereon.dev/go/v4@v4.0.0
 ```
 
 Use `sidereon_linux_musl` instead when building with a musl C toolchain.
@@ -165,7 +165,7 @@ import (
 	"fmt"
 	"time"
 
-	"sidereon.dev/go/v3"
+	"sidereon.dev/go/v4"
 )
 
 func main() {
@@ -195,7 +195,7 @@ package main
 import (
 	"os"
 
-	"sidereon.dev/go/v3"
+	"sidereon.dev/go/v4"
 )
 
 func main() {
@@ -318,11 +318,11 @@ if errors.As(err, &statusErr) {
 ## Versioning
 
 Go, C, and the canonical Sidereon engine release in lockstep: a published
-`v3.0.6` Go module uses the matching C header macros and static library for
-`3.0.6`. Go semantic import versioning requires the module path to carry the
+`v4.0.0` Go module uses the matching C header macros and static library for
+`4.0.0`. Go semantic import versioning requires the module path to carry the
 major version from 2 onward, so the module path is
-`sidereon.dev/go/v3` and each later major version moves
-the suffix with it (`/v4`, ...), whether or not the Go API itself changed.
+`sidereon.dev/go/v4` and each later major version moves
+the suffix with it (`/v5`, ...), whether or not the Go API itself changed.
 The package name stays `sidereon`.
 
 This module does not bind PPP snapshot RAIM or carried RTK filter state.

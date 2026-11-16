@@ -13,7 +13,7 @@ import (
 	"time"
 	"unsafe"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // NTRIPVersion selects the C-generated request wire version.

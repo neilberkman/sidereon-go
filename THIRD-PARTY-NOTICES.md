@@ -63,10 +63,10 @@ the supported conditional builds.
 
 ### C binding and engine crates
 
-- `sidereon-c` 1.2.0 — MIT; C ABI binding.
-- `sidereon` 1.2.0 — MIT; ergonomic engine facade.
-- `sidereon-core` 1.2.0 — MIT; numerical engine.
-- `trust-region-least-squares` 0.10.0 — MIT; statically linked numerical
+- `sidereon-c` 4.0.0 — MIT; C ABI binding.
+- `sidereon` 4.0.0 — MIT; ergonomic engine facade.
+- `sidereon-core` 4.0.0 — MIT; numerical engine.
+- `trust-region-least-squares` 0.11.0 — MIT; statically linked numerical
   dependency.
 
 ### Statically linked registry crates
@@ -89,10 +89,13 @@ holders and authors remain those recorded in each package's public manifest.
 | `crypto-common` | 0.1.7 | Apache-2.0 |
 | `digest` | 0.10.7 | Apache-2.0 |
 | `either` | 1.16.0 | Apache-2.0 |
+| `equivalent` | 1.0.2 | Apache-2.0 |
 | `flate2` | 1.1.9 | Apache-2.0 |
 | `fs2` | 0.4.3 | Apache-2.0 |
 | `generic-array` | 0.14.7 | MIT |
 | `getrandom` | 0.2.17 | Apache-2.0 |
+| `hashbrown` | 0.17.1 | Apache-2.0 |
+| `indexmap` | 2.14.2 | Apache-2.0 |
 | `itoa` | 1.0.18 | Apache-2.0 |
 | `libc` | 0.2.186 | Apache-2.0 |
 | `libloading` | 0.8.9 | ISC |
@@ -120,6 +123,7 @@ holders and authors remain those recorded in each package's public manifest.
 | `shlex` | 2.0.1 | Apache-2.0 |
 | `simba` | 0.9.1 | Apache-2.0 |
 | `simd-adler32` | 0.3.9 | MIT |
+| `smallvec` | 1.15.2 | Apache-2.0 |
 | `thiserror` | 1.0.69 | Apache-2.0 |
 | `typenum` | 1.20.1 | Apache-2.0 |
 | `wide` | 0.7.33 | Apache-2.0 |
@@ -184,8 +188,8 @@ The full official notice is reproduced in
 `LICENSES/IERS-Conventions-Software-License.txt` from the official
 [`DEHANTTIDEINEL.F`](https://iers-conventions.obspm.fr/content/chapter7/software/dehanttideinel/DEHANTTIDEINEL.F)
 source. The exact public non-test tide sources from the statically linked
-[sidereon-core 3.0.0 source](https://github.com/neilberkman/sidereon/tree/33f2cddcc2154afe14b54e31b40696ccc4176df9/crates/sidereon-core/src/tides)
-are distributed under `third_party_source/sidereon-core-3.0.0/tides/`.
+[sidereon-core 4.0.0 source](https://github.com/neilberkman/sidereon/tree/3132eeac13ebf30f63766fc608aa9aae9258dd3d/crates/sidereon-core/src/tides)
+are distributed under `third_party_source/sidereon-core-4.0.0/tides/`.
 The source comments retain the derivation, renamed routines, IERS
 acknowledgment, and difference-from-original text.
 Published results obtained with these routines should acknowledge use of the

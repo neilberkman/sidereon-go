@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // UT1DegradeReason records why UT1 interpolation used a degraded endpoint.
 type UT1DegradeReason uint32

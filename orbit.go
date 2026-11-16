@@ -3,7 +3,7 @@ package sidereon
 import (
 	"errors"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // EarthMuKm3PerS2 is the standard gravitational parameter used by the public

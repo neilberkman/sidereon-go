@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // RTKAmbiguitySatellite associates an ambiguity identifier with a satellite.
 type RTKAmbiguitySatellite struct {

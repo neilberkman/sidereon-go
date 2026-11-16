@@ -3,7 +3,7 @@ package sidereon
 import (
 	"encoding/json"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // ObservableRowError retains the typed cause attached to one mixed-result batch row.

@@ -3,7 +3,7 @@ package sidereon
 import (
 	"time"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // TLEFilePolicy selects checksum handling while parsing a TLE file.

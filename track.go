@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // TrackCoordinateFrame identifies the Cartesian frame used by the tracking state.
 type TrackCoordinateFrame uint32

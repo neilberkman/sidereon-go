@@ -1,7 +1,7 @@
 package sidereon
 
 import (
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // GLONASSChannel supplies the FDMA channel used by the native ionosphere

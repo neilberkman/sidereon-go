@@ -5,7 +5,7 @@ import (
 	"os"
 	"unsafe"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // GeoidPointDeg is a geoid query point expressed in degrees.

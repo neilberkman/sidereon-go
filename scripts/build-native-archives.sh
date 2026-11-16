@@ -35,7 +35,7 @@ SIDEREON_C_REF=$(awk '
 SIDEREON_C_REF=$(printf '%s' "$SIDEREON_C_REF" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
 SIDEREON_C_REPOSITORY="${SIDEREON_C_REPOSITORY:-https://github.com/neilberkman/sidereon-c.git}"
 SIDEREON_C_SOURCE="${SIDEREON_C_SOURCE:-}"
-RELEASE_VERSION="${SIDEREON_RELEASE_VERSION:-3.0.6}"
+RELEASE_VERSION="${SIDEREON_RELEASE_VERSION:-4.0.0}"
 GLIBC_FLOOR="${SIDEREON_GLIBC_FLOOR:-2.17}"
 CARGO_ZIGBUILD_VERSION="0.23.3"
 
@@ -170,9 +170,19 @@ header_version() {
   printf '%s.%s.%s\n' "$major" "$minor" "$patch"
 }
 
+prepare_section_checker() {
+  [[ -n "${SECTION_CHECKER:-}" ]] && return
+  require_command go
+  mkdir -p "$BUILD_ROOT"
+  SECTION_CHECKER="$BUILD_ROOT/check-native-archive"
+  CGO_ENABLED=0 go -C "$ROOT_DIR" build -o "$SECTION_CHECKER" ./internal/checkarchive
+}
+
 validate_archive() {
   local archive=$1
   [[ -f "$archive" && ! -L "$archive" ]] || die "missing or non-regular archive: $archive"
+  prepare_section_checker
+  "$SECTION_CHECKER" "$archive" || die "LLVM bitcode/LTO or invalid object in archive: $archive"
   local size magic members
   size=$(file_size "$archive")
   [[ "$size" =~ ^[0-9]+$ && "$size" -ge 1024 ]] || die "archive is empty or implausibly small: $archive ($size bytes)"
@@ -346,11 +356,28 @@ verify_only() {
 build_one() {
   local os=$1 arch=$2 libc=$3 target=$4 mode=$5 zig_target=$6 output_name=$7
   note "building $output_name for $target${zig_target:+ (zig target $zig_target)}"
-  if [[ "$mode" == "zig" ]]; then
-    "$CARGO" zigbuild --manifest-path "$SOURCE_DIR/bindings/c/Cargo.toml" --package sidereon-c --locked --release --target "$zig_target"
-  else
-    "$CARGO" build --manifest-path "$SOURCE_DIR/bindings/c/Cargo.toml" --package sidereon-c --locked --release --target "$target"
+  local std_home="$BUILD_ROOT/std-rustup"
+  if [[ -z "${STD_SYSROOT:-}" ]]; then
+    RUSTUP_HOME="$std_home" "$RUSTUP" set auto-self-update disable
+    RUSTUP_HOME="$std_home" "$RUSTUP" toolchain install 1.98.1 --profile minimal --component rust-src \
+      --target aarch64-apple-darwin --target x86_64-apple-darwin \
+      --target x86_64-unknown-linux-gnu --target aarch64-unknown-linux-gnu \
+      --target x86_64-unknown-linux-musl --target aarch64-unknown-linux-musl --target x86_64-pc-windows-gnu
+    STD_SYSROOT=$(RUSTUP_HOME="$std_home" "$RUSTUP" run 1.98.1 rustc --print sysroot)
   fi
+  # Distributed std contains LLVM IR. Rebuild it as machine code for every target.
+  (
+    export RUSTUP_HOME="$std_home" RUSTC="$STD_SYSROOT/bin/rustc" RUSTC_BOOTSTRAP=1
+    export CARGO_PROFILE_RELEASE_LTO=off
+    export RUSTFLAGS="$RUSTFLAGS -C embed-bitcode=no -C lto=off --remap-path-prefix=$STD_SYSROOT=__rust_sysroot__"
+    if [[ "$mode" == "zig" ]]; then
+      "$STD_SYSROOT/bin/cargo" zigbuild -Z build-std=std,panic_unwind \
+        --manifest-path "$SOURCE_DIR/bindings/c/Cargo.toml" --package sidereon-c --locked --release --target "$zig_target"
+    else
+      "$STD_SYSROOT/bin/cargo" build -Z build-std=std,panic_unwind \
+        --manifest-path "$SOURCE_DIR/bindings/c/Cargo.toml" --package sidereon-c --locked --release --target "$target"
+    fi
+  )
 
   local candidate
   for candidate in \
@@ -382,6 +409,9 @@ render_manifest() {
     printf '# header_version=%s\n' "$HEADER_VERSION"
     printf '# source_header_sha256=%s\n' "$HEADER_SHA256"
     printf '# glibc_floor=%s\n' "$GLIBC_FLOOR"
+    printf '# standard_library=source:std,panic_unwind\n'
+    printf '# embed_bitcode=no\n'
+    printf '# lto=off\n'
     printf '# cargo=%s\n' "$cargo_version"
     printf '# rustc=%s\n' "$rustc_version"
     printf '# cargo_zigbuild=%s\n' "$cargo_zigbuild_version"

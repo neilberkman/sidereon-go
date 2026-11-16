@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // SGP4FitResult is the complete detached typed fit result. Raw retains the

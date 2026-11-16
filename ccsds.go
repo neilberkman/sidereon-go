@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // OptionalNumber preserves the C CDM distinction between an absent numeric
 // field and a present zero. Value is NaN when Present is false.

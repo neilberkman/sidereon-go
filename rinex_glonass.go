@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // FrequencyChannel maps a GLONASS slot to its FDMA channel number.
 type FrequencyChannel struct {

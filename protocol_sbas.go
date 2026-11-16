@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // SBASWireForm identifies the SBAS message wire encoding.
 type SBASWireForm uint32
