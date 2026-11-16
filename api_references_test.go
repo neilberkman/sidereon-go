@@ -40,7 +40,7 @@ func TestCatalogExportReferences(t *testing.T) {
 			packages[pkg.ImportPath] = pkg
 		}
 	}
-	root, ok := packages["sidereon.dev/go/v3"]
+	root, ok := packages["sidereon.dev/go/v4"]
 	if !ok {
 		t.Fatal("package not listed")
 	}
@@ -100,7 +100,7 @@ func TestCatalogExportReferences(t *testing.T) {
 	lookup := func(path string) (io.ReadCloser, error) { pkg := packages[path]; return os.Open(pkg.Export) }
 	info := types.Info{Selections: map[*ast.SelectorExpr]*types.Selection{}}
 	conf := types.Config{Importer: importer.ForCompiler(fset, "gc", lookup), Error: func(error) {}, FakeImportC: true}
-	_, err = conf.Check("sidereon.dev/go/v3", fset, files, &info)
+	_, err = conf.Check("sidereon.dev/go/v4", fset, files, &info)
 	if err != nil {
 		t.Fatalf("type checking test references: %v", err)
 	}

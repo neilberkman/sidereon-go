@@ -4,7 +4,7 @@ import (
 	"math"
 	"sort"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // AlphaBetaState is a scalar level/rate state. Level uses caller-chosen units;

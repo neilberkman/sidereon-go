@@ -2,7 +2,7 @@ package sidereon
 
 import (
 	"fmt"
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // OpenPreciseInterpolantArtifactAttestedFile opens a native memory-mapped file

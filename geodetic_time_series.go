@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // GeodeticTimeSeriesFrame identifies the coordinate frame of a geodetic time series.
 type GeodeticTimeSeriesFrame uint32

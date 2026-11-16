@@ -2,23 +2,26 @@
 
 Gate result: PASS
 
-This review is a static audit of public sources only. It pins `../../repos/sidereon-c` at `b38ecf8caf796a02f209dbb4cbebdaa4a042204c`, uses `../../repos/sidereon-python` v1.1.1 as the documented baseline, and consults public `../../repos/sidereon` source only to verify semantics of routes that were previously questioned. No public reference repository was modified. No Go code is part of this change.
+The current C interface is `sidereon-c` 4.0.0 at commit
+`2c931e4cf256f3a8129ec1df6854920385f811c2`.
 
-## Independent inventory result
+## C interface inventory
 
-The current C header contains 1,503 declaration lines with 1,503 unique function names. The Rust source contains 1,503 `pub extern "C" fn` exports with 1,503 unique names. The sorted header/Rust set difference is zero; the shared sorted-name SHA-256 is `a8eb09a0dd3a569f2ebf08406c461f882a8207ac12984bf450456730ce3a84b3`.
+The C header contains 2,362 unique function declarations. The current
+`audit/ABI_IMPLEMENTATION_MAP.md` accounts for all declarations: 2,157 direct
+calls, 43 composed operations, and 162 intentional exclusions with reasons.
 
-The refreshed coverage map contains 1,503 rows and 1,503 unique C names. It has zero missing and zero obsolete names relative to the current header. The prior 1,402-row map was an input to this review, not an authority; all 101 current additions were re-enumerated and added.
+The C header SHA-256 is
+`38d1ce349b4e7e1f45ed2d601c95d7fa938ad791e0407f0d7fbe5817335da389`.
+Its version macros identify 4.0.0, matching the Go module major version.
 
-The C header SHA-256 is `6e79405bbce65d91958fe591279ad4c73f79f86573c64176f7c3dd0d9c29420d`. Its version macros remain `1.2.0` at lines 66-69. The future Go release target of 1.3.0 does not change this audit result: 1.2.0 is the expected pre-release state of the pinned C reference.
-
-## Documented Python surface
+## Historical Python 1.1.1 surface
 
 The baseline is `../../repos/sidereon-python` at HEAD `53be271eaf9974b3cf451065d0b0225f436bb944`, with `python/sidereon/__init__.pyi` SHA-256 `24d0712209e561c03f52148006540a151e12aa048dc3bcd7ceb845f87be848f9`. The package implementation exposes 1,194 unique names in its final `__all__` construction. The typed surface has 701 classes and 465 function declarations, or 464 unique function names because `raim` is overloaded. Auxiliary stubs contain 81 classes and 62 functions across `data.pyi`, `distribution.pyi`, `exact_cache.pyi`, `exact_sp3.pyi`, and `ntrip.pyi`.
 
 The complete family review is in `audit/COVERAGE_MAP.md`. It covers the positioning families (SP3, exact products, SPP, DGNSS, RTK, PPP, broadcast, observations, RINEX, RTCM, NMEA), astro families (TLE/SGP4, frames, time, passes, conjunction/TCA, orbit utilities and codecs), distribution families (SBAS, SSR, NTRIP, data/catalog/cache), geodesy families (coordinates, geoid, terrain, DTED, antenna/ANTEX, atmospheric and RF helpers), estimation families (metrics, covariance, DOP, RAIM/FDE, filters, NIS, clock/Allan), and presentation/path adapters. Each family has a C route or an explicitly Go-owned adapter; no documented numeric/parser family is left without an expression.
 
-## Former blockers and current additions
+## Historical C 1.2.0 interface comparison
 
 | Capability | Python evidence | Current C/Rust evidence | Finding |
 | --- | --- | --- | --- |
@@ -53,6 +56,6 @@ Go wrapper decisions:
 
 ## Exclusions and gate
 
-No current C function is excluded from the one-to-one map. C free functions are represented by `Close`; status and version helpers are support APIs. Go-owned I/O and protocol transport are composition decisions, not missing C numerical capability. The reverse SBAS lookup and SSR encoding compositions are the only places where the documented Python name is not a direct C function name, and both have been verified as lossless expressions of public routes.
+The current C symbol dispositions, including intentional exclusions, are listed in `audit/ABI_IMPLEMENTATION_MAP.md`. C free functions are represented by `Close`; status and version helpers are support APIs. Go-owned I/O and protocol transport are composition decisions, not missing C numerical capability. The map identifies composed operations and their native routes.
 
-PASS. The C declaration count, Rust export count, map row count, unique-name count, and set comparison all satisfy the audit invariants. All documented capabilities are expressible. The implementation gate is clear.
+The C declaration count and map row count agree. Every declaration has a disposition.

@@ -3,7 +3,7 @@ package sidereon
 import (
 	"runtime"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // PPPTransmitTimeFailureKind identifies why a bias was unusable at transmission time.

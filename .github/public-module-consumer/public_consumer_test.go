@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"sidereon.dev/go/v3"
+	"sidereon.dev/go/v4"
 )
 
 func TestPublishedLibraryVersion(t *testing.T) {

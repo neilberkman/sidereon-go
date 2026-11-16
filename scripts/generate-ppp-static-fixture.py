@@ -17,7 +17,7 @@ from pathlib import Path
 SOURCE = Path("testdata/trimmed.sp3")
 OUTPUT = Path("testdata/ppp-static-known-truth.sp3")
 MANIFEST = Path("testdata/ppp-static-known-truth.json")
-SOURCE_SHA256 = "fd0aa5e7047b67b41a567e1d8f9307b3d28af448dd5cf288098fc1300358c6ea"
+SOURCE_SHA256 = "8fa791c835ce289af78df792c228d033c716ce56e86537bc08ab090f82a354b7"
 RECEIVER_M = (4_500_000.0, 500_000.0, 4_500_000.0)
 SATELLITES = ("G08", "G10", "G16", "G18", "G20", "G21")
 OMEGA_RAD_S = 7.2921151467e-5

@@ -6,7 +6,7 @@ import (
 	"math"
 	"os"
 
-	"sidereon.dev/go/v3"
+	"sidereon.dev/go/v4"
 )
 
 // It performs a numerical SPP solve over in-memory bytes from the archived

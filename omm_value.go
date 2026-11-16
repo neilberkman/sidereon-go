@@ -7,7 +7,7 @@ import (
 	"io"
 	"math"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 var ommSnapshotKeys = []string{"ccsds_omm_vers", "classification", "creation_date", "originator", "message_id", "object_name", "object_id", "center_name", "ref_frame", "ref_frame_epoch", "time_system", "mean_element_theory", "epoch", "mean_motion", "semi_major_axis_km", "eccentricity", "inclination_deg", "ra_of_asc_node_deg", "arg_of_pericenter_deg", "mean_anomaly_deg", "gm_km3_s2", "spacecraft", "ephemeris_type", "classification_type", "norad_cat_id", "element_set_no", "rev_at_epoch", "bstar", "bterm_m2_kg", "mean_motion_dot", "mean_motion_ddot", "agom_m2_kg", "covariance", "user_defined", "comments", "exact_sgp4_epoch", "quantize_tle_derived_fields"}

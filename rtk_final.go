@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // RTKRINEXStaticBaselineConfig configures a static RTK solve from paired
 // RINEX observations and an SP3 product.

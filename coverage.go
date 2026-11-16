@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // CoverageLookAngle is one satellite/station cell from a coverage grid. OK

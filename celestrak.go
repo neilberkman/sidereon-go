@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // CelestrakGPFormat selects the GP response format.

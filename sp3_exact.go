@@ -3,7 +3,7 @@ package sidereon
 import (
 	"fmt"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // SP3AccuracyValueKind identifies whether an accuracy value is usable.

@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // SP3OrbitClass selects a standard earth-fixed satellite-speed bound.
 type SP3OrbitClass uint32

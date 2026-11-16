@@ -4,7 +4,7 @@ import (
 	"errors"
 	"unsafe"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // ANTEXErrorKind identifies a typed ANTEX parse or write refusal.

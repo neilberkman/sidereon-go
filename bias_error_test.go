@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 func TestBiasErrorPublicConversionPreservesTypedPayloadAndBytes(t *testing.T) {

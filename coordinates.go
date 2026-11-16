@@ -3,7 +3,7 @@ package sidereon
 import (
 	"errors"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // Geodetic is a WGS 84 position. Latitude and longitude are radians; height is

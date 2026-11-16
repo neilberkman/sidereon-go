@@ -3,7 +3,7 @@ package sidereon
 import (
 	"encoding/json"
 	"fmt"
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // OEM owns a parsed CCSDS Orbit Ephemeris Message. The C handle retains all

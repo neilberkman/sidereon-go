@@ -1,5 +1,8 @@
 # Sidereon Go audit evidence
 
+This document describes the historical C 1.2.0 interface. The 4.0.0 interface
+and symbol dispositions are documented in [ABI_IMPLEMENTATION_MAP.md](ABI_IMPLEMENTATION_MAP.md).
+
 Gate result: PASS
 
 This evidence ledger records the reproducible public-source checks for the audit. The pinned C reference is `../../repos/sidereon-c` at `b38ecf8caf796a02f209dbb4cbebdaa4a042204c`. The documented baseline is `../../repos/sidereon-python` v1.1.1. Public `../../repos/sidereon` source is cited only where it establishes the semantics of a C route.

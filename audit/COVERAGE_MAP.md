@@ -1,5 +1,8 @@
 # sidereon-go coverage map
 
+This document describes the historical C 1.2.0 interface. The 4.0.0 interface
+and symbol dispositions are documented in [ABI_IMPLEMENTATION_MAP.md](ABI_IMPLEMENTATION_MAP.md).
+
 Gate result: PASS
 
 This static audit covers the public C ABI at exact commit `b38ecf8caf796a02f209dbb4cbebdaa4a042204c` and the documented Python v1.1.1 surface. The current header and Rust export inventories each contain 1,503 unique `sidereon_*` functions, and their sorted symbol sets are identical. All documented capabilities are expressible through this ABI; the public Go implementation gate is clear. No Go implementation code is written here.

@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 type sp3WriteErrorSetter func(*native.SP3WriteError, *SP3WriteError)

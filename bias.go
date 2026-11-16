@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // BiasReadPolicy selects the validation policy for bias product titles and records.

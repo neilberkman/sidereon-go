@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // Ephemeris is an owning, read-only state-propagation result.
 type Ephemeris struct {

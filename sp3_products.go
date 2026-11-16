@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // SP3WriteErrorKind identifies a typed refusal to serialize an SP3 product.
 type SP3WriteErrorKind uint32

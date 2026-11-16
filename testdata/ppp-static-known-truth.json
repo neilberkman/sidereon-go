@@ -6,7 +6,7 @@
   },
   "epoch_count": 13,
   "fixture_path": "testdata/ppp-static-known-truth.sp3",
-  "fixture_sha256": "0e8bc8cefc6cb07954e2645a942b20949ef1fe29832166338ba7650b67dd5d6c",
+  "fixture_sha256": "fbee8f0eb795e1d998bb5fc565b8e7dc5b928cac93faa93820ace3030e8bd312",
   "generator": "generate_ppp_static_fixture.py",
   "independent_formula_reference": "RTKLIB 2.4.3 b34, git 75a2e56275485b21a67bd35bc94bbeb8936e1a74, src/rtkcmn.c geodist (first-order Sagnac term)",
   "measurement_model": "Euclidean range + omega*(sat_x*receiver_y - sat_y*receiver_x)/c; code=phase; troposphere and other corrections disabled",

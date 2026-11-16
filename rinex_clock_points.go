@@ -2,7 +2,7 @@ package sidereon
 
 import (
 	"errors"
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // RINEXClockEpochFromCivil converts civil fields in a continuous time scale to

@@ -1,6 +1,6 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import "sidereon.dev/go/v4/internal/native"
 
 // SelectIONEX selects an IONEX product usable at an integer J2000 epoch.
 func SelectIONEX(products []*IONEX, requestedEpochJ2000S int64, policy StalenessPolicy) (*IONEX, StalenessMetadata, error) {

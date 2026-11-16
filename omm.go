@@ -3,7 +3,7 @@ package sidereon
 import (
 	"encoding/json"
 	"errors"
-	"sidereon.dev/go/v3/internal/native"
+	"sidereon.dev/go/v4/internal/native"
 )
 
 // OMM owns a parsed CCSDS Orbit Mean-Elements Message and must not be copied
