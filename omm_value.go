@@ -526,6 +526,10 @@ func (o *OMM) ToElementSet() (OMMElementSet, error) {
 	if err != nil {
 		return OMMElementSet{}, publicError(err)
 	}
+	return publicOMMElementSet(value), nil
+}
+
+func publicOMMElementSet(value native.OMMElementSet) OMMElementSet {
 	result := OMMElementSet{
 		Epoch: JulianDate{Whole: value.EpochWhole, Fraction: value.EpochFraction},
 		BStar: value.BStar, Eccentricity: value.Eccentricity,
@@ -545,5 +549,5 @@ func (o *OMM) ToElementSet() (OMMElementSet, error) {
 	if value.OMMEpochDaysPresent {
 		result.OMMEpochDays = &value.OMMEpochDays
 	}
-	return result, nil
+	return result
 }

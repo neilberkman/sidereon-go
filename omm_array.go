@@ -34,7 +34,7 @@ func publicOMMArray(value *native.OMMArray) (*OMMArray, error) {
 func ParseOMMJSONArray(data []byte) (*OMMArray, error) {
 	value, err := native.ParseOMMJSONArray(append([]byte(nil), data...))
 	if err != nil {
-		return nil, publicError(err)
+		return nil, publicOMMError(err)
 	}
 	return publicOMMArray(value)
 }
@@ -43,7 +43,7 @@ func ParseOMMJSONArray(data []byte) (*OMMArray, error) {
 func ParseOMMXMLAll(data []byte) (*OMMArray, error) {
 	value, err := native.ParseOMMXMLAll(append([]byte(nil), data...))
 	if err != nil {
-		return nil, publicError(err)
+		return nil, publicOMMError(err)
 	}
 	return publicOMMArray(value)
 }
@@ -52,7 +52,7 @@ func ParseOMMXMLAll(data []byte) (*OMMArray, error) {
 func ParseOMMCSVArray(data []byte) (*OMMArray, error) {
 	value, err := native.ParseOMMCSVArray(append([]byte(nil), data...))
 	if err != nil {
-		return nil, publicError(err)
+		return nil, publicOMMError(err)
 	}
 	return publicOMMArray(value)
 }
@@ -61,18 +61,18 @@ func ParseOMMCSVArray(data []byte) (*OMMArray, error) {
 func NewOMMArray(values ...*OMM) (*OMMArray, error) {
 	value, err := native.NewOMMArray()
 	if err != nil {
-		return nil, publicError(err)
+		return nil, publicOMMError(err)
 	}
 	array, err := publicOMMArray(value)
 	if err != nil {
-		return nil, publicError(err)
+		return nil, publicOMMError(err)
 	}
 	for i, omm := range values {
 		if omm == nil || omm.handle == nil {
 			return nil, errors.Join(fmt.Errorf("sidereon: OMM array element %d is closed", i), publicError(array.Close()))
 		}
 		if err := value.Append(omm.handle); err != nil {
-			return nil, errors.Join(publicError(err), publicError(array.Close()))
+			return nil, errors.Join(publicOMMError(err), publicError(array.Close()))
 		}
 	}
 	return array, nil
@@ -92,7 +92,7 @@ func (a *OMMArray) Len() (int, error) {
 		return 0, ErrClosed
 	}
 	n, err := a.handle.Count()
-	return n, publicError(err)
+	return n, publicOMMError(err)
 }
 
 // Values returns detached complete snapshots in successful-record order.
@@ -105,7 +105,7 @@ func (a *OMMArray) Values() ([]OMMData, error) {
 	for i := 0; i < count; i++ {
 		record, err := a.handle.Record(i)
 		if err != nil {
-			return nil, publicError(err)
+			return nil, publicOMMError(err)
 		}
 		detached, snapshotErr := publicOMM(record).Snapshot()
 		closeErr := record.Close()
@@ -136,7 +136,7 @@ func (a *OMMArray) SkippedRecords() ([]OMMSkippedRecord, error) {
 	}
 	values, err := a.handle.Skipped()
 	if err != nil {
-		return nil, publicError(err)
+		return nil, publicOMMError(err)
 	}
 	out := make([]OMMSkippedRecord, len(values))
 	for i, value := range values {
@@ -159,7 +159,7 @@ func (a *OMMArray) JSON() ([]byte, error) {
 		return nil, ErrClosed
 	}
 	value, err := a.handle.JSON()
-	return append([]byte(nil), value...), publicError(err)
+	return append([]byte(nil), value...), publicOMMError(err)
 }
 
 // JSONDiscardingComments emits the array after discarding only comments JSON cannot carry.
@@ -168,7 +168,7 @@ func (a *OMMArray) JSONDiscardingComments() ([]byte, error) {
 		return nil, ErrClosed
 	}
 	value, err := a.handle.JSONDiscardingComments()
-	return append([]byte(nil), value...), publicError(err)
+	return append([]byte(nil), value...), publicOMMError(err)
 }
 
 // CSV emits all records as one strict GP CSV table.
@@ -177,7 +177,7 @@ func (a *OMMArray) CSV() ([]byte, error) {
 		return nil, ErrClosed
 	}
 	value, err := a.handle.CSV()
-	return append([]byte(nil), value...), publicError(err)
+	return append([]byte(nil), value...), publicOMMError(err)
 }
 
 // CSVDiscardingComments emits the table after discarding only comments CSV cannot carry.
@@ -186,14 +186,14 @@ func (a *OMMArray) CSVDiscardingComments() ([]byte, error) {
 		return nil, ErrClosed
 	}
 	value, err := a.handle.CSVDiscardingComments()
-	return append([]byte(nil), value...), publicError(err)
+	return append([]byte(nil), value...), publicOMMError(err)
 }
 
 // ParseOMM autodetects XML, JSON, GP CSV, or KVN using the core parser.
 func ParseOMM(data []byte) (*OMM, error) {
 	value, err := native.ParseOMM(append([]byte(nil), data...))
 	if err != nil {
-		return nil, publicError(err)
+		return nil, publicOMMError(err)
 	}
 	if value == nil {
 		return nil, errNilNativeHandle
@@ -205,7 +205,7 @@ func ParseOMM(data []byte) (*OMM, error) {
 func ParseOMMCSV(data []byte) (*OMM, error) {
 	value, err := native.ParseOMMCSV(append([]byte(nil), data...))
 	if err != nil {
-		return nil, publicError(err)
+		return nil, publicOMMError(err)
 	}
 	if value == nil {
 		return nil, errNilNativeHandle
@@ -217,7 +217,45 @@ func ParseOMMCSV(data []byte) (*OMM, error) {
 func ParseOMMEpoch(text string) (OMMEpoch, error) {
 	value, err := native.ParseOMMEpoch(text)
 	if err != nil {
-		return OMMEpoch{}, publicError(err)
+		return OMMEpoch{}, publicOMMError(err)
 	}
 	return OMMEpoch{Year: value.Year, Month: value.Month, Day: value.Day, Hour: value.Hour, Minute: value.Minute, Second: value.Second, Microsecond: value.Microsecond, Femtosecond: value.Femtosecond}, nil
+}
+
+// OMMRecordSpan identifies a source record by byte offsets and line number.
+// Values compare by value.
+type OMMRecordSpan struct {
+	// Index is the zero-based record index.
+	Index uint64
+	// ByteStart is the inclusive byte offset.
+	ByteStart uint64
+	// ByteEnd is the exclusive byte offset.
+	ByteEnd uint64
+	// Line is the one-based source line.
+	Line uint64
+}
+
+// Spans returns parser-provided record locations.
+func (a *OMMArray) Spans() ([]OMMRecordSpan, error) {
+	if a == nil || a.handle == nil {
+		return nil, ErrClosed
+	}
+	spans, err := a.handle.Spans()
+	if err != nil {
+		return nil, publicOMMError(err)
+	}
+	result := make([]OMMRecordSpan, len(spans))
+	for i, s := range spans {
+		result[i] = OMMRecordSpan{s.Index, s.ByteStart, s.ByteEnd, s.Line}
+	}
+	return result, nil
+}
+
+// Equal compares OMM arrays using core equality.
+func (a *OMMArray) Equal(other *OMMArray) (bool, error) {
+	if a == nil || a.handle == nil || other == nil || other.handle == nil {
+		return false, ErrClosed
+	}
+	value, err := a.handle.Equal(other.handle)
+	return value, publicOMMError(err)
 }

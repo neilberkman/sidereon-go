@@ -234,6 +234,7 @@ type SGP4FitSample struct {
 }
 
 type SGP4FitConfig struct {
+	OMMHeader                               *SGP4FitOMMHeader
 	EpochKind                               SGP4FitEpochKind
 	EpochSampleIndex                        int
 	EpochJDWhole, EpochJDFraction           float64
@@ -284,3 +285,5 @@ func (*SGP4TLEFit) Lines() (TLELines, error)                         { return TL
 func (*SGP4TLEFit) OMM() (*OMM, error)                               { return nil, unavailable() }
 func (*SGP4TLEFit) Statistics() (SGP4FitStatistics, error)           { return SGP4FitStatistics{}, unavailable() }
 func (*SGP4TLEFit) ResultPayload() ([]byte, error)                   { return nil, unavailable() }
+
+type SGP4FitOMMHeader struct{ CreationDate, Originator string }

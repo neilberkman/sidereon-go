@@ -53,6 +53,7 @@ type SGP4FitSample struct {
 }
 
 type SGP4FitConfig struct {
+	OMMHeader               *SGP4FitOMMHeader
 	EpochKind               SGP4FitEpochKind
 	EpochSampleIndex        int
 	EpochJDWhole            float64
@@ -83,6 +84,8 @@ type SGP4FitConfig struct {
 	RevAtEpoch              int64
 	ObjectName              string
 }
+
+type SGP4FitOMMHeader struct{ CreationDate, Originator string }
 
 type SGP4FitStatistics struct {
 	RMSPositionKm      float64
@@ -322,7 +325,23 @@ func FitSGP4TLE(samples []SGP4FitSample, config SGP4FitConfig) (*SGP4TLEFit, err
 		return nil, err
 	}
 	var out *C.SidereonSgp4TleFit
+	var creation, originator unsafe.Pointer
+	if config.OMMHeader != nil {
+		creation, err = copyNativeInput([]byte(config.OMMHeader.CreationDate))
+		if err != nil {
+			return nil, err
+		}
+		defer freeNativeInput(creation)
+		originator, err = copyNativeInput([]byte(config.OMMHeader.Originator))
+		if err != nil {
+			return nil, err
+		}
+		defer freeNativeInput(originator)
+	}
 	err = callStatus(func() uint32 {
+		if config.OMMHeader != nil {
+			return uint32(C.sidereon_sgp4_fit_tle_with_omm_header(&cSamples[0], C.size_t(len(cSamples)), &cConfig, (*C.uint8_t)(creation), C.size_t(len(config.OMMHeader.CreationDate)), (*C.uint8_t)(originator), C.size_t(len(config.OMMHeader.Originator)), &out))
+		}
 		return C.sidereon_sgp4_fit_tle(&cSamples[0], C.size_t(len(cSamples)), &cConfig, &out)
 	})
 	runtime.KeepAlive(cSamples)

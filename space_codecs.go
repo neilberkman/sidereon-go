@@ -150,7 +150,7 @@ func (o *OMM) ToKVN() ([]byte, error) {
 		return nil, ErrClosed
 	}
 	v, err := o.handle.Text(native.OMMFormatKVNValue)
-	return v, publicError(err)
+	return v, publicOMMError(err)
 }
 
 // ToXML serializes the OMM to an independent XML byte slice.
@@ -159,7 +159,7 @@ func (o *OMM) ToXML() ([]byte, error) {
 		return nil, ErrClosed
 	}
 	v, err := o.handle.Text(native.OMMFormatXMLValue)
-	return v, publicError(err)
+	return v, publicOMMError(err)
 }
 
 // ToJSON serializes the OMM to an independent JSON byte slice.
@@ -168,7 +168,7 @@ func (o *OMM) ToJSON() ([]byte, error) {
 		return nil, ErrClosed
 	}
 	v, err := o.handle.Text(native.OMMFormatJSONValue)
-	return v, publicError(err)
+	return v, publicOMMError(err)
 }
 
 // ConstellationRecord is the exact identity value returned by the OMM catalog
@@ -253,6 +253,12 @@ func (value OMMParseError) MarshalJSON() ([]byte, error) {
 
 // OMMParseErrorFields contains the complete union of core OMM error fields.
 type OMMParseErrorFields struct {
+	// Format identifies the malformed document format.
+	Format *string `json:"format"`
+	// ByteOffset is the malformed document byte position.
+	ByteOffset *json.Number `json:"byte_offset"`
+	// Fields lists the alternative required keywords.
+	Fields    []string         `json:"fields"`
 	Field     *string          `json:"field"`
 	KindValue *string          `json:"kind"`
 	Message   *string          `json:"message"`

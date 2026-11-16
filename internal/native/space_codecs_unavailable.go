@@ -340,3 +340,14 @@ func (*TDM) Segments() ([]TDMSegmentSummary, error)  { return nil, unavailable()
 func (*TDM) Participants() ([]TDMParticipant, error) { return nil, unavailable() }
 func (*TDM) Paths() ([]TDMPath, error)               { return nil, unavailable() }
 func (*TDM) Records() ([]TDMDataRecord, error)       { return nil, unavailable() }
+
+func OMMFromTLE(*TLE, string) (*OMM, error)                       { return nil, unavailable() }
+func (*OMM) WithCCSDSHeader(string, string, string) (*OMM, error) { return nil, unavailable() }
+func (*OMM) KVNLenient() ([]byte, error)                          { return nil, unavailable() }
+func (*OMM) XMLLenient() ([]byte, error)                          { return nil, unavailable() }
+
+type OMMRecordSpan struct{ Index, ByteStart, ByteEnd, Line uint64 }
+
+func (*OMMArray) Spans() ([]OMMRecordSpan, error) { return nil, unavailable() }
+func (*OMM) Equal(*OMM) (bool, error)             { return false, unavailable() }
+func (*OMMArray) Equal(*OMMArray) (bool, error)   { return false, unavailable() }

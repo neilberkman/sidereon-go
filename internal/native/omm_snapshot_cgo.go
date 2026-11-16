@@ -53,6 +53,10 @@ func (o *OMM) ToElementSet() (OMMElementSet, error) {
 	if err != nil {
 		return OMMElementSet{}, err
 	}
+	return ommElementSetFromC(value), nil
+}
+
+func ommElementSetFromC(value C.SidereonOmmElementSet) OMMElementSet {
 	return OMMElementSet{
 		EpochWhole: float64(value.epoch_whole), EpochFraction: float64(value.epoch_fraction),
 		BStar:                float64(value.bstar),
@@ -63,5 +67,5 @@ func (o *OMM) ToElementSet() (OMMElementSet, error) {
 		MeanMotionRevPerDay: float64(value.mean_motion_rev_per_day), RightAscensionDeg: float64(value.right_ascension_deg),
 		CatalogNumberPresent: bool(value.catalog_number_present), CatalogNumber: uint32(value.catalog_number),
 		OMMEpochDaysPresent: bool(value.omm_epoch_days_present), OMMEpochDays: float64(value.omm_epoch_days),
-	}, nil
+	}
 }

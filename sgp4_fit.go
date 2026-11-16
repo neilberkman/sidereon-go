@@ -3,6 +3,7 @@ package sidereon
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 
 	"sidereon.dev/go/v3/internal/native"
 )
@@ -223,6 +224,16 @@ type SGP4FitConfig struct {
 	ElementSetNumber        int32
 	RevAtEpoch              int64
 	ObjectName              string
+	// OMMHeader supplies the CCSDS creation date and originator, when present.
+	OMMHeader *SGP4FitOMMHeader
+}
+
+// SGP4FitOMMHeader supplies the header for a fitted OMM. Values compare by value.
+type SGP4FitOMMHeader struct {
+	// CreationDate is the CCSDS creation date.
+	CreationDate string
+	// Originator identifies the producing organization.
+	Originator string
 }
 
 // SGP4FitStatistics contains detached fitting residual and optimizer results.
@@ -254,7 +265,11 @@ func nativeSGP4FitSample(value SGP4FitSample) native.SGP4FitSample {
 }
 
 func nativeSGP4FitConfig(value SGP4FitConfig) native.SGP4FitConfig {
-	return native.SGP4FitConfig{EpochKind: native.SGP4FitEpochKind(value.EpochKind), EpochSampleIndex: value.EpochSampleIndex, EpochJDWhole: value.EpochJDWhole, EpochJDFraction: value.EpochJDFraction, FitBStar: value.FitBStar, BStarSeed: value.BStarSeed, UseVelocity: value.UseVelocity, HasVelocityWeightS: value.HasVelocityWeightS, VelocityWeightS: value.VelocityWeightS, Weights: append([]float64(nil), value.Weights...), OpsMode: uint32(value.OpsMode), HasFTol: value.HasFTol, FTol: value.FTol, HasXTol: value.HasXTol, XTol: value.XTol, HasGTol: value.HasGTol, GTol: value.GTol, HasMaxNFEV: value.HasMaxNFEV, MaxNFEV: value.MaxNFEV, XScaleKind: native.SGP4XScaleKind(value.XScaleKind), XScaleValues: append([]float64(nil), value.XScaleValues...), Loss: native.SGP4Loss(value.Loss), FScale: value.FScale, CatalogNumber: value.CatalogNumber, Classification: value.Classification, InternationalDesignator: value.InternationalDesignator, ElementSetNumber: value.ElementSetNumber, RevAtEpoch: value.RevAtEpoch, ObjectName: value.ObjectName}
+	result := native.SGP4FitConfig{EpochKind: native.SGP4FitEpochKind(value.EpochKind), EpochSampleIndex: value.EpochSampleIndex, EpochJDWhole: value.EpochJDWhole, EpochJDFraction: value.EpochJDFraction, FitBStar: value.FitBStar, BStarSeed: value.BStarSeed, UseVelocity: value.UseVelocity, HasVelocityWeightS: value.HasVelocityWeightS, VelocityWeightS: value.VelocityWeightS, Weights: append([]float64(nil), value.Weights...), OpsMode: uint32(value.OpsMode), HasFTol: value.HasFTol, FTol: value.FTol, HasXTol: value.HasXTol, XTol: value.XTol, HasGTol: value.HasGTol, GTol: value.GTol, HasMaxNFEV: value.HasMaxNFEV, MaxNFEV: value.MaxNFEV, XScaleKind: native.SGP4XScaleKind(value.XScaleKind), XScaleValues: append([]float64(nil), value.XScaleValues...), Loss: native.SGP4Loss(value.Loss), FScale: value.FScale, CatalogNumber: value.CatalogNumber, Classification: value.Classification, InternationalDesignator: value.InternationalDesignator, ElementSetNumber: value.ElementSetNumber, RevAtEpoch: value.RevAtEpoch, ObjectName: value.ObjectName}
+	if value.OMMHeader != nil {
+		result.OMMHeader = &native.SGP4FitOMMHeader{CreationDate: value.OMMHeader.CreationDate, Originator: value.OMMHeader.Originator}
+	}
+	return result
 }
 
 func publicSGP4FitConfig(value native.SGP4FitConfig) SGP4FitConfig {
@@ -275,12 +290,45 @@ func FitSGP4TLE(samples []SGP4FitSample, config SGP4FitConfig) (*SGP4TLEFit, err
 	}
 	value, err := native.FitSGP4TLE(values, nativeSGP4FitConfig(config))
 	if err != nil {
-		return nil, publicError(err)
+		result := publicError(err)
+		var engine *EngineError
+		if errors.As(result, &engine) && engine.Family == EngineErrorFamilyTLEFit && engine.Kind == "omm_header" {
+			var fields struct {
+				Cause OMMParseError `json:"cause"`
+			}
+			if json.Unmarshal(engine.Fields, &fields) == nil {
+				return nil, &SGP4FitOMMHeaderError{Cause: fields.Cause, underlying: result}
+			}
+		}
+		return nil, result
 	}
 	if value == nil {
 		return nil, errNilNativeHandle
 	}
 	return &SGP4TLEFit{handle: value}, nil
+}
+
+// SGP4FitOMMHeaderError retains the OMM header validation refusal.
+type SGP4FitOMMHeaderError struct {
+	// Cause is the typed OMM validation error.
+	Cause      OMMParseError
+	underlying error
+}
+
+// Error returns the native refusal text.
+func (e *SGP4FitOMMHeaderError) Error() string {
+	if e.underlying != nil {
+		return e.underlying.Error()
+	}
+	return e.Cause.Error()
+}
+
+// Unwrap exposes the OMM validation error and the native refusal.
+func (e *SGP4FitOMMHeaderError) Unwrap() []error {
+	if e.underlying == nil {
+		return []error{&e.Cause}
+	}
+	return []error{&e.Cause, e.underlying}
 }
 
 // Close releases the fitted TLE and is idempotent.

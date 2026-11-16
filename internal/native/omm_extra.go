@@ -86,6 +86,10 @@ func (o *OMM) encode(kind uint32) ([]byte, error) {
 				return C.sidereon_omm_to_json((*C.SidereonOmm)(pointer), out, length, written, required)
 			case 1:
 				return C.sidereon_omm_to_kvn((*C.SidereonOmm)(pointer), out, length, written, required)
+			case 3:
+				return C.sidereon_omm_to_kvn_lenient((*C.SidereonOmm)(pointer), out, length, written, required)
+			case 4:
+				return C.sidereon_omm_to_xml_lenient((*C.SidereonOmm)(pointer), out, length, written, required)
 			default:
 				return C.sidereon_omm_to_xml((*C.SidereonOmm)(pointer), out, length, written, required)
 			}
@@ -123,6 +127,71 @@ func (o *OMM) encode(kind uint32) ([]byte, error) {
 	return result, err
 }
 
-func (o *OMM) JSON() ([]byte, error) { return o.encode(0) }
-func (o *OMM) KVN() ([]byte, error)  { return o.encode(1) }
-func (o *OMM) XML() ([]byte, error)  { return o.encode(2) }
+func (o *OMM) JSON() ([]byte, error)       { return o.encode(0) }
+func (o *OMM) KVN() ([]byte, error)        { return o.encode(1) }
+func (o *OMM) XML() ([]byte, error)        { return o.encode(2) }
+func (o *OMM) KVNLenient() ([]byte, error) { return o.encode(3) }
+func (o *OMM) XMLLenient() ([]byte, error) { return o.encode(4) }
+
+func OMMFromTLE(tle *TLE, name string) (*OMM, error) {
+	if tle == nil || tle.handle == nil {
+		return nil, ErrClosed
+	}
+	input, err := copyNativeInput([]byte(name))
+	if err != nil {
+		return nil, err
+	}
+	defer freeNativeInput(input)
+	var out *C.SidereonOmm
+	err = tle.handle.with(func(p unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_omm_from_tle((*C.SidereonTle)(p), (*C.uint8_t)(input), C.size_t(len(name)), &out))
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return newOMM(out)
+}
+
+func (o *OMM) WithCCSDSHeader(version, creationDate, originator string) (*OMM, error) {
+	if o == nil || o.handle == nil {
+		return nil, ErrClosed
+	}
+	a, err := copyNativeInput([]byte(version))
+	if err != nil {
+		return nil, err
+	}
+	defer freeNativeInput(a)
+	b, err := copyNativeInput([]byte(creationDate))
+	if err != nil {
+		return nil, err
+	}
+	defer freeNativeInput(b)
+	c, err := copyNativeInput([]byte(originator))
+	if err != nil {
+		return nil, err
+	}
+	defer freeNativeInput(c)
+	var out *C.SidereonOmm
+	err = o.handle.with(func(p unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_omm_with_ccsds_header((*C.SidereonOmm)(p), (*C.uint8_t)(a), C.size_t(len(version)), (*C.uint8_t)(b), C.size_t(len(creationDate)), (*C.uint8_t)(c), C.size_t(len(originator)), &out))
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return newOMM(out)
+}
+
+func (o *OMM) Equal(other *OMM) (bool, error) {
+	if o == nil || o.handle == nil || other == nil || other.handle == nil {
+		return false, ErrClosed
+	}
+	var out C.bool
+	err := withPositioningPair(o.handle, other.handle, func(a, b unsafe.Pointer) error {
+		return callStatus(func() uint32 { return uint32(C.sidereon_omm_equal((*C.SidereonOmm)(a), (*C.SidereonOmm)(b), &out)) })
+	})
+	return bool(out), err
+}
