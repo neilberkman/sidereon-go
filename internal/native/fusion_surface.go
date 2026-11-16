@@ -18,7 +18,19 @@ type NativeFusionIMUSpec struct {
 	HasAccelScale, HasGyroScale                                                             bool
 	AccelScalePPM, GyroScalePPM                                                             float64
 }
+type NativeFusionInnovationGate struct {
+	ThresholdSigma float64
+	MinRows        uint64
+}
+type NativeFusionReweighting struct{ K0, K1 float64 }
+type NativeFusionTightModel struct {
+	LightTime, Sagnac                                bool
+	BiasVariance, DriftVariance, BiasWalk, DriftWalk float64
+}
 type NativeFusionConfig struct {
+	LooseGate, TightGate, UKFGate                                                 *NativeFusionInnovationGate
+	Reweighting                                                                   *NativeFusionReweighting
+	TightModel                                                                    *NativeFusionTightModel
 	HasLooseJointGate, HasTightJointGate, HasUKFJointGate                         bool
 	LooseJointGateProbability, TightJointGateProbability, UKFJointGateProbability float64
 	FilterKind, Layout                                                            uint32
@@ -62,6 +74,8 @@ type NativeFusionLooseMeasurement struct {
 	FixStatus          uint32
 }
 type NativeFusionUpdate struct {
+	HasGate, GateCoasted                                         bool
+	GateInputRows, GateAcceptedRows, GateRejectedRows            uint64
 	HasJointGate                                                 bool
 	JointGateStatistic, JointGateThreshold, JointGateProbability float64
 	JointGateDOF                                                 uint64
@@ -165,7 +179,7 @@ func fusionState(v C.SidereonFusionState) NativeFusionState {
 	return out
 }
 func fusionUpdate(v C.SidereonFusionUpdate) NativeFusionUpdate {
-	return NativeFusionUpdate{Applied: bool(v.applied), NIS: float64(v.nis), Rows: uint64(v.rows), AcceptedRows: uint64(v.accepted_rows), RejectedRows: uint64(v.rejected_rows), HasJointGate: bool(v.has_joint_innovation_gate), JointGateStatistic: float64(v.joint_gate_statistic), JointGateDOF: uint64(v.joint_gate_degrees_of_freedom), JointGateThreshold: float64(v.joint_gate_threshold), JointGateProbability: float64(v.joint_gate_probability), JointGateAccepted: bool(v.joint_gate_accepted)}
+	return NativeFusionUpdate{HasGate: bool(v.has_innovation_gate), GateCoasted: bool(v.innovation_gate_coasted), GateInputRows: uint64(v.innovation_gate_input_rows), GateAcceptedRows: uint64(v.innovation_gate_accepted_rows), GateRejectedRows: uint64(v.innovation_gate_rejected_rows), Applied: bool(v.applied), NIS: float64(v.nis), Rows: uint64(v.rows), AcceptedRows: uint64(v.accepted_rows), RejectedRows: uint64(v.rejected_rows), HasJointGate: bool(v.has_joint_innovation_gate), JointGateStatistic: float64(v.joint_gate_statistic), JointGateDOF: uint64(v.joint_gate_degrees_of_freedom), JointGateThreshold: float64(v.joint_gate_threshold), JointGateProbability: float64(v.joint_gate_probability), JointGateAccepted: bool(v.joint_gate_accepted)}
 }
 func fusionCallRead(h *surfaceHandle, call func(unsafe.Pointer) C.enum_SidereonStatus) error {
 	return h.read(func(p unsafe.Pointer) error {
@@ -209,6 +223,36 @@ func NewFusionFilter(initial NativeFusionNavState, diagonal []float64, config Na
 	withCThread(func() { opErr = statusErrorLocked(uint32(C.sidereon_fusion_filter_config_init(&c))) })
 	if opErr != nil {
 		return nil, opErr
+	}
+	gate := func(v *NativeFusionInnovationGate, has *C.bool, out *C.SidereonFusionInnovationGate) error {
+		if v == nil {
+			return nil
+		}
+		count, err := cSize64(v.MinRows, "fusion gate minimum rows")
+		if err != nil {
+			return err
+		}
+		*has = true
+		*out = C.SidereonFusionInnovationGate{threshold_sigma: C.double(v.ThresholdSigma), min_rows: count}
+		return nil
+	}
+	if err := gate(config.LooseGate, &c.has_loose_innovation_gate, &c.loose_innovation_gate); err != nil {
+		return nil, err
+	}
+	if err := gate(config.TightGate, &c.has_tight_innovation_gate, &c.tight_innovation_gate); err != nil {
+		return nil, err
+	}
+	if err := gate(config.UKFGate, &c.has_ukf_innovation_gate, &c.ukf_innovation_gate); err != nil {
+		return nil, err
+	}
+	if config.Reweighting != nil {
+		c.has_loose_measurement_reweighting = true
+		c.loose_measurement_reweighting = C.SidereonFusionIggIiiMeasurementReweighting{k0_sigma: C.double(config.Reweighting.K0), k1_sigma: C.double(config.Reweighting.K1)}
+	}
+	if v := config.TightModel; v != nil {
+		c.tight_light_time, c.tight_sagnac = C.bool(v.LightTime), C.bool(v.Sagnac)
+		c.tight_initial_clock_bias_variance_m2, c.tight_initial_clock_drift_variance_m2_s2 = C.double(v.BiasVariance), C.double(v.DriftVariance)
+		c.tight_clock_bias_random_walk_m2_s, c.tight_clock_drift_random_walk_m2_s3 = C.double(v.BiasWalk), C.double(v.DriftWalk)
 	}
 	c.has_loose_joint_innovation_gate_probability = C.bool(config.HasLooseJointGate)
 	c.loose_joint_innovation_gate_probability = C.double(config.LooseJointGateProbability)

@@ -20,7 +20,7 @@ The header still reports 1.2.0 although the future Go release target is 1.3.0. T
 
 ## Gate decision
 
-PASS. Every current C declaration has exactly one row below. Rust exports match the header with a zero sorted symbol-set diff. The former eleven blockers, bare SSR decode/bias access, and SBAS PRN lookup were rechecked for inputs, outputs, accessors, ownership, and status behavior. No true ABI parity gap remains.
+PASS. Every current C declaration has exactly one row below. Rust exports match the header with a zero sorted symbol-set diff. The former eleven blockers, bare SSR decode/bias access, and SBAS PRN lookup were rechecked for inputs, outputs, accessors, ownership, and status behavior. Every ABI declaration has a disposition.
 
 The documented reverse helper `satellite_id_to_sbas_prn` has no reverse-named C symbol. It is expressible as a Go convenience over the exact finite C forward route `sidereon_sbas_prn_to_satellite_id`: test the documented SBAS PRN domain and compare the copied identifier. This preserves the public mapping without introducing a second numeric implementation.
 
@@ -34,7 +34,7 @@ Owning opaque C pointers become non-copying Go handles with explicit `Close`, po
 
 The C error string is thread-local, so the fallible call and immediate error read must remain on one locked OS thread. Live read-only handles may be shared; mutation and `Close` must be serialized, and callers must not race a read with `Close`. Go owns sockets, TLS, retries, filesystem paths, cache locks, decompression, and presentation aliases; C owns byte parsing, numeric evaluation, and protocol state.
 
-## Python documented-surface parity
+## Python documented-surface coverage
 
 The package implementation has 1,194 unique `__all__` names from `__init__.py:1134-2530`. The main stub has 701 classes and 465 function declarations (464 unique names because `raim` is overloaded). Auxiliary stubs add 81 classes and 62 functions. Methods and properties are included in the capability review below.
 

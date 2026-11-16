@@ -534,7 +534,7 @@ func TestConjunctionAndTCADeterministic(t *testing.T) {
 	}
 }
 
-func TestOrbitalParityRoutesAndCatalogScreening(t *testing.T) {
+func TestOrbitalRoutesAndCatalogScreening(t *testing.T) {
 	if beta, err := BetaAngleDeg([3]float64{0, 0, 1}, [3]float64{1, 0, 0}); err != nil || math.Abs(beta) > 1e-14 {
 		t.Fatalf("BetaAngleDeg = %.17g, %v", beta, err)
 	}

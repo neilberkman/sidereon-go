@@ -176,7 +176,7 @@ final __all__ names=1194
 all .pyi lines=15407
 ```
 
-The broad capability grouping and routes are in `audit/COVERAGE_MAP.md`; the individual former-blocker checks are repeated in `audit/PARITY_REVIEW.md`.
+The broad capability grouping and routes are in `audit/COVERAGE_MAP.md`; the individual former-blocker checks are repeated in `audit/API_REVIEW.md`.
 
 ## Source anchors for ABI contract
 

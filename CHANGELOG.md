@@ -6,14 +6,15 @@ All notable changes to this module are documented here.
 
 ### Added
 
+- Add per-row innovation gate reports, separate EKF/UKF gate settings, loose
+  IGG III reweighting options, and tight measurement and clock options.
+
 - Name the non-finite and non-positive pseudorange rejection reasons for SPP
   and static positioning, and retain them in rejected-satellite results.
 - Add the chi-square inverse survival function and checked coverage operations;
   deprecate the legacy coverage methods without changing their behavior.
 - Add the opt-in GDOP validation ceiling and retain its structured refusal.
   Forward it through validation policies and refuse routes without a policy.
-  FDE and robust FDE return native status and text for validation refusals;
-  their C entry points do not supply structured validation fields.
 - Add PPP variance-factor estimation flags, RTK per-epoch rover-mask/reference
   diagnostics and released-hold reasons, static RTK mask convergence, the ADD
   v3.0 ARAIM satellite model, and RTKLIB shared-clock SPP DOP.
@@ -27,6 +28,16 @@ All notable changes to this module are documented here.
 - Allow GP TLE handles to select the operations mode and checksum policy.
 
 ### Changed
+
+- Tight EKF joint innovation gates now return diagnostics for acceptance and
+  rejection; rejection preserves state and covariance.
+- Rejected loose updates preserve carried tight covariance cross-terms.
+- Loose IGG III updates coast when every row is removed; per-row reports count
+  those removals and joint diagnostics remain absent.
+- Options for an inactive filter kind are refused. Gate probabilities must be
+  finite and strictly between zero and one. Per-row and joint gates are mutually
+  exclusive.
+- FDE and robust FDE validation errors retain structured GDOP and its ceiling.
 
 - OMM KVN and XML writers require the mandatory CCSDS fields.
 - TLE element conversion rejects negative, non-finite, or 1000-and-greater

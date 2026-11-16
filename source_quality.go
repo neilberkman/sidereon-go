@@ -709,8 +709,7 @@ type SolutionValidationOptions struct {
 	// HasMaxGDOP enables the optional GDOP ceiling.
 	HasMaxGDOP bool
 	// MaxGDOP is the dimensionless GDOP ceiling. DGNSS position, Doppler, and
-	// static-position solves refuse an enabled ceiling. FDE applies it but its
-	// C validation errors currently carry status and text without structured fields.
+	// static-position solves refuse an enabled ceiling.
 	MaxGDOP float64
 	// HasMaxPDOP reports whether MaxPDOP supplies a geometry ceiling.
 	HasMaxPDOP bool
