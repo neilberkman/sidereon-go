@@ -291,12 +291,24 @@ func TestBroadcastGDOPPolicies(t *testing.T) {
 	assertUnsupportedGDOP(t, err)
 }
 
-// FDE's C validation branch currently publishes status and text, without a schema1 payload.
 func assertFDEGDOPRefusal(t *testing.T, err error) {
 	t.Helper()
-	var status *StatusError
-	if !errors.As(err, &status) || status.Code != StatusSolve || !strings.Contains(status.Detail, "DegenerateGeometryGdop(") {
-		t.Fatalf("expected FDE GDOP refusal: %T %v", err, err)
+	assertGDOPRefusal(t, err)
+	var engine *EngineError
+	if !errors.As(err, &engine) {
+		t.Fatal(err)
+	}
+	node := engine.TypedFields
+	if cause, ok := node["cause"]; ok {
+		node = cause.Object["fields"].Object
+	}
+	raw, ok := node["max_gdop"]
+	if !ok {
+		t.Fatalf("missing max_gdop: %+v", node)
+	}
+	v, e := (EngineFloat{BitsHex: raw.Object["bits_hex"].String, Decimal: raw.Object["decimal"].String}).Float64()
+	if e != nil || v != .01 {
+		t.Fatalf("max_gdop=%g: %v", v, e)
 	}
 }
 
@@ -369,4 +381,33 @@ func TestSPPRTKLIBSingleClockDOP(t *testing.T) {
 	if dop == nil || math.Abs(dop.PDOP-pdop) > 1e-8 || math.Abs(dop.TDOP-tdop) > 1e-8 || math.Abs(dop.GDOP-gdop) > 1e-8 {
 		t.Fatalf("shared DOP=%+v independent=%g,%g,%g", dop, pdop, tdop, gdop)
 	}
+	validation, err := SolutionValidationOptionsInit()
+	if err != nil {
+		t.Fatal(err)
+	}
+	validation.HasMaxGDOP, validation.MaxGDOP = true, .01
+	input.Validation = &validation
+	fde, err := DefaultFDEOptions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, robust := range []bool{false, true} {
+		var solveErr error
+		if robust {
+			_, solveErr = SolveRobustFDE(sp3, input, SPPRobustConfig{HuberK: 1.345, ScaleFloorM: 1, MaxOuter: 100, OuterToleranceM: .0001}, fde)
+		} else {
+			_, solveErr = SolveFDE(sp3, input, fde)
+		}
+		assertFDEGDOPRefusal(t, solveErr)
+		var engine *EngineError
+		if !errors.As(solveErr, &engine) {
+			t.Fatal(solveErr)
+		}
+		raw := engine.TypedFields["gdop"]
+		value, e := (EngineFloat{BitsHex: raw.Object["bits_hex"].String, Decimal: raw.Object["decimal"].String}).Float64()
+		if e != nil || math.Abs(value-gdop) > 1e-8 {
+			t.Fatalf("FDE gdop=%g, independent H normal matrix=%g: %v", value, gdop, e)
+		}
+	}
+
 }

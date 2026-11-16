@@ -1,4 +1,4 @@
-# Sidereon Go parity review
+# Sidereon Go coverage review
 
 Gate result: PASS
 
