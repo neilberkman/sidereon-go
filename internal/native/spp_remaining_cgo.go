@@ -38,6 +38,8 @@ type NativeGlonassChannel struct {
 }
 
 type NativeSPPValidationOptions struct {
+	MaxGDOPEnabled                                                              bool
+	MaxGDOP                                                                     float64
 	MaxPDOPEnabled                                                              bool
 	MaxPDOP, MinPlausibleRadiusM, MaxPlausibleRadiusM, MaxConvergedResidualRMSM float64
 }
@@ -220,11 +222,14 @@ func nativePolicy(value NativeSPPSolvePolicy, dst *C.SidereonSppSolvePolicy) err
 		return fmt.Errorf("sidereon: SPP coarse-search seeds: %w", err)
 	}
 	*dst = C.SidereonSppSolvePolicy{use_validation_options: C.bool(value.UseValidationOptions), coarse_search_enabled: C.bool(value.CoarseSearchEnabled), coarse_search_seeds: seeds}
-	dst.validation = C.SidereonSppValidationOptions{max_pdop_enabled: C.bool(value.Validation.MaxPDOPEnabled), max_pdop: C.double(value.Validation.MaxPDOP), min_plausible_radius_m: C.double(value.Validation.MinPlausibleRadiusM), max_plausible_radius_m: C.double(value.Validation.MaxPlausibleRadiusM), max_converged_residual_rms_m: C.double(value.Validation.MaxConvergedResidualRMSM)}
+	dst.validation = C.SidereonSppValidationOptions{max_gdop_enabled: C.bool(value.Validation.MaxGDOPEnabled), max_gdop: C.double(value.Validation.MaxGDOP), max_pdop_enabled: C.bool(value.Validation.MaxPDOPEnabled), max_pdop: C.double(value.Validation.MaxPDOP), min_plausible_radius_m: C.double(value.Validation.MinPlausibleRadiusM), max_plausible_radius_m: C.double(value.Validation.MaxPlausibleRadiusM), max_converged_residual_rms_m: C.double(value.Validation.MaxConvergedResidualRMSM)}
 	return nil
 }
 
 func fillSppBase(dst *C.SidereonSppInputs, value SPPConfig, alloc *cRtkAlloc) error {
+	if value.Validation != nil && value.Validation.HasMaxGDOP {
+		return invalidArgument("max_gdop cannot be applied through legacy SPP input fields; use the V2 policy")
+	}
 	count, err := checkedNativeSize(len(value.Observations))
 	if err != nil {
 		return err
@@ -268,6 +273,15 @@ func fillSppBase(dst *C.SidereonSppInputs, value SPPConfig, alloc *cRtkAlloc) er
 }
 
 func fillSppV2(dst *C.SidereonSppInputsV2, value SppInputsV2, alloc *cRtkAlloc) error {
+	if value.Base.Validation != nil {
+		if value.Base.Validation.HasMaxGDOP && value.Policy.UseValidationOptions && (!value.Policy.Validation.MaxGDOPEnabled || value.Policy.Validation.MaxGDOP != value.Base.Validation.MaxGDOP) {
+			return invalidArgument("conflicting max_gdop validation policies")
+		}
+		if !value.Policy.UseValidationOptions {
+			value.Policy = sppValidationPolicy(*value.Base.Validation)
+		}
+		value.Base.Validation = nil
+	}
 	if err := nativePolicy(value.Policy, &dst.policy); err != nil {
 		return err
 	}
@@ -566,7 +580,7 @@ func sppInputsV2FromC(out C.SidereonSppInputsV2) (SppInputsV2, error) {
 	if err != nil {
 		return SppInputsV2{}, err
 	}
-	result := SppInputsV2{Base: base, BeidouEnabled: bool(out.beidou_klobuchar_enabled), RobustEnabled: bool(out.robust_enabled), Robust: NativeSPPRobustConfig{HuberK: float64(out.robust.huber_k), ScaleFloorM: float64(out.robust.scale_floor_m), MaxOuter: uint64(maxOuter), OuterToleranceM: float64(out.robust.outer_tol_m)}, Policy: NativeSPPSolvePolicy{UseValidationOptions: bool(out.policy.use_validation_options), CoarseSearchEnabled: bool(out.policy.coarse_search_enabled), CoarseSearchSeeds: seeds, Validation: NativeSPPValidationOptions{MaxPDOPEnabled: bool(out.policy.validation.max_pdop_enabled), MaxPDOP: float64(out.policy.validation.max_pdop), MinPlausibleRadiusM: float64(out.policy.validation.min_plausible_radius_m), MaxPlausibleRadiusM: float64(out.policy.validation.max_plausible_radius_m), MaxConvergedResidualRMSM: float64(out.policy.validation.max_converged_residual_rms_m)}}}
+	result := SppInputsV2{Base: base, BeidouEnabled: bool(out.beidou_klobuchar_enabled), RobustEnabled: bool(out.robust_enabled), Robust: NativeSPPRobustConfig{HuberK: float64(out.robust.huber_k), ScaleFloorM: float64(out.robust.scale_floor_m), MaxOuter: uint64(maxOuter), OuterToleranceM: float64(out.robust.outer_tol_m)}, Policy: NativeSPPSolvePolicy{UseValidationOptions: bool(out.policy.use_validation_options), CoarseSearchEnabled: bool(out.policy.coarse_search_enabled), CoarseSearchSeeds: seeds, Validation: NativeSPPValidationOptions{MaxGDOPEnabled: bool(out.policy.validation.max_gdop_enabled), MaxGDOP: float64(out.policy.validation.max_gdop), MaxPDOPEnabled: bool(out.policy.validation.max_pdop_enabled), MaxPDOP: float64(out.policy.validation.max_pdop), MinPlausibleRadiusM: float64(out.policy.validation.min_plausible_radius_m), MaxPlausibleRadiusM: float64(out.policy.validation.max_plausible_radius_m), MaxConvergedResidualRMSM: float64(out.policy.validation.max_converged_residual_rms_m)}}}
 	for i := 0; i < 4; i++ {
 		result.BeidouAlpha[i], result.BeidouBeta[i] = float64(out.beidou_klobuchar_alpha[i]), float64(out.beidou_klobuchar_beta[i])
 	}
@@ -1139,7 +1153,7 @@ func (s *SppSolutionHandle) RejectedSatellitesV2() ([]NativeSPPRejectedSatellite
 			}
 			result = make([]NativeSPPRejectedSatelliteV2, rowCount)
 			for rowIndex, row := range rows[:rowCount] {
-				if uint32(row.reason) > 5 {
+				if uint32(row.reason) > uint32(C.SIDEREON_SPP_REJECTION_REASON_NON_POSITIVE_PSEUDORANGE) {
 					operationErr = invalidArgument("invalid SPP rejection reason returned by native code")
 					return
 				}
@@ -1703,4 +1717,8 @@ func SolveWithFallback(precise []*SP3, broadcast *BroadcastEphemeris, input SPPC
 		return nil, missingNativeHandle("fallback solution")
 	}
 	return &SourcedSolution{handle: newPositioningHandle(unsafe.Pointer(out), releaseSourcedSolution)}, nil
+}
+
+func sppValidationPolicy(v NativeSolutionValidationOptions) NativeSPPSolvePolicy {
+	return NativeSPPSolvePolicy{UseValidationOptions: true, Validation: NativeSPPValidationOptions{MaxGDOPEnabled: v.HasMaxGDOP, MaxGDOP: v.MaxGDOP, MaxPDOPEnabled: v.HasMaxPDOP, MaxPDOP: v.MaxPDOP, MinPlausibleRadiusM: v.MinPlausibleRadiusM, MaxPlausibleRadiusM: v.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: v.MaxConvergedResidualRMSM}}
 }

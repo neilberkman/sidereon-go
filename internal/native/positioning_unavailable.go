@@ -67,6 +67,8 @@ type StaticPositionEpochInput struct {
 	Weights []float64
 }
 type NativeSolutionValidationOptions struct {
+	HasMaxGDOP                                                                  bool
+	MaxGDOP                                                                     float64
 	HasMaxPDOP                                                                  bool
 	MaxPDOP, MinPlausibleRadiusM, MaxPlausibleRadiusM, MaxConvergedResidualRMSM float64
 }
@@ -75,6 +77,8 @@ type NativeGlonassChannel struct {
 	Channel int8
 }
 type NativeSPPValidationOptions struct {
+	MaxGDOPEnabled                                                              bool
+	MaxGDOP                                                                     float64
 	MaxPDOPEnabled                                                              bool
 	MaxPDOP, MinPlausibleRadiusM, MaxPlausibleRadiusM, MaxConvergedResidualRMSM float64
 }

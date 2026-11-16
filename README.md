@@ -325,8 +325,7 @@ major version from 2 onward, so the module path is
 the suffix with it (`/v4`, ...), whether or not the Go API itself changed.
 The package name stays `sidereon`.
 
-This module does not claim full parity with the Python, WebAssembly, Elixir, or
-C interfaces unless a specific Go route and its tests establish that parity.
+This module does not bind PPP snapshot RAIM or carried RTK filter state.
 
 ## License
 

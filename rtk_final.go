@@ -556,3 +556,12 @@ func (s *RTKWideLaneFixedRINEXSolution) WideLaneCycles() ([]RTKWideLaneCycle, er
 	}
 	return result, nil
 }
+
+// ElevationMaskConverged reports whether the static rover-mask iteration stabilized.
+func (s *RTKStaticArcSolution) ElevationMaskConverged() (bool, error) {
+	if s == nil || s.handle == nil {
+		return false, ErrClosed
+	}
+	out, err := s.handle.ElevationMaskConverged()
+	return out, publicError(err)
+}

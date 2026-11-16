@@ -706,6 +706,12 @@ func PseudorangeVariance(elevationDeg float64, options PseudorangeVarianceOption
 
 // SolutionValidationOptions configures native receiver plausibility gates.
 type SolutionValidationOptions struct {
+	// HasMaxGDOP enables the optional GDOP ceiling.
+	HasMaxGDOP bool
+	// MaxGDOP is the dimensionless GDOP ceiling. DGNSS position, Doppler, and
+	// static-position solves refuse an enabled ceiling. FDE applies it but its
+	// C validation errors currently carry status and text without structured fields.
+	MaxGDOP float64
 	// HasMaxPDOP reports whether MaxPDOP supplies a geometry ceiling.
 	HasMaxPDOP bool
 	// MaxPDOP is the optional dimensionless PDOP limit; the radius and residual limits are metres.
@@ -715,5 +721,5 @@ type SolutionValidationOptions struct {
 // SolutionValidationOptionsInit returns native receiver-validation defaults.
 func SolutionValidationOptionsInit() (SolutionValidationOptions, error) {
 	value, err := native.SolutionValidationOptionsInit()
-	return SolutionValidationOptions{HasMaxPDOP: value.HasMaxPDOP, MaxPDOP: value.MaxPDOP, MinPlausibleRadiusM: value.MinPlausibleRadiusM, MaxPlausibleRadiusM: value.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: value.MaxConvergedResidualRMSM}, publicError(err)
+	return SolutionValidationOptions{HasMaxGDOP: value.HasMaxGDOP, MaxGDOP: value.MaxGDOP, HasMaxPDOP: value.HasMaxPDOP, MaxPDOP: value.MaxPDOP, MinPlausibleRadiusM: value.MinPlausibleRadiusM, MaxPlausibleRadiusM: value.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: value.MaxConvergedResidualRMSM}, publicError(err)
 }

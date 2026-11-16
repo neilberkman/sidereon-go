@@ -500,3 +500,10 @@ func (r *RangeFDEResult) Output() (RangeFDEOutput, error) {
 	}
 	return out, nil
 }
+
+// ARAIMSatelliteModelADDV30 constructs the ADD v3.0 dual-frequency local-error model.
+// Appendix A supports GPS and Galileo; other systems return unsupported_constellation.
+func ARAIMSatelliteModelADDV30(system uint32, elevationRad, sigmaURAM, sigmaUREM, nominalBiasM, satelliteFaultProbability float64) (ARAIMSatelliteModel, error) {
+	v, err := native.ARAIMSatelliteModelADDV30(system, elevationRad, sigmaURAM, sigmaUREM, nominalBiasM, satelliteFaultProbability)
+	return ARAIMSatelliteModel{SigmaURAM: v.SigmaURA, SigmaUREM: v.SigmaURE, HasEffectiveIntegrity: v.HasEffectiveInt, EffectiveIntegrityM: v.EffectiveInt, HasEffectiveAccuracy: v.HasEffectiveAcc, EffectiveAccuracyM: v.EffectiveAcc, NominalBiasM: v.BNom, SatelliteFaultProbability: v.PSat}, publicError(err)
+}

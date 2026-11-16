@@ -99,6 +99,11 @@ func TestCgoEngineErrorFamilyNames(t *testing.T) {
 		{EngineErrorFamilyTimeOffset, 71, "time_offset"},
 		{EngineErrorFamilyTimeModel, 72, "time_model"},
 		{EngineErrorFamilyPppVelocity, 73, "ppp_velocity"},
+		{EngineErrorFamilyTec, 74, "tec"},
+		{EngineErrorFamilyPppRaim, 75, "ppp_raim"},
+		{EngineErrorFamilyPppCycleSlip, 76, "ppp_cycle_slip"},
+		{EngineErrorFamilyPppPrep, 77, "ppp_prep"},
+		{EngineErrorFamilyPppKinematic, 78, "ppp_kinematic"},
 		{EngineErrorFamilyUnknown, 999, "unknown"},
 	}
 
@@ -121,7 +126,7 @@ func TestCgoEngineErrorFamilyNames(t *testing.T) {
 		}
 	}
 
-	for id := uint32(0); id <= 73; id++ {
+	for id := uint32(0); id <= 78; id++ {
 		fam := EngineErrorFamily(id)
 		if fam.Name() == fmt.Sprintf("family_%d", id) {
 			t.Errorf("contiguous native family ID %d has unmapped name %q", id, fam.Name())
@@ -133,19 +138,19 @@ func TestCgoEngineErrorFamilyNames(t *testing.T) {
 	}
 
 	// Test future code cases
-	future74 := EngineErrorFamily(74)
-	if future74.Name() != "family_74" {
-		t.Errorf("future family 74 name = %q, expected \"family_74\"", future74.Name())
+	future79 := EngineErrorFamily(79)
+	if future79.Name() != "family_79" {
+		t.Errorf("future family 79 name = %q, expected \"family_79\"", future79.Name())
 	}
-	if future74.String() != "family_74" {
-		t.Errorf("future family 74 string = %q, expected \"family_74\"", future74.String())
+	if future79.String() != "family_79" {
+		t.Errorf("future family 79 string = %q, expected \"family_79\"", future79.String())
 	}
 	future1000 := EngineErrorFamily(1000)
 	if future1000.Name() != "family_1000" {
 		t.Errorf("future family 1000 name = %q, expected \"family_1000\"", future1000.Name())
 	}
-	if EngineErrorFamilyFromName("family_74") != EngineErrorFamilyUnknown {
-		t.Errorf("expected unmapped family_74 name to return EngineErrorFamilyUnknown")
+	if EngineErrorFamilyFromName("family_79") != EngineErrorFamilyUnknown {
+		t.Errorf("expected unmapped family_79 name to return EngineErrorFamilyUnknown")
 	}
 }
 
@@ -913,6 +918,7 @@ func TestCgoDirectNativeSPPBatchOwnedRowEngineErrors(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = sp3.Close() })
 
+	// Exact input bits from core tests/fixtures/spp_trace_L0_minimal.json.
 	obs8 := []SPPObservation{
 		{SatelliteID: "G08", PseudorangeM: math.Float64frombits(0x4176b8c6fd82e861)},
 		{SatelliteID: "G10", PseudorangeM: math.Float64frombits(0x4175aa4fa1a0c21f)},
@@ -959,7 +965,8 @@ func TestCgoDirectNativeSPPBatchOwnedRowEngineErrors(t *testing.T) {
 		// 1. Successful epoch 0
 		ok0, err := batch.EpochOK(0)
 		if err != nil || !ok0 {
-			t.Fatalf("%s: epoch 0 ok = %v, %v", mode, ok0, err)
+			detail, _ := batch.Error(0)
+			t.Fatalf("%s: epoch 0 ok = %v, %v: %s", mode, ok0, err, detail)
 		}
 		errText0, err := batch.Error(0)
 		if err != nil || errText0 != "" {

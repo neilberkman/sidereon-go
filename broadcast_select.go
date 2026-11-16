@@ -400,8 +400,9 @@ func SolveBroadcast(broadcast *BroadcastEphemeris, config SPPConfig) (SPPSolutio
 	if broadcast == nil || broadcast.handle == nil {
 		return SPPSolution{}, ErrClosed
 	}
-	if config.Models != (SPPModelOptions{}) {
+	if config.Models != (SPPModelOptions{}) || config.Validation != nil {
 		input := SPPInputsV2{Base: config, Models: config.Models}
+		input.Base.Validation = nil
 		if config.Validation != nil {
 			input.Policy.UseValidationOptions = true
 			input.Policy.Validation = *config.Validation

@@ -1364,3 +1364,16 @@ func (s *RtkWideLaneFixedRinexSolution) WideLaneCycles() ([]RtkWideLaneCycleInpu
 	})
 	return result, err
 }
+
+func (s *RtkStaticArcSolution) ElevationMaskConverged() (bool, error) {
+	if s == nil || s.handle == nil {
+		return false, ErrClosed
+	}
+	var out C.bool
+	err := s.handle.read(func(pointer unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_rtk_static_arc_solution_elevation_mask_converged((*C.SidereonRtkStaticArcSolution)(pointer), &out))
+		})
+	})
+	return bool(out), err
+}

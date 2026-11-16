@@ -355,3 +355,63 @@ func coverageGridIntValues(g *CoverageGrid, label string, call func(unsafe.Point
 	}
 	return out, nil
 }
+
+func (g *CoverageGrid) TryAccessCounts(minElevationDeg float64) ([]int, error) {
+	return coverageGridIntValues(g, "coverage access counts", func(pointer unsafe.Pointer, out *C.size_t, length C.size_t, written, required *C.size_t) C.enum_SidereonStatus {
+		return C.sidereon_coverage_grid_try_access_counts((*C.SidereonCoverageGrid)(pointer), C.double(minElevationDeg), out, length, written, required)
+	})
+}
+
+func (g *CoverageGrid) TryVisibleMask(minElevationDeg float64) ([]bool, error) {
+	if g == nil || g.handle == nil {
+		return nil, ErrClosed
+	}
+	var raw []C.bool
+	err := g.handle.with(func(pointer unsafe.Pointer) error {
+		return withCThreadError(func() error {
+			var written, required C.size_t
+			call := func(out *C.bool, length C.size_t) C.enum_SidereonStatus {
+				return C.sidereon_coverage_grid_try_visible_mask((*C.SidereonCoverageGrid)(pointer), C.double(minElevationDeg), out, length, &written, &required)
+			}
+			if err := statusErrorLocked(uint32(call(nil, 0))); err != nil {
+				return err
+			}
+			n, err := validateNativeQuery("coverage visible mask", uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			memory, err := allocNativeArray(n, unsafe.Sizeof(C.bool(false)))
+			if err != nil {
+				return err
+			}
+			if memory != nil {
+				defer C.free(memory)
+			}
+			written, required = 0, 0
+			var out *C.bool
+			if n > 0 {
+				out = (*C.bool)(memory)
+			}
+			if err := statusErrorLocked(uint32(call(out, C.size_t(n)))); err != nil {
+				return err
+			}
+			count, err := validateTwoPassCounts("coverage visible mask", n, n, uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if count > 0 {
+				raw = append(raw, unsafe.Slice((*C.bool)(memory), count)...)
+			}
+			return nil
+		})
+	})
+	runtime.KeepAlive(g)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]bool, len(raw))
+	for i := range raw {
+		out[i] = bool(raw[i])
+	}
+	return out, nil
+}

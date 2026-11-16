@@ -19,9 +19,11 @@ type NativeFusionIMUSpec struct {
 	AccelScalePPM, GyroScalePPM                                                             float64
 }
 type NativeFusionConfig struct {
-	FilterKind, Layout                              uint32
-	IMUSpec                                         NativeFusionIMUSpec
-	TimeSyncIMUCapacity, TimeSyncCheckpointCapacity uint64
+	HasLooseJointGate, HasTightJointGate, HasUKFJointGate                         bool
+	LooseJointGateProbability, TightJointGateProbability, UKFJointGateProbability float64
+	FilterKind, Layout                                                            uint32
+	IMUSpec                                                                       NativeFusionIMUSpec
+	TimeSyncIMUCapacity, TimeSyncCheckpointCapacity                               uint64
 }
 type NativeFusionNavState struct {
 	Epoch                                      float64
@@ -60,9 +62,13 @@ type NativeFusionLooseMeasurement struct {
 	FixStatus          uint32
 }
 type NativeFusionUpdate struct {
-	Applied                          bool
-	NIS                              float64
-	Rows, AcceptedRows, RejectedRows uint64
+	HasJointGate                                                 bool
+	JointGateStatistic, JointGateThreshold, JointGateProbability float64
+	JointGateDOF                                                 uint64
+	JointGateAccepted                                            bool
+	Applied                                                      bool
+	NIS                                                          float64
+	Rows, AcceptedRows, RejectedRows                             uint64
 }
 type NativeFusionTimeSyncUpdate struct {
 	Update                      NativeFusionUpdate
@@ -159,7 +165,7 @@ func fusionState(v C.SidereonFusionState) NativeFusionState {
 	return out
 }
 func fusionUpdate(v C.SidereonFusionUpdate) NativeFusionUpdate {
-	return NativeFusionUpdate{bool(v.applied), float64(v.nis), uint64(v.rows), uint64(v.accepted_rows), uint64(v.rejected_rows)}
+	return NativeFusionUpdate{Applied: bool(v.applied), NIS: float64(v.nis), Rows: uint64(v.rows), AcceptedRows: uint64(v.accepted_rows), RejectedRows: uint64(v.rejected_rows), HasJointGate: bool(v.has_joint_innovation_gate), JointGateStatistic: float64(v.joint_gate_statistic), JointGateDOF: uint64(v.joint_gate_degrees_of_freedom), JointGateThreshold: float64(v.joint_gate_threshold), JointGateProbability: float64(v.joint_gate_probability), JointGateAccepted: bool(v.joint_gate_accepted)}
 }
 func fusionCallRead(h *surfaceHandle, call func(unsafe.Pointer) C.enum_SidereonStatus) error {
 	return h.read(func(p unsafe.Pointer) error {
@@ -179,7 +185,7 @@ func fusionCallWrite(h *surfaceHandle, call func(unsafe.Pointer) C.enum_Sidereon
 func FusionConfigDefault() (NativeFusionConfig, error) {
 	var c C.SidereonFusionFilterConfig
 	err := callStatus(func() uint32 { return uint32(C.sidereon_fusion_filter_config_init(&c)) })
-	return NativeFusionConfig{uint32(c.filter_kind), uint32(c.error_state_layout), NativeFusionIMUSpec{float64(c.imu_spec.accel_vrw_mps_sqrt_s), float64(c.imu_spec.gyro_arw_rad_sqrt_s), float64(c.imu_spec.accel_bias_instab_mps2), float64(c.imu_spec.gyro_bias_instab_rps), float64(c.imu_spec.accel_bias_tau_s), float64(c.imu_spec.gyro_bias_tau_s), bool(c.imu_spec.has_accel_scale_instab_ppm), bool(c.imu_spec.has_gyro_scale_instab_ppm), float64(c.imu_spec.accel_scale_instab_ppm), float64(c.imu_spec.gyro_scale_instab_ppm)}, uint64(c.time_sync_imu_capacity), uint64(c.time_sync_checkpoint_capacity)}, err
+	return NativeFusionConfig{FilterKind: uint32(c.filter_kind), Layout: uint32(c.error_state_layout), IMUSpec: NativeFusionIMUSpec{float64(c.imu_spec.accel_vrw_mps_sqrt_s), float64(c.imu_spec.gyro_arw_rad_sqrt_s), float64(c.imu_spec.accel_bias_instab_mps2), float64(c.imu_spec.gyro_bias_instab_rps), float64(c.imu_spec.accel_bias_tau_s), float64(c.imu_spec.gyro_bias_tau_s), bool(c.imu_spec.has_accel_scale_instab_ppm), bool(c.imu_spec.has_gyro_scale_instab_ppm), float64(c.imu_spec.accel_scale_instab_ppm), float64(c.imu_spec.gyro_scale_instab_ppm)}, TimeSyncIMUCapacity: uint64(c.time_sync_imu_capacity), TimeSyncCheckpointCapacity: uint64(c.time_sync_checkpoint_capacity), HasLooseJointGate: bool(c.has_loose_joint_innovation_gate_probability), LooseJointGateProbability: float64(c.loose_joint_innovation_gate_probability), HasTightJointGate: bool(c.has_tight_joint_innovation_gate_probability), TightJointGateProbability: float64(c.tight_joint_innovation_gate_probability), HasUKFJointGate: bool(c.has_ukf_joint_innovation_gate_probability), UKFJointGateProbability: float64(c.ukf_joint_innovation_gate_probability)}, err
 }
 func NewFusionFilter(initial NativeFusionNavState, diagonal []float64, config NativeFusionConfig) (*FusionFilter, error) {
 	if len(diagonal) == 0 {
@@ -204,6 +210,12 @@ func NewFusionFilter(initial NativeFusionNavState, diagonal []float64, config Na
 	if opErr != nil {
 		return nil, opErr
 	}
+	c.has_loose_joint_innovation_gate_probability = C.bool(config.HasLooseJointGate)
+	c.loose_joint_innovation_gate_probability = C.double(config.LooseJointGateProbability)
+	c.has_tight_joint_innovation_gate_probability = C.bool(config.HasTightJointGate)
+	c.tight_joint_innovation_gate_probability = C.double(config.TightJointGateProbability)
+	c.has_ukf_joint_innovation_gate_probability = C.bool(config.HasUKFJointGate)
+	c.ukf_joint_innovation_gate_probability = C.double(config.UKFJointGateProbability)
 	c.filter_kind = C.uint32_t(config.FilterKind)
 	c.error_state_layout = C.uint32_t(config.Layout)
 	c.imu_spec = cFusionSpec(config.IMUSpec)

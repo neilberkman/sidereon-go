@@ -1,6 +1,8 @@
 package sidereon
 
-import "sidereon.dev/go/v3/internal/native"
+import (
+	"sidereon.dev/go/v3/internal/native"
+)
 
 // GLONASSChannel supplies the FDMA channel used by the native ionosphere
 // correction for one GLONASS slot.
@@ -80,6 +82,10 @@ const (
 	SPPRejectionIonosphereCarrierUnresolved SPPRejectionReason = 4
 	// SPPRejectionSsrCorrectionExceedsLimit marks strict SSR-size refusal.
 	SPPRejectionSsrCorrectionExceedsLimit SPPRejectionReason = 5
+	// SPPRejectionNonFinitePseudorange identifies a NaN or infinite pseudorange.
+	SPPRejectionNonFinitePseudorange SPPRejectionReason = 6
+	// SPPRejectionNonPositivePseudorange identifies a zero or negative pseudorange.
+	SPPRejectionNonPositivePseudorange SPPRejectionReason = 7
 )
 
 // SPPRejectedSatelliteV2 retains the exact strict-SSR correction magnitudes.
@@ -133,9 +139,19 @@ func nativeSolvePolicy(v SPPSolvePolicy) (native.NativeSPPSolvePolicy, error) {
 	if err != nil {
 		return native.NativeSPPSolvePolicy{}, err
 	}
-	return native.NativeSPPSolvePolicy{UseValidationOptions: v.UseValidationOptions, Validation: native.NativeSPPValidationOptions{MaxPDOPEnabled: v.Validation.HasMaxPDOP, MaxPDOP: v.Validation.MaxPDOP, MinPlausibleRadiusM: v.Validation.MinPlausibleRadiusM, MaxPlausibleRadiusM: v.Validation.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: v.Validation.MaxConvergedResidualRMSM}, CoarseSearchEnabled: v.CoarseSearchEnabled, CoarseSearchSeeds: seeds}, nil
+	return native.NativeSPPSolvePolicy{UseValidationOptions: v.UseValidationOptions, Validation: native.NativeSPPValidationOptions{MaxGDOPEnabled: v.Validation.HasMaxGDOP, MaxGDOP: v.Validation.MaxGDOP, MaxPDOPEnabled: v.Validation.HasMaxPDOP, MaxPDOP: v.Validation.MaxPDOP, MinPlausibleRadiusM: v.Validation.MinPlausibleRadiusM, MaxPlausibleRadiusM: v.Validation.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: v.Validation.MaxConvergedResidualRMSM}, CoarseSearchEnabled: v.CoarseSearchEnabled, CoarseSearchSeeds: seeds}, nil
 }
 func nativeSppV2(v SPPInputsV2) (native.SppInputsV2, error) {
+	if v.Base.Validation != nil {
+		if v.Base.Validation.HasMaxGDOP && v.Policy.UseValidationOptions && (!v.Policy.Validation.HasMaxGDOP || v.Policy.Validation.MaxGDOP != v.Base.Validation.MaxGDOP) {
+			return native.SppInputsV2{}, &StatusError{Code: StatusInvalidArgument, Text: "invalid argument", Detail: "conflicting max_gdop validation policies"}
+		}
+		if !v.Policy.UseValidationOptions {
+			v.Policy.UseValidationOptions = true
+			v.Policy.Validation = *v.Base.Validation
+		}
+		v.Base.Validation = nil
+	}
 	channels := make([]native.NativeGlonassChannel, len(v.GLONASSChannels))
 	for i, x := range v.GLONASSChannels {
 		channels[i] = native.NativeGlonassChannel{Slot: x.Slot, Channel: x.Channel}
@@ -193,7 +209,7 @@ func publicSppV2(v native.SppInputsV2) (SPPInputsV2, error) {
 	for _, x := range v.GlonassChannels {
 		out.GLONASSChannels = append(out.GLONASSChannels, GLONASSChannel{Slot: x.Slot, Channel: x.Channel})
 	}
-	out.Policy.Validation = SolutionValidationOptions{HasMaxPDOP: v.Policy.Validation.MaxPDOPEnabled, MaxPDOP: v.Policy.Validation.MaxPDOP, MinPlausibleRadiusM: v.Policy.Validation.MinPlausibleRadiusM, MaxPlausibleRadiusM: v.Policy.Validation.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: v.Policy.Validation.MaxConvergedResidualRMSM}
+	out.Policy.Validation = SolutionValidationOptions{HasMaxGDOP: v.Policy.Validation.MaxGDOPEnabled, MaxGDOP: v.Policy.Validation.MaxGDOP, HasMaxPDOP: v.Policy.Validation.MaxPDOPEnabled, MaxPDOP: v.Policy.Validation.MaxPDOP, MinPlausibleRadiusM: v.Policy.Validation.MinPlausibleRadiusM, MaxPlausibleRadiusM: v.Policy.Validation.MaxPlausibleRadiusM, MaxConvergedResidualRMSM: v.Policy.Validation.MaxConvergedResidualRMSM}
 	return out, nil
 }
 

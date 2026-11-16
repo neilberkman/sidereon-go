@@ -44,3 +44,9 @@ func ChiSquareInverse(probability float64, dof uint64) (float64, error) {
 	value, err := native.ChiSquareInverse(probability, dof)
 	return value, publicError(err)
 }
+
+// ChiSquareInverseSurvival returns the chi-square quantile for a tail probability.
+func ChiSquareInverseSurvival(probability float64, dof uint64) (float64, error) {
+	value, err := native.ChiSquareInverseSurvival(probability, dof)
+	return value, publicError(err)
+}

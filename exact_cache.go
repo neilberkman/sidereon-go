@@ -97,7 +97,7 @@ type ExactProductCache struct {
 }
 
 // NewExactProductCache opens a lock-owning cache transaction using the engine
-// parity default of a 30-second lock timeout.
+// default of a 30-second lock timeout.
 func NewExactProductCache(stablePath string, identity ProductIdentity, source DistributionSource) (*ExactProductCache, error) {
 	return OpenExactProductCache(stablePath, identity, source, defaultExactCacheLockTimeout)
 }

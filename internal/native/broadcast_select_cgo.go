@@ -932,7 +932,9 @@ func (b *BroadcastEphemeris) SolveBroadcastWithDopplerVelocity(config SPPConfig,
 	}
 	var result NativeSppDopplerResult
 	err := b.resource.with(func(pointer unsafe.Pointer) error {
-		return withSPPInputs(config, func(inputs *C.SidereonSppInputs) error {
+		base := config
+		base.Validation = nil
+		return withSPPInputs(base, func(inputs *C.SidereonSppInputs) error {
 			v2Memory := C.calloc(1, C.size_t(unsafe.Sizeof(C.SidereonSppInputsV2{})))
 			if v2Memory == nil {
 				return errors.New("sidereon: unable to allocate native SPP V2 inputs")
@@ -940,6 +942,11 @@ func (b *BroadcastEphemeris) SolveBroadcastWithDopplerVelocity(config SPPConfig,
 			defer C.free(v2Memory)
 			v2 := (*C.SidereonSppInputsV2)(v2Memory)
 			v2.base = *inputs
+			if config.Validation != nil {
+				if err := nativePolicy(sppValidationPolicy(*config.Validation), &v2.policy); err != nil {
+					return err
+				}
+			}
 			var memory unsafe.Pointer
 			if len(dopplers) != 0 {
 				size, err := checkedNativeAllocationSize(len(dopplers), unsafe.Sizeof(C.SidereonSppDopplerObservation{}))

@@ -973,3 +973,11 @@ func GCRSToTopocentric(positionKm [3]float64, stationLatDeg, stationLonDeg, stat
 	})
 	return [3]float64{float64(output[0]), float64(output[1]), float64(output[2])}, err
 }
+
+func ChiSquareInverseSurvival(probability float64, dof uint64) (float64, error) {
+	var output C.double
+	err := callQualityStatus(func() uint32 {
+		return C.sidereon_chi2_isf(C.double(probability), C.size_t(dof), &output)
+	})
+	return float64(output), err
+}

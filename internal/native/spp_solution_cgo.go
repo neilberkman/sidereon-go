@@ -16,6 +16,9 @@ import (
 )
 
 func withSPPInputs(config SPPConfig, fn func(*C.SidereonSppInputs) error) error {
+	if config.Validation != nil && config.Validation.HasMaxGDOP {
+		return invalidArgument("max_gdop cannot be applied by this legacy operation")
+	}
 	observationCount, err := checkedNativeSize(len(config.Observations))
 	if err != nil {
 		return err
@@ -432,6 +435,10 @@ func readSPPSolutionLocked(solution *C.SidereonSppSolution) (SPPSolution, error)
 	}
 	result.Metadata = SPPMetadata{Iterations: iterations, Converged: bool(metadata.converged), Status: uint32(metadata.status), IonosphereApplied: bool(metadata.ionosphere_applied), TroposphereApplied: bool(metadata.troposphere_applied), OuterIterations: outerIterations, HasFinalRobustScale: bool(metadata.has_final_robust_scale_m), FinalRobustScaleM: float64(metadata.final_robust_scale_m), UsedCount: metadataUsedCount, SystemCount: metadataSystemCount, Redundancy: int64(metadata.redundancy), RAIMCheckable: bool(metadata.raim_checkable), GeometryQuality: SPPGeometryQuality{Tier: uint32(metadata.geometry_quality.tier), Redundancy: int32(metadata.geometry_quality.redundancy), Rank: qualityRank, ConditionNumber: float64(metadata.geometry_quality.condition_number), GDOP: float64(metadata.geometry_quality.gdop), RAIMCheckable: bool(metadata.geometry_quality.raim_checkable), CovarianceValidated: bool(metadata.geometry_quality.covariance_validated)}}
 
+	result.RTKLIBSingleClockDOP, err = sppSingleClockDopLocked(solution)
+	if err != nil {
+		return SPPSolution{}, err
+	}
 	var dop C.SidereonDop
 	status := C.sidereon_spp_solution_dop(solution, &dop)
 	if status == C.SIDEREON_STATUS_OK {
@@ -449,4 +456,16 @@ func readSPPSolutionLocked(solution *C.SidereonSppSolution) (SPPSolution, error)
 		result.Geodetic = &Geodetic{LatitudeRad: float64(geodetic.lat_rad), LongitudeRad: float64(geodetic.lon_rad), HeightM: float64(geodetic.height_m)}
 	}
 	return result, nil
+}
+
+func sppSingleClockDopLocked(solution *C.SidereonSppSolution) (*Dop, error) {
+	var dop C.SidereonDop
+	status := C.sidereon_spp_solution_rtklib_single_clock_dop(solution, &dop)
+	if status == C.SIDEREON_STATUS_INVALID_ARGUMENT {
+		return nil, nil
+	}
+	if err := statusErrorLocked(uint32(status)); err != nil {
+		return nil, err
+	}
+	return &Dop{GDOP: float64(dop.gdop), PDOP: float64(dop.pdop), HDOP: float64(dop.hdop), VDOP: float64(dop.vdop), TDOP: float64(dop.tdop)}, nil
 }

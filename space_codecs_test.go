@@ -842,7 +842,7 @@ func TestCCSDSFixturesRoundTrip(t *testing.T) {
 			}
 		}
 		// The prior JSON pin is the same field/value tokens sorted by key. The
-		// merged core enables serde_json preserve_order, so this hash pins the
+		// The engine enables serde_json preserve_order, so this hash pins the
 		// current insertion order without changing numeric or string values.
 		wantHash := map[string]string{"KVN": "e20c3848984d9df2556d78f43040092a352699cce5b9397da71a0615d271e51c", "XML": "3f6ab03c6ce8aa09396399d7081b88388014d1b6e46940c5293fb57dc1b745fc", "JSON": "0158cebc281e0a0c614a057223441798f55017b95390288692360fcd003d274b"}
 		assertSerializedHash(t, "OMM "+name, output, wantHash[name])
