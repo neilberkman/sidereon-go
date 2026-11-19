@@ -147,6 +147,15 @@ func TestAstrodynamicsSurfaceFixtureDeterministic(t *testing.T) {
 		t.Fatalf("TLE batch look angles = %d, %v", len(values), err)
 	}
 
+	groundTracks, err := BatchTLEGroundTracks([]TLEPair{{Line1: line1, Line2: line2}}, epochs, OpsModeAFSPC, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanupClose(t, "TLEBatchGroundTracks", groundTracks.Close)
+	if values, err := groundTracks.Values(); err != nil || len(values) != 2 {
+		t.Fatalf("TLE batch ground tracks = %d, %v", len(values), err)
+	}
+
 	latch, err := NewSGP4DecayLatch()
 	if err != nil {
 		t.Fatal(err)
@@ -587,4 +596,142 @@ func TestAstrodynamicsDecayLatchConcurrentClose(t *testing.T) {
 		}
 	}()
 	group.Wait()
+}
+
+func TestBatchTLEGroundTracksSerialParallelAndErrors(t *testing.T) {
+	line1, line2, ok := splitTLELines(string(readPositioningFixture(t, "iss.tle")))
+	if !ok {
+		t.Fatal("invalid TLE fixture")
+	}
+	tle, err := ParseTLEWithOpsMode(line1, line2, OpsModeAFSPC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanupClose(t, "TLE", tle.Close)
+
+	epochs := []time.Time{time.Unix(1530619200, 0).UTC(), time.Unix(1530619260, 0).UTC()}
+	single, err := tle.GroundTrack(epochs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanupClose(t, "GroundTrack", single.Close)
+	want, err := single.Values()
+	if err != nil || len(want) != len(epochs) {
+		t.Fatalf("single ground track = %d, %v", len(want), err)
+	}
+
+	emptyFleet, err := BatchTLEGroundTracks(nil, epochs, OpsModeAFSPC, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanupClose(t, "empty fleet ground tracks", emptyFleet.Close)
+	if sats, eps, err := emptyFleet.Shape(); err != nil || sats != 0 || eps != len(epochs) {
+		t.Fatalf("empty fleet shape = %d x %d, %v", sats, eps, err)
+	}
+	if vals, err := emptyFleet.Values(); err != nil || len(vals) != 0 {
+		t.Fatalf("empty fleet values = %d, %v", len(vals), err)
+	}
+
+	pairs := []TLEPair{{Line1: line1, Line2: line2}, {Line1: line1, Line2: line2}}
+	emptyEpochs, err := BatchTLEGroundTracks(pairs, nil, OpsModeAFSPC, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanupClose(t, "empty epochs ground tracks", emptyEpochs.Close)
+	if sats, eps, err := emptyEpochs.Shape(); err != nil || sats != len(pairs) || eps != 0 {
+		t.Fatalf("empty epochs shape = %d x %d, %v", sats, eps, err)
+	}
+	if vals, err := emptyEpochs.Values(); err != nil || len(vals) != 0 {
+		t.Fatalf("empty epochs values = %d, %v", len(vals), err)
+	}
+
+	for _, parallel := range []bool{false, true} {
+		batch, err := BatchTLEGroundTracks(pairs, epochs, OpsModeAFSPC, parallel)
+		if err != nil {
+			t.Fatalf("BatchTLEGroundTracks(parallel=%v): %v", parallel, err)
+		}
+		sats, eps, err := batch.Shape()
+		if err != nil || sats != len(pairs) || eps != len(epochs) {
+			_ = batch.Close()
+			t.Fatalf("batch shape(parallel=%v) = %d x %d, %v", parallel, sats, eps, err)
+		}
+		vals, err := batch.Values()
+		if err != nil || len(vals) != len(pairs)*len(epochs) {
+			_ = batch.Close()
+			t.Fatalf("batch values(parallel=%v) = %d, %v", parallel, len(vals), err)
+		}
+		for s := 0; s < sats; s++ {
+			for e := 0; e < eps; e++ {
+				got := vals[s*eps+e]
+				expected := want[e]
+				if math.Float64bits(got.LatitudeRad) != math.Float64bits(expected.LatitudeRad) ||
+					math.Float64bits(got.LongitudeRad) != math.Float64bits(expected.LongitudeRad) ||
+					math.Float64bits(got.HeightM) != math.Float64bits(expected.HeightM) {
+					_ = batch.Close()
+					t.Fatalf("parallel=%v sat=%d epoch=%d got %+v, want %+v", parallel, s, e, got, expected)
+				}
+			}
+		}
+		if err := batch.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if err := batch.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := batch.Shape(); !errors.Is(err, ErrClosed) {
+			t.Fatalf("Shape after Close = %v, want ErrClosed", err)
+		}
+		if _, err := batch.Values(); !errors.Is(err, ErrClosed) {
+			t.Fatalf("Values after Close = %v, want ErrClosed", err)
+		}
+	}
+
+	concurrent, err := BatchTLEGroundTracks(pairs, epochs, OpsModeImproved, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, _, err := concurrent.Shape(); err != nil && !errors.Is(err, ErrClosed) {
+				t.Errorf("concurrent Shape: %v", err)
+			}
+			if _, err := concurrent.Values(); err != nil && !errors.Is(err, ErrClosed) {
+				t.Errorf("concurrent Values: %v", err)
+			}
+		}()
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := concurrent.Close(); err != nil {
+			t.Errorf("concurrent Close: %v", err)
+		}
+	}()
+	wg.Wait()
+
+	if _, err := BatchTLEGroundTracks(pairs, epochs, OpsMode(99), false); err == nil {
+		t.Fatal("invalid opsmode accepted")
+	}
+	if _, err := BatchTLEGroundTracks([]TLEPair{{Line1: "a\x00", Line2: "b"}}, epochs, OpsModeAFSPC, false); err == nil {
+		t.Fatal("embedded NUL accepted")
+	}
+	decayPairs := []TLEPair{
+		{Line1: line1, Line2: line2},
+		{
+			Line1: "1 28872U 05037B   05333.02012661  .25992681  00000-0  24476-3 0  1534",
+			Line2: "2 28872  96.4736 157.9986 0303955 244.0492 110.6523 16.46015938 10708",
+		},
+	}
+	decayEpoch := time.Date(2005, time.November, 30, 0, 28, 59, 0, time.UTC)
+	if _, err := BatchTLEGroundTracks(decayPairs, []time.Time{decayEpoch}, OpsModeAFSPC, false); err == nil {
+		t.Fatal("decayed satellite ground track unexpectedly succeeded")
+	} else {
+		var statusErr *StatusError
+		if !errors.As(err, &statusErr) || statusErr.Code != StatusSolve {
+			t.Fatalf("per-satellite failure = %T %+v, want StatusSolve", err, err)
+		}
+	}
 }

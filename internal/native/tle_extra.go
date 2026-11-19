@@ -65,6 +65,10 @@ type TLEBatchLookAngles struct {
 	_      noCopy
 	handle *positioningHandle
 }
+type TLEBatchGroundTracks struct {
+	_      noCopy
+	handle *positioningHandle
+}
 type VisibleSatellite struct {
 	CatalogNumber                     string
 	AzimuthDeg, ElevationDeg, RangeKm float64
@@ -91,6 +95,9 @@ func releaseTLEBatchPropagation(pointer unsafe.Pointer) {
 }
 func releaseTLEBatchLookAngles(pointer unsafe.Pointer) {
 	C.sidereon_tle_batch_look_angles_free((*C.SidereonTleBatchLookAngles)(pointer))
+}
+func releaseTLEBatchGroundTracks(pointer unsafe.Pointer) {
+	C.sidereon_tle_batch_ground_tracks_free((*C.SidereonTleBatchGroundTracks)(pointer))
 }
 func releaseVisibleList(pointer unsafe.Pointer) {
 	C.sidereon_visible_list_free((*C.SidereonVisibleList)(pointer))
@@ -558,7 +565,24 @@ func (b *TLEBatchPropagation) States() ([]TEMEState, error) {
 	return result, err
 }
 
-func LookAnglesBatch(pairs []TLEPair, station GroundStation, epochs []time.Time, opsmode uint32, parallel bool) (*TLEBatchLookAngles, error) {
+type tleBatchInputs struct {
+	pairCount int
+	memory    unsafe.Pointer
+	allocs    []unsafe.Pointer
+	cEpochs   []C.int64_t
+	epochPtr  *C.int64_t
+}
+
+func (b *tleBatchInputs) free() {
+	if b.memory != nil {
+		C.free(b.memory)
+	}
+	for _, p := range b.allocs {
+		C.free(p)
+	}
+}
+
+func prepareTLEBatchInputs(pairs []TLEPair, epochs []time.Time, opsmode uint32) (*tleBatchInputs, error) {
 	if err := validOpsMode(opsmode); err != nil {
 		return nil, err
 	}
@@ -570,17 +594,15 @@ func LookAnglesBatch(pairs []TLEPair, station GroundStation, epochs []time.Time,
 	if err != nil {
 		return nil, err
 	}
-	if memory != nil {
-		defer C.free(memory)
-	}
-	for _, p := range allocations {
-		defer C.free(p)
-	}
 	epochValues, err := unixMicrosecondsSlice(epochCopy)
 	if err != nil {
+		inputs := &tleBatchInputs{memory: memory, allocs: allocations}
+		inputs.free()
 		return nil, err
 	}
 	if _, err := checkedNativeAllocationSize(len(epochValues), unsafe.Sizeof(C.int64_t(0))); err != nil {
+		inputs := &tleBatchInputs{memory: memory, allocs: allocations}
+		inputs.free()
 		return nil, err
 	}
 	cEpochs := make([]C.int64_t, len(epochValues))
@@ -591,12 +613,27 @@ func LookAnglesBatch(pairs []TLEPair, station GroundStation, epochs []time.Time,
 	if len(cEpochs) > 0 {
 		epochPtr = &cEpochs[0]
 	}
+	return &tleBatchInputs{
+		pairCount: len(pairCopy),
+		memory:    memory,
+		allocs:    allocations,
+		cEpochs:   cEpochs,
+		epochPtr:  epochPtr,
+	}, nil
+}
+
+func LookAnglesBatch(pairs []TLEPair, station GroundStation, epochs []time.Time, opsmode uint32, parallel bool) (*TLEBatchLookAngles, error) {
+	inputs, err := prepareTLEBatchInputs(pairs, epochs, opsmode)
+	if err != nil {
+		return nil, err
+	}
+	defer inputs.free()
 	stationC := cGroundStation(station)
 	var out *C.SidereonTleBatchLookAngles
 	err = callStatus(func() uint32 {
-		return C.sidereon_tle_batch_look_angles((*C.SidereonTlePair)(memory), C.size_t(len(pairCopy)), &stationC, epochPtr, C.size_t(len(cEpochs)), C.uint32_t(opsmode), C.bool(parallel), &out)
+		return C.sidereon_tle_batch_look_angles((*C.SidereonTlePair)(inputs.memory), C.size_t(inputs.pairCount), &stationC, inputs.epochPtr, C.size_t(len(inputs.cEpochs)), C.uint32_t(opsmode), C.bool(parallel), &out)
 	})
-	runtime.KeepAlive(cEpochs)
+	runtime.KeepAlive(inputs.cEpochs)
 	if err != nil {
 		if out != nil {
 			withCThread(func() { C.sidereon_tle_batch_look_angles_free(out) })
@@ -679,6 +716,105 @@ func (b *TLEBatchLookAngles) Values() ([]LookAngle, error) {
 		result = make([]LookAngle, n)
 		for i := range result {
 			result[i] = LookAngle{AzimuthDeg: float64(values[i].azimuth_deg), ElevationDeg: float64(values[i].elevation_deg), RangeKm: float64(values[i].range_km)}
+		}
+		return nil
+	})
+	return result, err
+}
+
+func GroundTracksBatch(pairs []TLEPair, epochs []time.Time, opsmode uint32, parallel bool) (*TLEBatchGroundTracks, error) {
+	inputs, err := prepareTLEBatchInputs(pairs, epochs, opsmode)
+	if err != nil {
+		return nil, err
+	}
+	defer inputs.free()
+	var out *C.SidereonTleBatchGroundTracks
+	err = callStatus(func() uint32 {
+		return C.sidereon_tle_batch_ground_tracks((*C.SidereonTlePair)(inputs.memory), C.size_t(inputs.pairCount), inputs.epochPtr, C.size_t(len(inputs.cEpochs)), C.uint32_t(opsmode), C.bool(parallel), &out)
+	})
+	runtime.KeepAlive(inputs.cEpochs)
+	if err != nil {
+		if out != nil {
+			withCThread(func() { C.sidereon_tle_batch_ground_tracks_free(out) })
+		}
+		return nil, err
+	}
+	if out == nil {
+		return nil, missingNativeHandle("TLE batch ground tracks")
+	}
+	return &TLEBatchGroundTracks{handle: newPositioningHandle(unsafe.Pointer(out), releaseTLEBatchGroundTracks)}, nil
+}
+func (b *TLEBatchGroundTracks) Close() error {
+	if b == nil || b.handle == nil {
+		return nil
+	}
+	return b.handle.close()
+}
+func (b *TLEBatchGroundTracks) Shape() (int, int, error) {
+	if b == nil || b.handle == nil {
+		return 0, 0, ErrClosed
+	}
+	var sat, epoch C.size_t
+	err := b.handle.with(func(pointer unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return C.sidereon_tle_batch_ground_tracks_shape((*C.SidereonTleBatchGroundTracks)(pointer), &sat, &epoch)
+		})
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+	s, err := checkedNativeCount(uint64(sat))
+	if err != nil {
+		return 0, 0, err
+	}
+	e, err := checkedNativeCount(uint64(epoch))
+	return s, e, err
+}
+func (b *TLEBatchGroundTracks) Values() ([]Geodetic, error) {
+	if b == nil || b.handle == nil {
+		return nil, ErrClosed
+	}
+	var result []Geodetic
+	err := b.handle.with(func(pointer unsafe.Pointer) error {
+		var satCount, epochCount C.size_t
+		if err := callStatus(func() uint32 {
+			return C.sidereon_tle_batch_ground_tracks_shape((*C.SidereonTleBatchGroundTracks)(pointer), &satCount, &epochCount)
+		}); err != nil {
+			return err
+		}
+		sat, err := checkedNativeCount(uint64(satCount))
+		if err != nil {
+			return err
+		}
+		epoch, err := checkedNativeCount(uint64(epochCount))
+		if err != nil {
+			return err
+		}
+		count, err := checkedBatchShape(sat, epoch)
+		if err != nil {
+			return err
+		}
+		if _, err := checkedNativeAllocationSize(count, unsafe.Sizeof(C.SidereonGeodetic{})); err != nil {
+			return err
+		}
+		values := make([]C.SidereonGeodetic, count)
+		var out *C.SidereonGeodetic
+		if count > 0 {
+			out = &values[0]
+		}
+		var written, required C.size_t
+		if err := callStatus(func() uint32 {
+			return C.sidereon_tle_batch_ground_tracks_values((*C.SidereonTleBatchGroundTracks)(pointer), out, C.size_t(count), &written, &required)
+		}); err != nil {
+			return err
+		}
+		n, err := validateTwoPassCounts("TLE batch ground tracks", count, count, uint64(written), uint64(required))
+		if err != nil {
+			return err
+		}
+		result = make([]Geodetic, n)
+		for i := range result {
+			result[i] = geodeticFromC(values[i])
 		}
 		return nil
 	})

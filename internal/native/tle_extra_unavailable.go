@@ -12,6 +12,7 @@ type NativeTLERejectedRecord struct {
 }
 type TLEBatchPropagation struct{}
 type TLEBatchLookAngles struct{}
+type TLEBatchGroundTracks struct{}
 type VisibleSatellite struct {
 	CatalogNumber                     string
 	AzimuthDeg, ElevationDeg, RangeKm float64
@@ -46,6 +47,12 @@ func LookAnglesBatch([]TLEPair, GroundStation, []time.Time, uint32, bool) (*TLEB
 func (*TLEBatchLookAngles) Close() error                 { return nil }
 func (*TLEBatchLookAngles) Shape() (int, int, error)     { return 0, 0, unavailable() }
 func (*TLEBatchLookAngles) Values() ([]LookAngle, error) { return nil, unavailable() }
+func GroundTracksBatch([]TLEPair, []time.Time, uint32, bool) (*TLEBatchGroundTracks, error) {
+	return nil, unavailable()
+}
+func (*TLEBatchGroundTracks) Close() error                { return nil }
+func (*TLEBatchGroundTracks) Shape() (int, int, error)    { return 0, 0, unavailable() }
+func (*TLEBatchGroundTracks) Values() ([]Geodetic, error) { return nil, unavailable() }
 func (*TLE) PropagateWithDecayLatch(float64, *SGP4DecayLatch) (TEMEState, error) {
 	return TEMEState{}, unavailable()
 }

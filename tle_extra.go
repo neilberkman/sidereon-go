@@ -293,6 +293,57 @@ func (b *TLEBatchLookAngles) Values() ([]Topocentric, error) {
 	return out, nil
 }
 
+// TLEBatchGroundTracks owns flattened satellite-major geodetic ground-track rows.
+type TLEBatchGroundTracks struct {
+	_      noCopy
+	handle *native.TLEBatchGroundTracks
+}
+
+// BatchTLEGroundTracks returns detached geodetic ground-track rows for each TLE and epoch.
+func BatchTLEGroundTracks(pairs []TLEPair, epochs []time.Time, mode OpsMode, parallel bool) (*TLEBatchGroundTracks, error) {
+	value, err := native.GroundTracksBatch(nativeTLEPairs(append([]TLEPair(nil), pairs...)), append([]time.Time(nil), epochs...), uint32(mode), parallel)
+	if err != nil {
+		return nil, publicError(err)
+	}
+	if value == nil {
+		return nil, errNilNativeHandle
+	}
+	return &TLEBatchGroundTracks{handle: value}, nil
+}
+
+// Close releases the native TLEBatchGroundTracks resource and is safe to call repeatedly.
+func (b *TLEBatchGroundTracks) Close() error {
+	if b == nil || b.handle == nil {
+		return nil
+	}
+	return publicError(b.handle.Close())
+}
+
+// Shape returns the ground-track output dimensions.
+func (b *TLEBatchGroundTracks) Shape() (satelliteCount, epochCount int, err error) {
+	if b == nil || b.handle == nil {
+		return 0, 0, ErrClosed
+	}
+	satelliteCount, epochCount, err = b.handle.Shape()
+	return satelliteCount, epochCount, publicError(err)
+}
+
+// Values returns detached ground-track rows in TLE-major order.
+func (b *TLEBatchGroundTracks) Values() ([]Geodetic, error) {
+	if b == nil || b.handle == nil {
+		return nil, ErrClosed
+	}
+	values, err := b.handle.Values()
+	if err != nil {
+		return nil, publicError(err)
+	}
+	out := make([]Geodetic, len(values))
+	for i := range out {
+		out[i] = Geodetic(values[i])
+	}
+	return out, nil
+}
+
 // SGP4DecayLatch owns a native SGP4 decay-latch state and its failure epoch.
 type SGP4DecayLatch struct {
 	_      noCopy

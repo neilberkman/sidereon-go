@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Exact published v4 module version (for example, v4.0.0)
+        description: Exact published v4 module version (for example, v4.1.0)
         required: true
         type: string
 
