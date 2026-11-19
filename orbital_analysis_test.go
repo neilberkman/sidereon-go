@@ -936,3 +936,136 @@ func TestCDMConcurrentReadAndClose(t *testing.T) {
 		t.Fatalf("CDM ToKVN after Close = %v, want ErrClosed", err)
 	}
 }
+
+func assertInvalidDatetimeEngineError(t *testing.T, label string, err error, nestedCause bool) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("%s unexpectedly succeeded", label)
+	}
+	var statusErr *StatusError
+	if !errors.As(err, &statusErr) {
+		t.Fatalf("%s error = %T %v, want *StatusError", label, err, err)
+	}
+	if statusErr.Code != StatusInvalidArgument {
+		t.Fatalf("%s status code = %v, want StatusInvalidArgument", label, statusErr.Code)
+	}
+	if statusErr.Engine == nil {
+		t.Fatalf("%s missing typed EngineError: %+v", label, statusErr)
+	}
+	if !nestedCause {
+		if statusErr.Engine.Kind != "invalid_input" {
+			t.Fatalf("%s EngineError.Kind = %q, want invalid_input (payload: %s)", label, statusErr.Engine.Kind, statusErr.Engine.Payload)
+		}
+		var fields struct {
+			Field  string `json:"field"`
+			Reason string `json:"reason"`
+		}
+		if err := json.Unmarshal(statusErr.Engine.Fields, &fields); err != nil {
+			t.Fatalf("%s decode EngineError.Fields %s: %v", label, statusErr.Engine.Fields, err)
+		}
+		if fields.Field != "datetime" || fields.Reason != "invalid UTC instant" {
+			t.Fatalf("%s fields = %+v, want datetime / invalid UTC instant", label, fields)
+		}
+		return
+	}
+	var fields struct {
+		Cause struct {
+			Kind   string `json:"kind"`
+			Fields struct {
+				Field  string `json:"field"`
+				Reason string `json:"reason"`
+			} `json:"fields"`
+		} `json:"cause"`
+	}
+	if err := json.Unmarshal(statusErr.Engine.Fields, &fields); err != nil {
+		t.Fatalf("%s decode nested EngineError.Fields %s: %v", label, statusErr.Engine.Fields, err)
+	}
+	if fields.Cause.Kind != "invalid_input" || fields.Cause.Fields.Field != "datetime" || fields.Cause.Fields.Reason != "invalid UTC instant" {
+		t.Fatalf("%s nested cause = %+v, want invalid_input datetime / invalid UTC instant", label, fields.Cause)
+	}
+}
+
+func TestOutOfRangeInstantsReturnTypedInvalidDatetimeErrors(t *testing.T) {
+	tle, err := ParseTLE(fixtureISSLine1, fixtureISSLine2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanupClose(t, "TLE", tle.Close)
+	constellation, err := NewSatelliteConstellation([]*TLE{tle})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanupClose(t, "SatelliteConstellation", constellation.Close)
+
+	station := PassStation{LatitudeDeg: 51.5074, LongitudeDeg: -0.1278, AltitudeM: 80}
+	validStart := time.Unix(1530619200, 0).UTC()
+	outOfRangeInstants := []time.Time{
+		time.UnixMicro(math.MinInt64).UTC(),
+		time.UnixMicro(math.MaxInt64).UTC(),
+		time.Date(-1, time.December, 31, 23, 59, 59, 0, time.UTC),
+		time.Date(10000, time.January, 1, 0, 0, 0, 0, time.UTC),
+	}
+
+	// Pass search with an out-of-range end (and start).
+	for _, badEnd := range []time.Time{time.UnixMicro(math.MaxInt64).UTC(), time.Date(10000, time.January, 1, 0, 0, 0, 0, time.UTC)} {
+		_, err := tle.FindPasses(station, validStart, badEnd, nil)
+		assertInvalidDatetimeEngineError(t, "FindPasses(out-of-range end)", err, false)
+	}
+	_, err = tle.FindPasses(station, time.UnixMicro(math.MinInt64).UTC(), validStart, nil)
+	assertInvalidDatetimeEngineError(t, "FindPasses(out-of-range start)", err, false)
+
+	for _, badInstant := range outOfRangeInstants {
+		// Coverage grid at an out-of-range instant.
+		grid, err := CoverageLookAngles([]*TLE{tle}, []PassStation{station}, badInstant)
+		if err != nil {
+			t.Fatalf("CoverageLookAngles(%v): %v", badInstant, err)
+		}
+		cell, err := grid.LookAngle(0, 0)
+		if err != nil || cell.OK {
+			_ = grid.Close()
+			t.Fatalf("CoverageLookAngles(%v) cell = %+v, err = %v", badInstant, cell, err)
+		}
+		cellErr, err := grid.LookAngleError(0, 0)
+		if closeErr := grid.Close(); closeErr != nil {
+			t.Fatal(closeErr)
+		}
+		if err != nil || cellErr.Kind != "invalid_input" || cellErr.Fields.Field != "datetime" || cellErr.Fields.Reason != "invalid UTC instant" {
+			t.Fatalf("CoverageLookAngles(%v) cell error = %+v, err = %v", badInstant, cellErr, err)
+		}
+
+		// Constellation look angles and ground tracks at an out-of-range instant.
+		arcs, err := constellation.LookAngles(station, []time.Time{badInstant}, false)
+		if err != nil {
+			t.Fatalf("Constellation.LookAngles(%v): %v", badInstant, err)
+		}
+		arcErr, err := arcs.ErrorDetail(0)
+		if closeErr := arcs.Close(); closeErr != nil {
+			t.Fatal(closeErr)
+		}
+		if err != nil || arcErr.Kind != "invalid_input" || arcErr.Fields.Field != "datetime" || arcErr.Fields.Reason != "invalid UTC instant" {
+			t.Fatalf("Constellation.LookAngles(%v) detail = %+v, err = %v", badInstant, arcErr, err)
+		}
+
+		// BatchTLELookAngles at an out-of-range instant.
+		if _, err := BatchTLELookAngles([]TLEPair{{Line1: fixtureISSLine1, Line2: fixtureISSLine2}}, station, []time.Time{badInstant}, OpsModeAFSPC, false); err == nil {
+			t.Fatalf("BatchTLELookAngles(%v) unexpectedly succeeded", badInstant)
+		} else {
+			var statusErr *StatusError
+			if !errors.As(err, &statusErr) || !strings.Contains(statusErr.Detail, "invalid UTC instant") {
+				t.Fatalf("BatchTLELookAngles(%v) = %T %+v, want invalid UTC instant detail", badInstant, err, err)
+			}
+		}
+	}
+
+	// Sun/Moon at math.MinInt64 and math.MaxInt64 microseconds.
+	for _, extreme := range []time.Time{time.UnixMicro(math.MinInt64).UTC(), time.UnixMicro(math.MaxInt64).UTC()} {
+		_, _, err := SunMoonECEF(extreme)
+		assertInvalidDatetimeEngineError(t, "SunMoonECEF", err, true)
+
+		_, _, err = SunMoonECEFBatch([]time.Time{extreme})
+		assertInvalidDatetimeEngineError(t, "SunMoonECEFBatch", err, true)
+
+		_, _, err = SunMoonECIBatch([]time.Time{extreme})
+		assertInvalidDatetimeEngineError(t, "SunMoonECIBatch", err, true)
+	}
+}

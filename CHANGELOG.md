@@ -4,6 +4,34 @@ All notable changes to this module are documented here.
 
 ## Unreleased
 
+## 4.1.0 - 2026-11-19
+
+### Added
+
+- Add `BatchTLEGroundTracks` and `TLEBatchGroundTracks` (`Close`, `Shape`,
+  `Values`) wrapping `sidereon_tle_batch_ground_tracks`,
+  `sidereon_tle_batch_ground_tracks_shape`,
+  `sidereon_tle_batch_ground_tracks_values`, and
+  `sidereon_tle_batch_ground_tracks_free`, with serial and parallel execution.
+
+### Changed
+
+- Update the bundled C binding to `sidereon-c` `4.1.0` (commit
+  `624020c22c978240e7453f3b8449437353666704`) and the underlying engine to
+  `sidereon` / `sidereon-core` `4.1.0`.
+- `SatelliteConstellation.GroundTracks` and the batch look-angle, visibility,
+  and coverage-grid operations share each epoch's frame matrices across
+  satellites with bit-identical results.
+
+### Fixed
+
+- Return `StatusInvalidArgument` with typed invalid-datetime engine errors
+  (`field: "datetime"`, `reason: "invalid UTC instant"`) when instants outside
+  UTC years 0 through 9999 are passed to pass searches, coverage grids,
+  Sun/Moon, almanac, transit, eclipse, rise/set, and body-observation
+  operations instead of panicking, returning empty results, or reporting a
+  time-window error.
+
 ## 4.0.0 - 2026-11-16
 
 ### Breaking

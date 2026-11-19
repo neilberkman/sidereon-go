@@ -63,9 +63,9 @@ the supported conditional builds.
 
 ### C binding and engine crates
 
-- `sidereon-c` 4.0.0 — MIT; C ABI binding.
-- `sidereon` 4.0.0 — MIT; ergonomic engine facade.
-- `sidereon-core` 4.0.0 — MIT; numerical engine.
+- `sidereon-c` 4.1.0 — MIT; C ABI binding.
+- `sidereon` 4.1.0 — MIT; ergonomic engine facade.
+- `sidereon-core` 4.1.0 — MIT; numerical engine.
 - `trust-region-least-squares` 0.11.0 — MIT; statically linked numerical
   dependency.
 
@@ -188,8 +188,8 @@ The full official notice is reproduced in
 `LICENSES/IERS-Conventions-Software-License.txt` from the official
 [`DEHANTTIDEINEL.F`](https://iers-conventions.obspm.fr/content/chapter7/software/dehanttideinel/DEHANTTIDEINEL.F)
 source. The exact public non-test tide sources from the statically linked
-[sidereon-core 4.0.0 source](https://github.com/neilberkman/sidereon/tree/3132eeac13ebf30f63766fc608aa9aae9258dd3d/crates/sidereon-core/src/tides)
-are distributed under `third_party_source/sidereon-core-4.0.0/tides/`.
+[sidereon-core 4.1.0 source](https://github.com/neilberkman/sidereon/tree/012c6c38ea054b61293e83fc95ac60ff6d11fb8b/crates/sidereon-core/src/tides)
+are distributed under `third_party_source/sidereon-core-4.1.0/tides/`.
 The source comments retain the derivation, renamed routines, IERS
 acknowledgment, and difference-from-original text.
 Published results obtained with these routines should acknowledge use of the
