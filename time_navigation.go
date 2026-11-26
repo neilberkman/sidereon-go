@@ -8,9 +8,12 @@ type Ephemeris struct {
 	handle *native.Ephemeris
 }
 
-// PropagateState propagates an initial Cartesian state at the requested TDB
-// offsets, in seconds. All numerical work is performed by the C engine.
+// PropagateState propagates an initial Cartesian state at the requested
+// absolute TDB seconds past J2000.
 func PropagateState(config PropagationConfig, timesS []float64) (*Ephemeris, error) {
+	if hasRadiationOptions(config.ForceComponents) {
+		return PropagateStateWithForceModel(config, timesS, PropagationEnvironment{}, nil)
+	}
 	value, err := native.PropagateState(nativePropagationConfig(config), append([]float64(nil), timesS...))
 	if err != nil {
 		return nil, publicError(err)
@@ -21,6 +24,9 @@ func PropagateState(config PropagationConfig, timesS []float64) (*Ephemeris, err
 // PropagateStateWithTideSystem propagates states using an explicit Earth
 // gravity tide convention. PropagateState retains the engine's legacy default.
 func PropagateStateWithTideSystem(config PropagationConfig, timesS []float64, tideSystem GravityTideSystem) (*Ephemeris, error) {
+	if hasRadiationOptions(config.ForceComponents) {
+		return PropagateStateWithForceModel(config, timesS, PropagationEnvironment{GravityTideSystem: tideSystem}, nil)
+	}
 	value, err := native.PropagateStateWithTideSystem(nativePropagationConfig(config), append([]float64(nil), timesS...), uint32(tideSystem))
 	if err != nil {
 		return nil, publicError(err)

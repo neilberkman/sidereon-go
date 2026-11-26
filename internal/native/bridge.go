@@ -709,13 +709,12 @@ func (r *resource) withExclusive(fn func(unsafe.Pointer) error) error {
 
 func (r *resource) close() {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.ptr == nil {
-		return
-	}
 	pointer := r.ptr
 	r.ptr = nil
-	withCThread(func() { r.release(pointer) })
+	r.mu.Unlock()
+	if pointer != nil {
+		withCThread(func() { r.release(pointer) })
+	}
 }
 
 type NMEALog struct {

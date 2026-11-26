@@ -274,6 +274,87 @@ These examples demonstrate the public operation and units; they do not imply
 that every sibling-language convenience name is present in Go. Consult the Go
 package documentation for the routes included in the current module.
 
+## Orbital dynamics
+
+`PropagateState` and the covariance and orbit-fit operations use elapsed
+terrestrial time for integration. Cartesian propagation epochs remain
+absolute TDB seconds past J2000. Drag uses UT1 Earth orientation and UTC
+for the atmospheric calendar and space-weather lookup.
+
+`PropagateStateWithForceModel(config, epochs, environment, additionalForces)`
+samples a GCRF ephemeris. `PropagateStateWithDenseOutput(config, target, environment, additionalForces)`
+returns the final GCRF state and continuous DP5(4) output when available.
+Both use the built-in force model and optional drag in `PropagationConfig`.
+Set `PropagationEnvironment.SpaceWeather` for table-driven drag, or use
+the fixed weather in `DragParameters`. The engine adds the `[]Force` slice
+in order after the configured forces and drag. Pass nil for no additional
+forces. Close the returned ephemeris or dense output when done.
+
+`NewCompositeForceModel` combines concrete force handles in evaluation order.
+Force handles provide parameter names, replacement values and derivatives.
+Use `PropagateVariational` for state-transition matrices and force-parameter
+sensitivities. `FitInertialOrbitParameters` and `FitSP3ECEFOrbitParameters`
+estimate selected force parameters together with the initial state. The fit
+options take the same additional force list and an optional gravity tide
+convention, which defaults to tide-free. `ForceParameters` returns estimates
+in fit order. Compare `EstimatedForceParameter` values with `==` and use
+`OrbitParameterFit.Sigma(name)` to read a formal standard deviation from the
+scaled covariance.
+
+Solar radiation pressure uses the apparent solar disc, an oblate WGS84
+Earth and lunar occultation by default. To override it in a built-in force
+configuration, set `SolarRadiationPressure.HasShadow` and supply `Shadow`.
+Set `ForceModelComponents.HasEarthRadiationPressure` and supply
+`EarthRadiationPressure` to enable albedo and infrared pressure. Both
+configurations provide `Equal` methods that compare enabled settings. The
+radiation and third-body forces use GCRS Sun and Moon positions. Supply
+a `DEEphemeris` through `PropagationContext` to use
+a JPL planetary ephemeris. An `IERS2010EarthOrientationProvider` supplies
+Earth orientation from daily observations.
+
+`ParseICGEMGravityField` reads static and time-variable gravity
+coefficients and their uncertainty columns. The geopotential uses
+Holmes–Featherstone recursion for embedded EGM96 and ICGEM fields.
+Eckstein–Hechler and Brouwer–Lyddane propagators convert between mean and
+osculating elements and evaluate analytic ephemerides.
+
+## Orbit scoring and GNSS attitude
+
+`ScoreOrbit` compares predicted SP3, broadcast or sampled trajectories
+with a reference SP3 product. Reports include radial, transverse and
+normal errors, clock and SISRE statistics, prediction-horizon bins and
+coverage counts by satellite and constellation. Scoring sources retain their
+backing products. Broadcast sources keep the navigation-message preference
+active at construction. `Equal` compares scoring options, frame reconciliation
+options, epoch selections and trajectory samples using engine value semantics.
+Use `Equal` on optional orbit scalars, source states, score summaries and
+attitude values to compare only the payloads that are present.
+
+`GNSSBlock` identifies satellite blocks from IGS names or constellation
+metadata. `GNSSAttitudeLawForBlock` selects the block's yaw law. Use
+`ComputeNominalYaw` and `ComputeDYBAxes` for geocentric position and
+velocity data. The eclipse functions provide lunar and combined
+Earth–Moon shadow fractions, classifications and position gradients.
+
+`GnssAttitude` evaluates a yaw law along an `OrbitAttitudeTrajectory` at TDB
+seconds past J2000. Its body and DYB axes are in GCRF. `Sample` returns GCRF
+satellite and geocentric Sun positions in metres and satellite velocity in
+metres per second.
+
+Create a trajectory from SP3, broadcast navigation, an orbit scoring source,
+a GCRF Eckstein–Hechler or Brouwer–Lyddane propagator, or continuous DP5(4)
+output from `PropagateStateWithDenseOutput`. Earth-fixed sources must use
+positions aligned with the orientation provider's ITRF. Pass nil for the
+default TDB provider, or supply an `IERS2010EarthOrientationProvider`. Set the
+velocity difference half step in source time-scale seconds with
+`WithVelocityHalfStepS`. The Sun comes from the analytic ephemeris by default
+and can be set to a JPL DE ephemeris with `WithDEEphemeris`.
+
+Close the trajectory when done. It retains the source data after the
+original handles close. Requests beyond orbit, Earth orientation or Sun
+coverage return a typed `GNSSAttitudeError` with kind
+`trajectory_unavailable`. Some laws also sample around the requested epoch.
+
 ## Ownership, concurrency, and I/O
 
 Go owns HTTP clients, sockets, TLS, retries, filesystem paths, cache locking,
@@ -283,8 +364,9 @@ call; the C library does not retain Go pointers after the call returns.
 
 Owning C handles have an explicit, idempotent `Close` method. Call `Close` when
 the handle is no longer needed, even though the binding also has a garbage
-collection cleanup backstop. Do not use a handle after `Close` or race a live
-operation with `Close`.
+collection cleanup backstop. Where a handle documents concurrent use with
+`Close`, an operation can finish with its retained data or return `ErrClosed`
+if the handle closes first.
 
 Read-only operations on a live handle may be shared when the type documents
 that behavior. Mutating operations and `Close` are serialized per handle.

@@ -11,6 +11,7 @@ import "C"
 
 import (
 	"fmt"
+	"runtime"
 	"unsafe"
 )
 
@@ -242,56 +243,16 @@ func (value RtkRinexDualArcOptions) toC(alloc *cRtkAlloc) (*C.SidereonRtkRinexDu
 	return options, nil
 }
 
-type lockedRinexObs struct {
-	obs *RinexObs
-	key uintptr
-	ptr unsafe.Pointer
-}
-
-func withRtkRinexObsPair(base, rover *RinexObs, fn func(unsafe.Pointer, unsafe.Pointer) error) error {
-	if base == nil || base.resource == nil || rover == nil || rover.resource == nil {
-		return ErrClosed
-	}
-	if base.resource == rover.resource {
-		return base.resource.with(func(pointer unsafe.Pointer) error { return fn(pointer, pointer) })
-	}
-	items := [2]lockedRinexObs{
-		{obs: base, key: uintptr(unsafe.Pointer(base.resource))},
-		{obs: rover, key: uintptr(unsafe.Pointer(rover.resource))},
-	}
-	if items[1].key < items[0].key {
-		items[0], items[1] = items[1], items[0]
-	}
-	var lock func(int) error
-	lock = func(index int) error {
-		if index == len(items) {
-			var basePointer, roverPointer unsafe.Pointer
-			for _, item := range items {
-				if item.obs == base {
-					basePointer = item.ptr
-				} else {
-					roverPointer = item.ptr
-				}
-			}
-			return fn(basePointer, roverPointer)
-		}
-		return items[index].obs.resource.with(func(pointer unsafe.Pointer) error {
-			items[index].ptr = pointer
-			return lock(index + 1)
-		})
-	}
-	return lock(0)
-}
-
 func withRtkRinexInputs(sp3 *SP3, base, rover *RinexObs, fn func(unsafe.Pointer, unsafe.Pointer, unsafe.Pointer) error) error {
-	if sp3 == nil || sp3.handle == nil {
+	if sp3 == nil || base == nil || rover == nil {
 		return ErrClosed
 	}
-	return sp3.handle.with(func(sp3Pointer unsafe.Pointer) error {
-		return withRtkRinexObsPair(base, rover, func(basePointer, roverPointer unsafe.Pointer) error {
-			return fn(sp3Pointer, basePointer, roverPointer)
-		})
+	err := withNativeHandles([]nativeHandleInput{{positioning: sp3.handle}, {resource: base.resource}, {resource: rover.resource}}, func(pointers []unsafe.Pointer) error {
+		return fn(pointers[0], pointers[1], pointers[2])
 	})
+	runtime.KeepAlive(base)
+	runtime.KeepAlive(rover)
+	return err
 }
 
 func BuildRtkRinexArc(sp3 *SP3, base, rover *RinexObs, options *RtkRinexArcOptions) (*RtkRinexArc, error) {

@@ -4,6 +4,53 @@ All notable changes to this module are documented here.
 
 ## Unreleased
 
+### Added
+
+- Add JPL DE planetary ephemerides, GCRS Sun and Moon positions, TT/TDB
+  conversions and an IERS 2010 Earth-orientation provider.
+- Add analytic orbit propagation, mean and osculating element conversion,
+  and static and time-variable ICGEM gravity.
+- Add lunar eclipse geometry, shadow gradients, GNSS blocks, yaw laws and
+  nominal attitude axes.
+- Evaluate GNSS yaw laws and sample GCRF satellite and Sun states along SP3,
+  broadcast, scoring, analytic and continuous DP5(4) trajectories at TDB
+  epochs. Support IERS 2010 Earth orientation and JPL DE Sun ephemerides.
+- Add ECOM1, ECOM2 and empirical RTN forces, composite force handles,
+  variational propagation and joint state and force-parameter estimation.
+- Propagate Cartesian states and generate continuous DP5(4) output with
+  built-in forces, optional fixed or table-driven drag, and an ordered
+  list of additional force objects.
+- Select the gravity tide system for orbit-parameter fits.
+- Return fitted force-parameter rows in estimation order. Read formal
+  standard deviations by name with `OrbitParameterFit.Sigma`.
+- Add scoring of predicted SP3, broadcast and sampled orbits with RTN,
+  clock, SISRE and prediction-horizon statistics.
+- Compare scoring options, frame reconciliation options, epoch selections
+  and trajectory samples by engine value equality. Compare optional orbital
+  values and presence-flagged fields with `Equal`, which ignores absent payloads.
+
+### Changed
+
+- Numerical propagation integrates on TT. Orbit fits convert observation
+  epochs to TT and TDB. Drag uses UT1 for Earth orientation and UTC for
+  space-weather and atmospheric calendar inputs.
+- Solar radiation pressure defaults to apparent-disc lighting with an
+  oblate WGS84 Earth and lunar occultation. Radiation and third-body
+  forces use GCRS Sun and Moon positions.
+- Spherical-harmonic gravity uses Holmes–Featherstone recursion.
+- J2 acceleration and position partials follow Orekit's
+  `J2OnlyPerturbation` operation order.
+
+### Fixed
+
+- Force models return finite results or typed errors. They check non-finite
+  inputs they use and recover representable results when intermediate
+  values exceed the floating-point exponent range.
+- Orbit scoring sources and attitude trajectories retain their input data
+  independently of the original handles and navigation-message changes.
+- Acquire native handles in one order so concurrent trajectory construction,
+  orbit-parameter fitting and handle closure can complete.
+
 ## 4.1.0 - 2026-11-19
 
 ### Added

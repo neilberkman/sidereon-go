@@ -12,7 +12,6 @@ import "C"
 import (
 	"errors"
 	"runtime"
-	"sort"
 	"unsafe"
 )
 
@@ -90,114 +89,13 @@ func releaseScenarioSimulation(pointer unsafe.Pointer) {
 	C.sidereon_scenario_simulation_free((*C.SidereonScenarioSimulation)(pointer))
 }
 
-type scenarioInput struct {
-	positioning *positioningHandle
-	resource    *resource
-}
-
-type scenarioTarget struct {
-	positioning *positioningHandle
-	resource    *resource
-	address     uintptr
-}
-
-// withScenarioInputs acquires mixed product handles in one canonical address
-// order. Positioning handles are deduplicated and retain their normal outer
-// handle lock; direct protocol resources (broadcast ephemeris) are deduped by
-// resource address. Pointers are returned in caller order.
-func withScenarioInputs(inputs []scenarioInput, fn func([]unsafe.Pointer) error) error {
-	targets := make([]scenarioTarget, 0, len(inputs))
-	for _, input := range inputs {
-		if input.positioning == nil && input.resource == nil {
-			return ErrClosed
-		}
-		if input.positioning != nil {
-			targets = append(targets, scenarioTarget{positioning: input.positioning, address: uintptr(unsafe.Pointer(input.positioning))})
-		} else {
-			targets = append(targets, scenarioTarget{resource: input.resource, address: uintptr(unsafe.Pointer(input.resource))})
-		}
-	}
-	sort.Slice(targets, func(i, j int) bool { return targets[i].address < targets[j].address })
-	unique := targets[:0]
-	for _, target := range targets {
-		duplicate := false
-		for _, prior := range unique {
-			if target.positioning != nil && target.positioning == prior.positioning || target.resource != nil && target.resource == prior.resource {
-				duplicate = true
-				break
-			}
-		}
-		if !duplicate {
-			unique = append(unique, target)
-		}
-	}
-	locked := make([]scenarioTarget, 0, len(unique))
-	unlock := func() {
-		for i := len(locked) - 1; i >= 0; i-- {
-			if locked[i].resource != nil {
-				locked[i].resource.mu.RUnlock()
-			}
-			if locked[i].positioning != nil {
-				locked[i].positioning.mu.RUnlock()
-			}
-		}
-	}
-	for _, target := range unique {
-		if target.positioning != nil {
-			target.positioning.mu.RLock()
-			target.resource = target.positioning.resource
-			if target.resource == nil {
-				target.positioning.mu.RUnlock()
-				unlock()
-				return ErrClosed
-			}
-		}
-		if target.resource == nil {
-			if target.positioning != nil {
-				target.positioning.mu.RUnlock()
-			}
-			unlock()
-			return ErrClosed
-		}
-		target.resource.mu.RLock()
-		if target.resource.ptr == nil {
-			target.resource.mu.RUnlock()
-			if target.positioning != nil {
-				target.positioning.mu.RUnlock()
-			}
-			unlock()
-			return ErrClosed
-		}
-		locked = append(locked, target)
-	}
-	byPositioning := make(map[*positioningHandle]unsafe.Pointer, len(locked))
-	byResource := make(map[*resource]unsafe.Pointer, len(locked))
-	for _, target := range locked {
-		if target.positioning != nil {
-			byPositioning[target.positioning] = target.resource.ptr
-		} else {
-			byResource[target.resource] = target.resource.ptr
-		}
-	}
-	pointers := make([]unsafe.Pointer, len(inputs))
-	for i, input := range inputs {
-		if input.positioning != nil {
-			pointers[i] = byPositioning[input.positioning]
-		} else {
-			pointers[i] = byResource[input.resource]
-		}
-	}
-	defer unlock()
-	return fn(pointers)
-}
-
-func scenarioSimulate(data []byte, inputs []scenarioInput, kind uint32) (*ScenarioSimulation, error) {
+func scenarioSimulate(data []byte, inputs []nativeHandleInput, kind uint32) (*ScenarioSimulation, error) {
 	length, err := checkedNativeSize(len(data))
 	if err != nil {
 		return nil, err
 	}
 	var out *C.SidereonScenarioSimulation
-	err = withScenarioInputs(inputs, func(pointers []unsafe.Pointer) error {
+	err = withNativeHandles(inputs, func(pointers []unsafe.Pointer) error {
 		return withCThreadError(func() error {
 			memory, copyErr := copyNativeInput(data)
 			if copyErr != nil {
@@ -252,35 +150,39 @@ func ScenarioSimulateJSONWithBroadcast(data []byte, broadcast *BroadcastEphemeri
 	if broadcast == nil {
 		return nil, ErrClosed
 	}
-	return scenarioSimulate(data, []scenarioInput{{resource: broadcast.resource}}, 1)
+	value, err := scenarioSimulate(data, []nativeHandleInput{{resource: broadcast.resource}}, 1)
+	runtime.KeepAlive(broadcast)
+	return value, err
 }
 
 func ScenarioSimulateJSONWithBroadcastAndIonex(data []byte, broadcast *BroadcastEphemeris, ionex *Ionex) (*ScenarioSimulation, error) {
 	if broadcast == nil || ionex == nil || ionex.handle == nil {
 		return nil, ErrClosed
 	}
-	return scenarioSimulate(data, []scenarioInput{{resource: broadcast.resource}, {positioning: ionex.handle}}, 2)
+	value, err := scenarioSimulate(data, []nativeHandleInput{{resource: broadcast.resource}, {positioning: ionex.handle}}, 2)
+	runtime.KeepAlive(broadcast)
+	return value, err
 }
 
 func ScenarioSimulateJSONWithIonex(data []byte, ionex *Ionex) (*ScenarioSimulation, error) {
 	if ionex == nil || ionex.handle == nil {
 		return nil, ErrClosed
 	}
-	return scenarioSimulate(data, []scenarioInput{{positioning: ionex.handle}}, 3)
+	return scenarioSimulate(data, []nativeHandleInput{{positioning: ionex.handle}}, 3)
 }
 
 func ScenarioSimulateJSONWithSP3(data []byte, sp3 *SP3) (*ScenarioSimulation, error) {
 	if sp3 == nil || sp3.handle == nil {
 		return nil, ErrClosed
 	}
-	return scenarioSimulate(data, []scenarioInput{{positioning: sp3.handle}}, 4)
+	return scenarioSimulate(data, []nativeHandleInput{{positioning: sp3.handle}}, 4)
 }
 
 func ScenarioSimulateJSONWithSP3AndIonex(data []byte, sp3 *SP3, ionex *Ionex) (*ScenarioSimulation, error) {
 	if sp3 == nil || ionex == nil || sp3.handle == nil || ionex.handle == nil {
 		return nil, ErrClosed
 	}
-	return scenarioSimulate(data, []scenarioInput{{positioning: sp3.handle}, {positioning: ionex.handle}}, 5)
+	return scenarioSimulate(data, []nativeHandleInput{{positioning: sp3.handle}, {positioning: ionex.handle}}, 5)
 }
 
 func (s *ScenarioSimulation) Close() error {

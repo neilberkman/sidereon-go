@@ -117,6 +117,7 @@ type TCAPropagatedCovariancePCOptions struct {
 	MaxSteps             uint32
 	MuKm3PerS2Enabled    bool
 	MuKm3PerS2           float64
+	ForceOptions         *TCAForceOptions
 }
 
 type TCATLEPair struct {
@@ -1070,6 +1071,9 @@ func FindTCAConjunctionsWithPropagatedCovarianceFromTLEs(lines [4]string, startW
 	cPcOptions, err := cTCAPropagatedCovariancePCOptions(pcOptions)
 	if err != nil {
 		return nil, err
+	}
+	if pcOptions.ForceOptions != nil {
+		return findTCAConjunctionsWithForceOptions(cLines, [4]float64{startWhole, startFraction, endWhole, endFraction}, &cTcaOptions, &cPcOptions, *pcOptions.ForceOptions)
 	}
 	var written, required C.size_t
 	call := func(output *C.SidereonTcaConjunction, length C.size_t) error {

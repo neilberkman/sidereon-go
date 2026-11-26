@@ -104,6 +104,15 @@ func TestCgoEngineErrorFamilyNames(t *testing.T) {
 		{EngineErrorFamilyPppCycleSlip, 76, "ppp_cycle_slip"},
 		{EngineErrorFamilyPppPrep, 77, "ppp_prep"},
 		{EngineErrorFamilyPppKinematic, 78, "ppp_kinematic"},
+		{EngineErrorFamilyEclipse, 79, "eclipse"},
+		{EngineErrorFamilyShadowGradient, 80, "shadow_gradient"},
+		{EngineErrorFamilyDE, 81, "de"},
+		{EngineErrorFamilyGNSSAttitude, 82, "gnss_attitude"},
+		{EngineErrorFamilyGNSSBlock, 83, "gnss_block"},
+		{EngineErrorFamilyAnalyticPropagation, 84, "analytic_propagation"},
+		{EngineErrorFamilyICGEM, 85, "icgem"},
+		{EngineErrorFamilyOrbitParameterFit, 86, "orbit_parameter_fit"},
+		{EngineErrorFamilyOrbitScore, 87, "orbit_score"},
 		{EngineErrorFamilyUnknown, 999, "unknown"},
 	}
 
@@ -126,7 +135,7 @@ func TestCgoEngineErrorFamilyNames(t *testing.T) {
 		}
 	}
 
-	for id := uint32(0); id <= 78; id++ {
+	for id := uint32(0); id <= 87; id++ {
 		fam := EngineErrorFamily(id)
 		if fam.Name() == fmt.Sprintf("family_%d", id) {
 			t.Errorf("contiguous native family ID %d has unmapped name %q", id, fam.Name())
@@ -138,19 +147,19 @@ func TestCgoEngineErrorFamilyNames(t *testing.T) {
 	}
 
 	// Test future code cases
-	future79 := EngineErrorFamily(79)
-	if future79.Name() != "family_79" {
-		t.Errorf("future family 79 name = %q, expected \"family_79\"", future79.Name())
+	future88 := EngineErrorFamily(88)
+	if future88.Name() != "family_88" {
+		t.Errorf("future family 88 name = %q, expected \"family_88\"", future88.Name())
 	}
-	if future79.String() != "family_79" {
-		t.Errorf("future family 79 string = %q, expected \"family_79\"", future79.String())
+	if future88.String() != "family_88" {
+		t.Errorf("future family 88 string = %q, expected \"family_88\"", future88.String())
 	}
 	future1000 := EngineErrorFamily(1000)
 	if future1000.Name() != "family_1000" {
 		t.Errorf("future family 1000 name = %q, expected \"family_1000\"", future1000.Name())
 	}
-	if EngineErrorFamilyFromName("family_79") != EngineErrorFamilyUnknown {
-		t.Errorf("expected unmapped family_79 name to return EngineErrorFamilyUnknown")
+	if EngineErrorFamilyFromName("family_88") != EngineErrorFamilyUnknown {
+		t.Errorf("expected unmapped family_88 name to return EngineErrorFamilyUnknown")
 	}
 }
 

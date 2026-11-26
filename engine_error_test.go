@@ -681,6 +681,15 @@ func TestPublicEngineErrorFamilyRegistry(t *testing.T) {
 		{EngineErrorFamilyPPPCycleSlip, 76, "ppp_cycle_slip"},
 		{EngineErrorFamilyPPPPrep, 77, "ppp_prep"},
 		{EngineErrorFamilyPPPKinematic, 78, "ppp_kinematic"},
+		{EngineErrorFamilyEclipse, 79, "eclipse"},
+		{EngineErrorFamilyShadowGradient, 80, "shadow_gradient"},
+		{EngineErrorFamilyDE, 81, "de"},
+		{EngineErrorFamilyGNSSAttitude, 82, "gnss_attitude"},
+		{EngineErrorFamilyGNSSBlock, 83, "gnss_block"},
+		{EngineErrorFamilyAnalyticPropagation, 84, "analytic_propagation"},
+		{EngineErrorFamilyICGEM, 85, "icgem"},
+		{EngineErrorFamilyOrbitParameterFit, 86, "orbit_parameter_fit"},
+		{EngineErrorFamilyOrbitScore, 87, "orbit_score"},
 		{EngineErrorFamilyUnknown, 999, "unknown"},
 	}
 
@@ -703,7 +712,7 @@ func TestPublicEngineErrorFamilyRegistry(t *testing.T) {
 		}
 	}
 
-	for id := uint32(0); id <= 78; id++ {
+	for id := uint32(0); id <= 87; id++ {
 		fam := EngineErrorFamily(id)
 		if fam.Name() == fmt.Sprintf("family_%d", id) {
 			t.Errorf("contiguous public family ID %d has unmapped name %q", id, fam.Name())
@@ -715,12 +724,12 @@ func TestPublicEngineErrorFamilyRegistry(t *testing.T) {
 	}
 
 	// Verify future codes produce raw family_<N> names and string representation.
-	futureCode79 := EngineErrorFamily(79)
-	if futureCode79.Name() != "family_79" {
-		t.Errorf("future family 79 name = %q, expected \"family_79\"", futureCode79.Name())
+	futureCode88 := EngineErrorFamily(88)
+	if futureCode88.Name() != "family_88" {
+		t.Errorf("future family 88 name = %q, expected \"family_88\"", futureCode88.Name())
 	}
-	if futureCode79.String() != "family_79" {
-		t.Errorf("future family 79 string = %q, expected \"family_79\"", futureCode79.String())
+	if futureCode88.String() != "family_88" {
+		t.Errorf("future family 88 string = %q, expected \"family_88\"", futureCode88.String())
 	}
 	futureCode9999 := EngineErrorFamily(9999)
 	if futureCode9999.Name() != "family_9999" {

@@ -913,14 +913,14 @@ func (t *TLE) PropagateWithDecayLatch(minutes float64, latch *SGP4DecayLatch) (T
 		return TEMEState{}, ErrClosed
 	}
 	var out C.SidereonTemeState
-	err := t.handle.with(func(tlePointer unsafe.Pointer) error {
-		return latch.handle.withExclusive(func(latchPointer unsafe.Pointer) error {
-			var operationErr error
-			withCThread(func() {
-				operationErr = sgp4StatusErrorLocked(C.sidereon_tle_propagate_with_decay_latch((*C.SidereonTle)(tlePointer), C.double(minutes), (*C.SidereonSgp4DecayLatch)(latchPointer), &out))
-			})
-			return operationErr
+	err := withNativeHandles([]nativeHandleInput{{positioning: t.handle}, {positioning: latch.handle, exclusive: true}}, func(pointers []unsafe.Pointer) error {
+		tlePointer := pointers[0]
+		latchPointer := pointers[1]
+		var operationErr error
+		withCThread(func() {
+			operationErr = sgp4StatusErrorLocked(C.sidereon_tle_propagate_with_decay_latch((*C.SidereonTle)(tlePointer), C.double(minutes), (*C.SidereonSgp4DecayLatch)(latchPointer), &out))
 		})
+		return operationErr
 	})
 	return TEMEState{PositionKm: vectorsFromC(out.position_km), VelocityKmPerS: vectorsFromC(out.velocity_km_s)}, err
 }
@@ -981,31 +981,31 @@ func VisibleFromSatellites(tles []*TLE, ids []string, station GroundStation, epo
 		idPointers[i] = (*C.char)(p)
 	}
 	var result *VisibleList
-	var operationErr error
-	// Hold every TLE read lock while C consumes the borrowed pointer array.
-	var recurse func(int) error
-	recurse = func(i int) error {
-		if i == len(tles) {
-			stationC := cGroundStation(station)
-			var out *C.SidereonVisibleList
-			operationErr = callStatus(func() uint32 {
-				return C.sidereon_visible_from_satellites((**C.SidereonTle)(tleMemory), (**C.char)(idMemory), C.size_t(len(tles)), &stationC, C.int64_t(unix), C.double(minElevationDeg), &out)
-			})
-			if out != nil {
-				if operationErr != nil {
-					withCThread(func() { C.sidereon_visible_list_free(out) })
-				} else {
-					result = &VisibleList{handle: newPositioningHandle(unsafe.Pointer(out), releaseVisibleList)}
-				}
-			}
-			return operationErr
+	handles := make([]*positioningHandle, len(tles))
+	for i, tle := range tles {
+		if tle == nil {
+			return nil, ErrClosed
 		}
-		if tles[i] == nil || tles[i].handle == nil {
-			return ErrClosed
-		}
-		return tles[i].handle.with(func(pointer unsafe.Pointer) error { tlePointers[i] = (*C.SidereonTle)(pointer); return recurse(i + 1) })
+		handles[i] = tle.handle
 	}
-	err = recurse(0)
+	err = withPositioningHandles(handles, func(pointers []unsafe.Pointer) error {
+		for i, pointer := range pointers {
+			tlePointers[i] = (*C.SidereonTle)(pointer)
+		}
+		stationC := cGroundStation(station)
+		var out *C.SidereonVisibleList
+		operationErr := callStatus(func() uint32 {
+			return C.sidereon_visible_from_satellites((**C.SidereonTle)(tleMemory), (**C.char)(idMemory), C.size_t(len(tles)), &stationC, C.int64_t(unix), C.double(minElevationDeg), &out)
+		})
+		if out != nil {
+			if operationErr != nil {
+				withCThread(func() { C.sidereon_visible_list_free(out) })
+			} else {
+				result = &VisibleList{handle: newPositioningHandle(unsafe.Pointer(out), releaseVisibleList)}
+			}
+		}
+		return operationErr
+	})
 	if err != nil {
 		if result != nil && result.handle != nil {
 			if closeErr := result.handle.close(); closeErr != nil {

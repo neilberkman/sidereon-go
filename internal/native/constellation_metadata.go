@@ -342,11 +342,11 @@ func (c *Constellation) ValidateAgainstSP3(sp3 *SP3) (*ConstellationValidation, 
 		return nil, ErrClosed
 	}
 	var out *C.SidereonConstellationValidation
-	e := c.handle.with(func(p unsafe.Pointer) error {
-		return sp3.handle.with(func(q unsafe.Pointer) error {
-			return callStatus(func() uint32 {
-				return uint32(C.sidereon_constellation_validate_against_sp3((*C.SidereonConstellation)(p), (*C.SidereonSp3)(q), &out))
-			})
+	e := withNativeHandles([]nativeHandleInput{{positioning: c.handle}, {positioning: sp3.handle}}, func(pointers []unsafe.Pointer) error {
+		p := pointers[0]
+		q := pointers[1]
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_constellation_validate_against_sp3((*C.SidereonConstellation)(p), (*C.SidereonSp3)(q), &out))
 		})
 	})
 	if e != nil {

@@ -13,7 +13,6 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
-	"sort"
 	"unsafe"
 )
 
@@ -150,56 +149,6 @@ func (r *Sp3MergeReport) Close() error {
 		return nil
 	}
 	return r.handle.close()
-}
-
-// withPositioningHandleSet acquires unique handles in address order while
-// preserving the caller's order in the callback. It is used for C calls that
-// consume several SP3 products and therefore also handles repeated inputs.
-func withPositioningHandleSet(handles []*positioningHandle, fn func([]unsafe.Pointer) error) error {
-	if len(handles) == 0 {
-		return fn(nil)
-	}
-	type indexed struct {
-		h *positioningHandle
-	}
-	ordered := make([]indexed, 0, len(handles))
-	seen := make(map[*positioningHandle]struct{}, len(handles))
-	for _, h := range handles {
-		if h == nil {
-			return ErrClosed
-		}
-		if _, ok := seen[h]; ok {
-			continue
-		}
-		seen[h] = struct{}{}
-		ordered = append(ordered, indexed{h: h})
-	}
-	sort.Slice(ordered, func(i, j int) bool {
-		return uintptr(unsafe.Pointer(ordered[i].h)) < uintptr(unsafe.Pointer(ordered[j].h))
-	})
-	for _, item := range ordered {
-		item.h.mu.RLock()
-	}
-	defer func() {
-		for i := len(ordered) - 1; i >= 0; i-- {
-			ordered[i].h.mu.RUnlock()
-		}
-	}()
-	for _, item := range ordered {
-		if item.h.resource == nil {
-			return ErrClosed
-		}
-	}
-	pointers := make([]unsafe.Pointer, len(handles))
-	for i, h := range handles {
-		if err := h.resource.with(func(p unsafe.Pointer) error {
-			pointers[i] = p
-			return nil
-		}); err != nil {
-			return err
-		}
-	}
-	return fn(pointers)
 }
 
 type sp3Arena struct {
@@ -541,7 +490,7 @@ func ValidateExactSP3(sp3 *SP3, request *ExactSp3Request) (uint32, error) {
 		return 0, ErrClosed
 	}
 	var coverageValue uint32
-	err := withPositioningHandleSet([]*positioningHandle{sp3.handle, request.handle}, func(pointers []unsafe.Pointer) error {
+	err := withPositioningHandles([]*positioningHandle{sp3.handle, request.handle}, func(pointers []unsafe.Pointer) error {
 		var operationErr error
 		withCThread(func() {
 			var coverage C.enum_SidereonExactSp3Coverage
@@ -576,7 +525,7 @@ func MergeSP3(sources []*SP3, options *NativeSp3MergeOptions) (*SP3, *Sp3MergeRe
 			return nil, nil, err
 		}
 	}
-	err = withPositioningHandleSet(handles, func(pointers []unsafe.Pointer) error {
+	err = withPositioningHandles(handles, func(pointers []unsafe.Pointer) error {
 		count, countErr := checkedNativeSize(len(pointers))
 		if countErr != nil {
 			return countErr

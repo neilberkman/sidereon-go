@@ -336,13 +336,13 @@ func (f *TrackFilter) PredictRecorded(dt float64, history *TrackRTSHistoryBuilde
 	}
 	var out C.SidereonTrackPrediction
 	var opErr error
-	err := f.handle.write(func(pointer unsafe.Pointer) error {
-		return history.handle.write(func(hp unsafe.Pointer) error {
-			withCThread(func() {
-				opErr = statusErrorLocked(uint32(C.sidereon_track_filter_predict_recorded((*C.SidereonTrackFilter)(pointer), C.double(dt), (*C.SidereonTrackRtsHistoryBuilder)(hp), &out)))
-			})
-			return nil
+	err := withNativeHandles([]nativeHandleInput{{positioning: (*positioningHandle)(f.handle), exclusive: true}, {positioning: (*positioningHandle)(history.handle), exclusive: true}}, func(pointers []unsafe.Pointer) error {
+		pointer := pointers[0]
+		hp := pointers[1]
+		withCThread(func() {
+			opErr = statusErrorLocked(uint32(C.sidereon_track_filter_predict_recorded((*C.SidereonTrackFilter)(pointer), C.double(dt), (*C.SidereonTrackRtsHistoryBuilder)(hp), &out)))
 		})
+		return nil
 	})
 	if err != nil {
 		return NativeTrackPrediction{}, err
@@ -354,13 +354,13 @@ func (f *TrackFilter) RecordPredictionOnly(history *TrackRTSHistoryBuilder) erro
 		return ErrClosed
 	}
 	var opErr error
-	err := f.handle.read(func(pointer unsafe.Pointer) error {
-		return history.handle.write(func(hp unsafe.Pointer) error {
-			withCThread(func() {
-				opErr = statusErrorLocked(uint32(C.sidereon_track_filter_record_prediction_only((*C.SidereonTrackFilter)(pointer), (*C.SidereonTrackRtsHistoryBuilder)(hp))))
-			})
-			return nil
+	err := withNativeHandles([]nativeHandleInput{{positioning: (*positioningHandle)(f.handle)}, {positioning: (*positioningHandle)(history.handle), exclusive: true}}, func(pointers []unsafe.Pointer) error {
+		pointer := pointers[0]
+		hp := pointers[1]
+		withCThread(func() {
+			opErr = statusErrorLocked(uint32(C.sidereon_track_filter_record_prediction_only((*C.SidereonTrackFilter)(pointer), (*C.SidereonTrackRtsHistoryBuilder)(hp))))
 		})
+		return nil
 	})
 	if err != nil {
 		return err
@@ -483,13 +483,13 @@ func (f *TrackFilter) UpdatePositionRecorded(position, covariance []float64, his
 	defer C.free(c)
 	var out C.SidereonTrackUpdate
 	var opErr error
-	err = f.handle.write(func(pointer unsafe.Pointer) error {
-		return history.handle.write(func(hp unsafe.Pointer) error {
-			withCThread(func() {
-				opErr = statusErrorLocked(uint32(C.sidereon_track_filter_update_position_recorded((*C.SidereonTrackFilter)(pointer), (*C.double)(p), positionLength, (*C.double)(c), covarianceLength, (*C.SidereonTrackRtsHistoryBuilder)(hp), &out)))
-			})
-			return nil
+	err = withNativeHandles([]nativeHandleInput{{positioning: (*positioningHandle)(f.handle), exclusive: true}, {positioning: (*positioningHandle)(history.handle), exclusive: true}}, func(pointers []unsafe.Pointer) error {
+		pointer := pointers[0]
+		hp := pointers[1]
+		withCThread(func() {
+			opErr = statusErrorLocked(uint32(C.sidereon_track_filter_update_position_recorded((*C.SidereonTrackFilter)(pointer), (*C.double)(p), positionLength, (*C.double)(c), covarianceLength, (*C.SidereonTrackRtsHistoryBuilder)(hp), &out)))
 		})
+		return nil
 	})
 	if err != nil {
 		return NativeTrackUpdate{}, err
@@ -516,13 +516,13 @@ func (f *TrackFilter) UpdatePositionGatedRecorded(position, covariance []float64
 	defer C.free(c)
 	var out C.SidereonTrackGatedUpdate
 	var opErr error
-	err = f.handle.write(func(pointer unsafe.Pointer) error {
-		return history.handle.write(func(hp unsafe.Pointer) error {
-			withCThread(func() {
-				opErr = statusErrorLocked(uint32(C.sidereon_track_filter_update_position_gated_recorded((*C.SidereonTrackFilter)(pointer), (*C.double)(p), positionLength, (*C.double)(c), covarianceLength, C.double(confidence), (*C.SidereonTrackRtsHistoryBuilder)(hp), &out)))
-			})
-			return nil
+	err = withNativeHandles([]nativeHandleInput{{positioning: (*positioningHandle)(f.handle), exclusive: true}, {positioning: (*positioningHandle)(history.handle), exclusive: true}}, func(pointers []unsafe.Pointer) error {
+		pointer := pointers[0]
+		hp := pointers[1]
+		withCThread(func() {
+			opErr = statusErrorLocked(uint32(C.sidereon_track_filter_update_position_gated_recorded((*C.SidereonTrackFilter)(pointer), (*C.double)(p), positionLength, (*C.double)(c), covarianceLength, C.double(confidence), (*C.SidereonTrackRtsHistoryBuilder)(hp), &out)))
 		})
+		return nil
 	})
 	if err != nil {
 		return NativeTrackGatedUpdate{}, err

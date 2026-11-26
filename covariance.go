@@ -136,7 +136,7 @@ type ProcessNoise struct {
 
 // PropagationConfig describes an ECI/TDB propagation request. Position is km,
 // velocity is km/s, EpochTDBSeconds is seconds since J2000 TDB, tolerances are
-// dimensionless, and step limits are seconds.
+// dimensionless, and step limits are seconds. Use Equal to compare values.
 type PropagationConfig struct {
 	// EpochTDBSeconds is seconds since J2000 TDB.
 	EpochTDBSeconds float64
@@ -159,6 +159,19 @@ type PropagationConfig struct {
 	Drag DragParameters
 	// ForceComponents selects enabled force terms.
 	ForceComponents ForceModelComponents
+}
+
+// Equal compares propagation settings and the settings of enabled forces.
+func (value PropagationConfig) Equal(other PropagationConfig) bool {
+	if !value.ForceComponents.Equal(other.ForceComponents) ||
+		!equalOptionalValue(value.MuEnabled, value.MuKm3S2, other.MuEnabled, other.MuKm3S2) ||
+		!equalOptionalValue(value.HasDrag, value.Drag, other.HasDrag, other.Drag) {
+		return false
+	}
+	value.ForceComponents, other.ForceComponents = ForceModelComponents{}, ForceModelComponents{}
+	value.MuKm3S2, other.MuKm3S2 = 0, 0
+	value.Drag, other.Drag = DragParameters{}, DragParameters{}
+	return value == other
 }
 
 // CovarianceNode is one propagated state and covariance sample.
@@ -190,6 +203,9 @@ func DefaultPropagationConfig() (PropagationConfig, error) {
 
 // PropagateCovariance propagates covariance samples at TDB seconds since J2000.
 func PropagateCovariance(config PropagationConfig, covariance Covariance6, epochs []float64, inputFrame, outputFrame CovarianceFrame, noise ProcessNoise) (*CovarianceEphemeris, error) {
+	if hasRadiationOptions(config.ForceComponents) {
+		return PropagateCovarianceWithContext(config, covariance, epochs, inputFrame, outputFrame, noise, PropagationEnvironment{})
+	}
 	v, e := native.PropagateCovariance(nativePropagationConfig(config), covariance.Values, append([]float64(nil), epochs...), uint32(inputFrame), uint32(outputFrame), nativeProcessNoise(noise))
 	if e != nil {
 		return nil, publicError(e)
@@ -200,6 +216,9 @@ func PropagateCovariance(config PropagationConfig, covariance Covariance6, epoch
 // PropagateCovarianceWithTideSystem propagates covariance with an explicit
 // Earth gravity tide convention. PropagateCovariance retains the legacy default.
 func PropagateCovarianceWithTideSystem(config PropagationConfig, covariance Covariance6, epochs []float64, inputFrame, outputFrame CovarianceFrame, noise ProcessNoise, tideSystem GravityTideSystem) (*CovarianceEphemeris, error) {
+	if hasRadiationOptions(config.ForceComponents) {
+		return PropagateCovarianceWithContext(config, covariance, epochs, inputFrame, outputFrame, noise, PropagationEnvironment{GravityTideSystem: tideSystem})
+	}
 	v, err := native.PropagateCovarianceWithTideSystem(nativePropagationConfig(config), covariance.Values, append([]float64(nil), epochs...), uint32(inputFrame), uint32(outputFrame), nativeProcessNoise(noise), uint32(tideSystem))
 	if err != nil {
 		return nil, publicError(err)

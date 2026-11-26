@@ -572,13 +572,13 @@ func (p *ReducedPiecewise) DriftSP3Source(sp3 *SP3, satellite string, options Na
 	o := reducedSourceDriftOptions(options)
 	var out *C.SidereonReducedOrbitDriftReport
 	var callErr error
-	err := p.handle.read(func(pp unsafe.Pointer) error {
-		return sp3.handle.with(func(sp unsafe.Pointer) error {
-			withCThread(func() {
-				callErr = statusErrorLocked(uint32(C.sidereon_reduced_orbit_piecewise_drift_sp3_source((*C.SidereonReducedOrbitPiecewise)(pp), (*C.SidereonSp3)(sp), id, &o, &out)))
-			})
-			return callErr
+	err := withNativeHandles([]nativeHandleInput{{positioning: (*positioningHandle)(p.handle)}, {positioning: sp3.handle}}, func(pointers []unsafe.Pointer) error {
+		pp := pointers[0]
+		sp := pointers[1]
+		withCThread(func() {
+			callErr = statusErrorLocked(uint32(C.sidereon_reduced_orbit_piecewise_drift_sp3_source((*C.SidereonReducedOrbitPiecewise)(pp), (*C.SidereonSp3)(sp), id, &o, &out)))
 		})
+		return callErr
 	})
 	if err != nil {
 		return nil, err
@@ -592,14 +592,14 @@ func (p *ReducedPiecewise) DriftTLESource(tle *TLE, options NativeReducedSourceD
 	}
 	o := reducedSourceDriftOptions(options)
 	var out *C.SidereonReducedOrbitDriftReport
-	err := p.handle.read(func(pp unsafe.Pointer) error {
-		return tle.handle.with(func(tp unsafe.Pointer) error {
-			var callErr error
-			withCThread(func() {
-				callErr = statusErrorLocked(uint32(C.sidereon_reduced_orbit_piecewise_drift_tle_source((*C.SidereonReducedOrbitPiecewise)(pp), (*C.SidereonTle)(tp), &o, &out)))
-			})
-			return callErr
+	err := withNativeHandles([]nativeHandleInput{{positioning: (*positioningHandle)(p.handle)}, {positioning: tle.handle}}, func(pointers []unsafe.Pointer) error {
+		pp := pointers[0]
+		tp := pointers[1]
+		var callErr error
+		withCThread(func() {
+			callErr = statusErrorLocked(uint32(C.sidereon_reduced_orbit_piecewise_drift_tle_source((*C.SidereonReducedOrbitPiecewise)(pp), (*C.SidereonTle)(tp), &o, &out)))
 		})
+		return callErr
 	})
 	if err != nil {
 		return nil, err

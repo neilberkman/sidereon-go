@@ -97,7 +97,7 @@ func withBroadcastSP3Pair(broadcast *BroadcastEphemeris, precise *SP3, fn func(u
 	if broadcast == nil || broadcast.resource == nil || precise == nil || precise.handle == nil {
 		return ErrClosed
 	}
-	return withScenarioInputs([]scenarioInput{{resource: broadcast.resource}, {positioning: precise.handle}}, func(pointers []unsafe.Pointer) error {
+	return withNativeHandles([]nativeHandleInput{{resource: broadcast.resource}, {positioning: precise.handle}}, func(pointers []unsafe.Pointer) error {
 		return fn(pointers[0], pointers[1])
 	})
 }
@@ -430,14 +430,13 @@ func (b *BroadcastEphemeris) SetNavMessagePreference(preference uint32) error {
 	if b == nil || b.resource == nil {
 		return ErrClosed
 	}
-	b.resource.mu.Lock()
-	defer b.resource.mu.Unlock()
-	if b.resource.ptr == nil {
-		return ErrClosed
-	}
-	return callStatus(func() uint32 {
-		return C.sidereon_broadcast_ephemeris_set_nav_message_preference((*C.SidereonBroadcastEphemeris)(b.resource.ptr), C.uint32_t(preference))
+	err := b.resource.withExclusive(func(pointer unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return C.sidereon_broadcast_ephemeris_set_nav_message_preference((*C.SidereonBroadcastEphemeris)(pointer), C.uint32_t(preference))
+		})
 	})
+	runtime.KeepAlive(b)
+	return err
 }
 
 func EccentricAnomaly(meanAnomaly, eccentricity float64) (float64, int, error) {
@@ -602,7 +601,7 @@ func selectSP3(products []*SP3, start, end float64, policy StalenessPolicy, over
 	}
 	var result *SP3
 	var metadata NativeStalenessMetadata
-	err = withPositioningHandleSet(handles, func(pointers []unsafe.Pointer) error {
+	err = withPositioningHandles(handles, func(pointers []unsafe.Pointer) error {
 		return withCThreadError(func() error {
 			arraySize, err := checkedNativeAllocationSize(len(pointers), unsafe.Sizeof(uintptr(0)))
 			if err != nil {
