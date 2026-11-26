@@ -10,6 +10,10 @@ type DenseOutput struct{}
 
 func (*DenseOutput) Close() error { return nil }
 
+func (*DenseOutput) Coverage() (float64, float64, bool, error) {
+	return 0, 0, false, ErrUnavailable
+}
+
 func OrbitAttitudeTrajectoryFromSP3(*SP3, string, *IERS2010EarthOrientationProvider) (*OrbitAttitudeTrajectory, error) {
 	return nil, ErrUnavailable
 }

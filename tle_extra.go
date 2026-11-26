@@ -294,12 +294,14 @@ func (b *TLEBatchLookAngles) Values() ([]Topocentric, error) {
 }
 
 // TLEBatchGroundTracks owns flattened satellite-major geodetic ground-track rows.
+// Its methods may run concurrently with Close. It must not be copied after first use.
 type TLEBatchGroundTracks struct {
 	_      noCopy
 	handle *native.TLEBatchGroundTracks
 }
 
-// BatchTLEGroundTracks returns detached geodetic ground-track rows for each TLE and epoch.
+// BatchTLEGroundTracks computes geodetic ground-track rows for each TLE and epoch.
+// The caller owns the result and releases it with Close.
 func BatchTLEGroundTracks(pairs []TLEPair, epochs []time.Time, mode OpsMode, parallel bool) (*TLEBatchGroundTracks, error) {
 	value, err := native.GroundTracksBatch(nativeTLEPairs(append([]TLEPair(nil), pairs...)), append([]time.Time(nil), epochs...), uint32(mode), parallel)
 	if err != nil {

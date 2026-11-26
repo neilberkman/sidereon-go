@@ -2,7 +2,7 @@
 
 All notable changes to this module are documented here.
 
-## Unreleased
+## [4.2.0] - 2026-11-26
 
 ### Added
 
@@ -20,6 +20,8 @@ All notable changes to this module are documented here.
 - Propagate Cartesian states and generate continuous DP5(4) output with
   built-in forces, optional fixed or table-driven drag, and an ordered
   list of additional force objects.
+- Read the inclusive TDB coverage of continuous propagation output with
+  `DenseOutput.Coverage`.
 - Select the gravity tide system for orbit-parameter fits.
 - Return fitted force-parameter rows in estimation order. Read formal
   standard deviations by name with `OrbitParameterFit.Sigma`.
@@ -27,10 +29,12 @@ All notable changes to this module are documented here.
   clock, SISRE and prediction-horizon statistics.
 - Compare scoring options, frame reconciliation options, epoch selections
   and trajectory samples by engine value equality. Compare optional orbital
-  values and presence-flagged fields with `Equal`, which ignores absent payloads.
+  values and presence-flagged fields with `Equal`, including propagation,
+  orbit-fit, orbit-parameter-fit, and conjunction force options.
 
 ### Changed
 
+- Update the bundled C binding and numerical engine to 4.2.0.
 - Numerical propagation integrates on TT. Orbit fits convert observation
   epochs to TT and TDB. Drag uses UT1 for Earth orientation and UTC for
   space-weather and atmospheric calendar inputs.

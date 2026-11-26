@@ -12,6 +12,8 @@ type NativeTLERejectedRecord struct {
 }
 type TLEBatchPropagation struct{}
 type TLEBatchLookAngles struct{}
+
+// TLEBatchGroundTracks is the unavailable form of the ground-track result.
 type TLEBatchGroundTracks struct{}
 type VisibleSatellite struct {
 	CatalogNumber                     string

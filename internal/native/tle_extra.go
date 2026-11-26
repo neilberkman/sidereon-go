@@ -65,6 +65,8 @@ type TLEBatchLookAngles struct {
 	_      noCopy
 	handle *positioningHandle
 }
+
+// TLEBatchGroundTracks owns the ground-track result for a fleet and its sample epochs.
 type TLEBatchGroundTracks struct {
 	_      noCopy
 	handle *positioningHandle

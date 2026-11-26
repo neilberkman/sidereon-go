@@ -333,6 +333,10 @@ func TestOrbitalAnalysisRejectsUnixMicrosecondOverflow(t *testing.T) {
 		_, err := tle.GroundTrack([]time.Time{overflow})
 		return err
 	})
+	assertOverflow("BatchTLEGroundTracks", func() error {
+		_, err := BatchTLEGroundTracks([]TLEPair{{Line1: fixtureISSLine1, Line2: fixtureISSLine2}}, []time.Time{overflow}, OpsModeImproved, false)
+		return err
+	})
 	assertOverflow("LookAngles", func() error {
 		_, err := tle.LookAngles(PassStation{}, []time.Time{overflow})
 		return err

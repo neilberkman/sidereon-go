@@ -73,6 +73,13 @@ func (output *DenseOutput) Close() error {
 	return publicError(output.nativeHandle().Close())
 }
 
+// Coverage returns the inclusive endpoints in chronological order, in TDB
+// seconds past J2000. For empty output, both endpoints are zero and ok is false.
+func (output *DenseOutput) Coverage() (startTDBSeconds, endTDBSeconds float64, ok bool, err error) {
+	start, end, present, err := output.nativeHandle().Coverage()
+	return start, end, present, publicError(err)
+}
+
 // OrbitAttitudeTrajectoryFromSP3 selects a satellite from a parsed SP3 product.
 // Pass nil for the default TDB Earth-orientation provider. The source frame
 // must align with the provider’s ITRF. The trajectory retains its inputs.

@@ -2,18 +2,18 @@
 
 Gate result: PASS
 
-The current C interface is `sidereon-c` 4.1.0 at commit
-`624020c22c978240e7453f3b8449437353666704`.
+The current C interface is `sidereon-c` 4.2.0 at commit
+`0a81c8a2f99efb6d277e062ea33ef354ba3919b8`.
 
 ## C interface inventory
 
-The C header contains 2,366 unique function declarations. The current
-`audit/ABI_IMPLEMENTATION_MAP.md` accounts for all declarations: 2,161 direct
+The C header contains 2,693 unique function declarations. The current
+`audit/ABI_IMPLEMENTATION_MAP.md` accounts for all declarations: 2,488 direct
 calls, 43 composed operations, and 162 intentional exclusions with reasons.
 
 The C header SHA-256 is
-`1b1596c07143f2870701d5e158b3528aae8b478f33136111b351f160551792ac`.
-Its version macros identify 4.1.0, matching the Go module major version.
+`c0a154c3723e28551a84ff0e2e41dac2f9dc4f7b8e7b63ff653ba7cc29d494a9`.
+Its version macros identify 4.2.0, matching the Go module major version.
 
 ## Historical Python 1.1.1 surface
 

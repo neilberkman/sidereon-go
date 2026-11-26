@@ -30,7 +30,7 @@ Install a released version with `go get` and cgo enabled (a branch or commit
 reference such as `@main` works the same way):
 
 ```sh
-CGO_ENABLED=1 go get sidereon.dev/go/v4@v4.1.0
+CGO_ENABLED=1 go get sidereon.dev/go/v4@v4.2.0
 ```
 
 On Linux, select the matching bundled libc explicitly. For the usual glibc
@@ -38,7 +38,7 @@ distribution:
 
 ```sh
 CGO_ENABLED=1 GOFLAGS='-tags=sidereon_linux_glibc' \
-  go get sidereon.dev/go/v4@v4.1.0
+  go get sidereon.dev/go/v4@v4.2.0
 ```
 
 Use `sidereon_linux_musl` instead when building with a musl C toolchain.
@@ -288,7 +288,12 @@ Both use the built-in force model and optional drag in `PropagationConfig`.
 Set `PropagationEnvironment.SpaceWeather` for table-driven drag, or use
 the fixed weather in `DragParameters`. The engine adds the `[]Force` slice
 in order after the configured forces and drag. Pass nil for no additional
-forces. Close the returned ephemeris or dense output when done.
+forces. Use `DenseOutput.Coverage` to read the inclusive TDB interval.
+Close the returned ephemeris or dense output when done.
+
+Use `Equal` to compare `PropagationConfig`, `OrbitFitOptions`,
+`OrbitParameterFitOptions`, and `TCAForceOptions`. It compares enabled
+force components and ignores the payloads of disabled components.
 
 `NewCompositeForceModel` combines concrete force handles in evaluation order.
 Force handles provide parameter names, replacement values and derivatives.
@@ -400,8 +405,8 @@ if errors.As(err, &statusErr) {
 ## Versioning
 
 Go, C, and the canonical Sidereon engine release in lockstep: a published
-`v4.1.0` Go module uses the matching C header macros and static library for
-`4.1.0`. Go semantic import versioning requires the module path to carry the
+`v4.2.0` Go module uses the matching C header macros and static library for
+`4.2.0`. Go semantic import versioning requires the module path to carry the
 major version from 2 onward, so the module path is
 `sidereon.dev/go/v4` and each later major version moves
 the suffix with it (`/v5`, ...), whether or not the Go API itself changed.

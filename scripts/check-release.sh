@@ -6,7 +6,7 @@
 
 set -eu
 
-ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 HEADER_REL=internal/native/include/sidereon.h
 C_HEADER_REL=bindings/c/include/sidereon.h
 C_REF_FILE=$ROOT/internal/native/lib/sidereon-c.ref
@@ -84,9 +84,30 @@ else
 	exit 2
 fi
 
-if [ -n "$REQUESTED_REF" ] && [ "$C_REF" != "$REQUESTED_REF" ]; then
+if [ -n "$REQUESTED_REF" ] && [ "$C_REF" != "$REQUESTED_REF" ] &&
+	! { is_release_ref "$REQUESTED_REF" && is_commit_ref "$C_REF"; }; then
 	echo "check-release: release ref $RELEASE_REF does not agree with C source ref $C_REF" >&2
 	exit 1
+fi
+
+if is_commit_ref "$C_REF" && { is_release_ref "$RELEASE_REF" || [ "$ALLOW_PRERELEASE" -eq 0 ]; }; then
+	RELEASE_TAG=v$EXPECTED_VERSION
+	TAG_REF=refs/tags/$RELEASE_TAG
+	if ! TAG_REFS=$(git ls-remote --exit-code https://github.com/neilberkman/sidereon-c.git "$TAG_REF" "$TAG_REF^{}"); then
+		echo "check-release: cannot resolve public C tag $RELEASE_TAG" >&2
+		exit 1
+	fi
+	TAG_COMMIT=$(printf '%s\n' "$TAG_REFS" | awk -v ref="$TAG_REF" '
+		$2 == ref { tag = $1 }
+		$2 == ref "^{}" { commit = $1 }
+		END { print (commit == "" ? tag : commit) }
+	')
+	if [ "$TAG_COMMIT" != "$C_REF" ]; then
+		echo "check-release: C source commit $C_REF does not match public tag $RELEASE_TAG ($TAG_COMMIT)" >&2
+		exit 1
+	fi
+	RELEASE_MODE=1
+	echo "check-release: public C tag $RELEASE_TAG matches source commit $C_REF"
 fi
 
 HEADER=$ROOT/$HEADER_REL
