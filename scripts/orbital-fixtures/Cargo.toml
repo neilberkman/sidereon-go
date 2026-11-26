@@ -6,4 +6,4 @@ publish = false
 
 [dependencies]
 serde_json = "1"
-sidereon-core = "=4.1.0"
+sidereon-core = "=4.2.0"

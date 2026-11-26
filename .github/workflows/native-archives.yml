@@ -29,7 +29,7 @@ jobs:
     # host OS, so the other five targets cross-compile the same way from here.
     runs-on: macos-15
     env:
-      SIDEREON_RELEASE_VERSION: 4.1.0
+      SIDEREON_RELEASE_VERSION: 4.2.0
       SIDEREON_GLIBC_FLOOR: 2.17
       CARGO_ZIGBUILD_VERSION: 0.23.3
       CARGO_HOME: ${{ github.workspace }}/.cargo-home
@@ -56,7 +56,7 @@ jobs:
         shell: bash
         env:
           EXPECTED_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref_name }}
-        run: test "$(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' internal/native/lib/sidereon-c.ref)" = "$EXPECTED_REF"
+        run: ./scripts/check-release.sh "$EXPECTED_REF"
 
       - uses: actions/setup-go@v7.0.0
         with:
@@ -120,7 +120,7 @@ jobs:
           - libsidereon_linux_arm64_musl.a
           - libsidereon_windows_amd64_gnu.a
     env:
-      SIDEREON_RELEASE_VERSION: 4.1.0
+      SIDEREON_RELEASE_VERSION: 4.2.0
       SIDEREON_GLIBC_FLOOR: 2.17
       CARGO_ZIGBUILD_VERSION: 0.23.3
       CARGO_HOME: ${{ github.workspace }}/.cargo-home
@@ -147,7 +147,7 @@ jobs:
         shell: bash
         env:
           EXPECTED_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref_name }}
-        run: test "$(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' internal/native/lib/sidereon-c.ref)" = "$EXPECTED_REF"
+        run: ./scripts/check-release.sh "$EXPECTED_REF"
 
       - uses: actions/setup-go@v7.0.0
         with:

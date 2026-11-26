@@ -14,8 +14,8 @@ The shared C source ref is the one-line file
 check consume that file. Keep it to one non-empty line and do not add a second
 source-ref setting.
 
-The 4.1.0 archive set requires C tag `v4.1.0` at commit
-`624020c22c978240e7453f3b8449437353666704` and its matching header.
+The 4.2.0 archive set requires C tag `v4.2.0` at commit
+`0a81c8a2f99efb6d277e062ea33ef354ba3919b8` and its matching header.
 The ref, header, manifest, and all seven archives must identify the same release.
 Archive-format verification alone does not establish that each target links.
 

@@ -240,6 +240,39 @@ func TestOrbitAttitudeAnalytic(t *testing.T) {
 	}
 }
 
+func TestDenseOutputCoverage(t *testing.T) {
+	config := orbitalResult[PropagationConfig](t)(DefaultPropagationConfig())
+	config.EpochTDBSeconds, config.PositionKm, config.VelocityKmPerS = orbitalEpoch, orbitalPosition, orbitalVelocity
+	config.ForceModel = PropagationForceModelTwoBody
+
+	for _, tc := range []struct {
+		name       string
+		target     float64
+		start, end uint64
+		ok         bool
+	}{
+		{"forward", orbitalEpoch + 600.1, 0x41c342fe60200000, 0x41c342ff8c2ccccd, true},
+		{"backward", orbitalEpoch - 600.1, 0x41c342fd34133333, 0x41c342fe60200000, true},
+		{"empty", orbitalEpoch, 0, 0, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, dense, err := PropagateStateWithDenseOutput(config, tc.target, PropagationEnvironment{}, nil)
+			dense = orbitalResource[*DenseOutput](t)(dense, err)
+			start, end, ok, err := dense.Coverage()
+			if err != nil || math.Float64bits(start) != tc.start || math.Float64bits(end) != tc.end || ok != tc.ok {
+				t.Fatalf("coverage = (%016x, %016x, %t, %v), want (%016x, %016x, %t, nil)",
+					math.Float64bits(start), math.Float64bits(end), ok, err, tc.start, tc.end, tc.ok)
+			}
+			if err := dense.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if _, _, _, err := dense.Coverage(); !errors.Is(err, ErrClosed) {
+				t.Fatalf("closed dense output coverage error = %v", err)
+			}
+		})
+	}
+}
+
 func TestOrbitAttitudeDense(t *testing.T) {
 	normal := orbitalResource[*GNSSAttitudeLaw](t)(GNSSAttitudeLawOrbitNormal())
 	config := orbitalResult[PropagationConfig](t)(DefaultPropagationConfig())

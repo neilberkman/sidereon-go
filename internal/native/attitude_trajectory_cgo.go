@@ -42,6 +42,16 @@ func (output *DenseOutput) Close() error {
 	return output.orbitHandle().close()
 }
 
+func (output *DenseOutput) Coverage() (float64, float64, bool, error) {
+	var value C.SidereonDenseOutputCoverage
+	err := output.orbitHandle().with(func(pointer unsafe.Pointer) error {
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_dense_output_coverage_tdb_seconds((*C.SidereonDenseOutput)(pointer), &value))
+		})
+	})
+	return float64(value.start_tdb_seconds), float64(value.end_tdb_seconds), bool(value.has_coverage), err
+}
+
 func newAttitudeTrajectory(pointer *C.SidereonOrbitAttitudeTrajectory, err error) (*OrbitAttitudeTrajectory, error) {
 	handle, err := adoptOrbitHandle(unsafe.Pointer(pointer), err, func(pointer unsafe.Pointer) {
 		C.sidereon_orbit_attitude_trajectory_free((*C.SidereonOrbitAttitudeTrajectory)(pointer))

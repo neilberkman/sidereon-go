@@ -619,6 +619,13 @@ func TestBatchTLEGroundTracksSerialParallelAndErrors(t *testing.T) {
 	if err != nil || len(want) != len(epochs) {
 		t.Fatalf("single ground track = %d, %v", len(want), err)
 	}
+	second := orbitalResource[*TLE](t)(ParseTLEWithOpsMode(fixtureTCASecondaryLine1, fixtureTCASecondaryLine2, OpsModeAFSPC))
+	secondTrack := orbitalResource[*GroundTrack](t)(second.GroundTrack(epochs))
+	secondWant := orbitalResult[[]Geodetic](t)(secondTrack.Values())
+	if len(secondWant) != len(epochs) || secondWant[0] == want[0] {
+		t.Fatalf("expected a distinct second ground track, got %+v", secondWant)
+	}
+	wantBySatellite := [][]Geodetic{want, secondWant}
 
 	emptyFleet, err := BatchTLEGroundTracks(nil, epochs, OpsModeAFSPC, true)
 	if err != nil {
@@ -632,7 +639,7 @@ func TestBatchTLEGroundTracksSerialParallelAndErrors(t *testing.T) {
 		t.Fatalf("empty fleet values = %d, %v", len(vals), err)
 	}
 
-	pairs := []TLEPair{{Line1: line1, Line2: line2}, {Line1: line1, Line2: line2}}
+	pairs := []TLEPair{{Line1: line1, Line2: line2}, {Line1: fixtureTCASecondaryLine1, Line2: fixtureTCASecondaryLine2}}
 	emptyEpochs, err := BatchTLEGroundTracks(pairs, nil, OpsModeAFSPC, false)
 	if err != nil {
 		t.Fatal(err)
@@ -663,7 +670,7 @@ func TestBatchTLEGroundTracksSerialParallelAndErrors(t *testing.T) {
 		for s := 0; s < sats; s++ {
 			for e := 0; e < eps; e++ {
 				got := vals[s*eps+e]
-				expected := want[e]
+				expected := wantBySatellite[s][e]
 				if math.Float64bits(got.LatitudeRad) != math.Float64bits(expected.LatitudeRad) ||
 					math.Float64bits(got.LongitudeRad) != math.Float64bits(expected.LongitudeRad) ||
 					math.Float64bits(got.HeightM) != math.Float64bits(expected.HeightM) {
