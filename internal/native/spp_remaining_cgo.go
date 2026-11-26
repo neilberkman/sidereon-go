@@ -1352,11 +1352,11 @@ func SolveSPPV2AtExactEpoch(sp3 *SP3, input SppInputsV2, receiveEpoch *ExactEpoc
 		return nil, err
 	}
 	var out *C.SidereonSppSolution
-	err = sp3.handle.with(func(sp3Pointer unsafe.Pointer) error {
-		return receiveEpoch.handle.with(func(epochPointer unsafe.Pointer) error {
-			return statusCall(func() C.enum_SidereonStatus {
-				return C.sidereon_solve_spp_v2_with_models_at_exact_epoch((*C.SidereonSp3)(sp3Pointer), cinput, models, (*C.SidereonExactEpoch)(epochPointer), &out)
-			})
+	err = withNativeHandles([]nativeHandleInput{{positioning: sp3.handle}, {positioning: receiveEpoch.handle}}, func(pointers []unsafe.Pointer) error {
+		sp3Pointer := pointers[0]
+		epochPointer := pointers[1]
+		return statusCall(func() C.enum_SidereonStatus {
+			return C.sidereon_solve_spp_v2_with_models_at_exact_epoch((*C.SidereonSp3)(sp3Pointer), cinput, models, (*C.SidereonExactEpoch)(epochPointer), &out)
 		})
 	})
 	if err != nil {
@@ -1383,11 +1383,11 @@ func SolveBroadcastV2AtExactEpoch(broadcast *BroadcastEphemeris, input SppInputs
 		return nil, err
 	}
 	var output *C.SidereonSppSolution
-	err = broadcast.resource.with(func(broadcastPointer unsafe.Pointer) error {
-		return receiveEpoch.handle.with(func(epochPointer unsafe.Pointer) error {
-			return statusCall(func() C.enum_SidereonStatus {
-				return C.sidereon_solve_broadcast_with_models_at_exact_epoch((*C.SidereonBroadcastEphemeris)(broadcastPointer), cinput, models, (*C.SidereonExactEpoch)(epochPointer), &output)
-			})
+	err = withNativeHandles([]nativeHandleInput{{resource: broadcast.resource}, {positioning: receiveEpoch.handle}}, func(pointers []unsafe.Pointer) error {
+		broadcastPointer := pointers[0]
+		epochPointer := pointers[1]
+		return statusCall(func() C.enum_SidereonStatus {
+			return C.sidereon_solve_broadcast_with_models_at_exact_epoch((*C.SidereonBroadcastEphemeris)(broadcastPointer), cinput, models, (*C.SidereonExactEpoch)(epochPointer), &output)
 		})
 	})
 	runtime.KeepAlive(broadcast)
@@ -1599,7 +1599,7 @@ func SolveSPPFromRINEXObs(broadcast *BroadcastEphemeris, obs *RinexObs, options 
 		}
 	}
 	var out *C.SidereonRinexSppSolutions
-	err = withScenarioInputs([]scenarioInput{{resource: broadcast.resource}, {resource: obs.resource}}, func(pointers []unsafe.Pointer) error {
+	err = withNativeHandles([]nativeHandleInput{{resource: broadcast.resource}, {resource: obs.resource}}, func(pointers []unsafe.Pointer) error {
 		var operationErr error
 		withCThread(func() {
 			status := C.sidereon_solve_spp_from_rinex_obs_with_models((*C.SidereonBroadcastEphemeris)(pointers[0]), (*C.SidereonRinexObs)(pointers[1]), coptions, cmodels, C.bool(withGeodetic), cpolicy, &out)
@@ -1639,7 +1639,7 @@ func SPPInputsFromRINEXObs(obs *RinexObs, broadcast *BroadcastEphemeris, options
 		return nil, err
 	}
 	var out *C.SidereonRinexSppInputs
-	err = withScenarioInputs([]scenarioInput{{resource: obs.resource}, {resource: broadcast.resource}}, func(pointers []unsafe.Pointer) error {
+	err = withNativeHandles([]nativeHandleInput{{resource: obs.resource}, {resource: broadcast.resource}}, func(pointers []unsafe.Pointer) error {
 		var operationErr error
 		withCThread(func() {
 			status := C.sidereon_spp_inputs_from_rinex_obs_with_models((*C.SidereonRinexObs)(pointers[0]), (*C.SidereonBroadcastEphemeris)(pointers[1]), coptions, cmodels, &out)
@@ -1678,12 +1678,12 @@ func SolveWithFallback(precise []*SP3, broadcast *BroadcastEphemeris, input SPPC
 		return nil, err
 	}
 	var out *C.SidereonSourcedSolution
-	inputs := make([]scenarioInput, 0, len(handles)+1)
+	inputs := make([]nativeHandleInput, 0, len(handles)+1)
 	for _, handle := range handles {
-		inputs = append(inputs, scenarioInput{positioning: handle})
+		inputs = append(inputs, nativeHandleInput{positioning: handle})
 	}
-	inputs = append(inputs, scenarioInput{resource: broadcast.resource})
-	err = withScenarioInputs(inputs, func(pointers []unsafe.Pointer) error {
+	inputs = append(inputs, nativeHandleInput{resource: broadcast.resource})
+	err = withNativeHandles(inputs, func(pointers []unsafe.Pointer) error {
 		bytes, e := checkedNativeAllocationSize(len(handles), unsafe.Sizeof((*C.SidereonSp3)(nil)))
 		if e != nil {
 			return e

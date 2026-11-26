@@ -115,8 +115,8 @@ composed_count=$(wc -l <"$work/composed" | tr -d ' ')
 excluded_count=$(wc -l <"$work/excluded" | tr -d ' ')
 
 # Each public header declaration has exactly one reviewed disposition.
-[[ "$header_count" == 2366 ]] || {
-	printf 'ABI coverage: expected 2366 pinned header declarations, found %s\n' "$header_count" >&2
+[[ "$header_count" == 2692 ]] || {
+	printf 'ABI coverage: expected 2692 pinned header declarations, found %s\n' "$header_count" >&2
     exit 1
 }
 

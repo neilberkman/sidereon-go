@@ -12,7 +12,6 @@ import "C"
 import (
 	"errors"
 	"runtime"
-	"sort"
 	"unsafe"
 )
 
@@ -795,39 +794,6 @@ func preciseStateAtEpochQuery(handle *positioningHandle, query *ExactEpochQuery,
 	return sp3StateFromC(out), nil
 }
 
-func withResources(resources []*resource, fn func([]unsafe.Pointer) error) error {
-	unique := make([]*resource, 0, len(resources))
-	seen := make(map[*resource]struct{}, len(resources))
-	for _, value := range resources {
-		if value == nil {
-			return ErrClosed
-		}
-		if _, ok := seen[value]; !ok {
-			seen[value] = struct{}{}
-			unique = append(unique, value)
-		}
-	}
-	sort.Slice(unique, func(i, j int) bool {
-		return uintptr(unsafe.Pointer(unique[i])) < uintptr(unsafe.Pointer(unique[j]))
-	})
-	for _, value := range unique {
-		value.mu.RLock()
-	}
-	defer func() {
-		for index := len(unique) - 1; index >= 0; index-- {
-			unique[index].mu.RUnlock()
-		}
-	}()
-	pointers := make([]unsafe.Pointer, len(resources))
-	for index, value := range resources {
-		if value.ptr == nil {
-			return ErrClosed
-		}
-		pointers[index] = value.ptr
-	}
-	return fn(pointers)
-}
-
 func CorrectedStateAtEpochQueries(broadcast *BroadcastEphemeris, store *SSRCorrectionStore, satellite string, stateEpoch, selectionEpoch *ExactEpochQuery, staleness float64, missing uint32, allowRegional bool, provider uint16, sizePolicy uint32) (SSRCorrectedState, error) {
 	if broadcast == nil || store == nil || stateEpoch == nil || selectionEpoch == nil || stateEpoch.handle == nil || selectionEpoch.handle == nil {
 		return SSRCorrectedState{}, ErrClosed
@@ -837,17 +803,16 @@ func CorrectedStateAtEpochQueries(broadcast *BroadcastEphemeris, store *SSRCorre
 		return SSRCorrectedState{}, err
 	}
 	var out C.SidereonSsrCorrectedStateResult
-	err = withResources([]*resource{broadcast.resource, store.resource}, func(pointers []unsafe.Pointer) error {
-		return withPositioningHandles([]*positioningHandle{stateEpoch.handle, selectionEpoch.handle}, func(epochPointers []unsafe.Pointer) error {
-			return rtcmCallStatus(func() uint32 {
-				return uint32(C.sidereon_ssr_corrected_state_at_epoch_queries(
-					(*C.SidereonBroadcastEphemeris)(pointers[0]), (*C.SidereonSsrCorrectionStore)(pointers[1]),
-					(*C.char)(unsafe.Pointer(&sat.bytes[0])),
-					(*C.SidereonExactEpochQuery)(epochPointers[0]), (*C.SidereonExactEpochQuery)(epochPointers[1]),
-					C.double(staleness), C.uint32_t(missing), C.bool(allowRegional), C.uint16_t(provider),
-					C.uint32_t(sizePolicy), &out,
-				))
-			})
+	err = withNativeHandles([]nativeHandleInput{{resource: broadcast.resource}, {resource: store.resource}, {positioning: stateEpoch.handle}, {positioning: selectionEpoch.handle}}, func(pointers []unsafe.Pointer) error {
+		epochPointers := pointers[2:4]
+		return rtcmCallStatus(func() uint32 {
+			return uint32(C.sidereon_ssr_corrected_state_at_epoch_queries(
+				(*C.SidereonBroadcastEphemeris)(pointers[0]), (*C.SidereonSsrCorrectionStore)(pointers[1]),
+				(*C.char)(unsafe.Pointer(&sat.bytes[0])),
+				(*C.SidereonExactEpochQuery)(epochPointers[0]), (*C.SidereonExactEpochQuery)(epochPointers[1]),
+				C.double(staleness), C.uint32_t(missing), C.bool(allowRegional), C.uint16_t(provider),
+				C.uint32_t(sizePolicy), &out,
+			))
 		})
 	})
 	runtime.KeepAlive(broadcast)

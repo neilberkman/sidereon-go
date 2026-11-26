@@ -123,7 +123,7 @@ func releaseOrbitFitReport(pointer unsafe.Pointer) {
 	C.sidereon_orbit_fit_report_free((*C.SidereonOrbitFitReport)(pointer))
 }
 
-func fitReportWithSP3(sp3 *SP3, satID string, options *OrbitFitOptions, mode uint32) (*OrbitFitReport, error) {
+func fitReportWithSP3(sp3 *SP3, satID string, options *OrbitFitOptions, mode uint32, environment *PropagationEnvironment) (*OrbitFitReport, error) {
 	if sp3 == nil || sp3.handle == nil {
 		return nil, ErrClosed
 	}
@@ -144,6 +144,17 @@ func fitReportWithSP3(sp3 *SP3, satID string, options *OrbitFitOptions, mode uin
 		optionsPtr = &cOptions
 	}
 	var out *C.SidereonOrbitFitReport
+	if environment != nil {
+		return withPropagationEnvironment([]*positioningHandle{sp3.handle}, *environment, func(pointers []unsafe.Pointer, raw *C.SidereonStatePropagationEnvironment) (*OrbitFitReport, error) {
+			err := withString(satID, func(value *C.char) uint32 {
+				if mode == 0 {
+					return uint32(C.sidereon_fit_sp3_precise_orbit_with_context((*C.SidereonSp3)(pointers[0]), value, optionsPtr, raw, &out))
+				}
+				return uint32(C.sidereon_fit_sp3_ecef_precise_orbit_with_context((*C.SidereonSp3)(pointers[0]), value, optionsPtr, raw, &out))
+			})
+			return adoptOrbitFitReport(out, err)
+		})
+	}
 	err = sp3.handle.with(func(pointer unsafe.Pointer) error {
 		return withString(satID, func(value *C.char) uint32 {
 			switch mode {
@@ -166,13 +177,29 @@ func fitReportWithSP3(sp3 *SP3, satID string, options *OrbitFitOptions, mode uin
 	return &OrbitFitReport{handle: newPositioningHandle(unsafe.Pointer(out), releaseOrbitFitReport)}, nil
 }
 func FitSP3PreciseOrbit(sp3 *SP3, satID string, options *OrbitFitOptions) (*OrbitFitReport, error) {
-	return fitReportWithSP3(sp3, satID, options, 0)
+	return fitReportWithSP3(sp3, satID, options, 0, nil)
 }
 func FitSP3ECEFPreciseOrbit(sp3 *SP3, satID string, options *OrbitFitOptions) (*OrbitFitReport, error) {
-	return fitReportWithSP3(sp3, satID, options, 1)
+	return fitReportWithSP3(sp3, satID, options, 1, nil)
+}
+
+func FitSP3PreciseOrbitWithContext(sp3 *SP3, satID string, options *OrbitFitOptions, ecef bool, environment PropagationEnvironment) (*OrbitFitReport, error) {
+	var mode uint32
+	if ecef {
+		mode = 1
+	}
+	return fitReportWithSP3(sp3, satID, options, mode, &environment)
 }
 
 func FitSP3ECEFPreciseOrbits(sp3 *SP3, satellites []string, options *OrbitFitOptions, all bool) (*OrbitFitReport, error) {
+	return fitSP3ECEFPreciseOrbits(sp3, satellites, options, all, nil)
+}
+
+func FitSP3ECEFPreciseOrbitsWithContext(sp3 *SP3, satellites []string, options *OrbitFitOptions, all bool, environment PropagationEnvironment) (*OrbitFitReport, error) {
+	return fitSP3ECEFPreciseOrbits(sp3, satellites, options, all, &environment)
+}
+
+func fitSP3ECEFPreciseOrbits(sp3 *SP3, satellites []string, options *OrbitFitOptions, all bool, environment *PropagationEnvironment) (*OrbitFitReport, error) {
 	if sp3 == nil || sp3.handle == nil {
 		return nil, ErrClosed
 	}
@@ -215,6 +242,17 @@ func FitSP3ECEFPreciseOrbits(sp3 *SP3, satellites []string, options *OrbitFitOpt
 	if len(tokens) > 0 {
 		tokenPtr = &tokens[0]
 	}
+	if environment != nil {
+		return withPropagationEnvironment([]*positioningHandle{sp3.handle}, *environment, func(pointers []unsafe.Pointer, raw *C.SidereonStatePropagationEnvironment) (*OrbitFitReport, error) {
+			err := callStatus(func() uint32 {
+				if all {
+					return uint32(C.sidereon_fit_all_sp3_ecef_precise_orbits_with_context((*C.SidereonSp3)(pointers[0]), optionsPtr, raw, &out))
+				}
+				return uint32(C.sidereon_fit_sp3_ecef_precise_orbits_with_context((*C.SidereonSp3)(pointers[0]), tokenPtr, C.size_t(len(tokens)), optionsPtr, raw, &out))
+			})
+			return adoptOrbitFitReport(out, err)
+		})
+	}
 	err = sp3.handle.with(func(pointer unsafe.Pointer) error {
 		return callStatus(func() uint32 {
 			if all {
@@ -254,6 +292,14 @@ func cPreciseSample(value PreciseEphemerisSample) (C.SidereonPreciseEphemerisSam
 	return out, nil
 }
 func FitPreciseEphemerisSamples(samples []PreciseEphemerisSample, satID string, options *OrbitFitOptions) (*OrbitFitReport, error) {
+	return fitPreciseEphemerisSamples(samples, satID, options, nil)
+}
+
+func FitPreciseEphemerisSamplesWithContext(samples []PreciseEphemerisSample, satID string, options *OrbitFitOptions, environment PropagationEnvironment) (*OrbitFitReport, error) {
+	return fitPreciseEphemerisSamples(samples, satID, options, &environment)
+}
+
+func fitPreciseEphemerisSamples(samples []PreciseEphemerisSample, satID string, options *OrbitFitOptions, environment *PropagationEnvironment) (*OrbitFitReport, error) {
 	if err := rejectEmbeddedNUL(satID, "orbit-fit satellite ID"); err != nil {
 		return nil, err
 	}
@@ -285,6 +331,14 @@ func FitPreciseEphemerisSamples(samples []PreciseEphemerisSample, satID string, 
 		optionsPtr = &cOptions
 	}
 	var out *C.SidereonOrbitFitReport
+	if environment != nil {
+		return withPropagationEnvironment(nil, *environment, func(_ []unsafe.Pointer, raw *C.SidereonStatePropagationEnvironment) (*OrbitFitReport, error) {
+			err := withString(satID, func(value *C.char) uint32 {
+				return uint32(C.sidereon_fit_precise_ephemeris_sample_orbit_with_context(unsafe.SliceData(values), C.size_t(len(values)), value, optionsPtr, raw, &out))
+			})
+			return adoptOrbitFitReport(out, err)
+		})
+	}
 	err = withString(satID, func(value *C.char) uint32 {
 		return C.sidereon_fit_precise_ephemeris_sample_orbit(&values[0], C.size_t(len(values)), value, optionsPtr, &out)
 	})
@@ -497,4 +551,12 @@ func OrbitFitOptionsDefaults() (OrbitFitOptions, error) {
 		return OrbitFitOptions{}, err
 	}
 	return orbitFitOptionsFromC(out)
+}
+
+func adoptOrbitFitReport(value *C.SidereonOrbitFitReport, err error) (*OrbitFitReport, error) {
+	handle, err := adoptOrbitHandle(unsafe.Pointer(value), err, releaseOrbitFitReport)
+	if err != nil {
+		return nil, err
+	}
+	return &OrbitFitReport{handle: handle}, nil
 }

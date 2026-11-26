@@ -33,6 +33,8 @@ const (
 	StatusPanic StatusCode = 6
 	// StatusTimeout indicates a native timeout.
 	StatusTimeout StatusCode = 7
+	// StatusUT1OutsideCoverage indicates a strict UT1 query outside Earth-orientation coverage.
+	StatusUT1OutsideCoverage StatusCode = 8
 )
 
 // SGP4ErrorKind identifies the native SGP4 propagation error category.
@@ -577,6 +579,24 @@ const (
 	EngineErrorFamilyPPPPrep EngineErrorFamily = 77
 	// EngineErrorFamilyPPPKinematic identifies typed engine errors from ppp kinematic.
 	EngineErrorFamilyPPPKinematic EngineErrorFamily = 78
+	// EngineErrorFamilyEclipse identifies eclipse errors.
+	EngineErrorFamilyEclipse EngineErrorFamily = EngineErrorFamily(native.EngineErrorFamilyEclipse)
+	// EngineErrorFamilyShadowGradient identifies shadow gradient errors.
+	EngineErrorFamilyShadowGradient EngineErrorFamily = EngineErrorFamily(native.EngineErrorFamilyShadowGradient)
+	// EngineErrorFamilyDE identifies de errors.
+	EngineErrorFamilyDE EngineErrorFamily = EngineErrorFamily(native.EngineErrorFamilyDE)
+	// EngineErrorFamilyGNSSAttitude identifies gnss attitude errors.
+	EngineErrorFamilyGNSSAttitude EngineErrorFamily = EngineErrorFamily(native.EngineErrorFamilyGNSSAttitude)
+	// EngineErrorFamilyGNSSBlock identifies gnss block errors.
+	EngineErrorFamilyGNSSBlock EngineErrorFamily = EngineErrorFamily(native.EngineErrorFamilyGNSSBlock)
+	// EngineErrorFamilyAnalyticPropagation identifies analytic propagation errors.
+	EngineErrorFamilyAnalyticPropagation EngineErrorFamily = EngineErrorFamily(native.EngineErrorFamilyAnalyticPropagation)
+	// EngineErrorFamilyICGEM identifies icgem errors.
+	EngineErrorFamilyICGEM EngineErrorFamily = EngineErrorFamily(native.EngineErrorFamilyICGEM)
+	// EngineErrorFamilyOrbitParameterFit identifies orbit parameter fit errors.
+	EngineErrorFamilyOrbitParameterFit EngineErrorFamily = EngineErrorFamily(native.EngineErrorFamilyOrbitParameterFit)
+	// EngineErrorFamilyOrbitScore identifies orbit score errors.
+	EngineErrorFamilyOrbitScore EngineErrorFamily = EngineErrorFamily(native.EngineErrorFamilyOrbitScore)
 	// EngineErrorFamilyUnknown identifies typed engine errors from an unrecognized engine subsystem.
 	EngineErrorFamilyUnknown EngineErrorFamily = 999
 )
@@ -839,6 +859,9 @@ func (e *StatusError) Unwrap() error {
 	var details []error
 	if e.Engine != nil {
 		details = append(details, e.Engine)
+		if typed := orbitEngineError(e.Engine, e.Detail); typed != nil {
+			details = append(details, typed)
+		}
 	}
 	if detail := e.TDMError(); detail != nil {
 		details = append(details, detail)

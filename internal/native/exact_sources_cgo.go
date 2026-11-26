@@ -205,17 +205,17 @@ func broadcastSourceState(b *BroadcastEphemeris, stateEpoch, selectionEpoch *Exa
 	defer C.free(unsafe.Pointer(satelliteCString))
 	var output C.SidereonEphemerisSourceState
 	var degradeReason uint32
-	err := withPositioningHandles([]*positioningHandle{stateEpoch.handle, selectionEpoch.handle}, func(epochs []unsafe.Pointer) error {
-		return b.resource.with(func(broadcastPointer unsafe.Pointer) error {
-			var operationErr error
-			withCThread(func() {
-				degradeReason, operationErr = sourceQueryStatusLocked(uint32(C.sidereon_broadcast_state_at_epoch_queries(
-					(*C.SidereonBroadcastEphemeris)(broadcastPointer), satelliteCString,
-					(*C.SidereonExactEpochQuery)(epochs[0]), (*C.SidereonExactEpochQuery)(epochs[1]), &output,
-				)))
-			})
-			return operationErr
+	err := withNativeHandles([]nativeHandleInput{{positioning: stateEpoch.handle}, {positioning: selectionEpoch.handle}, {resource: b.resource}}, func(pointers []unsafe.Pointer) error {
+		epochs := pointers[0:2]
+		broadcastPointer := pointers[2]
+		var operationErr error
+		withCThread(func() {
+			degradeReason, operationErr = sourceQueryStatusLocked(uint32(C.sidereon_broadcast_state_at_epoch_queries(
+				(*C.SidereonBroadcastEphemeris)(broadcastPointer), satelliteCString,
+				(*C.SidereonExactEpochQuery)(epochs[0]), (*C.SidereonExactEpochQuery)(epochs[1]), &output,
+			)))
 		})
+		return operationErr
 	})
 	runtime.KeepAlive(b)
 	runtime.KeepAlive(stateEpoch)
@@ -246,18 +246,18 @@ func broadcastTransmitClock(b *BroadcastEphemeris, transmitEpoch, selectionEpoch
 	var hasClock, degraded C.bool
 	var clock C.double
 	var degradeReason uint32
-	err := withPositioningHandles([]*positioningHandle{transmitEpoch.handle, selectionEpoch.handle}, func(epochs []unsafe.Pointer) error {
-		return b.resource.with(func(broadcastPointer unsafe.Pointer) error {
-			var operationErr error
-			withCThread(func() {
-				degradeReason, operationErr = sourceQueryStatusLocked(uint32(C.sidereon_broadcast_transmit_epoch_clock_at_epoch_queries(
-					(*C.SidereonBroadcastEphemeris)(broadcastPointer), satelliteCString,
-					(*C.SidereonExactEpochQuery)(epochs[0]), (*C.SidereonExactEpochQuery)(epochs[1]),
-					&hasClock, &clock, &degraded,
-				)))
-			})
-			return operationErr
+	err := withNativeHandles([]nativeHandleInput{{positioning: transmitEpoch.handle}, {positioning: selectionEpoch.handle}, {resource: b.resource}}, func(pointers []unsafe.Pointer) error {
+		epochs := pointers[0:2]
+		broadcastPointer := pointers[2]
+		var operationErr error
+		withCThread(func() {
+			degradeReason, operationErr = sourceQueryStatusLocked(uint32(C.sidereon_broadcast_transmit_epoch_clock_at_epoch_queries(
+				(*C.SidereonBroadcastEphemeris)(broadcastPointer), satelliteCString,
+				(*C.SidereonExactEpochQuery)(epochs[0]), (*C.SidereonExactEpochQuery)(epochs[1]),
+				&hasClock, &clock, &degraded,
+			)))
 		})
+		return operationErr
 	})
 	runtime.KeepAlive(b)
 	runtime.KeepAlive(transmitEpoch)
@@ -294,14 +294,14 @@ func (b *BroadcastEphemeris) ClockRelativityAtEpochQuery(epoch *ExactEpochQuery,
 	coordinates := [3]C.double{C.double(position[0]), C.double(position[1]), C.double(position[2])}
 	var kind uint32
 	var term C.double
-	err := epoch.handle.with(func(epochPointer unsafe.Pointer) error {
-		return b.resource.with(func(broadcastPointer unsafe.Pointer) error {
-			return callStatus(func() uint32 {
-				return uint32(C.sidereon_broadcast_clock_relativity_at_epoch_query(
-					(*C.SidereonBroadcastEphemeris)(broadcastPointer), satelliteCString,
-					(*C.SidereonExactEpochQuery)(epochPointer), &coordinates[0], &kind, &term,
-				))
-			})
+	err := withNativeHandles([]nativeHandleInput{{positioning: epoch.handle}, {resource: b.resource}}, func(pointers []unsafe.Pointer) error {
+		epochPointer := pointers[0]
+		broadcastPointer := pointers[1]
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_broadcast_clock_relativity_at_epoch_query(
+				(*C.SidereonBroadcastEphemeris)(broadcastPointer), satelliteCString,
+				(*C.SidereonExactEpochQuery)(epochPointer), &coordinates[0], &kind, &term,
+			))
 		})
 	})
 	runtime.KeepAlive(b)
@@ -328,14 +328,14 @@ func (b *BroadcastEphemeris) EphemerisVarianceAtEpochQueries(stateEpoch, selecti
 	}
 	defer C.free(unsafe.Pointer(satelliteCString))
 	var variance C.double
-	err := withPositioningHandles([]*positioningHandle{stateEpoch.handle, selectionEpoch.handle}, func(epochs []unsafe.Pointer) error {
-		return b.resource.with(func(broadcastPointer unsafe.Pointer) error {
-			return callStatus(func() uint32 {
-				return uint32(C.sidereon_broadcast_ephemeris_variance_at_epoch_queries(
-					(*C.SidereonBroadcastEphemeris)(broadcastPointer), satelliteCString,
-					(*C.SidereonExactEpochQuery)(epochs[0]), (*C.SidereonExactEpochQuery)(epochs[1]), &variance,
-				))
-			})
+	err := withNativeHandles([]nativeHandleInput{{positioning: stateEpoch.handle}, {positioning: selectionEpoch.handle}, {resource: b.resource}}, func(pointers []unsafe.Pointer) error {
+		epochs := pointers[0:2]
+		broadcastPointer := pointers[2]
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_broadcast_ephemeris_variance_at_epoch_queries(
+				(*C.SidereonBroadcastEphemeris)(broadcastPointer), satelliteCString,
+				(*C.SidereonExactEpochQuery)(epochs[0]), (*C.SidereonExactEpochQuery)(epochs[1]), &variance,
+			))
 		})
 	})
 	runtime.KeepAlive(b)
@@ -352,10 +352,10 @@ func withCorrectionEpochQueries(broadcast *BroadcastEphemeris, store *SBASCorrec
 	if err != nil {
 		return err
 	}
-	return withResources([]*resource{broadcast.resource, store.resource}, func(resources []unsafe.Pointer) error {
-		return withPositioningHandles([]*positioningHandle{stateEpoch.handle, selectionEpoch.handle}, func(epochs []unsafe.Pointer) error {
-			return call(resources[0], resources[1], (*C.char)(unsafe.Pointer(&sat.bytes[0])), (*C.SidereonExactEpochQuery)(epochs[0]), (*C.SidereonExactEpochQuery)(epochs[1]))
-		})
+	return withNativeHandles([]nativeHandleInput{{resource: broadcast.resource}, {resource: store.resource}, {positioning: stateEpoch.handle}, {positioning: selectionEpoch.handle}}, func(pointers []unsafe.Pointer) error {
+		resources := pointers[0:2]
+		epochs := pointers[2:4]
+		return call(resources[0], resources[1], (*C.char)(unsafe.Pointer(&sat.bytes[0])), (*C.SidereonExactEpochQuery)(epochs[0]), (*C.SidereonExactEpochQuery)(epochs[1]))
 	})
 }
 
@@ -434,11 +434,11 @@ func (s *SBASCorrectionStore) ClockRelativityAtEpochQuery(broadcast *BroadcastEp
 	coordinates := [3]C.double{C.double(position[0]), C.double(position[1]), C.double(position[2])}
 	var kind uint32
 	var term C.double
-	err = withResources([]*resource{broadcast.resource, s.resource}, func(resources []unsafe.Pointer) error {
-		return epoch.handle.with(func(query unsafe.Pointer) error {
-			return callStatus(func() uint32 {
-				return uint32(C.sidereon_sbas_clock_relativity_at_epoch_query((*C.SidereonBroadcastEphemeris)(resources[0]), (*C.SidereonSbasCorrectionStore)(resources[1]), (*C.char)(unsafe.Pointer(&geoToken.bytes[0])), C.uint32_t(mode), (*C.char)(unsafe.Pointer(&sat.bytes[0])), (*C.SidereonExactEpochQuery)(query), &coordinates[0], &kind, &term))
-			})
+	err = withNativeHandles([]nativeHandleInput{{resource: broadcast.resource}, {resource: s.resource}, {positioning: epoch.handle}}, func(pointers []unsafe.Pointer) error {
+		resources := pointers[0:2]
+		query := pointers[2]
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_sbas_clock_relativity_at_epoch_query((*C.SidereonBroadcastEphemeris)(resources[0]), (*C.SidereonSbasCorrectionStore)(resources[1]), (*C.char)(unsafe.Pointer(&geoToken.bytes[0])), C.uint32_t(mode), (*C.char)(unsafe.Pointer(&sat.bytes[0])), (*C.SidereonExactEpochQuery)(query), &coordinates[0], &kind, &term))
 		})
 	})
 	runtime.KeepAlive(broadcast)
@@ -485,10 +485,10 @@ func withSSRSourceQueries(broadcast *BroadcastEphemeris, store *SSRCorrectionSto
 	if err != nil {
 		return err
 	}
-	return withResources([]*resource{broadcast.resource, store.resource}, func(resources []unsafe.Pointer) error {
-		return withPositioningHandles([]*positioningHandle{stateEpoch.handle, selectionEpoch.handle}, func(epochs []unsafe.Pointer) error {
-			return call(resources[0], resources[1], (*C.char)(unsafe.Pointer(&sat.bytes[0])), (*C.SidereonExactEpochQuery)(epochs[0]), (*C.SidereonExactEpochQuery)(epochs[1]))
-		})
+	return withNativeHandles([]nativeHandleInput{{resource: broadcast.resource}, {resource: store.resource}, {positioning: stateEpoch.handle}, {positioning: selectionEpoch.handle}}, func(pointers []unsafe.Pointer) error {
+		resources := pointers[0:2]
+		epochs := pointers[2:4]
+		return call(resources[0], resources[1], (*C.char)(unsafe.Pointer(&sat.bytes[0])), (*C.SidereonExactEpochQuery)(epochs[0]), (*C.SidereonExactEpochQuery)(epochs[1]))
 	})
 }
 
@@ -560,11 +560,11 @@ func (s *SSRCorrectionStore) ClockRelativityAtEpochQuery(broadcast *BroadcastEph
 	var kind uint32
 	var term C.double
 	var policy C.SidereonSsrCorrectedStateResult
-	err = withResources([]*resource{broadcast.resource, s.resource}, func(resources []unsafe.Pointer) error {
-		return epoch.handle.with(func(query unsafe.Pointer) error {
-			return callStatus(func() uint32 {
-				return uint32(C.sidereon_ssr_clock_relativity_at_epoch_query((*C.SidereonBroadcastEphemeris)(resources[0]), (*C.SidereonSsrCorrectionStore)(resources[1]), (*C.char)(unsafe.Pointer(&sat.bytes[0])), (*C.SidereonExactEpochQuery)(query), &coordinates[0], C.double(staleness), C.uint32_t(missing), C.bool(allowRegional), C.uint16_t(provider), C.uint32_t(sizePolicy), &kind, &term, &policy))
-			})
+	err = withNativeHandles([]nativeHandleInput{{resource: broadcast.resource}, {resource: s.resource}, {positioning: epoch.handle}}, func(pointers []unsafe.Pointer) error {
+		resources := pointers[0:2]
+		query := pointers[2]
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_ssr_clock_relativity_at_epoch_query((*C.SidereonBroadcastEphemeris)(resources[0]), (*C.SidereonSsrCorrectionStore)(resources[1]), (*C.char)(unsafe.Pointer(&sat.bytes[0])), (*C.SidereonExactEpochQuery)(query), &coordinates[0], C.double(staleness), C.uint32_t(missing), C.bool(allowRegional), C.uint16_t(provider), C.uint32_t(sizePolicy), &kind, &term, &policy))
 		})
 	})
 	runtime.KeepAlive(broadcast)

@@ -1585,41 +1585,41 @@ func (t *RtcmLockTimeTracker) Observe(m *RtcmMessages, index int) ([]NativeRTCMC
 		return nil, ErrClosed
 	}
 	var result []NativeRTCMCellLLI
-	err := m.resource.with(func(mp unsafe.Pointer) error {
-		return t.resource.with(func(tp unsafe.Pointer) error {
-			var w, r C.size_t
-			if e := callStatus(func() uint32 {
-				return C.sidereon_rtcm_lock_time_tracker_observe((*C.SidereonRtcmLockTimeTracker)(tp), (*C.SidereonRtcmMessages)(mp), C.size_t(index), nil, 0, &w, &r)
-			}); e != nil {
-				return e
-			}
-			n, e := validateNativeQuery("RTCM lock-time LLI", uint64(w), uint64(r))
-			if e != nil {
-				return e
-			}
-			if _, e := checkedNativeAllocationSize(n, unsafe.Sizeof(C.SidereonRtcmCellLli{})); e != nil {
-				return e
-			}
-			v := make([]C.SidereonRtcmCellLli, n)
-			var o *C.SidereonRtcmCellLli
-			if n > 0 {
-				o = &v[0]
-			}
-			if e := callStatus(func() uint32 {
-				return C.sidereon_rtcm_lock_time_tracker_observe((*C.SidereonRtcmLockTimeTracker)(tp), (*C.SidereonRtcmMessages)(mp), C.size_t(index), o, C.size_t(n), &w, &r)
-			}); e != nil {
-				return e
-			}
-			z, e := validateNativeOutput("RTCM lock-time LLI", n, uint64(w), uint64(r))
-			if e != nil {
-				return e
-			}
-			result = make([]NativeRTCMCellLLI, z)
-			for i := range result {
-				result[i] = NativeRTCMCellLLI{SatelliteID: uint8(v[i].satellite_id), SignalID: uint8(v[i].signal_id), LLI: uint8(v[i].lli), HasMinLockTime: bool(v[i].has_min_lock_time_ms), MinLockTimeMS: uint32(v[i].min_lock_time_ms)}
-			}
-			return nil
-		})
+	err := withNativeHandles([]nativeHandleInput{{resource: m.resource}, {resource: t.resource}}, func(pointers []unsafe.Pointer) error {
+		mp := pointers[0]
+		tp := pointers[1]
+		var w, r C.size_t
+		if e := callStatus(func() uint32 {
+			return C.sidereon_rtcm_lock_time_tracker_observe((*C.SidereonRtcmLockTimeTracker)(tp), (*C.SidereonRtcmMessages)(mp), C.size_t(index), nil, 0, &w, &r)
+		}); e != nil {
+			return e
+		}
+		n, e := validateNativeQuery("RTCM lock-time LLI", uint64(w), uint64(r))
+		if e != nil {
+			return e
+		}
+		if _, e := checkedNativeAllocationSize(n, unsafe.Sizeof(C.SidereonRtcmCellLli{})); e != nil {
+			return e
+		}
+		v := make([]C.SidereonRtcmCellLli, n)
+		var o *C.SidereonRtcmCellLli
+		if n > 0 {
+			o = &v[0]
+		}
+		if e := callStatus(func() uint32 {
+			return C.sidereon_rtcm_lock_time_tracker_observe((*C.SidereonRtcmLockTimeTracker)(tp), (*C.SidereonRtcmMessages)(mp), C.size_t(index), o, C.size_t(n), &w, &r)
+		}); e != nil {
+			return e
+		}
+		z, e := validateNativeOutput("RTCM lock-time LLI", n, uint64(w), uint64(r))
+		if e != nil {
+			return e
+		}
+		result = make([]NativeRTCMCellLLI, z)
+		for i := range result {
+			result[i] = NativeRTCMCellLLI{SatelliteID: uint8(v[i].satellite_id), SignalID: uint8(v[i].signal_id), LLI: uint8(v[i].lli), HasMinLockTime: bool(v[i].has_min_lock_time_ms), MinLockTimeMS: uint32(v[i].min_lock_time_ms)}
+		}
+		return nil
 	})
 	runtime.KeepAlive(t)
 	runtime.KeepAlive(m)

@@ -37,7 +37,7 @@ func selectIONEXAtInstantRange(products []*Ionex, start, end NativeClockEpoch, p
 	var result *Ionex
 	var metadata NativeStalenessMetadata
 	var epochError IonexEpochError
-	err = withPositioningHandleSet(handles, func(pointers []unsafe.Pointer) error {
+	err = withPositioningHandles(handles, func(pointers []unsafe.Pointer) error {
 		return withCThreadError(func() error {
 			bytes, err := checkedNativeAllocationSize(len(pointers), unsafe.Sizeof(uintptr(0)))
 			if err != nil {

@@ -3,16 +3,27 @@ package sidereon
 import "sidereon.dev/go/v4/internal/native"
 
 // SolarRadiationPressure contains the coefficient and area-to-mass ratio used
-// by the C solar-radiation-pressure model.
+// by the C solar-radiation-pressure model. Use Equal to compare values.
 type SolarRadiationPressure struct {
 	// CR is the coefficient of reflectivity.
 	CR float64
 	// AreaToMassM2PerKg is the area to mass m2 per kg in square metres per kilogram.
 	AreaToMassM2PerKg float64
+	// HasShadow enables the explicit Shadow settings.
+	HasShadow bool
+	// Shadow overrides the default apparent-disc, WGS84 and lunar occultation settings.
+	Shadow RadiationShadowOptions
+}
+
+// Equal compares the coefficient, area-to-mass ratio and explicit shadow options when supplied.
+func (value SolarRadiationPressure) Equal(other SolarRadiationPressure) bool {
+	return value.CR == other.CR && value.AreaToMassM2PerKg == other.AreaToMassM2PerKg &&
+		equalOptionalValue(value.HasShadow, value.Shadow, other.HasShadow, other.Shadow)
 }
 
 // ForceModelComponents selects additive perturbations for composite
 // propagation. Degree and order values are the native model's limits.
+// Use Equal to compare values.
 type ForceModelComponents struct {
 	// HasTwoBody reports whether the has two body field is present.
 	HasTwoBody bool
@@ -46,6 +57,33 @@ type ForceModelComponents struct {
 	SolarRadiationPressure SolarRadiationPressure
 	// HasRelativity reports whether the has relativity field is present.
 	HasRelativity bool
+	// HasEarthRadiationPressure enables Earth albedo and infrared radiation pressure.
+	HasEarthRadiationPressure bool
+	// EarthRadiationPressure configures Earth radiation pressure when enabled.
+	EarthRadiationPressure EarthRadiationPressureOptions
+}
+
+// Equal compares the enabled components and their supplied settings.
+func (value ForceModelComponents) Equal(other ForceModelComponents) bool {
+	if !value.HasTwoBody {
+		value.TwoBodyMuKm3PerS2Enabled = false
+	}
+	if !other.HasTwoBody {
+		other.TwoBodyMuKm3PerS2Enabled = false
+	}
+	if !equalOptionalValue(value.TwoBodyMuKm3PerS2Enabled, value.TwoBodyMuKm3PerS2, other.TwoBodyMuKm3PerS2Enabled, other.TwoBodyMuKm3PerS2) ||
+		!equalOptionalValue(value.HasZonal, value.ZonalMaxDegree, other.HasZonal, other.ZonalMaxDegree) ||
+		!equalOptionalValue(value.HasSphericalHarmonic, [2]uint32{value.SphericalHarmonicMaxDegree, value.SphericalHarmonicMaxOrder},
+			other.HasSphericalHarmonic, [2]uint32{other.SphericalHarmonicMaxDegree, other.SphericalHarmonicMaxOrder}) ||
+		!equalOptionalValue(value.HasThirdBody, [2]bool{value.ThirdBodySun, value.ThirdBodyMoon},
+			other.HasThirdBody, [2]bool{other.ThirdBodySun, other.ThirdBodyMoon}) ||
+		!equalOptionalValue(value.HasEarthRadiationPressure, value.EarthRadiationPressure, other.HasEarthRadiationPressure, other.EarthRadiationPressure) {
+		return false
+	}
+	return value.HasTwoBody == other.HasTwoBody &&
+		value.HasSolidEarthTide == other.HasSolidEarthTide && value.HasSolidEarthPoleTide == other.HasSolidEarthPoleTide &&
+		value.HasRelativity == other.HasRelativity && value.HasSolarRadiationPressure == other.HasSolarRadiationPressure &&
+		(!value.HasSolarRadiationPressure || value.SolarRadiationPressure.Equal(other.SolarRadiationPressure))
 }
 
 // DragParameters contains validated atmospheric-drag parameters. The
@@ -202,4 +240,25 @@ func EstimateDecayWithSpaceWeatherTable(initial CartesianState, config DecayConf
 	}
 	value, err := native.EstimateDecayWithSpaceWeatherTable(nativeCartesian(initial), nativeDecayConfig(config), table.native)
 	return DecayEstimate{TimeToDecayS: value.TimeToDecayS, ReentryState: publicCartesian(value.ReentryState), ReentryAltitudeKm: value.ReentryAltitudeKm}, publicError(err)
+}
+
+// EarthRadiationPressureOptions configures albedo and infrared radiation pressure.
+type EarthRadiationPressureOptions struct {
+	// CR is the radiation pressure coefficient.
+	CR float64
+	// AreaToMassM2PerKg gives the area per unit mass in square metres per kilogram.
+	AreaToMassM2PerKg float64
+	// MoonEclipseEnabled enables lunar occultation.
+	MoonEclipseEnabled bool
+}
+
+func nativeEarthRadiationPressureOptions(value EarthRadiationPressureOptions) native.EarthRadiationPressureOptions {
+	return native.EarthRadiationPressureOptions(value)
+}
+
+// WithEarthRadiationPressure returns a force configuration with Earth radiation pressure enabled.
+func (components ForceModelComponents) WithEarthRadiationPressure(options EarthRadiationPressureOptions) ForceModelComponents {
+	components.HasEarthRadiationPressure = true
+	components.EarthRadiationPressure = options
+	return components
 }

@@ -41,30 +41,29 @@ func (store *SBASCorrectionStore) SolveBroadcastV2AtExactEpoch(broadcast *Broadc
 	}
 	defer C.free(unsafe.Pointer(geoToken))
 	var result SPPSolution
-	err = broadcast.resource.with(func(broadcastPointer unsafe.Pointer) error {
-		return store.resource.with(func(storePointer unsafe.Pointer) error {
-			return receiveEpoch.handle.with(func(epochPointer unsafe.Pointer) error {
-				var operationErr error
-				withCThread(func() {
-					var solution *C.SidereonSppSolution
-					status := C.sidereon_sbas_solve_broadcast_v2_with_models_at_exact_epoch((*C.SidereonBroadcastEphemeris)(broadcastPointer), (*C.SidereonSbasCorrectionStore)(storePointer), geoToken, C.uint32_t(mode), cinput, models, (*C.SidereonExactEpoch)(epochPointer), &solution)
-					if err := statusErrorLocked(uint32(status)); err != nil {
-						if solution != nil {
-							C.sidereon_spp_solution_free(solution)
-						}
-						operationErr = err
-						return
-					}
-					if solution == nil {
-						operationErr = errors.New("sidereon: native SBAS exact-epoch solve returned no solution")
-						return
-					}
-					defer C.sidereon_spp_solution_free(solution)
-					result, operationErr = readSPPSolutionLocked(solution)
-				})
-				return operationErr
-			})
+	err = withNativeHandles([]nativeHandleInput{{resource: broadcast.resource}, {resource: store.resource}, {positioning: receiveEpoch.handle}}, func(pointers []unsafe.Pointer) error {
+		broadcastPointer := pointers[0]
+		storePointer := pointers[1]
+		epochPointer := pointers[2]
+		var operationErr error
+		withCThread(func() {
+			var solution *C.SidereonSppSolution
+			status := C.sidereon_sbas_solve_broadcast_v2_with_models_at_exact_epoch((*C.SidereonBroadcastEphemeris)(broadcastPointer), (*C.SidereonSbasCorrectionStore)(storePointer), geoToken, C.uint32_t(mode), cinput, models, (*C.SidereonExactEpoch)(epochPointer), &solution)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				if solution != nil {
+					C.sidereon_spp_solution_free(solution)
+				}
+				operationErr = err
+				return
+			}
+			if solution == nil {
+				operationErr = errors.New("sidereon: native SBAS exact-epoch solve returned no solution")
+				return
+			}
+			defer C.sidereon_spp_solution_free(solution)
+			result, operationErr = readSPPSolutionLocked(solution)
 		})
+		return operationErr
 	})
 	runtime.KeepAlive(store)
 	runtime.KeepAlive(broadcast)
@@ -93,30 +92,29 @@ func (store *SSRCorrectionStore) SolveBroadcastV2AtExactEpoch(broadcast *Broadca
 		return SPPSolution{}, err
 	}
 	var result SPPSolution
-	err = broadcast.resource.with(func(broadcastPointer unsafe.Pointer) error {
-		return store.resource.with(func(storePointer unsafe.Pointer) error {
-			return receiveEpoch.handle.with(func(epochPointer unsafe.Pointer) error {
-				var operationErr error
-				withCThread(func() {
-					var solution *C.SidereonSppSolution
-					status := C.sidereon_ssr_solve_broadcast_v2_with_models_at_exact_epoch((*C.SidereonBroadcastEphemeris)(broadcastPointer), (*C.SidereonSsrCorrectionStore)(storePointer), C.double(staleness), C.uint32_t(missing), C.bool(allowRegional), C.uint16_t(provider), C.uint32_t(sizePolicy), cinput, models, (*C.SidereonExactEpoch)(epochPointer), &solution)
-					if err := statusErrorLocked(uint32(status)); err != nil {
-						if solution != nil {
-							C.sidereon_spp_solution_free(solution)
-						}
-						operationErr = err
-						return
-					}
-					if solution == nil {
-						operationErr = errors.New("sidereon: native SSR exact-epoch solve returned no solution")
-						return
-					}
-					defer C.sidereon_spp_solution_free(solution)
-					result, operationErr = readSPPSolutionLocked(solution)
-				})
-				return operationErr
-			})
+	err = withNativeHandles([]nativeHandleInput{{resource: broadcast.resource}, {resource: store.resource}, {positioning: receiveEpoch.handle}}, func(pointers []unsafe.Pointer) error {
+		broadcastPointer := pointers[0]
+		storePointer := pointers[1]
+		epochPointer := pointers[2]
+		var operationErr error
+		withCThread(func() {
+			var solution *C.SidereonSppSolution
+			status := C.sidereon_ssr_solve_broadcast_v2_with_models_at_exact_epoch((*C.SidereonBroadcastEphemeris)(broadcastPointer), (*C.SidereonSsrCorrectionStore)(storePointer), C.double(staleness), C.uint32_t(missing), C.bool(allowRegional), C.uint16_t(provider), C.uint32_t(sizePolicy), cinput, models, (*C.SidereonExactEpoch)(epochPointer), &solution)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				if solution != nil {
+					C.sidereon_spp_solution_free(solution)
+				}
+				operationErr = err
+				return
+			}
+			if solution == nil {
+				operationErr = errors.New("sidereon: native SSR exact-epoch solve returned no solution")
+				return
+			}
+			defer C.sidereon_spp_solution_free(solution)
+			result, operationErr = readSPPSolutionLocked(solution)
 		})
+		return operationErr
 	})
 	runtime.KeepAlive(store)
 	runtime.KeepAlive(broadcast)

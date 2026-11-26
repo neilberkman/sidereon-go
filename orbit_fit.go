@@ -5,6 +5,7 @@ import "sidereon.dev/go/v4/internal/native"
 // OrbitFitOptions controls precise-ephemeris initial-state fitting. Lengths
 // in residual diagnostics are metres; the fitted state uses km and km/s.
 // OrbitFitOptions configures force model, integrator, tolerances, and residual-ledger limits.
+// Use Equal to compare values.
 type OrbitFitOptions struct {
 	ForceModel      PropagationForceModel
 	ForceComponents ForceModelComponents
@@ -36,6 +37,19 @@ type OrbitFitOptions struct {
 	// HasDrag reports whether drag parameters are supplied.
 	HasDrag bool
 	Drag    DragParameters
+}
+
+// Equal compares fit settings and the settings of enabled forces.
+func (value OrbitFitOptions) Equal(other OrbitFitOptions) bool {
+	if !value.ForceComponents.Equal(other.ForceComponents) ||
+		!equalOptionalValue(value.MuKm3PerS2Enabled, value.MuKm3PerS2, other.MuKm3PerS2Enabled, other.MuKm3PerS2) ||
+		!equalOptionalValue(value.HasDrag, value.Drag, other.HasDrag, other.Drag) {
+		return false
+	}
+	value.ForceComponents, other.ForceComponents = ForceModelComponents{}, ForceModelComponents{}
+	value.MuKm3PerS2, other.MuKm3PerS2 = 0, 0
+	value.Drag, other.Drag = DragParameters{}, DragParameters{}
+	return value == other
 }
 
 // PreciseEphemerisSample is one precise-orbit sample with epoch, ECEF position, and clock value.
@@ -188,6 +202,9 @@ func OrbitFitOptionsDefaults() (OrbitFitOptions, error) {
 
 // FitSP3PreciseOrbit fits a propagated Cartesian orbit to the supplied SP3 samples.
 func FitSP3PreciseOrbit(sp3 *SP3, satellite string, options *OrbitFitOptions) (*OrbitFitReport, error) {
+	if options != nil && hasRadiationOptions(options.ForceComponents) {
+		return FitSP3PreciseOrbitWithContext(sp3, satellite, options, PropagationEnvironment{})
+	}
 	if sp3 == nil || sp3.handle == nil {
 		return nil, ErrClosed
 	}
@@ -208,6 +225,9 @@ func FitSP3PreciseOrbit(sp3 *SP3, satellite string, options *OrbitFitOptions) (*
 
 // FitSP3ECEFPreciseOrbit fits a precise ECEF orbit to one SP3 satellite.
 func FitSP3ECEFPreciseOrbit(sp3 *SP3, satellite string, options *OrbitFitOptions) (*OrbitFitReport, error) {
+	if options != nil && hasRadiationOptions(options.ForceComponents) {
+		return FitSP3ECEFPreciseOrbitWithContext(sp3, satellite, options, PropagationEnvironment{})
+	}
 	if sp3 == nil || sp3.handle == nil {
 		return nil, ErrClosed
 	}
@@ -237,6 +257,9 @@ func FitAllSP3ECEFPreciseOrbits(sp3 *SP3, options *OrbitFitOptions) (*OrbitFitRe
 }
 
 func fitSP3ECEFPreciseOrbits(sp3 *SP3, satellites []string, options *OrbitFitOptions, all bool) (*OrbitFitReport, error) {
+	if options != nil && hasRadiationOptions(options.ForceComponents) {
+		return fitSP3ECEFPreciseOrbitsWithContext(sp3, satellites, options, all, PropagationEnvironment{})
+	}
 	if sp3 == nil || sp3.handle == nil {
 		return nil, ErrClosed
 	}
@@ -257,6 +280,9 @@ func fitSP3ECEFPreciseOrbits(sp3 *SP3, satellites []string, options *OrbitFitOpt
 
 // FitPreciseEphemerisSamples fits a propagated Cartesian orbit to precise ephemeris samples.
 func FitPreciseEphemerisSamples(samples []PreciseEphemerisSample, satellite string, options *OrbitFitOptions) (*OrbitFitReport, error) {
+	if options != nil && hasRadiationOptions(options.ForceComponents) {
+		return FitPreciseEphemerisSamplesWithContext(samples, satellite, options, PropagationEnvironment{})
+	}
 	values := make([]native.PreciseEphemerisSample, len(samples))
 	for i := range samples {
 		values[i] = nativePreciseSample(samples[i])
@@ -343,4 +369,49 @@ func (r *OrbitFitReport) ArcSpan() (OrbitArcSpan, error) {
 	}
 	value, err := r.handle.ArcSpan()
 	return OrbitArcSpan{TimeScale: TimeScale(value.TimeScale), StartJ2000S: value.StartJ2000S, EndJ2000S: value.EndJ2000S, DurationS: value.DurationS}, publicError(err)
+}
+
+func orbitFitEnvironment(options *OrbitFitOptions, environment PropagationEnvironment) (*native.OrbitFitOptions, native.PropagationEnvironment) {
+	if options == nil {
+		return nil, nativePropagationEnvironment(ForceModelComponents{}, environment)
+	}
+	value := nativeOrbitFitOptions(*options)
+	return &value, nativePropagationEnvironment(options.ForceComponents, environment)
+}
+
+// FitSP3PreciseOrbitWithContext fits a propagated Cartesian orbit with an explicit force environment.
+func FitSP3PreciseOrbitWithContext(sp3 *SP3, satellite string, options *OrbitFitOptions, environment PropagationEnvironment) (*OrbitFitReport, error) {
+	input, forceEnvironment := orbitFitEnvironment(options, environment)
+	value, err := native.FitSP3PreciseOrbitWithContext(nativeSP3Handle(sp3), satellite, input, false, forceEnvironment)
+	return publicOrbitFit(value), publicError(err)
+}
+
+// FitSP3ECEFPreciseOrbitWithContext fits an orbit from Earth-fixed SP3 positions with an explicit force environment.
+func FitSP3ECEFPreciseOrbitWithContext(sp3 *SP3, satellite string, options *OrbitFitOptions, environment PropagationEnvironment) (*OrbitFitReport, error) {
+	input, forceEnvironment := orbitFitEnvironment(options, environment)
+	value, err := native.FitSP3PreciseOrbitWithContext(nativeSP3Handle(sp3), satellite, input, true, forceEnvironment)
+	return publicOrbitFit(value), publicError(err)
+}
+
+// FitSP3ECEFPreciseOrbitsWithContext fits selected satellites with an explicit force environment.
+func FitSP3ECEFPreciseOrbitsWithContext(sp3 *SP3, satellites []string, options *OrbitFitOptions, environment PropagationEnvironment) (*OrbitFitReport, error) {
+	return fitSP3ECEFPreciseOrbitsWithContext(sp3, satellites, options, false, environment)
+}
+
+// FitAllSP3ECEFPreciseOrbitsWithContext fits every satellite with an explicit force environment.
+func FitAllSP3ECEFPreciseOrbitsWithContext(sp3 *SP3, options *OrbitFitOptions, environment PropagationEnvironment) (*OrbitFitReport, error) {
+	return fitSP3ECEFPreciseOrbitsWithContext(sp3, nil, options, true, environment)
+}
+
+func fitSP3ECEFPreciseOrbitsWithContext(sp3 *SP3, satellites []string, options *OrbitFitOptions, all bool, environment PropagationEnvironment) (*OrbitFitReport, error) {
+	input, forceEnvironment := orbitFitEnvironment(options, environment)
+	value, err := native.FitSP3ECEFPreciseOrbitsWithContext(nativeSP3Handle(sp3), satellites, input, all, forceEnvironment)
+	return publicOrbitFit(value), publicError(err)
+}
+
+// FitPreciseEphemerisSamplesWithContext fits an orbit to sampled positions with an explicit force environment.
+func FitPreciseEphemerisSamplesWithContext(samples []PreciseEphemerisSample, satellite string, options *OrbitFitOptions, environment PropagationEnvironment) (*OrbitFitReport, error) {
+	input, forceEnvironment := orbitFitEnvironment(options, environment)
+	value, err := native.FitPreciseEphemerisSamplesWithContext(orbitMap(samples, nativePreciseSample), satellite, input, forceEnvironment)
+	return publicOrbitFit(value), publicError(err)
 }

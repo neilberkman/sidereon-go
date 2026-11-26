@@ -47,7 +47,7 @@ func selectIONEX(products []*Ionex, start, end int64, policy StalenessPolicy, ov
 	var selected *C.SidereonIonex
 	var result *Ionex
 	var metadata NativeStalenessMetadata
-	err = withPositioningHandleSet(handles, func(pointers []unsafe.Pointer) error {
+	err = withPositioningHandles(handles, func(pointers []unsafe.Pointer) error {
 		return withCThreadError(func() error {
 			arrayBytes, err := checkedNativeAllocationSize(len(pointers), unsafe.Sizeof(uintptr(0)))
 			if err != nil {

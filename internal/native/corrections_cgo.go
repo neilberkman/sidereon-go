@@ -387,20 +387,23 @@ func (s *SBASCorrectionStore) Ingest(block *SbasBlock, geo string, epoch NativeG
 	if s == nil || s.resource == nil || block == nil || block.resource == nil {
 		return ErrClosed
 	}
-	return block.resource.with(func(bp unsafe.Pointer) error {
-		return s.resource.withExclusive(func(sp unsafe.Pointer) error {
-			return withTokenError(geo, "GEO satellite token", func(g *C.char) error {
-				memory, err := checkedNativeMalloc(1, unsafe.Sizeof(C.SidereonGnssWeekTow{}))
-				if err != nil {
-					return err
-				}
-				defer C.free(memory)
-				week := (*C.SidereonGnssWeekTow)(memory)
-				*week = cWeek(epoch)
-				return statusErrorLocked(C.sidereon_sbas_store_ingest((*C.SidereonSbasCorrectionStore)(sp), (*C.SidereonSbasBlock)(bp), g, week))
-			})
+	err := withNativeHandles([]nativeHandleInput{{resource: block.resource}, {resource: s.resource, exclusive: true}}, func(pointers []unsafe.Pointer) error {
+		bp := pointers[0]
+		sp := pointers[1]
+		return withTokenError(geo, "GEO satellite token", func(g *C.char) error {
+			memory, err := checkedNativeMalloc(1, unsafe.Sizeof(C.SidereonGnssWeekTow{}))
+			if err != nil {
+				return err
+			}
+			defer C.free(memory)
+			week := (*C.SidereonGnssWeekTow)(memory)
+			*week = cWeek(epoch)
+			return statusErrorLocked(C.sidereon_sbas_store_ingest((*C.SidereonSbasCorrectionStore)(sp), (*C.SidereonSbasBlock)(bp), g, week))
 		})
 	})
+	runtime.KeepAlive(block)
+	runtime.KeepAlive(s)
+	return err
 }
 func (s *SBASCorrectionStore) PreferredGeo(t float64) (string, bool, error) {
 	var p C.bool
@@ -610,13 +613,15 @@ func (s *SBASCorrectionStore) CorrectedState(b *BroadcastEphemeris, geo string, 
 	if err := validateSBASSolveModeValue(mode); err != nil {
 		return out, 0, false, err
 	}
-	err := b.resource.with(func(bp unsafe.Pointer) error {
-		return s.resource.with(func(sp unsafe.Pointer) error {
-			return withTwoTokens(geo, sat, "GEO satellite token", "satellite token", func(g, x *C.char) uint32 {
-				return C.sidereon_sbas_corrected_state((*C.SidereonBroadcastEphemeris)(bp), (*C.SidereonSbasCorrectionStore)(sp), g, C.uint32_t(mode), x, C.double(t), &present, &pos[0], &clk)
-			})
+	err := withNativeHandles([]nativeHandleInput{{resource: b.resource}, {resource: s.resource}}, func(pointers []unsafe.Pointer) error {
+		bp := pointers[0]
+		sp := pointers[1]
+		return withTwoTokens(geo, sat, "GEO satellite token", "satellite token", func(g, x *C.char) uint32 {
+			return C.sidereon_sbas_corrected_state((*C.SidereonBroadcastEphemeris)(bp), (*C.SidereonSbasCorrectionStore)(sp), g, C.uint32_t(mode), x, C.double(t), &present, &pos[0], &clk)
 		})
 	})
+	runtime.KeepAlive(b)
+	runtime.KeepAlive(s)
 	for i := range out {
 		out[i] = float64(pos[i])
 	}
@@ -822,24 +827,27 @@ func (s *SSRCorrectionStore) Ingest(messages *RtcmMessages, epoch NativeGnssWeek
 	if s == nil || s.resource == nil || messages == nil || messages.resource == nil {
 		return ErrClosed
 	}
-	return messages.resource.with(func(mp unsafe.Pointer) error {
-		return s.resource.withExclusive(func(sp unsafe.Pointer) error {
-			memory, err := checkedNativeMalloc(1, unsafe.Sizeof(C.SidereonGnssWeekTow{}))
-			if err != nil {
-				return err
-			}
-			defer C.free(memory)
-			week := (*C.SidereonGnssWeekTow)(memory)
-			*week = cWeek(epoch)
-			return rtcmCallStatus(func() uint32 {
-				return uint32(C.sidereon_ssr_store_ingest_messages(
-					(*C.SidereonSsrCorrectionStore)(sp),
-					(*C.SidereonRtcmMessages)(mp),
-					week,
-				))
-			})
+	err := withNativeHandles([]nativeHandleInput{{resource: messages.resource}, {resource: s.resource, exclusive: true}}, func(pointers []unsafe.Pointer) error {
+		mp := pointers[0]
+		sp := pointers[1]
+		memory, err := checkedNativeMalloc(1, unsafe.Sizeof(C.SidereonGnssWeekTow{}))
+		if err != nil {
+			return err
+		}
+		defer C.free(memory)
+		week := (*C.SidereonGnssWeekTow)(memory)
+		*week = cWeek(epoch)
+		return rtcmCallStatus(func() uint32 {
+			return uint32(C.sidereon_ssr_store_ingest_messages(
+				(*C.SidereonSsrCorrectionStore)(sp),
+				(*C.SidereonRtcmMessages)(mp),
+				week,
+			))
 		})
 	})
+	runtime.KeepAlive(messages)
+	runtime.KeepAlive(s)
+	return err
 }
 func (s *SSRCorrectionStore) SetVTECMaxAge(maxAgeS float64) error {
 	if s == nil || s.resource == nil {
@@ -1025,13 +1033,15 @@ func (s *SSRCorrectionStore) CorrectedState(b *BroadcastEphemeris, sat string, t
 	if err := validateSSRMissingActionValue(missing); err != nil {
 		return out, 0, false, err
 	}
-	err := b.resource.with(func(bp unsafe.Pointer) error {
-		return s.resource.with(func(sp unsafe.Pointer) error {
-			return withToken(sat, "satellite token", func(x *C.char) uint32 {
-				return C.sidereon_ssr_corrected_state((*C.SidereonBroadcastEphemeris)(bp), (*C.SidereonSsrCorrectionStore)(sp), x, C.double(t), C.double(staleness), C.uint32_t(missing), C.bool(allow), C.uint16_t(provider), &present, &pos[0], &clk)
-			})
+	err := withNativeHandles([]nativeHandleInput{{resource: b.resource}, {resource: s.resource}}, func(pointers []unsafe.Pointer) error {
+		bp := pointers[0]
+		sp := pointers[1]
+		return withToken(sat, "satellite token", func(x *C.char) uint32 {
+			return C.sidereon_ssr_corrected_state((*C.SidereonBroadcastEphemeris)(bp), (*C.SidereonSsrCorrectionStore)(sp), x, C.double(t), C.double(staleness), C.uint32_t(missing), C.bool(allow), C.uint16_t(provider), &present, &pos[0], &clk)
 		})
 	})
+	runtime.KeepAlive(b)
+	runtime.KeepAlive(s)
 	for i := range out {
 		out[i] = float64(pos[i])
 	}
@@ -1046,49 +1056,49 @@ func (s *SSRCorrectionStore) EphemerisSample(b *BroadcastEphemeris, satellites [
 		return nil, err
 	}
 	var result []NativeEphemerisSampleRow
-	err := b.resource.with(func(broadcastPointer unsafe.Pointer) error {
-		return s.resource.with(func(storePointer unsafe.Pointer) error {
-			return withCStringArray(satellites, func(satellitePointer **C.char, count C.size_t) error {
-				var written, required C.size_t
-				call := func(out *C.SidereonEphemerisSampleRow, length C.size_t) uint32 {
-					return C.sidereon_ssr_ephemeris_sample((*C.SidereonBroadcastEphemeris)(broadcastPointer), (*C.SidereonSsrCorrectionStore)(storePointer), C.double(staleness), C.uint32_t(missing), C.bool(allow), C.uint16_t(provider), satellitePointer, count, C.double(start), C.double(stop), C.double(step), out, length, &written, &required)
-				}
-				if err := callStatus(func() uint32 { return call(nil, 0) }); err != nil {
+	err := withNativeHandles([]nativeHandleInput{{resource: b.resource}, {resource: s.resource}}, func(pointers []unsafe.Pointer) error {
+		broadcastPointer := pointers[0]
+		storePointer := pointers[1]
+		return withCStringArray(satellites, func(satellitePointer **C.char, count C.size_t) error {
+			var written, required C.size_t
+			call := func(out *C.SidereonEphemerisSampleRow, length C.size_t) uint32 {
+				return C.sidereon_ssr_ephemeris_sample((*C.SidereonBroadcastEphemeris)(broadcastPointer), (*C.SidereonSsrCorrectionStore)(storePointer), C.double(staleness), C.uint32_t(missing), C.bool(allow), C.uint16_t(provider), satellitePointer, count, C.double(start), C.double(stop), C.double(step), out, length, &written, &required)
+			}
+			if err := callStatus(func() uint32 { return call(nil, 0) }); err != nil {
+				return err
+			}
+			n, err := validateNativeQuery("SSR ephemeris sample", uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			if _, err := checkedNativeAllocationSize(n, unsafe.Sizeof(C.SidereonEphemerisSampleRow{})); err != nil {
+				return err
+			}
+			values := make([]C.SidereonEphemerisSampleRow, n)
+			var output *C.SidereonEphemerisSampleRow
+			if n > 0 {
+				output = &values[0]
+			}
+			if err := callStatus(func() uint32 { return call(output, C.size_t(n)) }); err != nil {
+				return err
+			}
+			writtenCount, err := validateNativeOutput("SSR ephemeris sample", n, uint64(written), uint64(required))
+			if err != nil {
+				return err
+			}
+			result = make([]NativeEphemerisSampleRow, writtenCount)
+			for i := range result {
+				value := values[i]
+				if err := validateEphemerisSampleStatusValue(uint32(value.status)); err != nil {
 					return err
 				}
-				n, err := validateNativeQuery("SSR ephemeris sample", uint64(written), uint64(required))
-				if err != nil {
-					return err
+				row := NativeEphemerisSampleRow{SatelliteID: tokenFromC(value.sat_id), EpochJ2000S: float64(value.epoch_j2000_s), Status: uint32(value.status), HasPosition: bool(value.has_position_ecef_m), HasClock: bool(value.has_clock_s), ClockS: float64(value.clock_s)}
+				for axis := range row.Position {
+					row.Position[axis] = float64(value.position_ecef_m[axis])
 				}
-				if _, err := checkedNativeAllocationSize(n, unsafe.Sizeof(C.SidereonEphemerisSampleRow{})); err != nil {
-					return err
-				}
-				values := make([]C.SidereonEphemerisSampleRow, n)
-				var output *C.SidereonEphemerisSampleRow
-				if n > 0 {
-					output = &values[0]
-				}
-				if err := callStatus(func() uint32 { return call(output, C.size_t(n)) }); err != nil {
-					return err
-				}
-				writtenCount, err := validateNativeOutput("SSR ephemeris sample", n, uint64(written), uint64(required))
-				if err != nil {
-					return err
-				}
-				result = make([]NativeEphemerisSampleRow, writtenCount)
-				for i := range result {
-					value := values[i]
-					if err := validateEphemerisSampleStatusValue(uint32(value.status)); err != nil {
-						return err
-					}
-					row := NativeEphemerisSampleRow{SatelliteID: tokenFromC(value.sat_id), EpochJ2000S: float64(value.epoch_j2000_s), Status: uint32(value.status), HasPosition: bool(value.has_position_ecef_m), HasClock: bool(value.has_clock_s), ClockS: float64(value.clock_s)}
-					for axis := range row.Position {
-						row.Position[axis] = float64(value.position_ecef_m[axis])
-					}
-					result[i] = row
-				}
-				return nil
-			})
+				result[i] = row
+			}
+			return nil
 		})
 	})
 	runtime.KeepAlive(s)

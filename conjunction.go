@@ -244,6 +244,8 @@ type TCAPropagatedCovariancePCOptions struct {
 	MuKm3PerS2Enabled bool
 	// MuKm3PerS2 is the mu km3 per s2 in cubic kilometres per second squared.
 	MuKm3PerS2 float64
+	// ForceOptions configures additional forces used for covariance propagation.
+	ForceOptions *TCAForceOptions
 }
 
 // TCATLEPair is one caller-owned TLE pair in a serial screening catalog. C
@@ -308,6 +310,7 @@ func FindTCAConjunctionsWithPropagatedCovarianceFromTLEs(primaryLine1, primaryLi
 		[4]string{primaryLine1, primaryLine2, secondaryLine1, secondaryLine2},
 		start.Whole, start.Fraction, end.Whole, end.Fraction, nativeOptions,
 		native.TCAPropagatedCovariancePCOptions{
+			ForceOptions:         orbitOptional(pcOptions.ForceOptions, nativeTCAForceOptions),
 			HardBodyRadiusKm:     pcOptions.HardBodyRadiusKm,
 			Method:               uint32(pcOptions.Method),
 			PrimaryCovariance0:   pcOptions.PrimaryCovariance0,
@@ -377,4 +380,25 @@ func nativeOptions(value *TCAFinderOptions) *native.TCAFinderOptions {
 		return nil
 	}
 	return &native.TCAFinderOptions{CoarseStepSeconds: value.CoarseStepSeconds, TimeToleranceSeconds: value.TimeToleranceSeconds}
+}
+
+// TCAForceOptions configures the forces used to transport conjunction covariances.
+// Use Equal to compare values.
+type TCAForceOptions struct {
+	// ForceComponents selects and configures the additive forces.
+	ForceComponents ForceModelComponents
+	// GravityTideSystem selects the Earth gravity tide convention.
+	GravityTideSystem GravityTideSystem
+}
+
+// Equal compares the gravity tide convention and enabled force components.
+func (value TCAForceOptions) Equal(other TCAForceOptions) bool {
+	return value.GravityTideSystem == other.GravityTideSystem && value.ForceComponents.Equal(other.ForceComponents)
+}
+
+func nativeTCAForceOptions(value TCAForceOptions) native.TCAForceOptions {
+	return native.TCAForceOptions{
+		ForceComponents: nativeForceComponents(value.ForceComponents),
+		Environment:     nativePropagationEnvironment(value.ForceComponents, PropagationEnvironment{GravityTideSystem: value.GravityTideSystem}),
+	}
 }

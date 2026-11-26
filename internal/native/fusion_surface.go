@@ -10,6 +10,7 @@ import "C"
 
 import (
 	"errors"
+	"runtime"
 	"unsafe"
 )
 
@@ -532,15 +533,15 @@ func (f *FusionFilter) PropagateRecorded(sample NativeFusionIMUSample, history *
 		return ErrClosed
 	}
 	s := cFusionSample(sample)
-	return f.handle.write(func(fp unsafe.Pointer) error {
-		return history.handle.write(func(hp unsafe.Pointer) error {
-			var err error
-			withCThread(func() {
-				err = statusErrorLocked(uint32(C.sidereon_fusion_filter_propagate_recorded(
-					(*C.SidereonFusionFilter)(fp), &s, (*C.SidereonFusionRtsHistoryBuilder)(hp))))
-			})
-			return err
+	return withNativeHandles([]nativeHandleInput{{positioning: (*positioningHandle)(f.handle), exclusive: true}, {positioning: (*positioningHandle)(history.handle), exclusive: true}}, func(pointers []unsafe.Pointer) error {
+		fp := pointers[0]
+		hp := pointers[1]
+		var err error
+		withCThread(func() {
+			err = statusErrorLocked(uint32(C.sidereon_fusion_filter_propagate_recorded(
+				(*C.SidereonFusionFilter)(fp), &s, (*C.SidereonFusionRtsHistoryBuilder)(hp))))
 		})
+		return err
 	})
 }
 
@@ -578,15 +579,15 @@ func (f *FusionFilter) UpdateLooseRecorded(m NativeFusionLooseMeasurement, histo
 	}
 	v := cFusionLoose(m, p, covarianceLength, satellitesUsed)
 	var out C.SidereonFusionUpdate
-	err = f.handle.write(func(fp unsafe.Pointer) error {
-		return history.handle.write(func(hp unsafe.Pointer) error {
-			var callErr error
-			withCThread(func() {
-				callErr = statusErrorLocked(uint32(C.sidereon_fusion_filter_update_loose_recorded(
-					(*C.SidereonFusionFilter)(fp), &v, (*C.SidereonFusionRtsHistoryBuilder)(hp), &out)))
-			})
-			return callErr
+	err = withNativeHandles([]nativeHandleInput{{positioning: (*positioningHandle)(f.handle), exclusive: true}, {positioning: (*positioningHandle)(history.handle), exclusive: true}}, func(pointers []unsafe.Pointer) error {
+		fp := pointers[0]
+		hp := pointers[1]
+		var callErr error
+		withCThread(func() {
+			callErr = statusErrorLocked(uint32(C.sidereon_fusion_filter_update_loose_recorded(
+				(*C.SidereonFusionFilter)(fp), &v, (*C.SidereonFusionRtsHistoryBuilder)(hp), &out)))
 		})
+		return callErr
 	})
 	return fusionUpdate(out), err
 }
@@ -615,15 +616,15 @@ func (f *FusionFilter) UpdateStationaryRecorded(history *FusionRTSHistoryBuilder
 	}
 	var out C.SidereonFusionUpdate
 	var propagated C.bool
-	err := f.handle.write(func(fp unsafe.Pointer) error {
-		return history.handle.write(func(hp unsafe.Pointer) error {
-			var callErr error
-			withCThread(func() {
-				callErr = statusErrorLocked(uint32(C.sidereon_fusion_filter_update_stationary_recorded(
-					(*C.SidereonFusionFilter)(fp), (*C.SidereonFusionRtsHistoryBuilder)(hp), &out, &propagated)))
-			})
-			return callErr
+	err := withNativeHandles([]nativeHandleInput{{positioning: (*positioningHandle)(f.handle), exclusive: true}, {positioning: (*positioningHandle)(history.handle), exclusive: true}}, func(pointers []unsafe.Pointer) error {
+		fp := pointers[0]
+		hp := pointers[1]
+		var callErr error
+		withCThread(func() {
+			callErr = statusErrorLocked(uint32(C.sidereon_fusion_filter_update_stationary_recorded(
+				(*C.SidereonFusionFilter)(fp), (*C.SidereonFusionRtsHistoryBuilder)(hp), &out, &propagated)))
 		})
+		return callErr
 	})
 	return fusionUpdate(out), bool(propagated), err
 }
@@ -634,15 +635,15 @@ func (f *FusionFilter) UpdateNonHolonomicRecorded(history *FusionRTSHistoryBuild
 	}
 	var out C.SidereonFusionUpdate
 	var propagated C.bool
-	err := f.handle.write(func(fp unsafe.Pointer) error {
-		return history.handle.write(func(hp unsafe.Pointer) error {
-			var callErr error
-			withCThread(func() {
-				callErr = statusErrorLocked(uint32(C.sidereon_fusion_filter_update_non_holonomic_recorded(
-					(*C.SidereonFusionFilter)(fp), (*C.SidereonFusionRtsHistoryBuilder)(hp), &out, &propagated)))
-			})
-			return callErr
+	err := withNativeHandles([]nativeHandleInput{{positioning: (*positioningHandle)(f.handle), exclusive: true}, {positioning: (*positioningHandle)(history.handle), exclusive: true}}, func(pointers []unsafe.Pointer) error {
+		fp := pointers[0]
+		hp := pointers[1]
+		var callErr error
+		withCThread(func() {
+			callErr = statusErrorLocked(uint32(C.sidereon_fusion_filter_update_non_holonomic_recorded(
+				(*C.SidereonFusionFilter)(fp), (*C.SidereonFusionRtsHistoryBuilder)(hp), &out, &propagated)))
 		})
+		return callErr
 	})
 	return fusionUpdate(out), bool(propagated), err
 }
@@ -700,7 +701,7 @@ func cFusionTight(v NativeFusionTightEpoch) (C.SidereonFusionTightEpoch, unsafe.
 	return C.SidereonFusionTightEpoch{t_j2000_s: C.double(v.Epoch), observations: pointer, observation_count: observationCount}, mem, ids, nil
 }
 
-func (f *FusionFilter) tightUpdate(epoch NativeFusionTightEpoch, source unsafe.Pointer, sourceKind uint32, history *FusionRTSHistoryBuilder, mode uint32) (NativeFusionUpdate, NativeFusionTimeSyncUpdate, error) {
+func (f *FusionFilter) tightUpdate(epoch NativeFusionTightEpoch, sourceInput nativeHandleInput, sourceKind uint32, history *FusionRTSHistoryBuilder, mode uint32) (NativeFusionUpdate, NativeFusionTimeSyncUpdate, error) {
 	if sourceKind > 1 || mode > 2 {
 		return NativeFusionUpdate{}, NativeFusionTimeSyncUpdate{}, errors.New("sidereon: unknown tight-update route")
 	}
@@ -712,8 +713,7 @@ func (f *FusionFilter) tightUpdate(epoch NativeFusionTightEpoch, source unsafe.P
 	defer freeCStrings(ids)
 	var update C.SidereonFusionUpdate
 	var syncUpdate C.SidereonFusionTimeSyncUpdate
-	var cErr error
-	call := func(fp, hp unsafe.Pointer) C.enum_SidereonStatus {
+	call := func(source, fp, hp unsafe.Pointer) C.enum_SidereonStatus {
 		switch sourceKind*10 + mode {
 		case 0:
 			return C.sidereon_fusion_filter_update_tight_sp3((*C.SidereonFusionFilter)(fp), (*C.SidereonSp3)(source), &e, &update)
@@ -729,18 +729,21 @@ func (f *FusionFilter) tightUpdate(epoch NativeFusionTightEpoch, source unsafe.P
 			return C.sidereon_fusion_filter_update_tight_broadcast_time_sync((*C.SidereonFusionFilter)(fp), (*C.SidereonBroadcastEphemeris)(source), &e, &syncUpdate)
 		}
 	}
-	err = f.handle.write(func(fp unsafe.Pointer) error {
-		if mode == 1 {
-			if history == nil || history.handle == nil {
-				return ErrClosed
-			}
-			return history.handle.write(func(hp unsafe.Pointer) error {
-				withCThread(func() { cErr = statusErrorLocked(uint32(call(fp, hp))) })
-				return cErr
-			})
+	inputs := []nativeHandleInput{sourceInput, {positioning: (*positioningHandle)(f.handle), exclusive: true}}
+	if mode == 1 {
+		if history == nil {
+			return NativeFusionUpdate{}, NativeFusionTimeSyncUpdate{}, ErrClosed
 		}
-		withCThread(func() { cErr = statusErrorLocked(uint32(call(fp, nil))) })
-		return cErr
+		inputs = append(inputs, nativeHandleInput{positioning: (*positioningHandle)(history.handle), exclusive: true})
+	}
+	err = withNativeHandles(inputs, func(pointers []unsafe.Pointer) error {
+		var historyPointer unsafe.Pointer
+		if mode == 1 {
+			historyPointer = pointers[2]
+		}
+		var callErr error
+		withCThread(func() { callErr = statusErrorLocked(uint32(call(pointers[0], pointers[1], historyPointer))) })
+		return callErr
 	})
 	return fusionUpdate(update), fusionTimeSyncUpdate(syncUpdate), err
 }
@@ -749,13 +752,7 @@ func (f *FusionFilter) UpdateTightSP3(epoch NativeFusionTightEpoch, sp3 *SP3, hi
 	if sp3 == nil {
 		return NativeFusionUpdate{}, NativeFusionTimeSyncUpdate{}, ErrClosed
 	}
-	var update NativeFusionUpdate
-	var syncUpdate NativeFusionTimeSyncUpdate
-	err := sp3.handle.with(func(p unsafe.Pointer) error {
-		var inner error
-		update, syncUpdate, inner = f.tightUpdate(epoch, p, 0, history, mode)
-		return inner
-	})
+	update, syncUpdate, err := f.tightUpdate(epoch, nativeHandleInput{positioning: sp3.handle}, 0, history, mode)
 	if err != nil {
 		return NativeFusionUpdate{}, NativeFusionTimeSyncUpdate{}, err
 	}
@@ -766,12 +763,7 @@ func (f *FusionFilter) UpdateTightBroadcast(epoch NativeFusionTightEpoch, b *Bro
 	if b == nil {
 		return NativeFusionUpdate{}, NativeFusionTimeSyncUpdate{}, ErrClosed
 	}
-	var update NativeFusionUpdate
-	var syncUpdate NativeFusionTimeSyncUpdate
-	err := b.resource.with(func(p unsafe.Pointer) error {
-		var inner error
-		update, syncUpdate, inner = f.tightUpdate(epoch, p, 1, history, mode)
-		return inner
-	})
+	update, syncUpdate, err := f.tightUpdate(epoch, nativeHandleInput{resource: b.resource}, 1, history, mode)
+	runtime.KeepAlive(b)
 	return update, syncUpdate, err
 }

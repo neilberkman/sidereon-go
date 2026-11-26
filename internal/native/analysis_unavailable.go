@@ -120,6 +120,7 @@ type TCAPropagatedCovariancePCOptions struct {
 	MaxSteps             uint32
 	MuKm3PerS2Enabled    bool
 	MuKm3PerS2           float64
+	ForceOptions         *TCAForceOptions
 }
 type TCATLEPair struct {
 	Line1 string

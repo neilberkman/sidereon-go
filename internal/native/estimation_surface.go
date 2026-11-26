@@ -11,8 +11,6 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	"runtime"
-	"sync"
 	"unsafe"
 )
 
@@ -58,63 +56,26 @@ const (
 	PropagationForceEarthPhaseBValue     = uint32(C.SIDEREON_PROPAGATION_FORCE_MODEL_EARTH_PHASE_B)
 )
 
-// surfaceHandle is the common lifetime boundary for the owning C handles in
-// this file. Read calls share the handle; mutable calls take the exclusive
-// lock. The C documentation permits concurrent reads, but does not permit a
-// read or mutation to overlap release.
-type surfaceHandle struct {
-	mu       sync.RWMutex
-	resource *resource
-	cleanup  runtime.Cleanup
-}
+// surfaceHandle shares the positioning handle's lifetime and lock order.
+type surfaceHandle positioningHandle
 
 func newSurfaceHandle(pointer unsafe.Pointer, release func(unsafe.Pointer)) (*surfaceHandle, error) {
 	if pointer == nil {
 		return nil, errNilNativeHandle
 	}
-	handle := &surfaceHandle{resource: &resource{ptr: pointer, release: release}}
-	handle.cleanup = runtime.AddCleanup(handle, cleanupResource, handle.resource)
-	return handle, nil
+	return (*surfaceHandle)(newPositioningHandle(pointer, release)), nil
 }
 
 func (h *surfaceHandle) read(fn func(unsafe.Pointer) error) error {
-	if h == nil {
-		return ErrClosed
-	}
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	if h.resource == nil {
-		return ErrClosed
-	}
-	return h.resource.with(fn)
+	return (*positioningHandle)(h).with(fn)
 }
 
 func (h *surfaceHandle) write(fn func(unsafe.Pointer) error) error {
-	if h == nil {
-		return ErrClosed
-	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.resource == nil {
-		return ErrClosed
-	}
-	return h.resource.with(func(pointer unsafe.Pointer) error { return fn(pointer) })
+	return (*positioningHandle)(h).withExclusive(fn)
 }
 
 func (h *surfaceHandle) close() error {
-	if h == nil {
-		return nil
-	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.resource == nil {
-		return nil
-	}
-	r := h.resource
-	h.resource = nil
-	h.cleanup.Stop()
-	r.close()
-	return nil
+	return (*positioningHandle)(h).close()
 }
 
 func cSize(n int, label string) (C.size_t, error) {

@@ -91,11 +91,11 @@ func (a *OMMArray) Append(omm *OMM) error {
 		return ErrClosed
 	}
 	// Lock both resources while the native call clones the immutable OMM value.
-	err := a.handle.withExclusive(func(arrayPointer unsafe.Pointer) error {
-		return omm.handle.with(func(ommPointer unsafe.Pointer) error {
-			return callStatus(func() uint32 {
-				return uint32(C.sidereon_omm_array_push((*C.SidereonOmmArray)(arrayPointer), (*C.SidereonOmm)(ommPointer)))
-			})
+	err := withNativeHandles([]nativeHandleInput{{positioning: a.handle, exclusive: true}, {positioning: omm.handle}}, func(pointers []unsafe.Pointer) error {
+		arrayPointer := pointers[0]
+		ommPointer := pointers[1]
+		return callStatus(func() uint32 {
+			return uint32(C.sidereon_omm_array_push((*C.SidereonOmmArray)(arrayPointer), (*C.SidereonOmm)(ommPointer)))
 		})
 	})
 	runtime.KeepAlive(a)

@@ -972,7 +972,7 @@ func SolveStaticReferenceStationRinex(sp3 *SP3, reference, rover *RinexObs, valu
 	config := (*C.SidereonStaticReferenceStationRinexConfig)(mem)
 	*config = C.SidereonStaticReferenceStationRinexConfig{reference_position_m: [3]C.double{C.double(value.ReferencePositionM[0]), C.double(value.ReferencePositionM[1]), C.double(value.ReferencePositionM[2])}, enable_code_dgnss: C.bool(value.EnableCodeDGNSS), enable_carrier_rtk: C.bool(value.EnableCarrierRTK), with_geodetic: C.bool(value.WithGeodetic), carrier: *carrier}
 	var out *C.SidereonStaticReferenceStationSolution
-	err = withScenarioInputs([]scenarioInput{{positioning: sp3.handle}, {resource: reference.resource}, {resource: rover.resource}}, func(pointers []unsafe.Pointer) error {
+	err = withNativeHandles([]nativeHandleInput{{positioning: sp3.handle}, {resource: reference.resource}, {resource: rover.resource}}, func(pointers []unsafe.Pointer) error {
 		return withCThreadError(func() error {
 			status := C.sidereon_solve_static_reference_station_rinex((*C.SidereonSp3)(pointers[0]), (*C.SidereonRinexObs)(pointers[1]), (*C.SidereonRinexObs)(pointers[2]), config, &out)
 			e := statusErrorLocked(uint32(status))

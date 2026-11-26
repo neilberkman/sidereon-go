@@ -95,6 +95,18 @@ const (
 	EngineErrorFamilyUnknown            EngineErrorFamily = 999
 )
 
+const (
+	EngineErrorFamilyEclipse             EngineErrorFamily = 79
+	EngineErrorFamilyShadowGradient      EngineErrorFamily = 80
+	EngineErrorFamilyDE                  EngineErrorFamily = 81
+	EngineErrorFamilyGNSSAttitude        EngineErrorFamily = 82
+	EngineErrorFamilyGNSSBlock           EngineErrorFamily = 83
+	EngineErrorFamilyAnalyticPropagation EngineErrorFamily = 84
+	EngineErrorFamilyICGEM               EngineErrorFamily = 85
+	EngineErrorFamilyOrbitParameterFit   EngineErrorFamily = 86
+	EngineErrorFamilyOrbitScore          EngineErrorFamily = 87
+)
+
 func (f EngineErrorFamily) Name() string {
 	switch f {
 	case EngineErrorFamilyNone:
@@ -253,6 +265,24 @@ func (f EngineErrorFamily) Name() string {
 		return "ppp_cycle_slip"
 	case EngineErrorFamilyPppPrep:
 		return "ppp_prep"
+	case EngineErrorFamilyEclipse:
+		return "eclipse"
+	case EngineErrorFamilyShadowGradient:
+		return "shadow_gradient"
+	case EngineErrorFamilyDE:
+		return "de"
+	case EngineErrorFamilyGNSSAttitude:
+		return "gnss_attitude"
+	case EngineErrorFamilyGNSSBlock:
+		return "gnss_block"
+	case EngineErrorFamilyAnalyticPropagation:
+		return "analytic_propagation"
+	case EngineErrorFamilyICGEM:
+		return "icgem"
+	case EngineErrorFamilyOrbitParameterFit:
+		return "orbit_parameter_fit"
+	case EngineErrorFamilyOrbitScore:
+		return "orbit_score"
 	case EngineErrorFamilyPppKinematic:
 		return "ppp_kinematic"
 	case EngineErrorFamilyUnknown:
@@ -424,6 +454,24 @@ func EngineErrorFamilyFromName(name string) EngineErrorFamily {
 		return EngineErrorFamilyPppCycleSlip
 	case "ppp_prep":
 		return EngineErrorFamilyPppPrep
+	case "eclipse":
+		return EngineErrorFamilyEclipse
+	case "shadow_gradient":
+		return EngineErrorFamilyShadowGradient
+	case "de":
+		return EngineErrorFamilyDE
+	case "gnss_attitude":
+		return EngineErrorFamilyGNSSAttitude
+	case "gnss_block":
+		return EngineErrorFamilyGNSSBlock
+	case "analytic_propagation":
+		return EngineErrorFamilyAnalyticPropagation
+	case "icgem":
+		return EngineErrorFamilyICGEM
+	case "orbit_parameter_fit":
+		return EngineErrorFamilyOrbitParameterFit
+	case "orbit_score":
+		return EngineErrorFamilyOrbitScore
 	case "ppp_kinematic":
 		return EngineErrorFamilyPppKinematic
 	default:

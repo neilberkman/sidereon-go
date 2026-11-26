@@ -270,9 +270,7 @@ func (t *MmapTerrain) EllipsoidalHeightMWithModel(longitudeDeg, latitudeDeg floa
 	if geoid == nil || geoid.handle == nil {
 		err = t.handle.with(func(pointer unsafe.Pointer) error { return call(pointer, nil) })
 	} else {
-		err = t.handle.with(func(pointer unsafe.Pointer) error {
-			return geoid.handle.with(func(geoidPointer unsafe.Pointer) error { return call(pointer, geoidPointer) })
-		})
+		err = withPositioningPair(t.handle, geoid.handle, call)
 	}
 	runtime.KeepAlive(t)
 	runtime.KeepAlive(geoid)

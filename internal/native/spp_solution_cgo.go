@@ -126,37 +126,37 @@ func (s *SBASCorrectionStore) SolveBroadcast(b *BroadcastEphemeris, geo string, 
 		return SPPSolution{}, err
 	}
 	var result SPPSolution
-	err := b.resource.with(func(broadcastPointer unsafe.Pointer) error {
-		return s.resource.with(func(storePointer unsafe.Pointer) error {
-			return withSPPInputs(config, func(inputs *C.SidereonSppInputs) error {
-				if err := validateSPPSatelliteID(geo); err != nil {
-					return err
+	err := withNativeHandles([]nativeHandleInput{{resource: b.resource}, {resource: s.resource}}, func(pointers []unsafe.Pointer) error {
+		broadcastPointer := pointers[0]
+		storePointer := pointers[1]
+		return withSPPInputs(config, func(inputs *C.SidereonSppInputs) error {
+			if err := validateSPPSatelliteID(geo); err != nil {
+				return err
+			}
+			geoPointer := C.CString(geo)
+			if geoPointer == nil {
+				return errors.New("sidereon: unable to allocate native GEO ID")
+			}
+			defer C.free(unsafe.Pointer(geoPointer))
+			var solution *C.SidereonSppSolution
+			status := C.sidereon_sbas_solve_broadcast(
+				(*C.SidereonBroadcastEphemeris)(broadcastPointer),
+				(*C.SidereonSbasCorrectionStore)(storePointer), geoPointer,
+				C.uint32_t(mode), inputs, &solution,
+			)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				if solution != nil {
+					C.sidereon_spp_solution_free(solution)
 				}
-				geoPointer := C.CString(geo)
-				if geoPointer == nil {
-					return errors.New("sidereon: unable to allocate native GEO ID")
-				}
-				defer C.free(unsafe.Pointer(geoPointer))
-				var solution *C.SidereonSppSolution
-				status := C.sidereon_sbas_solve_broadcast(
-					(*C.SidereonBroadcastEphemeris)(broadcastPointer),
-					(*C.SidereonSbasCorrectionStore)(storePointer), geoPointer,
-					C.uint32_t(mode), inputs, &solution,
-				)
-				if err := statusErrorLocked(uint32(status)); err != nil {
-					if solution != nil {
-						C.sidereon_spp_solution_free(solution)
-					}
-					return err
-				}
-				if solution == nil {
-					return errors.New("sidereon: native SBAS solve returned no solution")
-				}
-				defer C.sidereon_spp_solution_free(solution)
-				var readErr error
-				result, readErr = readSPPSolutionLocked(solution)
-				return readErr
-			})
+				return err
+			}
+			if solution == nil {
+				return errors.New("sidereon: native SBAS solve returned no solution")
+			}
+			defer C.sidereon_spp_solution_free(solution)
+			var readErr error
+			result, readErr = readSPPSolutionLocked(solution)
+			return readErr
 		})
 	})
 	runtime.KeepAlive(s)
@@ -172,39 +172,38 @@ func (s *SBASCorrectionStore) SolveBroadcastAtExactEpoch(b *BroadcastEphemeris, 
 		return SPPSolution{}, err
 	}
 	var result SPPSolution
-	err := b.resource.with(func(broadcastPointer unsafe.Pointer) error {
-		return s.resource.with(func(storePointer unsafe.Pointer) error {
-			return receiveEpoch.handle.with(func(epochPointer unsafe.Pointer) error {
-				return withSPPInputs(config, func(inputs *C.SidereonSppInputs) error {
-					if err := validateSPPSatelliteID(geo); err != nil {
-						return err
-					}
-					geoPointer := C.CString(geo)
-					if geoPointer == nil {
-						return errors.New("sidereon: unable to allocate native GEO ID")
-					}
-					defer C.free(unsafe.Pointer(geoPointer))
-					var solution *C.SidereonSppSolution
-					status := C.sidereon_sbas_solve_broadcast_at_exact_epoch(
-						(*C.SidereonBroadcastEphemeris)(broadcastPointer),
-						(*C.SidereonSbasCorrectionStore)(storePointer), geoPointer,
-						C.uint32_t(mode), inputs, (*C.SidereonExactEpoch)(epochPointer), &solution,
-					)
-					if err := statusErrorLocked(uint32(status)); err != nil {
-						if solution != nil {
-							C.sidereon_spp_solution_free(solution)
-						}
-						return err
-					}
-					if solution == nil {
-						return errors.New("sidereon: native SBAS exact-epoch solve returned no solution")
-					}
-					defer C.sidereon_spp_solution_free(solution)
-					var readErr error
-					result, readErr = readSPPSolutionLocked(solution)
-					return readErr
-				})
-			})
+	err := withNativeHandles([]nativeHandleInput{{resource: b.resource}, {resource: s.resource}, {positioning: receiveEpoch.handle}}, func(pointers []unsafe.Pointer) error {
+		broadcastPointer := pointers[0]
+		storePointer := pointers[1]
+		epochPointer := pointers[2]
+		return withSPPInputs(config, func(inputs *C.SidereonSppInputs) error {
+			if err := validateSPPSatelliteID(geo); err != nil {
+				return err
+			}
+			geoPointer := C.CString(geo)
+			if geoPointer == nil {
+				return errors.New("sidereon: unable to allocate native GEO ID")
+			}
+			defer C.free(unsafe.Pointer(geoPointer))
+			var solution *C.SidereonSppSolution
+			status := C.sidereon_sbas_solve_broadcast_at_exact_epoch(
+				(*C.SidereonBroadcastEphemeris)(broadcastPointer),
+				(*C.SidereonSbasCorrectionStore)(storePointer), geoPointer,
+				C.uint32_t(mode), inputs, (*C.SidereonExactEpoch)(epochPointer), &solution,
+			)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				if solution != nil {
+					C.sidereon_spp_solution_free(solution)
+				}
+				return err
+			}
+			if solution == nil {
+				return errors.New("sidereon: native SBAS exact-epoch solve returned no solution")
+			}
+			defer C.sidereon_spp_solution_free(solution)
+			var readErr error
+			result, readErr = readSPPSolutionLocked(solution)
+			return readErr
 		})
 	})
 	runtime.KeepAlive(receiveEpoch)
@@ -221,30 +220,30 @@ func (s *SSRCorrectionStore) SolveBroadcast(b *BroadcastEphemeris, config SPPCon
 		return SPPSolution{}, err
 	}
 	var result SPPSolution
-	err := b.resource.with(func(broadcastPointer unsafe.Pointer) error {
-		return s.resource.with(func(storePointer unsafe.Pointer) error {
-			return withSPPInputs(config, func(inputs *C.SidereonSppInputs) error {
-				var solution *C.SidereonSppSolution
-				status := C.sidereon_ssr_solve_broadcast(
-					(*C.SidereonBroadcastEphemeris)(broadcastPointer),
-					(*C.SidereonSsrCorrectionStore)(storePointer), C.double(staleness),
-					C.uint32_t(missing), C.bool(allowRegionalProvider), C.uint16_t(regionalProviderID),
-					inputs, &solution,
-				)
-				if err := statusErrorLocked(uint32(status)); err != nil {
-					if solution != nil {
-						C.sidereon_spp_solution_free(solution)
-					}
-					return err
+	err := withNativeHandles([]nativeHandleInput{{resource: b.resource}, {resource: s.resource}}, func(pointers []unsafe.Pointer) error {
+		broadcastPointer := pointers[0]
+		storePointer := pointers[1]
+		return withSPPInputs(config, func(inputs *C.SidereonSppInputs) error {
+			var solution *C.SidereonSppSolution
+			status := C.sidereon_ssr_solve_broadcast(
+				(*C.SidereonBroadcastEphemeris)(broadcastPointer),
+				(*C.SidereonSsrCorrectionStore)(storePointer), C.double(staleness),
+				C.uint32_t(missing), C.bool(allowRegionalProvider), C.uint16_t(regionalProviderID),
+				inputs, &solution,
+			)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				if solution != nil {
+					C.sidereon_spp_solution_free(solution)
 				}
-				if solution == nil {
-					return errors.New("sidereon: native SSR solve returned no solution")
-				}
-				defer C.sidereon_spp_solution_free(solution)
-				var readErr error
-				result, readErr = readSPPSolutionLocked(solution)
-				return readErr
-			})
+				return err
+			}
+			if solution == nil {
+				return errors.New("sidereon: native SSR solve returned no solution")
+			}
+			defer C.sidereon_spp_solution_free(solution)
+			var readErr error
+			result, readErr = readSPPSolutionLocked(solution)
+			return readErr
 		})
 	})
 	runtime.KeepAlive(s)
@@ -263,32 +262,31 @@ func (s *SSRCorrectionStore) SolveBroadcastAtExactEpoch(b *BroadcastEphemeris, c
 		return SPPSolution{}, invalidArgument("invalid SSR correction size policy")
 	}
 	var result SPPSolution
-	err := b.resource.with(func(broadcastPointer unsafe.Pointer) error {
-		return s.resource.with(func(storePointer unsafe.Pointer) error {
-			return receiveEpoch.handle.with(func(epochPointer unsafe.Pointer) error {
-				return withSPPInputs(config, func(inputs *C.SidereonSppInputs) error {
-					var solution *C.SidereonSppSolution
-					status := C.sidereon_ssr_solve_broadcast_at_exact_epoch(
-						(*C.SidereonBroadcastEphemeris)(broadcastPointer),
-						(*C.SidereonSsrCorrectionStore)(storePointer), C.double(staleness),
-						C.uint32_t(missing), C.bool(allowRegionalProvider), C.uint16_t(regionalProviderID),
-						C.uint32_t(sizePolicy), inputs, (*C.SidereonExactEpoch)(epochPointer), &solution,
-					)
-					if err := statusErrorLocked(uint32(status)); err != nil {
-						if solution != nil {
-							C.sidereon_spp_solution_free(solution)
-						}
-						return err
-					}
-					if solution == nil {
-						return errors.New("sidereon: native SSR exact-epoch solve returned no solution")
-					}
-					defer C.sidereon_spp_solution_free(solution)
-					var readErr error
-					result, readErr = readSPPSolutionLocked(solution)
-					return readErr
-				})
-			})
+	err := withNativeHandles([]nativeHandleInput{{resource: b.resource}, {resource: s.resource}, {positioning: receiveEpoch.handle}}, func(pointers []unsafe.Pointer) error {
+		broadcastPointer := pointers[0]
+		storePointer := pointers[1]
+		epochPointer := pointers[2]
+		return withSPPInputs(config, func(inputs *C.SidereonSppInputs) error {
+			var solution *C.SidereonSppSolution
+			status := C.sidereon_ssr_solve_broadcast_at_exact_epoch(
+				(*C.SidereonBroadcastEphemeris)(broadcastPointer),
+				(*C.SidereonSsrCorrectionStore)(storePointer), C.double(staleness),
+				C.uint32_t(missing), C.bool(allowRegionalProvider), C.uint16_t(regionalProviderID),
+				C.uint32_t(sizePolicy), inputs, (*C.SidereonExactEpoch)(epochPointer), &solution,
+			)
+			if err := statusErrorLocked(uint32(status)); err != nil {
+				if solution != nil {
+					C.sidereon_spp_solution_free(solution)
+				}
+				return err
+			}
+			if solution == nil {
+				return errors.New("sidereon: native SSR exact-epoch solve returned no solution")
+			}
+			defer C.sidereon_spp_solution_free(solution)
+			var readErr error
+			result, readErr = readSPPSolutionLocked(solution)
+			return readErr
 		})
 	})
 	runtime.KeepAlive(receiveEpoch)

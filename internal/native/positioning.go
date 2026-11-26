@@ -64,75 +64,119 @@ func (h *positioningHandle) close() error {
 		return nil
 	}
 	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.resource == nil {
-		return nil
-	}
 	resource := h.resource
 	h.resource = nil
-	h.cleanup.Stop()
-	resource.close()
+	if resource != nil {
+		h.cleanup.Stop()
+	}
+	h.mu.Unlock()
+	if resource != nil {
+		resource.close()
+	}
 	return nil
 }
 
-type positioningReadLock struct {
-	h *positioningHandle
-	r *resource
+type nativeHandleInput struct {
+	positioning *positioningHandle
+	resource    *resource
+	exclusive   bool
 }
 
-// withPositioningHandles acquires a set of positioning handles in one
-// canonical address order. Duplicate handles are locked once, while the
-// callback receives pointers in the caller's original order.
-func withPositioningHandles(handles []*positioningHandle, fn func([]unsafe.Pointer) error) error {
-	unique := make([]*positioningHandle, 0, len(handles))
-	seen := make(map[*positioningHandle]struct{}, len(handles))
-	for _, handle := range handles {
-		if handle == nil {
+func (input nativeHandleInput) key() unsafe.Pointer {
+	if input.positioning != nil {
+		return unsafe.Pointer(input.positioning)
+	}
+	return unsafe.Pointer(input.resource)
+}
+
+type nativeHandleLock struct {
+	mutex     *sync.RWMutex
+	exclusive bool
+}
+
+func (lock nativeHandleLock) acquire() {
+	if lock.exclusive {
+		lock.mutex.Lock()
+	} else {
+		lock.mutex.RLock()
+	}
+}
+
+func (lock nativeHandleLock) release() {
+	if lock.exclusive {
+		lock.mutex.Unlock()
+	} else {
+		lock.mutex.RUnlock()
+	}
+}
+
+// withNativeHandles acquires positioning handles and direct resources in
+// address order. Repeated inputs share one lock, using exclusive access if
+// any occurrence requests it. The callback receives pointers in input order.
+func withNativeHandles(inputs []nativeHandleInput, fn func([]unsafe.Pointer) error) error {
+	if len(inputs) == 0 {
+		return fn(nil)
+	}
+	unique := make(map[unsafe.Pointer]nativeHandleInput, len(inputs))
+	keys := make([]unsafe.Pointer, 0, len(inputs))
+	for _, input := range inputs {
+		key := input.key()
+		if key == nil {
 			return ErrClosed
 		}
-		if _, ok := seen[handle]; ok {
-			continue
+		prior, seen := unique[key]
+		if !seen {
+			keys = append(keys, key)
 		}
-		seen[handle] = struct{}{}
-		unique = append(unique, handle)
+		input.exclusive = input.exclusive || prior.exclusive
+		unique[key] = input
 	}
-	sort.Slice(unique, func(i, j int) bool {
-		return uintptr(unsafe.Pointer(unique[i])) < uintptr(unsafe.Pointer(unique[j]))
-	})
-	locked := make([]positioningReadLock, 0, len(unique))
-	unlock := func() {
+	sort.Slice(keys, func(i, j int) bool { return uintptr(keys[i]) < uintptr(keys[j]) })
+
+	locked := make([]nativeHandleLock, 0, 2*len(keys))
+	defer func() {
 		for i := len(locked) - 1; i >= 0; i-- {
-			locked[i].r.mu.RUnlock()
-			locked[i].h.mu.RUnlock()
+			locked[i].release()
 		}
-	}
-	for _, handle := range unique {
-		handle.mu.RLock()
-		resource := handle.resource
-		if resource == nil {
-			handle.mu.RUnlock()
-			unlock()
+	}()
+	byKey := make(map[unsafe.Pointer]unsafe.Pointer, len(keys))
+	for _, key := range keys {
+		input := unique[key]
+		target := input.resource
+		exclusive := input.exclusive
+		if handle := input.positioning; handle != nil {
+			lock := nativeHandleLock{mutex: &handle.mu, exclusive: exclusive}
+			lock.acquire()
+			locked = append(locked, lock)
+			target = handle.resource
+			exclusive = false // The outer lock already serializes native access.
+		}
+		if target == nil {
 			return ErrClosed
 		}
-		resource.mu.RLock()
-		if resource.ptr == nil {
-			resource.mu.RUnlock()
-			handle.mu.RUnlock()
-			unlock()
+		lock := nativeHandleLock{mutex: &target.mu, exclusive: exclusive}
+		lock.acquire()
+		locked = append(locked, lock)
+		if target.ptr == nil {
 			return ErrClosed
 		}
-		locked = append(locked, positioningReadLock{h: handle, r: resource})
+		byKey[key] = target.ptr
 	}
-	byHandle := make(map[*positioningHandle]unsafe.Pointer, len(unique))
-	for _, item := range locked {
-		byHandle[item.h] = item.r.ptr
+	pointers := make([]unsafe.Pointer, len(inputs))
+	for i, input := range inputs {
+		pointers[i] = byKey[input.key()]
 	}
-	pointers := make([]unsafe.Pointer, len(handles))
+	err := fn(pointers)
+	runtime.KeepAlive(inputs)
+	return err
+}
+
+func withPositioningHandles(handles []*positioningHandle, fn func([]unsafe.Pointer) error) error {
+	inputs := make([]nativeHandleInput, len(handles))
 	for i, handle := range handles {
-		pointers[i] = byHandle[handle]
+		inputs[i].positioning = handle
 	}
-	defer unlock()
-	return fn(pointers)
+	return withNativeHandles(inputs, fn)
 }
 
 func withPositioningPair(first, second *positioningHandle, fn func(unsafe.Pointer, unsafe.Pointer) error) error {
